@@ -71,8 +71,7 @@ def phoSimInitilizer(self, phoSimDataBase, obs_metadata=None):
     self.PSF = SNRdocumentPSF()
 
     # Add bandpasses to simulate over.
-    self.bandpassNames = ['r']
-    # self.bandpassNames = self.obs_metadata.bandpassName
+    self.bandpassNames = list(self.obs_metadata.bandpass)
 
 
 def get_phoSimInstanceCatalog(self):

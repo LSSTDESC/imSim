@@ -33,9 +33,9 @@ vistime""".split())
 
 def parsePhoSimInstanceFile(fileName, numRows):
     """
-    Read a PhoSim instance catalog into some Pandas dataFrames.  Then
-    use the information that was read-in to build and return a
-    GalSimCelestialObject.
+    Read a PhoSim instance catalog into a Pandas dataFrame. Then use
+    the information that was read-in to build and return a command
+    dictionary and object dataFrame.
     """
 
     # Read the text instance file into Pandas.  Note that the top of the file
