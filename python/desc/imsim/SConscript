@@ -1,0 +1,4 @@
+# -*- python -*-
+from lsst.sconsUtils import scripts
+# Uncomment the following line to enable swig builds.
+#scripts.BasicSConscript.python(['imsim'])
