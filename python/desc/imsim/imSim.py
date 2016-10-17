@@ -4,6 +4,7 @@ import pandas as pd
 
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError']
 
+
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
 
@@ -30,6 +31,7 @@ seed
 seeing
 sunalt
 vistime""".split())
+
 
 def parsePhoSimInstanceFile(fileName, numRows):
     """
@@ -72,7 +74,8 @@ def parsePhoSimInstanceFile(fileName, numRows):
 
     # Check that the commands match the expected set.
     if set(commandDictionary.keys()) != _expected_commands:
-        raise PhosimInstanceCatalogParseError("Commands from the instance catalog %s do match the expected set." % fileName)
+        raise PhosimInstanceCatalogParseError
+        ("Commands from the instance catalog %s do match the expected set." % fileName)
 
     # This dataFrame will contain all of the objects to return.
     phoSimObjectList = pd.DataFrame(columns=('objectID', 'galSimType',

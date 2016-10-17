@@ -20,6 +20,7 @@ from lsst.sims.utils import ObservationMetaData
 __all__ = ['phoSimInitializer', 'get_phoSimInstanceCatalog',
            'phoSimCalculateSimSeds']
 
+
 class DummyDB(object):
     """
     We don't use the built in databases in this program but the intepreter
