@@ -6,6 +6,7 @@ import warnings
 from collections import namedtuple
 import numpy as np
 import pandas as pd
+import lsst.sims.utils as sims_utils
 
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError']
 
@@ -101,7 +102,7 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
 
 def extract_objects(df):
     """
-    Extract the object information needed by the catsim code
+    Extract the object information needed by the sims code
     and pack into a new dataframe.
 
     Parameters
@@ -112,7 +113,7 @@ def extract_objects(df):
     Returns
     -------
     pandas.DataFrame
-        A DataFrame with the columns expected by the catsim code.
+        A DataFrame with the columns expected by the sims code.
     """
     # Check for unhandled source types and emit warning if any are present.
     valid_types = dict(point='pointSource',
@@ -159,11 +160,10 @@ def extract_objects(df):
     phosim_galaxies['redShift'] = pd.to_numeric(galaxies['REDSHIFT']).tolist()
     phosim_galaxies['ra'] = pd.to_numeric(galaxies['RA']).tolist()
     phosim_galaxies['dec'] = pd.to_numeric(galaxies['DEC']).tolist()
-    arcsec_to_radians = 1/3600.*np.pi/180.
     phosim_galaxies['halfLightSemiMajor'] = \
-        (pd.to_numeric(galaxies['PAR1'])*arcsec_to_radians).tolist()
+        sims_utils.radiansFromArcsec(pd.to_numeric(galaxies['PAR1'])).tolist()
     phosim_galaxies['halfLightSemiMinor'] = \
-        (pd.to_numeric(galaxies['PAR2'])*arcsec_to_radians).tolist()
+        sims_utils.radiansFromArcsec(pd.to_numeric(galaxies['PAR2'])).tolist()
     phosim_galaxies['halfLightRadius'] = phosim_galaxies['halfLightSemiMajor']
     phosim_galaxies['positionAngle'] = pd.to_numeric(galaxies['PAR3']).tolist()
     phosim_galaxies['sersicIndex'] = pd.to_numeric(galaxies['PAR4']).tolist()

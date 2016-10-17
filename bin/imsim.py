@@ -15,6 +15,7 @@ from lsst.obs.lsstSim import LsstSimMapper
 
 from lsst.sims.photUtils import LSSTdefaults
 from lsst.sims.utils import ObservationMetaData
+from lsst.sims.coordUtils import chipNameFromRaDec
 
 from lsst.sims.GalSimInterface.galSimCatalogs import GalSimBase
 from lsst.sims.GalSimInterface import GalSimStars
@@ -28,19 +29,6 @@ def main():
     """
     Drive GalSim to simulate the LSST.
     """
-    # Monkey Patch the GalSimBase class and replace the routines that
-    # gets the objects and builds the catalog with my version that gets the
-    # information from a phoSim instance catalog file.  This should be temporary
-    # and is a hack.
-    GalSimBase.__init__ = phoSimInitializer
-    GalSimBase._calculateGalSimSeds = phoSimCalculateGalSimSeds
-    GalSimBase.get_fitsFiles = get_phoSimInstanceCatalog
-
-    # Setup logging output.
-    logging.basicConfig(format="%(message)s", level=logging.INFO,
-                        stream=sys.stdout)
-    logger = logging.getLogger()
-
     # Setup a parser to take command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('file', help="The instance catalog")
@@ -48,7 +36,27 @@ def main():
                         help="Read the first numrows of the file.")
     parser.add_argument('--outdir', type=str, default='fits',
                         help='Output directory for eimage file')
+    parser.add_argument('--sensor', type=str, default=None,
+                        help='Sensor to simulate, e.g., "R:2,2 S:1,1". If None, then simulate all sensors with sources on them')
+    parser.add_argument('--log_level', type=str,
+                        choices=['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'],
+                        default='INFO', help='Logging level. Default: "INFO"')
     arguments = parser.parse_args()
+
+    # Setup logging output.
+    logging.basicConfig(format="%(message)s", level=logging.INFO,
+                        stream=sys.stdout)
+    logger = logging.getLogger()
+    logger.setLevel(eval('logging.' + arguments.log_level))
+
+    # Monkey Patch the GalSimBase class and replace the routines that
+    # gets the objects and builds the catalog with my version that gets the
+    # information from a phoSim instance catalog file.  This should be temporary
+    # and is a hack.
+    GalSimBase.__init__ = \
+        lambda *args, **kwds: phoSimInitializer(*args, logger=logger, **kwds)
+    GalSimBase._calculateGalSimSeds = phoSimCalculateGalSimSeds
+    GalSimBase.get_fitsFiles = get_phoSimInstanceCatalog
 
     # Get the number of rows to read from the instance file.  Use
     # default if not specified.
@@ -66,6 +74,9 @@ def main():
     commandDictionary, phoSimObjectList = \
         desc.imsim.parsePhoSimInstanceFile(arguments.file, numRows)[:2]
 
+    # Now build the ObservationMetaData with values taken from the PhoSim
+    # commands at the top of the instance file.
+
     # Access the relevant pointing commands from the dictionary.
     visitIDString = str(int(commandDictionary['obshistid'][0]))
     mjd = commandDictionary['mjd'][0]
@@ -75,26 +86,35 @@ def main():
     bandpass = 'ugrizy'[int(commandDictionary['filter'][0])]
     seeing = commandDictionary['seeing'][0]
 
-    # Now further sub-divide the source dataframe into stars and galaxies.
-    starDataBase = \
-        phoSimObjectList.query("galSimType == 'pointSource' and magNorm < 50")
-    galaxyDataBase = \
-        phoSimObjectList.query("galSimType == 'sersic' and magNorm < 50")
-
-    # Now build the ObservationMetaData with values taken from the PhoSim
-    # commands at the top of the instance file.
-
     # We need to set the M5 limiting magnitudes etc.
     defaults = LSSTdefaults()
 
-    # defaults.seeing('r') doesn't exist in my version of the stack yet.
-    # Manually set to 0.7
+    camera = LsstSimMapper().camera
     obs = ObservationMetaData(pointingRA=rightAscension,
                               pointingDec=declination,
                               mjd=mjd, rotSkyPos=rotSkyPosition,
                               bandpassName=[bandpass],
                               m5=[defaults.m5(bandpass)],
                               seeing=[seeing])
+
+    # Trim the input catalog to a single chip.
+    raICRS = phoSimObjectList['ra'].values
+    decICRS = phoSimObjectList['dec'].values
+    phoSimObjectList['chipName'] = chipNameFromRaDec(raICRS, decICRS,
+                                                     camera=camera,
+                                                     obs_metadata=obs,
+                                                     epoch=2000.0)
+    # Now further sub-divide the source dataframe into stars and galaxies.
+    if arguments.sensor is not None:
+        starDataBase = \
+            phoSimObjectList.query("galSimType == 'pointSource' and magNorm < 50 and chipName=='%s'" % arguments.sensor)
+        galaxyDataBase = \
+            phoSimObjectList.query("galSimType == 'sersic' and magNorm < 50 and chipName=='%s'" % arguments.sensor)
+    else:
+        starDataBase = \
+            phoSimObjectList.query("galSimType == 'pointSource' and magNorm < 50")
+        galaxyDataBase = \
+            phoSimObjectList.query("galSimType == 'sersic' and magNorm < 50")
 
     # Simulate the objects in the Pandas Dataframes. I monkey patched the
     # abstract base class GalSimBase to take my dataFrame instead of using the
@@ -106,7 +126,7 @@ def main():
 
     # First simulate stars
     phoSimStarCatalog = GalSimStars(starDataBase, obs)
-    phoSimStarCatalog.camera = LsstSimMapper().camera
+    phoSimStarCatalog.camera = camera
     phoSimStarCatalog.get_fitsFiles()
 
     # Now galaxies

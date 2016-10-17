@@ -8,6 +8,7 @@ import sys
 import os
 import copy
 import numpy
+import logging
 
 from lsst.sims.photUtils import Sed, Bandpass
 from lsst.sims.catalogs.measures.instance import is_null
@@ -25,6 +26,28 @@ from lsst.sims.utils import ObservationMetaData
 __all__ = ['phoSimInitializer', 'get_phoSimInstanceCatalog',
            'phoSimCalculateGalSimSeds']
 
+class MemoryTracker(object):
+    def __init__(self, pid=None, logger=None):
+        try:
+            import psutil
+            if pid is None:
+                pid = os.getpid()
+            self.process = psutil.Process(pid)
+        except ImportError:
+            self.process = None
+        if logger is None:
+            logging.basicConfig(format="%(message)s", level=logging.INFO,
+                                stream=sys.stdout)
+            logger = logging.getLogger()
+        self.logger = logger
+    def print_usage(self, message=''):
+        if self.process is None:
+            return
+        self.logger.debug(message)
+        self.logger.debug("%.3f GB"
+                          % (self.process.memory_full_info().uss/1024.**3))
+        self.logger.debug('')
+
 class DummyDB(object):
     """
     We don't use the built in databases in this program but the intepreter
@@ -34,7 +57,7 @@ class DummyDB(object):
     epoch = 2000
 
 
-def phoSimInitializer(self, phoSimDataBase, obs_metadata=None):
+def phoSimInitializer(self, phoSimDataBase, obs_metadata=None, logger=None):
     '''
     This function is used replace the standard __init__ class in the standard
     catalog classes so that we can initilize them with the parsed PhoSim
@@ -52,6 +75,7 @@ def phoSimInitializer(self, phoSimDataBase, obs_metadata=None):
         """
     '''
 
+    self._monkeyPatchLogger = logger
     if obs_metadata is not None:
         if not isinstance(obs_metadata, ObservationMetaData):
             raise ValueError("You passed InstanceCatalog something that was not ObservationMetaData")
@@ -94,7 +118,8 @@ def get_phoSimInstanceCatalog(self):
     will be separated by a '//' This getter also passes objects to the
     GalSimInterpreter to actually draw the FITS images.
     """
-
+    mem_tracker = MemoryTracker(logger=self._monkeyPatchLogger)
+    mem_tracker.print_usage('entered get_phoSimInstanceCatalog')
     # EXAMPLE star from an input file
     #
     # object 1046817878020
@@ -151,6 +176,7 @@ def get_phoSimInstanceCatalog(self):
     # defined in sims_photUtils/../../Sed.py
     sedList = self._calculateGalSimSeds()
 
+    mem_tracker.print_usage('calling _initializeGalSimCatlog')
     if self.hasBeenInitialized is False and len(objectNames) > 0:
         # This needs to be here in case, instead of writing the whole catalog
         # with write_catalog(), the user wishes to iterate through the catalog
@@ -161,42 +187,25 @@ def get_phoSimInstanceCatalog(self):
         if not hasattr(self, 'bandpassDict'):
             raise RuntimeError('ran initializeGalSimCatalog but do not have bandpassDict')
 
+    mem_tracker.print_usage('about to enter loop over objects')
     output = []
     for (name, ra, dec, xp, yp, hlr, minor, major, pa, ss, sn) in \
         zip(objectNames, raICRS, decICRS, xPupil, yPupil, halfLight,
             minorAxis, majorAxis, positionAngle, sedList, sindex):
+        flux_dict = {}
+        for bb in self.bandpassNames:
+            adu = ss.calcADU(self.bandpassDict[bb], self.photParams)
+            flux_dict[bb] = adu*self.photParams.gain
 
-        if ss is None or name in self.objectHasBeenDrawn:
-            # Do not draw objects that have no SED or have already been drawn
-            output.append(None)
-            if name in self.objectHasBeenDrawn:
-                # 15 December 2014
-                # This should probably be an error.  However, something is wrong
-                # with the SQL on fatboy such that it does return the same
-                # objects more than once (at least in the case of stars).  Yusra
-                # is currently working to fix the problem.  Until then, this
-                # will just warn you that the same object appears twice in your
-                # catalog and will refrain from drawing it the second time.
-                print('Trying to draw %s more than once ' % str(name))
+        gsObj = GalSimCelestialObject(self.galsim_type, ss, ra, dec, xp, yp,
+                                      hlr, minor, major, pa, sn, flux_dict)
 
-        else:
+        # Actually draw the object
+        detectorsString = self.galSimInterpreter.drawObject(gsObj)
+        output.append(detectorsString)
 
-            self.objectHasBeenDrawn.append(name)
-
-            flux_dict = {}
-            for bb in self.bandpassNames:
-                adu = ss.calcADU(self.bandpassDict[bb], self.photParams)
-                flux_dict[bb] = adu*self.photParams.gain
-
-            gsObj = GalSimCelestialObject(self.galsim_type, ss, ra, dec, xp, yp,
-                                          hlr, minor, major, pa, sn, flux_dict)
-
-            # Actually draw the object
-            detectorsString = self.galSimInterpreter.drawObject(gsObj)
-            output.append(detectorsString)
-
+    mem_tracker.print_usage('finihsed loop over objects')
     return numpy.array(output)
-
 
 def phoSimCalculateGalSimSeds(self):
     """
