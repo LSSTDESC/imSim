@@ -1,5 +1,7 @@
 import sys
+import warnings
 from collections import namedtuple
+import numpy as np
 import pandas as pd
 
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError']
@@ -31,7 +33,7 @@ seeing
 sunalt
 vistime""".split())
 
-def parsePhoSimInstanceFile(fileName, numRows):
+def parsePhoSimInstanceFile(fileName, numRows=None):
     """
     Read a PhoSim instance catalog into a Pandas dataFrame. Then use
     the information that was read-in to build and return a command
@@ -85,126 +87,83 @@ def parsePhoSimInstanceFile(fileName, numRows):
                                              'internalAv', 'internalRv',
                                              'galacticAv', 'galacticRv'))
 
-    for row in phoSimSources.itertuples(name=None):
-        (index, string, objectID, ra, dec, magNorm, sedName, redShift,
-         gamma1, gamma2, kappa1, deltaRa, deltaDec, sourceType,
-         par1, par2, par3, par4, par5, par6, par7, par8, par9, par10) = row
-
-        # Not every variable will be filled on each entry since each class of
-        # source has a different number of descriptive entries.
-        # We need to set default empty values
-        galSimType = 'notYetHandled'
-        halfLightRadius = 0.0
-        halfLightSemiMajor = 0.0
-        halfLightSemiMinor = 0.0
-        positionAngle = 0.0
-        sersicIndex = 0.0
-        dustRest = 0.0
-        dustPar1A_v = 0.0
-        dustPar1R_v = 0.0
-        dustLab = 0.0
-        dustPar2A_v = 0.0
-        dustPar2R_v = 0.0
-
-        # Currently not yet used.
-        sigma = 0.0
-        accRa = 0.0
-        accDec = 0.0
-
-        if sourceType == 'point':
-            galSimType = 'pointSource'
-            dustRest = par1
-            dustPar1A_v = float(par2)
-            dustPar1R_v = float(par3)
-            dustLab = par4
-            dustPar2A_v = float(par5)
-            dustPar2R_v = float(par6)
-        elif sourceType == 'gauss':
-            galSimType = 'notYetHandled'
-            sigma = par1
-            dustRest = par2
-            dustPar1A_v = par3
-            dustPar1R_v = par4
-            dustLab = par5
-            dustPar2A_v = par6
-            dustPar2R_v = par7
-            print "I CAN'T HANDLE THIS QUITE YET!!!:", sourceType
-            sys.exit()
-        elif sourceType == "movingpoint":
-            galSimType = 'notYetHandled'
-            accRa = par1
-            accDec = par2
-            dustRest = par3
-            dustPar1A_v = par4
-            dustPar1R_v = par5
-            dustLab = par6
-            dustPar2A_v = par7
-            dustPar2R_v = par8
-            print "I CAN'T HANDLE THIS QUITE YET!!!:", sourceType
-            sys.exit()
-        elif sourceType == "sersic2d":
-            galSimType = 'sersic'
-            # We need to carefully look at what we are suppose to pass here
-            halfLightSemiMajor = float(par1)*4.5e-6  # convert to radians
-            halfLightSemiMinor = float(par2)*4.5e-6  # convert to radians
-
-            # Special case handling.. Need to talk to Scott
-            # Sometimes the minor axis is *larger* than the major axis.
-            # Let's just bail in that case.
-            if (halfLightSemiMinor - halfLightSemiMajor) > 0:
-                print "---------------------------------"
-                print "From parsePhoSimInstanceFile:"
-                print "Sorry, in this galaxy the minor axis is > major axis!"
-                print halfLightSemiMinor, halfLightSemiMajor
-                print 'Difference (Minor - Major) ', halfLightSemiMinor - halfLightSemiMajor
-                print "Skipping galaxy."
-                print "---------------------------------"
-                continue
-
-            halfLightRadius = halfLightSemiMajor
-            # positionAngle is in degrees (PhoSim API docs incorrectly say rad)
-            positionAngle = float(par3)
-            sersicIndex = float(par4)
-            dustRest = par5
-            dustPar1A_v = float(par6)
-            dustPar1R_v = float(par7)
-            dustLab = par8
-            dustPar2A_v = float(par9)
-            dustPar2R_v = float(par10)
-
-        elif sourceType == "sersic":
-            galSimType = 'notYetHandled'
-            print "sersic"
-            print "I CAN'T HANDLE THIS QUITE YET!!!:", sourceType
-            sys.exit()
-        else:
-            print "I CAN'T HANDLE THIS!!!:", sourceType
-            sys.exit()
-
-        # Only used in debugging.
-        if 0:
-            print "par1", type(par1), par1
-            print "par2", type(par2), par2
-            print "par3", type(par3), par3
-            print "par4", type(par4), par4
-            print "par5", type(par5), par5
-
-            print index, ":", objectID, ra, dec, sourceType, \
-                halfLightSemiMinor, halfLightSemiMajor, positionAngle, \
-                sersicIndex, \
-                dustRest, dustPar1A_v, dustPar1R_v, \
-                dustLab, dustPar2A_v, dustPar2R_v
-
-        # Finally build a phoSimObject
-        phoSimObject = (objectID, galSimType, magNorm, sedName, redShift,
-                        ra, dec,
-                        halfLightRadius, halfLightSemiMinor, halfLightSemiMajor,
-                        positionAngle, sersicIndex,
-                        dustPar1A_v, dustPar1R_v,  # Internal Dust
-                        dustPar2A_v, dustPar2R_v)  # Galactic Dust
-
-        # Append it to the dataFrame
-        phoSimObjectList.loc[len(phoSimObjectList)] = phoSimObject
-
+    phoSimObjectList = extract_objects(phoSimSources)
     return PhoSimInstanceCatalogContents(commandDictionary, phoSimObjectList,
                                          phoSimHeaderCards, phoSimSources)
+
+def extract_objects(df):
+    """
+    Extract the object information needed by the catsim code
+    and pack into a new dataframe.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing the ray instance catalog object data.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with the columns expected by the catsim code.
+    """
+    # Check for unhandled source types and emit warning if any are present.
+    valid_types = dict(point='pointSource',
+                       sersic2d='sersic')
+    invalid_types = set(df['SOURCE_TYPE']) - set(valid_types)
+    if invalid_types:
+        warnings.warn("Instance catalog contains unhandled source types:\n%s\nSkipping these." % '\n'.join(invalid_types))
+
+    columns=('objectID', 'galSimType',
+             'magNorm', 'sedName', 'redShift',
+             'ra', 'dec',
+             'halfLightRadius',
+             'halfLightSemiMinor',
+             'halfLightSemiMajor',
+             'positionAngle', 'sersicIndex',
+             'internalAv', 'internalRv',
+             'galacticAv', 'galacticRv')
+
+    # Process stars and galaxies separately.
+    source_type = 'point'
+    stars = df.query("SOURCE_TYPE=='%s'" % source_type)
+    phosim_stars = pd.DataFrame(np.zeros((len(stars), len(columns))),
+                                columns=columns)
+    phosim_stars['objectID'] = pd.to_numeric(stars['VALUE']).tolist()
+    phosim_stars['galSimType'] = valid_types[source_type]
+    phosim_stars['magNorm'] = pd.to_numeric(stars['MAG_NORM']).tolist()
+    phosim_stars['sedName'] = stars['SED_NAME'].tolist()
+    phosim_stars['redShift'] = pd.to_numeric(stars['REDSHIFT']).tolist()
+    phosim_stars['ra'] = pd.to_numeric(stars['RA']).tolist()
+    phosim_stars['dec'] = pd.to_numeric(stars['DEC']).tolist()
+    phosim_stars['internalAv'] = pd.to_numeric(stars['PAR2']).tolist()
+    phosim_stars['internalRv'] = pd.to_numeric(stars['PAR3']).tolist()
+    phosim_stars['galacticAv'] = pd.to_numeric(stars['PAR5']).tolist()
+    phosim_stars['galacticRv'] = pd.to_numeric(stars['PAR6']).tolist()
+
+    source_type = 'sersic2d'
+    galaxies = df.query("SOURCE_TYPE == '%s'" % source_type)
+    phosim_galaxies = pd.DataFrame(np.zeros((len(galaxies), len(columns))),
+                                   columns=columns)
+    phosim_galaxies['objectID'] = pd.to_numeric(galaxies['VALUE']).tolist()
+    phosim_galaxies['galSimType'] = valid_types[source_type]
+    phosim_galaxies['magNorm'] = pd.to_numeric(galaxies['MAG_NORM']).tolist()
+    phosim_galaxies['sedName'] = galaxies['SED_NAME'].tolist()
+    phosim_galaxies['redShift'] = pd.to_numeric(galaxies['REDSHIFT']).tolist()
+    phosim_galaxies['ra'] = pd.to_numeric(galaxies['RA']).tolist()
+    phosim_galaxies['dec'] = pd.to_numeric(galaxies['DEC']).tolist()
+    arcsec_to_radians = 1/3600.*np.pi/180.
+    phosim_galaxies['halfLightSemiMajor'] = \
+        (pd.to_numeric(galaxies['PAR1'])*arcsec_to_radians).tolist()
+    phosim_galaxies['halfLightSemiMinor'] = \
+        (pd.to_numeric(galaxies['PAR2'])*arcsec_to_radians).tolist()
+    phosim_galaxies['halfLightRadius'] = phosim_galaxies['halfLightSemiMajor']
+    phosim_galaxies['positionAngle'] = pd.to_numeric(galaxies['PAR3']).tolist()
+    phosim_galaxies['sersicIndex'] = pd.to_numeric(galaxies['PAR4']).tolist()
+    phosim_galaxies['internalAv'] = pd.to_numeric(galaxies['PAR6']).tolist()
+    phosim_galaxies['internalRv'] = pd.to_numeric(galaxies['PAR7']).tolist()
+    phosim_galaxies['galacticAv'] = pd.to_numeric(galaxies['PAR9']).tolist()
+    phosim_galaxies['galacticRv'] = pd.to_numeric(galaxies['PAR10']).tolist()
+
+    phosim_galaxies = \
+        phosim_galaxies.query("halfLightSemiMajor >= halfLightSemiMinor")
+    return pd.concat((phosim_stars, phosim_galaxies), ignore_index=True)
