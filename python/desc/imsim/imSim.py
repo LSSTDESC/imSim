@@ -1,4 +1,7 @@
-import sys
+"""
+Base module for the imSim package.
+"""
+from __future__ import absolute_import, print_function
 import warnings
 from collections import namedtuple
 import numpy as np
@@ -38,6 +41,21 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     Read a PhoSim instance catalog into a Pandas dataFrame. Then use
     the information that was read-in to build and return a command
     dictionary and object dataFrame.
+
+    Parameters
+    ----------
+    fileName : str
+        The instance catalog filename.
+    numRows : int, optional
+        The number of rows to read from the instance catalog.
+        If None (the default), then all of the rows will be read in.
+
+    Returns
+    -------
+    namedtuple
+        This contains the PhoSim commands, the objects, and the
+        original DataFrames containing the header lines and object
+        lines which were parsed with pandas.read_csv.
     """
 
     # Read the text instance file into Pandas.  Note that the top of the file
@@ -77,16 +95,6 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
         raise PhosimInstanceCatalogParseError("Commands from the instance catalog %s do match the expected set." % fileName)
 
     # This dataFrame will contain all of the objects to return.
-    phoSimObjectList = pd.DataFrame(columns=('objectID', 'galSimType',
-                                             'magNorm', 'sedName', 'redShift',
-                                             'ra', 'dec',
-                                             'halfLightRadius',
-                                             'halfLightSemiMinor',
-                                             'halfLightSemiMajor',
-                                             'positionAngle', 'sersicIndex',
-                                             'internalAv', 'internalRv',
-                                             'galacticAv', 'galacticRv'))
-
     phoSimObjectList = extract_objects(phoSimSources)
     return PhoSimInstanceCatalogContents(commandDictionary, phoSimObjectList,
                                          phoSimHeaderCards, phoSimSources)
@@ -104,7 +112,7 @@ def extract_objects(df):
     Returns
     -------
     pandas.DataFrame
-        DataFrame with the columns expected by the catsim code.
+        A DataFrame with the columns expected by the catsim code.
     """
     # Check for unhandled source types and emit warning if any are present.
     valid_types = dict(point='pointSource',
@@ -113,15 +121,15 @@ def extract_objects(df):
     if invalid_types:
         warnings.warn("Instance catalog contains unhandled source types:\n%s\nSkipping these." % '\n'.join(invalid_types))
 
-    columns=('objectID', 'galSimType',
-             'magNorm', 'sedName', 'redShift',
-             'ra', 'dec',
-             'halfLightRadius',
-             'halfLightSemiMinor',
-             'halfLightSemiMajor',
-             'positionAngle', 'sersicIndex',
-             'internalAv', 'internalRv',
-             'galacticAv', 'galacticRv')
+    columns = ('objectID', 'galSimType',
+               'magNorm', 'sedName', 'redShift',
+               'ra', 'dec',
+               'halfLightRadius',
+               'halfLightSemiMinor',
+               'halfLightSemiMajor',
+               'positionAngle', 'sersicIndex',
+               'internalAv', 'internalRv',
+               'galacticAv', 'galacticRv')
 
     # Process stars and galaxies separately.
     source_type = 'point'

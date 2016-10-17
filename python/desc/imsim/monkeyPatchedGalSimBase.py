@@ -1,3 +1,8 @@
+"""
+Module of replacement methods to lsst.sims.GalSimInterface.GalSimBase
+in order to enable running GalSim on a PhoSim instance catalog as
+input.
+"""
 from __future__ import absolute_import, print_function
 import sys
 import os
@@ -18,7 +23,7 @@ from lsst.sims.utils import pupilCoordsFromRaDec
 from lsst.sims.utils import ObservationMetaData
 
 __all__ = ['phoSimInitializer', 'get_phoSimInstanceCatalog',
-           'phoSimCalculateSimSeds']
+           'phoSimCalculateGalSimSeds']
 
 class DummyDB(object):
     """
@@ -29,7 +34,7 @@ class DummyDB(object):
     epoch = 2000
 
 
-def phoSimInitilizer(self, phoSimDataBase, obs_metadata=None):
+def phoSimInitializer(self, phoSimDataBase, obs_metadata=None):
     '''
     This function is used replace the standard __init__ class in the standard
     catalog classes so that we can initilize them with the parsed PhoSim

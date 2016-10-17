@@ -1,8 +1,15 @@
+"""
+Unit tests for instance catalog parsing code.
+"""
+from __future__ import absolute_import, print_function
 import os
 import unittest
 import desc.imsim
 
 class InstanceCatalogParserTestCase(unittest.TestCase):
+    """
+    TestCase class for instance catalog parsing code.
+    """
     def setUp(self):
         self.command_file = os.path.join(os.environ['IMSIM_DIR'],
                                          'tests', 'tiny_instcat.txt')
@@ -11,6 +18,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         pass
 
     def test_parsePhoSimInstanceFile(self):
+        "Test code for parsePhoSimInstanceFile."
         instcat_contents = \
             desc.imsim.parsePhoSimInstanceFile(self.command_file, 40)
         # Test a handful of values directly:

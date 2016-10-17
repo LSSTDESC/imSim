@@ -22,9 +22,9 @@ from lsst.sims.GalSimInterface import GalSimGalaxies
 
 import desc.imsim
 from desc.imsim.monkeyPatchedGalSimBase import \
-    phoSimCalculateGalSimSeds, phoSimInitilizer, get_phoSimInstanceCatalog
+    phoSimCalculateGalSimSeds, phoSimInitializer, get_phoSimInstanceCatalog
 
-def main(argv):
+def main():
     """
     Drive GalSim to simulate the LSST.
     """
@@ -32,7 +32,7 @@ def main(argv):
     # gets the objects and builds the catalog with my version that gets the
     # information from a phoSim instance catalog file.  This should be temporary
     # and is a hack.
-    GalSimBase.__init__ = phoSimInitilizer
+    GalSimBase.__init__ = phoSimInitializer
     GalSimBase._calculateGalSimSeds = phoSimCalculateGalSimSeds
     GalSimBase.get_fitsFiles = get_phoSimInstanceCatalog
 
@@ -43,20 +43,22 @@ def main(argv):
 
     # Setup a parser to take command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('-v', '--version', action='version',
-                        version='%(prog)s 0.0')
-    parser.add_argument('-f', '--file', help="Specify the instance file")
-    parser.add_argument('-n', '--numrows', default=2000, type=int,
-                        help="read the first numrows of the file.")
+    parser.add_argument('file', help="The instance catalog")
+    parser.add_argument('-n', '--numrows', default=None, type=int,
+                        help="Read the first numrows of the file.")
     parser.add_argument('--outdir', type=str, default='fits',
-                        help='output directory for eimage file')
+                        help='Output directory for eimage file')
     arguments = parser.parse_args()
 
     # Get the number of rows to read from the instance file.  Use
     # default if not specified.
     numRows = arguments.numrows
-    logger.info("Reading %i rows from the instance catalog %s.",
-                numRows, arguments.file)
+    if numRows is not None:
+        logger.info("Reading %i rows from the instance catalog %s.",
+                    numRows, arguments.file)
+    else:
+        logger.info("Reading all rows from the instance catalog %s.",
+                    arguments.file)
 
     # The PhoSim instance file contains both pointing commands and
     # objects.  The parser will split them and return a both phosim
@@ -71,10 +73,13 @@ def main(argv):
     declination = commandDictionary['declination'][0]
     rotSkyPosition = commandDictionary['rotskypos'][0]
     bandpass = 'ugrizy'[int(commandDictionary['filter'][0])]
+    seeing = commandDictionary['seeing'][0]
 
     # Now further sub-divide the source dataframe into stars and galaxies.
-    starDataBase = phoSimObjectList.query("galSimType == 'pointSource'")
-    galaxyDataBase = phoSimObjectList.query("galSimType == 'sersic'")
+    starDataBase = \
+        phoSimObjectList.query("galSimType == 'pointSource' and magNorm < 50")
+    galaxyDataBase = \
+        phoSimObjectList.query("galSimType == 'sersic' and magNorm < 50")
 
     # Now build the ObservationMetaData with values taken from the PhoSim
     # commands at the top of the instance file.
@@ -89,7 +94,7 @@ def main(argv):
                               mjd=mjd, rotSkyPos=rotSkyPosition,
                               bandpassName=[bandpass],
                               m5=[defaults.m5(bandpass)],
-                              seeing=[0.7])
+                              seeing=[seeing])
 
     # Simulate the objects in the Pandas Dataframes. I monkey patched the
     # abstract base class GalSimBase to take my dataFrame instead of using the
@@ -117,4 +122,4 @@ def main(argv):
                                      + visitIDString)
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()
