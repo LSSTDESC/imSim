@@ -1,3 +1,4 @@
+from __future__ import absolute_import, print_function
 import sys
 import os
 import copy
@@ -16,8 +17,10 @@ from lsst.sims.utils import altAzPaFromRaDec
 from lsst.sims.utils import pupilCoordsFromRaDec
 from lsst.sims.utils import ObservationMetaData
 
+__all__ = ['phoSimInitializer', 'get_phoSimInstanceCatalog',
+           'phoSimCalculateSimSeds']
 
-class DummyDB():
+class DummyDB(object):
     """
     We don't use the built in databases in this program but the intepreter
     still wants to use this setting stored in the database.  For right now
@@ -68,8 +71,7 @@ def phoSimInitilizer(self, phoSimDataBase, obs_metadata=None):
     self.PSF = SNRdocumentPSF()
 
     # Add bandpasses to simulate over.
-    self.bandpassNames = ['r']
-    # self.bandpassNames = self.obs_metadata.bandpassName
+    self.bandpassNames = list(self.obs_metadata.bandpass)
 
 
 def get_phoSimInstanceCatalog(self):
@@ -123,16 +125,16 @@ def get_phoSimInstanceCatalog(self):
     if 0:
         objectIDs = slice(0, 5)
         alt, az, pa = altAzPaFromRaDec(raICRS, decICRS, self.obs_metadata)
-        print 'ra, dec, alt, az of our source: ', raICRS[objectIDs], \
-            decICRS[objectIDs], alt[objectIDs], az[objectIDs]
+        print('ra, dec, alt, az of our source: ', raICRS[objectIDs],
+              decICRS[objectIDs], alt[objectIDs], az[objectIDs])
 
         chipName = chipNameFromRaDec(raICRS, decICRS,
                                      camera=self.camera,
                                      obs_metadata=self.obs_metadata,
                                      epoch=2000.0)
 
-        print 'chip on which the ', objectIDs, 'th source falls: ', \
-            chipName[objectIDs]
+        print('chip on which the ', objectIDs, 'th source falls: ',
+              chipName[objectIDs])
 
         sys.exit(-1)
 
@@ -170,7 +172,7 @@ def get_phoSimInstanceCatalog(self):
                 # is currently working to fix the problem.  Until then, this
                 # will just warn you that the same object appears twice in your
                 # catalog and will refrain from drawing it the second time.
-                print 'Trying to draw %s more than once ' % str(name)
+                print('Trying to draw %s more than once ' % str(name))
 
         else:
 
