@@ -26,6 +26,7 @@ from lsst.sims.utils import ObservationMetaData
 __all__ = ['phoSimInitializer', 'get_phoSimInstanceCatalog',
            'phoSimCalculateGalSimSeds']
 
+
 class MemoryTracker(object):
     def __init__(self, pid=None, logger=None):
         try:
@@ -47,6 +48,7 @@ class MemoryTracker(object):
         self.logger.debug("%.3f GB"
                           % (self.process.memory_full_info().uss/1024.**3))
         self.logger.debug('')
+
 
 class DummyDB(object):
     """
@@ -206,6 +208,7 @@ def get_phoSimInstanceCatalog(self):
 
     mem_tracker.print_usage('finihsed loop over objects')
     return numpy.array(output)
+
 
 def phoSimCalculateGalSimSeds(self):
     """

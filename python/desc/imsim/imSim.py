@@ -10,6 +10,7 @@ import lsst.sims.utils as sims_utils
 
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError']
 
+
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
 
@@ -36,6 +37,7 @@ seed
 seeing
 sunalt
 vistime""".split())
+
 
 def parsePhoSimInstanceFile(fileName, numRows=None):
     """
@@ -93,7 +95,8 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
 
     # Check that the commands match the expected set.
     if set(commandDictionary.keys()) != _expected_commands:
-        raise PhosimInstanceCatalogParseError("Commands from the instance catalog %s do match the expected set." % fileName)
+        raise PhosimInstanceCatalogParseError
+        ("Commands from the instance catalog %s do match the expected set." % fileName)
 
     # This dataFrame will contain all of the objects to return.
     phoSimObjectList = extract_objects(phoSimSources)

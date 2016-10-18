@@ -25,6 +25,7 @@ import desc.imsim
 from desc.imsim.monkeyPatchedGalSimBase import \
     phoSimCalculateGalSimSeds, phoSimInitializer, get_phoSimInstanceCatalog
 
+
 def main():
     """
     Drive GalSim to simulate the LSST.
@@ -138,8 +139,8 @@ def main():
     outdir = arguments.outdir
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
-    phoSimGalaxyCatalog.write_images(nameRoot=os.path.join(outdir, 'e-image_')
-                                     + visitIDString)
+    phoSimGalaxyCatalog.write_images(nameRoot=os.path.join(outdir, 'e-image_') +
+                                     visitIDString)
 
 if __name__ == "__main__":
     main()
