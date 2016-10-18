@@ -22,11 +22,12 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         instcat_contents = \
             desc.imsim.parsePhoSimInstanceFile(self.command_file, 40)
         # Test a handful of values directly:
-        self.assertEqual(instcat_contents.commands['obshistid'][0], 161899)
-        self.assertEqual(instcat_contents.commands['filter'][0], 2)
-        self.assertAlmostEqual(instcat_contents.commands['altitude'][0],
+        self.assertEqual(instcat_contents.commands['obshistid'], 161899)
+        self.assertEqual(instcat_contents.commands['filter'], 2)
+        self.assertAlmostEqual(instcat_contents.commands['altitude'],
                                43.6990272)
-        self.assertAlmostEqual(instcat_contents.commands['vistime'][0], 33.)
+        self.assertAlmostEqual(instcat_contents.commands['vistime'], 33.)
+        self.assertAlmostEqual(instcat_contents.commands['bandpass'], 'r')
 
         self.assertEqual(len(instcat_contents.objects), 19)
 
@@ -35,6 +36,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertEqual(star['objectID'], 1046817878020)
         self.assertAlmostEqual(star['ra'], 31.2400746)
         self.assertAlmostEqual(star['dec'], -10.09365)
+        self.assertEqual(star['sedName'], 'starSED/phoSimMLT/lte033-4.5-1.0a+0.4.BT-Settl.spec.gz')
 
         galaxy = instcat_contents.objects.query("galSimType=='sersic'").iloc[0]
         self.assertEqual(galaxy['objectID'], 34308924793883)
@@ -44,6 +46,19 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertRaises(desc.imsim.PhosimInstanceCatalogParseError,
                           desc.imsim.parsePhoSimInstanceFile,
                           self.command_file, 10)
+
+    def test_photometricParameters(self):
+        "Test the photometricParameters function."
+        instcat_contents = \
+            desc.imsim.parsePhoSimInstanceFile(self.command_file, 40)
+        phot_params = \
+            desc.imsim.photometricParameters(instcat_contents.commands)
+        self.assertEqual(phot_params.gain, 1)
+        self.assertEqual(phot_params.bandpass, 'r')
+        self.assertEqual(phot_params.nexp, 2)
+        self.assertAlmostEqual(phot_params.exptime, 33)
+        self.assertEqual(phot_params.readnoise, 0)
+        self.assertEqual(phot_params.darkcurrent, 0)
 
 if __name__ == '__main__':
     unittest.main()
