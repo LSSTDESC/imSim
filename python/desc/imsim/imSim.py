@@ -215,16 +215,15 @@ def photometricParameters(phosim_commands):
 
     Returns
     -------
-    lsst.sims.photUtils.PhotometricParameters
-        Object containing the photometric parameters.
+    dict
+        Dictionary containing the photometric parameters.
 
     Notes
     -----
-    The gain is set to unity so that the resulting eimage has units
-    of electrons/pixel.
-
-    We should refactor the output of parsePhoSimInstanceFile so that
-    phosim_commands is a dict.
+    The gain is set to unity so that the resulting eimage has units of
+    electrons/pixel.  Read noise and dark current are set to zero.
+    All three of those will be set by the electronics chain readout
+    code.
     """
     return PhotometricParameters(exptime=phosim_commands['vistime'],
                                  nexp=phosim_commands['nsnap'],
