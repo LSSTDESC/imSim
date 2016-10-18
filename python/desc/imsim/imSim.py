@@ -210,13 +210,13 @@ def photometricParameters(phosim_commands):
 
     Parameters
     ----------
-    phosim_commands : pandas.DataFrame
-        DataFrame of phosim commands provided by parsePhoSimInstanceFile
+    dict
+        The phosim commands provided by parsePhoSimInstanceFile.
 
     Returns
     -------
-    dict
-        Dictionary containing the photometric parameters.
+    lsst.sims.photUtils.PhotometricParameters
+        The object containing the photometric parameters.
 
     Notes
     -----
