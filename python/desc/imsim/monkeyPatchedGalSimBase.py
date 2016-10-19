@@ -100,7 +100,11 @@ def phoSimInitializer(self, phoSimDataBase, obs_metadata=None, logger=None):
 
     # Add a PSF.  This one Taken from equation 30 of
     # www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf
-    self.PSF = SNRdocumentPSF()
+    #
+    # Set seeing from self.obs_metadata.  We only simulate one band at
+    # a time, so using the first item in the bandpass list should be ok.
+    self.PSF = \
+        SNRdocumentPSF(self.obs_metadata.seeing[self.obs_metadata.bandpass[0]])
 
     # Add bandpasses to simulate over.
     self.bandpassNames = list(self.obs_metadata.bandpass)

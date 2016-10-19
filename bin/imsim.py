@@ -85,6 +85,8 @@ def main():
     declination = commands['declination']
     rotSkyPosition = commands['rotskypos']
     bandpass = commands['bandpass']
+    # @todo: The seeing from the instance catalog is the seeing at
+    # 500nm at zenith.  Do we need to do a band-specific calculation?
     seeing = commands['seeing']
 
     # We need to set the M5 limiting magnitudes etc.
@@ -98,15 +100,15 @@ def main():
                               m5=[defaults.m5(bandpass)],
                               seeing=[seeing])
 
-    # Trim the input catalog to a single chip.
-    raICRS = phoSimObjectList['ra'].values
-    decICRS = phoSimObjectList['dec'].values
-    phoSimObjectList['chipName'] = chipNameFromRaDec(raICRS, decICRS,
-                                                     camera=camera,
-                                                     obs_metadata=obs,
-                                                     epoch=2000.0)
     # Now further sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
+        # Trim the input catalog to a single chip.
+        raICRS = phoSimObjectList['ra'].values
+        decICRS = phoSimObjectList['dec'].values
+        phoSimObjectList['chipName'] = chipNameFromRaDec(raICRS, decICRS,
+                                                         camera=camera,
+                                                         obs_metadata=obs,
+                                                         epoch=2000.0)
         starDataBase = \
             phoSimObjectList.query("galSimType=='pointSource' and magNorm<50 and chipName=='%s'" % arguments.sensor)
         galaxyDataBase = \

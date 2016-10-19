@@ -96,11 +96,11 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
         raise PhosimInstanceCatalogParseError(message)
 
     # Turn the list of commands into a dictionary.
-    commandDictionary = extract_commands(phoSimHeaderCards)
+    commands = extract_commands(phoSimHeaderCards)
 
     # This dataFrame will contain all of the objects to return.
     phoSimObjectList = extract_objects(phoSimSources)
-    return PhoSimInstanceCatalogContents(commandDictionary, phoSimObjectList)
+    return PhoSimInstanceCatalogContents(commands, phoSimObjectList)
 
 def extract_commands(df):
     """
@@ -222,8 +222,8 @@ def photometricParameters(phosim_commands):
     -----
     The gain is set to unity so that the resulting eimage has units of
     electrons/pixel.  Read noise and dark current are set to zero.
-    All three of those will be set by the electronics chain readout
-    code.
+    The effects from all three of those will be added by the
+    electronics chain readout code.
     """
     return PhotometricParameters(exptime=phosim_commands['vistime'],
                                  nexp=phosim_commands['nsnap'],
