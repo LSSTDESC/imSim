@@ -72,20 +72,25 @@ def main():
     # The PhoSim instance file contains both pointing commands and
     # objects.  The parser will split them and return a both phosim
     # command dictionary and a dataframe of objects.
-    commandDictionary, phoSimObjectList = \
-        desc.imsim.parsePhoSimInstanceFile(arguments.file, numRows)[:2]
+    commands, phosim_objects = \
+        desc.imsim.parsePhoSimInstanceFile(arguments.file, numRows)
+
+    phosim_objects = \
+        desc.imsim.validate_phosim_object_list(phosim_objects).accepted
 
     # Now build the ObservationMetaData with values taken from the PhoSim
     # commands at the top of the instance file.
 
     # Access the relevant pointing commands from the dictionary.
-    visitIDString = str(int(commandDictionary['obshistid'][0]))
-    mjd = commandDictionary['mjd'][0]
-    rightAscension = commandDictionary['rightascension'][0]
-    declination = commandDictionary['declination'][0]
-    rotSkyPosition = commandDictionary['rotskypos'][0]
-    bandpass = 'ugrizy'[int(commandDictionary['filter'][0])]
-    seeing = commandDictionary['seeing'][0]
+    visitID = commands['obshistid']
+    mjd = commands['mjd']
+    rightAscension = commands['rightascension']
+    declination = commands['declination']
+    rotSkyPosition = commands['rotskypos']
+    bandpass = commands['bandpass']
+    # @todo: The seeing from the instance catalog is the seeing at
+    # 500nm at zenith.  Do we need to do a band-specific calculation?
+    seeing = commands['seeing']
 
     # We need to set the M5 limiting magnitudes etc.
     defaults = LSSTdefaults()
@@ -94,28 +99,28 @@ def main():
     obs = ObservationMetaData(pointingRA=rightAscension,
                               pointingDec=declination,
                               mjd=mjd, rotSkyPos=rotSkyPosition,
-                              bandpassName=[bandpass],
-                              m5=[defaults.m5(bandpass)],
-                              seeing=[seeing])
+                              bandpassName=bandpass,
+                              m5=defaults.m5(bandpass),
+                              seeing=seeing)
 
-    # Trim the input catalog to a single chip.
-    raICRS = phoSimObjectList['ra'].values
-    decICRS = phoSimObjectList['dec'].values
-    phoSimObjectList['chipName'] = chipNameFromRaDec(raICRS, decICRS,
-                                                     camera=camera,
-                                                     obs_metadata=obs,
-                                                     epoch=2000.0)
     # Now further sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
+        # Trim the input catalog to a single chip.
+        raICRS = phosim_objects['ra'].values
+        decICRS = phosim_objects['dec'].values
+        phosim_objects['chipName'] = chipNameFromRaDec(raICRS, decICRS,
+                                                       camera=camera,
+                                                       obs_metadata=obs,
+                                                       epoch=2000.0)
         starDataBase = \
-            phoSimObjectList.query("galSimType == 'pointSource' and magNorm < 50 and chipName=='%s'" % arguments.sensor)
+            phosim_objects.query("galSimType=='pointSource' and chipName=='%s'" % arguments.sensor)
         galaxyDataBase = \
-            phoSimObjectList.query("galSimType == 'sersic' and magNorm < 50 and chipName=='%s'" % arguments.sensor)
+            phosim_objects.query("galSimType=='sersic' and chipName=='%s'" % arguments.sensor)
     else:
         starDataBase = \
-            phoSimObjectList.query("galSimType == 'pointSource' and magNorm < 50")
+            phosim_objects.query("galSimType=='pointSource'")
         galaxyDataBase = \
-            phoSimObjectList.query("galSimType == 'sersic' and magNorm < 50")
+            phosim_objects.query("galSimType=='sersic'")
 
     # Simulate the objects in the Pandas Dataframes. I monkey patched the
     # abstract base class GalSimBase to take my dataFrame instead of using the
@@ -125,13 +130,17 @@ def main():
     # derived classes in the __init__.  For simulation the LSST this should be
     # the same between all types of objects.
 
+    phot_params = desc.imsim.photometricParameters(commands)
+
     # First simulate stars
     phoSimStarCatalog = GalSimStars(starDataBase, obs)
+    phoSimStarCatalog.photParams = phot_params
     phoSimStarCatalog.camera = camera
     phoSimStarCatalog.get_fitsFiles()
 
     # Now galaxies
     phoSimGalaxyCatalog = GalSimGalaxies(galaxyDataBase, obs)
+    phoSimGalaxyCatalog.photParams = phot_params
     phoSimGalaxyCatalog.copyGalSimInterpreter(phoSimStarCatalog)
     phoSimGalaxyCatalog.get_fitsFiles()
 
@@ -140,7 +149,7 @@ def main():
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
     phoSimGalaxyCatalog.write_images(nameRoot=os.path.join(outdir, 'e-image_') +
-                                     visitIDString)
+                                     str(visitID))
 
 if __name__ == "__main__":
     main()

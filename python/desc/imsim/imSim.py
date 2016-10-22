@@ -6,17 +6,18 @@ import warnings
 from collections import namedtuple
 import numpy as np
 import pandas as pd
+from lsst.sims.photUtils import PhotometricParameters
 import lsst.sims.utils as sims_utils
 
-__all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError']
+__all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
+           'photometricParameters', 'validate_phosim_object_list']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
 
 PhoSimInstanceCatalogContents = namedtuple('PhoSimInstanceCatalogContents',
-                                           ('commands', 'objects', 'header',
-                                            'sources'))
+                                           ('commands', 'objects'))
 
 _expected_commands = set("""rightascension
 declination
@@ -32,7 +33,6 @@ moonphase
 moonra
 nsnap
 obshistid
-rottelpos
 seed
 seeing
 sunalt
@@ -89,19 +89,43 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     phoSimHeaderCards = dataFrame.query("STRING != 'object'")
     phoSimSources = dataFrame.query("STRING == 'object'")
 
-    # Turn the list of commands into a dictionary.
-    phoSimCommands = phoSimHeaderCards[['STRING', 'VALUE']]
-    commandDictionary = phoSimCommands.set_index('STRING').T.to_dict('list')
-
     # Check that the commands match the expected set.
-    if set(commandDictionary.keys()) != _expected_commands:
-        raise PhosimInstanceCatalogParseError
-        ("Commands from the instance catalog %s do match the expected set." % fileName)
+    command_set = set(phoSimHeaderCards['STRING'])
+    if command_set != _expected_commands:
+        message = "Commands from the instance catalog %s do match the expected set: " % fileName + str(command_set - _expected_commands) + str(_expected_commands - command_set)
+        raise PhosimInstanceCatalogParseError(message)
+
+    # Turn the list of commands into a dictionary.
+    commands = extract_commands(phoSimHeaderCards)
 
     # This dataFrame will contain all of the objects to return.
     phoSimObjectList = extract_objects(phoSimSources)
-    return PhoSimInstanceCatalogContents(commandDictionary, phoSimObjectList,
-                                         phoSimHeaderCards, phoSimSources)
+    return PhoSimInstanceCatalogContents(commands, phoSimObjectList)
+
+def extract_commands(df):
+    """
+    Extract the phosim commands and repackage as a simple dictionary,
+    applying appropriate casts.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing the instance catalog command data.
+
+    Returns
+    -------
+    dict
+        A dictionary with the phosim command values.
+    """
+    my_dict = df[['STRING', 'VALUE']].set_index('STRING').T.to_dict('list')
+    commands = dict(((key, value[0]) for key, value in my_dict.items()))
+    commands['filter'] = int(commands['filter'])
+    commands['nsnap'] = int(commands['nsnap'])
+    commands['obshistid'] = int(commands['obshistid'])
+    commands['seed'] = int(commands['seed'])
+    # Add bandpass for convenience
+    commands['bandpass'] = 'ugrizy'[commands['filter']]
+    return commands
 
 def extract_objects(df):
     """
@@ -111,7 +135,7 @@ def extract_objects(df):
     Parameters
     ----------
     df : pandas.DataFrame
-        DataFrame containing the ray instance catalog object data.
+        DataFrame containing the instance catalog object data.
 
     Returns
     -------
@@ -175,6 +199,63 @@ def extract_objects(df):
     phosim_galaxies['galacticAv'] = pd.to_numeric(galaxies['PAR9']).tolist()
     phosim_galaxies['galacticRv'] = pd.to_numeric(galaxies['PAR10']).tolist()
 
-    phosim_galaxies = \
-        phosim_galaxies.query("halfLightSemiMajor >= halfLightSemiMinor")
     return pd.concat((phosim_stars, phosim_galaxies), ignore_index=True)
+
+
+def validate_phosim_object_list(phoSimObjects):
+    """
+    Remove rows with column values that are known to cause problems with
+    the sim_GalSimInterface code.
+
+    Parameters
+    ----------
+    phoSimObjects : pandas.DataFrame
+       DataFrame of parsed object lines from the instance catalog.
+
+    Returns
+    -------
+    namedtuple
+        A tuple of DataFrames containing the accepted and rejected objects.
+    """
+    bad_row_queries = ('(galSimType=="sersic" and halfLightSemiMajor < halfLightSemiMinor)',
+                       '(magNorm > 50)')
+    rejected = dict((query, phoSimObjects.query(query))
+                    for query in bad_row_queries)
+    all_rejected = pd.concat(rejected.values(), ignore_index=True)
+    accepted = phoSimObjects.query('not (' + ' or '.join(bad_row_queries) + ')')
+    message = "Omitted %i suspicious objects from" % len(all_rejected)
+    message += " the instance catalog satisfying:\n"
+    for query, objs in rejected.items():
+        message += "%i  %s\n" % (len(objs), query)
+    warnings.warn(message)
+    checked_objects = namedtuple('checked_objects', ('accepted', 'rejected'))
+    return checked_objects(accepted, all_rejected)
+
+def photometricParameters(phosim_commands):
+    """
+    Factory method to create a PhotometricParameters object based on
+    the instance catalog commands.
+
+    Parameters
+    ----------
+    dict
+        The phosim commands provided by parsePhoSimInstanceFile.
+
+    Returns
+    -------
+    lsst.sims.photUtils.PhotometricParameters
+        The object containing the photometric parameters.
+
+    Notes
+    -----
+    The gain is set to unity so that the resulting eimage has units of
+    electrons/pixel.  Read noise and dark current are set to zero.
+    The effects from all three of those will be added by the
+    electronics chain readout code.
+    """
+    return PhotometricParameters(exptime=phosim_commands['vistime'],
+                                 nexp=phosim_commands['nsnap'],
+                                 gain=1,
+                                 readnoise=0,
+                                 darkcurrent=0,
+                                 bandpass=phosim_commands['bandpass'])
