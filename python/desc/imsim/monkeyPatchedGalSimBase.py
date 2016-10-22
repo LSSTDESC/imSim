@@ -3,12 +3,12 @@ Module of replacement methods to lsst.sims.GalSimInterface.GalSimBase
 in order to enable running GalSim on a PhoSim instance catalog as
 input.
 """
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, print_function, division
 import sys
 import os
 import copy
-import numpy
 import logging
+import numpy
 
 from lsst.sims.photUtils import Sed, Bandpass
 from lsst.sims.catalogs.measures.instance import is_null
@@ -101,10 +101,9 @@ def phoSimInitializer(self, phoSimDataBase, obs_metadata=None, logger=None):
     # Add a PSF.  This one Taken from equation 30 of
     # www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf
     #
-    # Set seeing from self.obs_metadata.  We only simulate one band at
-    # a time, so using the first item in the bandpass list should be ok.
+    # Set seeing from self.obs_metadata.
     self.PSF = \
-        SNRdocumentPSF(self.obs_metadata.seeing[self.obs_metadata.bandpass[0]])
+        SNRdocumentPSF(self.obs_metadata.seeing[self.obs_metadata.bandpass])
 
     # Add bandpasses to simulate over.
     self.bandpassNames = list(self.obs_metadata.bandpass)

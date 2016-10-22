@@ -10,7 +10,7 @@ from lsst.sims.photUtils import PhotometricParameters
 import lsst.sims.utils as sims_utils
 
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
-           'photometricParameters']
+           'photometricParameters', 'validate_phosim_object_list']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -33,7 +33,6 @@ moonphase
 moonra
 nsnap
 obshistid
-rottelpos
 seed
 seeing
 sunalt
@@ -91,8 +90,9 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     phoSimSources = dataFrame.query("STRING == 'object'")
 
     # Check that the commands match the expected set.
-    if set(phoSimHeaderCards['STRING']) != _expected_commands:
-        message = "Commands from the instance catalog %s do match the expected set." % fileName
+    command_set = set(phoSimHeaderCards['STRING'])
+    if command_set != _expected_commands:
+        message = "Commands from the instance catalog %s do match the expected set: " % fileName + str(command_set - _expected_commands) + str(_expected_commands - command_set)
         raise PhosimInstanceCatalogParseError(message)
 
     # Turn the list of commands into a dictionary.
@@ -199,9 +199,37 @@ def extract_objects(df):
     phosim_galaxies['galacticAv'] = pd.to_numeric(galaxies['PAR9']).tolist()
     phosim_galaxies['galacticRv'] = pd.to_numeric(galaxies['PAR10']).tolist()
 
-    phosim_galaxies = \
-        phosim_galaxies.query("halfLightSemiMajor >= halfLightSemiMinor")
     return pd.concat((phosim_stars, phosim_galaxies), ignore_index=True)
+
+
+def validate_phosim_object_list(phoSimObjects):
+    """
+    Remove rows with column values that are known to cause problems with
+    the sim_GalSimInterface code.
+
+    Parameters
+    ----------
+    phoSimObjects : pandas.DataFrame
+       DataFrame of parsed object lines from the instance catalog.
+
+    Returns
+    -------
+    namedtuple
+        A tuple of DataFrames containing the accepted and rejected objects.
+    """
+    bad_row_queries = ('(galSimType=="sersic" and halfLightSemiMajor < halfLightSemiMinor)',
+                       '(magNorm > 50)')
+    rejected = dict((query, phoSimObjects.query(query))
+                    for query in bad_row_queries)
+    all_rejected = pd.concat(rejected.values(), ignore_index=True)
+    accepted = phoSimObjects.query('not (' + ' or '.join(bad_row_queries) + ')')
+    message = "Omitted %i suspicious objects from" % len(all_rejected)
+    message += " the instance catalog satisfying:\n"
+    for query, objs in rejected.items():
+        message += "%i  %s\n" % (len(objs), query)
+    warnings.warn(message)
+    checked_objects = namedtuple('checked_objects', ('accepted', 'rejected'))
+    return checked_objects(accepted, all_rejected)
 
 def photometricParameters(phosim_commands):
     """

@@ -72,8 +72,11 @@ def main():
     # The PhoSim instance file contains both pointing commands and
     # objects.  The parser will split them and return a both phosim
     # command dictionary and a dataframe of objects.
-    commands, phoSimObjectList = \
+    commands, phosim_objects = \
         desc.imsim.parsePhoSimInstanceFile(arguments.file, numRows)
+
+    phosim_objects = \
+        desc.imsim.validate_phosim_object_list(phosim_objects).accepted
 
     # Now build the ObservationMetaData with values taken from the PhoSim
     # commands at the top of the instance file.
@@ -96,28 +99,28 @@ def main():
     obs = ObservationMetaData(pointingRA=rightAscension,
                               pointingDec=declination,
                               mjd=mjd, rotSkyPos=rotSkyPosition,
-                              bandpassName=[bandpass],
-                              m5=[defaults.m5(bandpass)],
-                              seeing=[seeing])
+                              bandpassName=bandpass,
+                              m5=defaults.m5(bandpass),
+                              seeing=seeing)
 
     # Now further sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
         # Trim the input catalog to a single chip.
-        raICRS = phoSimObjectList['ra'].values
-        decICRS = phoSimObjectList['dec'].values
-        phoSimObjectList['chipName'] = chipNameFromRaDec(raICRS, decICRS,
-                                                         camera=camera,
-                                                         obs_metadata=obs,
-                                                         epoch=2000.0)
+        raICRS = phosim_objects['ra'].values
+        decICRS = phosim_objects['dec'].values
+        phosim_objects['chipName'] = chipNameFromRaDec(raICRS, decICRS,
+                                                       camera=camera,
+                                                       obs_metadata=obs,
+                                                       epoch=2000.0)
         starDataBase = \
-            phoSimObjectList.query("galSimType=='pointSource' and magNorm<50 and chipName=='%s'" % arguments.sensor)
+            phosim_objects.query("galSimType=='pointSource' and chipName=='%s'" % arguments.sensor)
         galaxyDataBase = \
-            phoSimObjectList.query("galSimType=='sersic' and magNorm<50 and chipName=='%s'" % arguments.sensor)
+            phosim_objects.query("galSimType=='sersic' and chipName=='%s'" % arguments.sensor)
     else:
         starDataBase = \
-            phoSimObjectList.query("galSimType=='pointSource' and magNorm<50")
+            phosim_objects.query("galSimType=='pointSource'")
         galaxyDataBase = \
-            phoSimObjectList.query("galSimType=='sersic' and magNorm<50")
+            phosim_objects.query("galSimType=='sersic'")
 
     # Simulate the objects in the Pandas Dataframes. I monkey patched the
     # abstract base class GalSimBase to take my dataFrame instead of using the
