@@ -4,3 +4,6 @@ try:
 except ImportError:
     pass
 from .imSim import *
+from .lsst_camera_readout import *
+from .focalplane_readout import *
+
