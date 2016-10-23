@@ -1,7 +1,7 @@
 """
 Base module for the imSim package.
 """
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, print_function, division
 import warnings
 from collections import namedtuple
 import numpy as np
@@ -253,7 +253,8 @@ def photometricParameters(phosim_commands):
     The effects from all three of those will be added by the
     electronics chain readout code.
     """
-    return PhotometricParameters(exptime=phosim_commands['vistime'],
+    exptime = phosim_commands['vistime']/float(phosim_commands['nsnap'])
+    return PhotometricParameters(exptime=exptime,
                                  nexp=phosim_commands['nsnap'],
                                  gain=1,
                                  readnoise=0,
