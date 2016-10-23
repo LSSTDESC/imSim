@@ -1,7 +1,7 @@
 """
 Base module for the imSim package.
 """
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, print_function, division
 import warnings
 from collections import namedtuple
 import numpy as np
