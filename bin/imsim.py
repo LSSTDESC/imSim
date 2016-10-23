@@ -103,6 +103,9 @@ def main():
                               m5=defaults.m5(bandpass),
                               seeing=seeing)
 
+    # Set the OpsimMetaData attribute with the obshistID info.
+    obs.OpsimMetaData = {'obshistID': visitID}
+
     # Now further sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
         # Trim the input catalog to a single chip.
@@ -148,7 +151,7 @@ def main():
     outdir = arguments.outdir
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
-    phoSimGalaxyCatalog.write_images(nameRoot=os.path.join(outdir, 'e-image_') +
+    phoSimGalaxyCatalog.write_images(nameRoot=os.path.join(outdir, 'lsst_e_') +
                                      str(visitID))
 
 if __name__ == "__main__":
