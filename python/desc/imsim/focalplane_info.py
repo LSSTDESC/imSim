@@ -7,9 +7,9 @@ import numpy as np
 import scipy.special
 import lsst.afw.geom as afwGeom
 
-__all__ = ['FocalPlaneReadout', 'cte_matrix']
+__all__ = ['FocalPlaneInfo', 'cte_matrix']
 
-class FocalPlaneReadout(object):
+class FocalPlaneInfo(object):
     """
     Class to serve up electronics readout properties of sensors based
     on a focal plane description, such as the segmentation.txt file
@@ -25,7 +25,7 @@ class FocalPlaneReadout(object):
         "R22_S11_C00".
     """
     def __init__(self):
-        "FocalPlaneReadout constructor"
+        "FocalPlaneInfo constructor"
         self.sensors = {}
         self.amps = {}
 
@@ -108,7 +108,7 @@ class FocalPlaneReadout(object):
     @staticmethod
     def read_phosim_seg_file(seg_file):
         """
-        Factory method to create a FocalPlaneReadout object which has
+        Factory method to create a FocalPlaneInfo object which has
         been filled with the data from a PhoSim segmentation.txt file.
 
         Parameters
@@ -118,10 +118,10 @@ class FocalPlaneReadout(object):
 
         Returns
         -------
-        FocalPlaneReadout object
-            The filled FocalPlaneReadout object.
+        FocalPlaneInfo object
+            The filled FocalPlaneInfo object.
         """
-        my_self = FocalPlaneReadout()
+        my_self = FocalPlaneInfo()
         with open(seg_file, 'r') as f:
             lines = [line for line in f.readlines() if not line.startswith('#')]
         i = -1
