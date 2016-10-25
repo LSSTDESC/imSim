@@ -57,7 +57,11 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertEqual(phot_params.gain, 1)
         self.assertEqual(phot_params.bandpass, 'r')
         self.assertEqual(phot_params.nexp, 2)
-        self.assertAlmostEqual(phot_params.exptime, 33)
+        readout_time = 3.
+        vistime = instcat_contents.commands['vistime']
+        nsnap = instcat_contents.commands['nsnap']
+        exptime = (vistime - (nsnap-1)*readout_time)/float(nsnap)
+        self.assertAlmostEqual(phot_params.exptime, exptime)
         self.assertEqual(phot_params.readnoise, 0)
         self.assertEqual(phot_params.darkcurrent, 0)
 

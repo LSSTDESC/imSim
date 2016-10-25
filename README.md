@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/DarkEnergyScienceCollaboration/imSim.svg?branch=issue%2F21%2Fcomputing_infrastructure)](https://travis-ci.org/DarkEnergyScienceCollaboration/imSim)
+[![Coverage Status](https://coveralls.io/repos/github/DarkEnergyScienceCollaboration/imSim/badge.svg?branch=master)](https://coveralls.io/github/DarkEnergyScienceCollaboration/imSim?branch=master)
+
 # imSim
 GalSim based LSST simulation package
 
