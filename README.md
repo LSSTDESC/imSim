@@ -5,13 +5,14 @@
 GalSim based LSST simulation package
 
 ## Set up
-If you have the `lsst_sims` distribution set up, including the
-`sims_catalogs_measures` and `sims_catalogs_generation` repos, then
-enter the following from this repo directory:
+Set up the `lsst_sims` distribution, then enter the following from
+this repo directory:
 ```
 $ eups declare -r . imsim -t current
 $ setup imsim
 ```
+Once you have `eups declared` a package like this, you only need to execute
+the `setup imsim` command, and that can be issued from any directory.
 
 ## Usage
 ```
