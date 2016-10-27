@@ -10,6 +10,7 @@ install:
   - setup lsst_sims
   - eups declare -r . imsim -t current
   - setup imsim
+  - scons
 
 cache:
   directories:
