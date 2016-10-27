@@ -10,11 +10,16 @@ this repo directory:
 ```
 $ eups declare -r . imsim -t current
 $ setup imsim
+$ scons
 ```
-Once you have `eups declared` a package like this, you only need to execute
-the `setup imsim` command, and that can be issued from any directory.
+Once you have `eups declared` a package like this, you only need to
+execute the `setup imsim` command, and that command can be issued from
+any directory.  The `scons` build step needs only to be re-run if a
+new command line executable is added to the `bin.src` folder.
 
 ## Usage
+The executables in the `bin` folder should be in your path and so
+should be runnable directly from the command line:
 ```
 $ imsim.py --help
 usage: imsim.py [-h] [-v] [-f FILE] [-n NUMROWS] [--outdir OUTDIR]
@@ -26,4 +31,11 @@ optional arguments:
   -n NUMROWS, --numrows NUMROWS
                         read the first numrows of the file.
   --outdir OUTDIR       output directory for eimage file
+```
+
+Similarly, by doing `setup imsim`, the `PYTHONPATH` environment
+variable has been modified so that the `desc.imsim` module is available:
+```
+>>> import desc.imsim
+>>>
 ```
