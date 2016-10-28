@@ -11,6 +11,14 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
     """
     TestCase class for instance catalog parsing code.
     """
+    @classmethod
+    def setUpClass(cls):
+        cls.config = desc.imsim.read_config()
+
+    @classmethod
+    def tearDownClass(cls):
+        pass
+
     def setUp(self):
         self.command_file = os.path.join(os.environ['IMSIM_DIR'],
                                          'tests', 'tiny_instcat.txt')
@@ -57,11 +65,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertEqual(phot_params.gain, 1)
         self.assertEqual(phot_params.bandpass, 'r')
         self.assertEqual(phot_params.nexp, 2)
-        readout_time = 3.
-        vistime = instcat_contents.commands['vistime']
-        nsnap = instcat_contents.commands['nsnap']
-        exptime = (vistime - (nsnap-1)*readout_time)/float(nsnap)
-        self.assertAlmostEqual(phot_params.exptime, exptime)
+        self.assertAlmostEqual(phot_params.exptime, 15.)
         self.assertEqual(phot_params.readnoise, 0)
         self.assertEqual(phot_params.darkcurrent, 0)
 

@@ -22,15 +22,22 @@ The executables in the `bin` folder should be in your path and so
 should be runnable directly from the command line:
 ```
 $ imsim.py --help
-usage: imsim.py [-h] [-v] [-f FILE] [-n NUMROWS] [--outdir OUTDIR]
+usage: imsim.py [-h] [-n NUMROWS] [--outdir OUTDIR] [--sensor SENSOR]
+                [--log_level {DEBUG,INFO,WARN,ERROR,CRITICAL}]
+                instance_catalog
+
+positional arguments:
+  instance_catalog      The instance catalog filename
 
 optional arguments:
   -h, --help            show this help message and exit
-  -v, --version         show program's version number and exit
-  -f FILE, --file FILE  Specify the instance file
   -n NUMROWS, --numrows NUMROWS
-                        read the first numrows of the file.
-  --outdir OUTDIR       output directory for eimage file
+                        Read the first numrows of the instance catalog
+  --outdir OUTDIR       Output directory for eimage file
+  --sensor SENSOR       Sensor to simulate, e.g., "R:2,2 S:1,1". If None, then
+                        simulate all sensors with sources on them
+  --log_level {DEBUG,INFO,WARN,ERROR,CRITICAL}
+                        Logging level. Default: "INFO"
 ```
 
 Similarly, by doing `setup imsim`, the `PYTHONPATH` environment

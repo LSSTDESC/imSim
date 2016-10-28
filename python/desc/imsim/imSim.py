@@ -2,15 +2,19 @@
 Base module for the imSim package.
 """
 from __future__ import absolute_import, print_function, division
+import os
 import warnings
 from collections import namedtuple
+import ConfigParser
 import numpy as np
 import pandas as pd
+import lsst.utils as lsstUtils
 from lsst.sims.photUtils import PhotometricParameters
 import lsst.sims.utils as sims_utils
 
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
-           'photometricParameters', 'validate_phosim_object_list']
+           'photometricParameters', 'validate_phosim_object_list',
+           'ImSimConfiguration', 'read_config']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -26,6 +30,7 @@ altitude
 azimuth
 filter
 rotskypos
+rottelpos
 dist2moon
 moonalt
 moondec
@@ -253,10 +258,86 @@ def photometricParameters(phosim_commands):
     The effects from all three of those will be added by the
     electronics chain readout code.
     """
-    exptime = phosim_commands['vistime']/float(phosim_commands['nsnap'])
+    config = read_config()
+    nsnap = phosim_commands['nsnap']
+    vistime = phosim_commands['vistime']
+    readout_time = config['readout_time']
+    exptime = (vistime - (nsnap-1)*readout_time)/float(nsnap)
     return PhotometricParameters(exptime=exptime,
-                                 nexp=phosim_commands['nsnap'],
+                                 nexp=nsnap,
                                  gain=1,
                                  readnoise=0,
                                  darkcurrent=0,
                                  bandpass=phosim_commands['bandpass'])
+
+
+class ImSimConfiguration(object):
+    """
+    Configuration parameters for the simulation.  All parameters are
+    set in a the class-level dictionary to ensure that they are the
+    same across all class instances.
+    """
+    imsim_parameters = dict()
+
+    def __getitem__(self, key):
+        return self.imsim_parameters[key]
+
+    def __setitem__(self, key, value):
+        self.imsim_parameters[key] = self.cast(value)
+
+    @staticmethod
+    def cast(value):
+        """
+        Try to do sensible default casting of string representations
+        of the parameters that are read from the config file.
+
+        Parameters
+        ----------
+        value : str
+            The string value returned, e.g., by ConfigParser.items(...).
+
+        Returns
+        -------
+        None, int, float, str
+            Depending on the first workable cast, in that order.
+        """
+        if value == 'None':
+            return None
+        try:
+            if value.find('.') == -1 and value.find('e') == -1:
+                return int(value)
+            else:
+                return float(value)
+        except ValueError:
+            # Return as the original string.
+            return value
+
+def read_config(config_file=None):
+    """
+    Read the configuration parameters for the simulation that are not
+    given in the instance catalogs.
+
+    Parameters
+    ----------
+    config_file : str, optional
+        The file containing the configuration parameters.  If None
+        (the default), then read the default parameters from
+        data/default_imsim_configs.
+
+    Returns
+    -------
+    ImSimConfiguration object
+        An instance of ImSimConfiguration filled with the parameters from
+        config_file.
+    """
+    my_config = ImSimConfiguration()
+    cp = ConfigParser.SafeConfigParser()
+    if config_file is None:
+        config_file = os.path.join(lsstUtils.getPackageDir('imsim'),
+                                   'data', 'default_imsim_configs')
+    cp.read(config_file)
+    # Stuff all of the sections into the same dictionary for now.
+    for section in cp.sections():
+        for key, value in cp.items(section):
+            my_config[key] = value
+    return my_config
