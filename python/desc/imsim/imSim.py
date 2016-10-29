@@ -14,7 +14,7 @@ import lsst.sims.utils as sims_utils
 
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
            'photometricParameters', 'validate_phosim_object_list',
-           'ImSimConfiguration', 'read_config']
+           'read_config', 'get_config']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -236,6 +236,7 @@ def validate_phosim_object_list(phoSimObjects):
     checked_objects = namedtuple('checked_objects', ('accepted', 'rejected'))
     return checked_objects(accepted, all_rejected)
 
+
 def photometricParameters(phosim_commands):
     """
     Factory method to create a PhotometricParameters object based on
@@ -283,7 +284,11 @@ class ImSimConfiguration(object):
         return self.imsim_parameters[key]
 
     def __setitem__(self, key, value):
-        self.imsim_parameters[key] = self.cast(value)
+        self.imsim_parameters[key] = value
+
+    def set_from_config(self, key, value):
+        "Set the parameter value with the cast from a string applied."
+        self[key] = self.cast(value)
 
     @staticmethod
     def cast(value):
@@ -312,6 +317,18 @@ class ImSimConfiguration(object):
             # Return as the original string.
             return value
 
+
+def get_config():
+    """
+    Get an ImSimConfiguration object with the current configuration.
+
+    Returns
+    -------
+    ImSimConfiguration object
+    """
+    return ImSimConfiguration()
+
+
 def read_config(config_file=None):
     """
     Read the configuration parameters for the simulation that are not
@@ -339,5 +356,5 @@ def read_config(config_file=None):
     # Stuff all of the sections into the same dictionary for now.
     for section in cp.sections():
         for key, value in cp.items(section):
-            my_config[key] = value
+            my_config.set_from_config(key, value)
     return my_config
