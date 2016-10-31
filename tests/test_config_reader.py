@@ -31,7 +31,7 @@ class ImSimConfigurationTestCase(unittest.TestCase):
         # Read the default config.
         config = desc.imsim.read_config()
         self.assertAlmostEqual(config['readout_time'], 3.)
-        self.assertEqual(config['eimage_prefix'], 'lsst_e')
+        self.assertEqual(config['eimage_prefix'], 'lsst_e_')
 
         # Read a different config file and show that the previous
         # instance reflects the new configuration.
@@ -46,7 +46,7 @@ class ImSimConfigurationTestCase(unittest.TestCase):
         # Get an instance without re-reading the data.
         config = desc.imsim.get_config()
         self.assertAlmostEqual(config['readout_time'], 3.)
-        self.assertEqual(config['eimage_prefix'], 'lsst_e')
+        self.assertEqual(config['eimage_prefix'], 'lsst_e_')
 
 if __name__ == '__main__':
     unittest.main()
