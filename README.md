@@ -23,19 +23,22 @@ should be runnable directly from the command line:
 ```
 $ imsim.py --help
 usage: imsim.py [-h] [-n NUMROWS] [--outdir OUTDIR] [--sensor SENSOR]
+                [--config_file CONFIG_FILE]
                 [--log_level {DEBUG,INFO,WARN,ERROR,CRITICAL}]
-                instance_catalog
+                file
 
 positional arguments:
-  instance_catalog      The instance catalog filename
+  file                  The instance catalog
 
 optional arguments:
   -h, --help            show this help message and exit
   -n NUMROWS, --numrows NUMROWS
-                        Read the first numrows of the instance catalog
+                        Read the first numrows of the file.
   --outdir OUTDIR       Output directory for eimage file
   --sensor SENSOR       Sensor to simulate, e.g., "R:2,2 S:1,1". If None, then
                         simulate all sensors with sources on them
+  --config_file CONFIG_FILE
+                        Config file. If None, the default config will be used.
   --log_level {DEBUG,INFO,WARN,ERROR,CRITICAL}
                         Logging level. Default: "INFO"
 ```

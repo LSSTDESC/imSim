@@ -2,4 +2,4 @@
 readout_time = 3.
 
 [persistence]
-eimage_prefix = lsst_e
+eimage_prefix = lsst_e_

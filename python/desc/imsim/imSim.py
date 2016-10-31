@@ -259,7 +259,7 @@ def photometricParameters(phosim_commands):
     The effects from all three of those will be added by the
     electronics chain readout code.
     """
-    config = read_config()
+    config = get_config()
     nsnap = phosim_commands['nsnap']
     vistime = phosim_commands['vistime']
     readout_time = config['readout_time']
@@ -275,8 +275,8 @@ def photometricParameters(phosim_commands):
 class ImSimConfiguration(object):
     """
     Configuration parameters for the simulation.  All parameters are
-    set in a the class-level dictionary to ensure that they are the
-    same across all class instances.
+    set in a class-level dictionary to ensure that they are the same
+    across all class instances.
     """
     imsim_parameters = dict()
 

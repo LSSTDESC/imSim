@@ -20,11 +20,11 @@ from lsst.sims.coordUtils import chipNameFromRaDec
 from lsst.sims.GalSimInterface.galSimCatalogs import GalSimBase
 from lsst.sims.GalSimInterface import GalSimStars
 from lsst.sims.GalSimInterface import GalSimGalaxies
+import lsst.log as lsstLog
 
 import desc.imsim
 from desc.imsim.monkeyPatchedGalSimBase import \
     phoSimCalculateGalSimSeds, phoSimInitializer, get_phoSimInstanceCatalog
-
 
 def main():
     """
@@ -39,16 +39,24 @@ def main():
                         help='Output directory for eimage file')
     parser.add_argument('--sensor', type=str, default=None,
                         help='Sensor to simulate, e.g., "R:2,2 S:1,1". If None, then simulate all sensors with sources on them')
+    parser.add_argument('--config_file', type=str, default=None,
+                        help="Config file. If None, the default config will be used.")
     parser.add_argument('--log_level', type=str,
                         choices=['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'],
                         default='INFO', help='Logging level. Default: "INFO"')
     arguments = parser.parse_args()
+
+    config = desc.imsim.read_config(arguments.config_file)
 
     # Setup logging output.
     logging.basicConfig(format="%(message)s", level=logging.INFO,
                         stream=sys.stdout)
     logger = logging.getLogger()
     logger.setLevel(eval('logging.' + arguments.log_level))
+
+    # Set similar logging level for Stack code.
+    lsstLog.setLevel(lsstLog.getDefaultLoggerName(),
+                     eval('lsstLog.%s'% arguments.log_level))
 
     # Monkey Patch the GalSimBase class and replace the routines that
     # gets the objects and builds the catalog with my version that gets the
@@ -151,7 +159,8 @@ def main():
     outdir = arguments.outdir
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
-    phoSimGalaxyCatalog.write_images(nameRoot=os.path.join(outdir, 'lsst_e_') +
+    prefix = config['eimage_prefix']
+    phoSimGalaxyCatalog.write_images(nameRoot=os.path.join(outdir, prefix) +
                                      str(visitID))
 
 if __name__ == "__main__":
