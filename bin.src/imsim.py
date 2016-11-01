@@ -7,8 +7,6 @@ code found in sims_GalSimInterface.
 """
 from __future__ import absolute_import, print_function
 import os
-import sys
-import logging
 import argparse
 
 from lsst.obs.lsstSim import LsstSimMapper
@@ -20,7 +18,6 @@ from lsst.sims.coordUtils import chipNameFromRaDec
 from lsst.sims.GalSimInterface.galSimCatalogs import GalSimBase
 from lsst.sims.GalSimInterface import GalSimStars
 from lsst.sims.GalSimInterface import GalSimGalaxies
-import lsst.log as lsstLog
 
 import desc.imsim
 from desc.imsim.monkeyPatchedGalSimBase import \
@@ -48,15 +45,7 @@ def main():
 
     config = desc.imsim.read_config(arguments.config_file)
 
-    # Setup logging output.
-    logging.basicConfig(format="%(message)s", level=logging.INFO,
-                        stream=sys.stdout)
-    logger = logging.getLogger()
-    logger.setLevel(eval('logging.' + arguments.log_level))
-
-    # Set similar logging level for Stack code.
-    lsstLog.setLevel(lsstLog.getDefaultLoggerName(),
-                     eval('lsstLog.%s'% arguments.log_level))
+    logger = desc.imsim.get_logger(arguments.log_level)
 
     # Monkey Patch the GalSimBase class and replace the routines that
     # gets the objects and builds the catalog with my version that gets the

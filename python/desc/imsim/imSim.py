@@ -3,18 +3,24 @@ Base module for the imSim package.
 """
 from __future__ import absolute_import, print_function, division
 import os
+import sys
 import warnings
 from collections import namedtuple
+import logging
 import ConfigParser
 import numpy as np
 import pandas as pd
+try:
+    import lsst.log as lsstLog
+except ImportError:
+    lsstLog = None
 import lsst.utils as lsstUtils
 from lsst.sims.photUtils import PhotometricParameters
 import lsst.sims.utils as sims_utils
 
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
            'photometricParameters', 'validate_phosim_object_list',
-           'read_config', 'get_config']
+           'read_config', 'get_config', 'get_logger']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -358,3 +364,28 @@ def read_config(config_file=None):
         for key, value in cp.items(section):
             my_config.set_from_config(key, value)
     return my_config
+
+def get_logger(log_level):
+    """
+    Set up standard logging module and set lsst.log to the same log
+    level.
+
+    Parameters
+    ----------
+    log_level : str
+        This is converted to logging.<log_level> and set in the logging
+        config.
+    """
+    # Setup logging output.
+    logging.basicConfig(format="%(message)s", stream=sys.stdout)
+    logger = logging.getLogger()
+    logger.setLevel(eval('logging.' + log_level))
+
+    # Set similar logging level for Stack code.
+    if lsstLog is not None:
+        if log_level == "CRITICAL":
+            log_level = "FATAL"
+        lsstLog.setLevel(lsstLog.getDefaultLoggerName(),
+                         eval('lsstLog.%s'% log_level))
+
+    return logger
