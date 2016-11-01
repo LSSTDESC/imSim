@@ -1,0 +1,5 @@
+[electronics_readout]
+readout_time = 3.
+
+[persistence]
+eimage_prefix = lsst_e_

@@ -1,0 +1,29 @@
+language: cpp
+os: linux
+sudo: required
+dist: trusty
+compiler: gcc
+
+install:
+  - travis_wait 30 ./setup/travis_install.sh lsst-sims nose pandas pylint
+  - ln -sf /home/travis/miniconda/lib/libssl.so.1.0.0 /home/travis/miniconda/lib/libssl.so.10
+  - ln -sf /home/travis/miniconda/lib/libcrypto.so.1.0.0 /home/travis/miniconda/lib/libcrypto.so.10
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - source eups-setups.sh
+  - pip install coveralls
+  - setup lsst_sims
+  - eups declare -r . imsim -t current
+  - setup imsim
+  - scons
+
+cache:
+  directories:
+  - $HOME/miniconda.tarball
+  timeout: 600
+
+script:
+  - nosetests -s --with-coverage --cover-package=desc.imsim
+  - pylint --py3k `find . -name \*.py -print`
+
+after_success:
+  - coveralls

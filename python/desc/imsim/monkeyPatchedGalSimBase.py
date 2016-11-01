@@ -11,7 +11,10 @@ import logging
 import numpy
 
 from lsst.sims.photUtils import Sed, Bandpass
-from lsst.sims.catalogs.measures.instance import is_null
+try:
+    from lsst.sims.catalogs.measures.instance import is_null
+except ImportError:
+    from lsst.sims.catalogs.definitions import is_null
 
 from lsst.sims.GalSimInterface.galSimCelestialObject import GalSimCelestialObject
 from lsst.sims.GalSimInterface import ExampleCCDNoise
