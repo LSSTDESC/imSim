@@ -10,7 +10,6 @@ import os
 import argparse
 from lsst.obs.lsstSim import LsstSimMapper
 from lsst.sims.coordUtils import chipNameFromRaDec
-from lsst.sims.GalSimInterface import GalSimStars, GalSimGalaxies
 import desc.imsim
 
 def main():
@@ -85,23 +84,14 @@ def main():
 
     # Simulate the objects in the Pandas Dataframes.
 
-    # The GalSim[Stars,Galaxies] classes are subclassed via
-    # desc.imsim.imSim_class_factory, with the new subclass
-    # constructor taking a pandas DataFrame as a parameter instead of
-    # a CatalogDBObject.  In that constructor, the PSF and CCD noise
-    # model are set.  For simulation the LSST this should be the same
-    # between all types of objects.
-
     # First simulate stars
-    ImSimStars = desc.imsim.imSim_class_factory(GalSimStars)
-    phoSimStarCatalog = ImSimStars(starDataBase, obs_md)
+    phoSimStarCatalog = desc.imsim.ImSimStars(starDataBase, obs_md)
     phoSimStarCatalog.photParams = desc.imsim.photometricParameters(commands)
     phoSimStarCatalog.camera = camera
     phoSimStarCatalog.get_fitsFiles()
 
     # Now galaxies
-    ImSimGalaxies = desc.imsim.imSim_class_factory(GalSimGalaxies)
-    phoSimGalaxyCatalog = ImSimGalaxies(galaxyDataBase, obs_md)
+    phoSimGalaxyCatalog = desc.imsim.ImSimGalaxies(galaxyDataBase, obs_md)
     phoSimGalaxyCatalog.copyGalSimInterpreter(phoSimStarCatalog)
     phoSimGalaxyCatalog.get_fitsFiles()
 

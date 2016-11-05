@@ -3,11 +3,11 @@ Code to generate imSim subclasses of GalSimBase subclasses.
 """
 from __future__ import absolute_import, print_function, division
 import gc
-#from lsst.sims.catalogs.db import CatalogDBObject
-from lsst.sims.GalSimInterface import ExampleCCDNoise, SNRdocumentPSF
+from lsst.sims.GalSimInterface import GalSimStars, GalSimGalaxies, \
+    ExampleCCDNoise, SNRdocumentPSF
 from lsst.sims.utils import pupilCoordsFromRaDec
 
-__all__ = ['imSim_class_factory']
+__all__ = ['ImSimStars', 'ImSimGalaxies']
 
 def imSim_class_factory(galsim_subclass):
     """
@@ -23,7 +23,7 @@ def imSim_class_factory(galsim_subclass):
     imSim_class.__imSim_class__ = imSim_class
     return imSim_class
 
-def imSim__init__(self, phosim_objects, obs_metadata):
+def imSim__init__(self, phosim_objects, obs_metadata, catalog_db=None):
     """
     ImSim* subclass constructor.
 
@@ -33,10 +33,14 @@ def imSim__init__(self, phosim_objects, obs_metadata):
         A DataFrame containing the instance catalog object data.
     obs_metadata : lsst.sims.utils.ObservationMetaData
         Object containing the telescope observation parameters.
+    catalog_db : lsst.sims.catalogs.db.CatalogDBObject, optional
+        CatalogDBObject to pass to InstanceCatalog superclass.
     """
-#    super(self.__imSim_class__, self).__init__(CatalogDBObject(),
-#                                               obs_metadata=obs_metadata)
-    self.obs_metadata = obs_metadata
+    if catalog_db is not None:
+        super(self.__imSim_class__, self).__init__(catalog_db,
+                                                   obs_metadata=obs_metadata)
+    else:
+        self.obs_metadata = obs_metadata
 
     xPupil, yPupil = pupilCoordsFromRaDec(phosim_objects['raICRS'].values,
                                           phosim_objects['decICRS'].values,
@@ -79,3 +83,6 @@ def imSim_column_by_name(self, colname):
     if colname not in self.phosim_objects:
         return super(self.__imSim_class__, self).column_by_name(colname)
     return self.phosim_objects[colname].values
+
+ImSimStars = imSim_class_factory(GalSimStars)
+ImSimGalaxies = imSim_class_factory(GalSimGalaxies)

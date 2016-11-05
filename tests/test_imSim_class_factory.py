@@ -4,7 +4,6 @@ Unit tests for imSim_class_factory module.
 from __future__ import absolute_import
 import os
 import unittest
-from lsst.sims.GalSimInterface import GalSimStars
 import desc.imsim
 
 class ImSimClassFactoryTestCase(unittest.TestCase):
@@ -20,9 +19,10 @@ class ImSimClassFactoryTestCase(unittest.TestCase):
         instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',
                                     'tiny_instcat.txt')
         commands, objects = desc.imsim.parsePhoSimInstanceFile(instcat_file)
-        ImSimStars = desc.imsim.imSim_class_factory(GalSimStars)
         obs_md = desc.imsim.phosim_obs_metadata(commands)
-        stars = ImSimStars(objects.query("galSimType=='pointSource'"), obs_md)
+        stars = \
+            desc.imsim.ImSimStars(objects.query("galSimType=='pointSource'"),
+                                  obs_md)
         self.assertEqual(stars.column_by_name('uniqueId')[0], 1046817878020)
         self.assertAlmostEqual(stars.column_by_name('x_pupil')[0], -0.0008283)
         self.assertAlmostEqual(stars.column_by_name('y_pupil')[0], -0.00201296)
