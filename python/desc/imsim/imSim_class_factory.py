@@ -2,7 +2,9 @@
 Code to generate imSim subclasses of GalSimBase subclasses.
 """
 from __future__ import absolute_import, print_function, division
-from lsst.sims.catalogs.db import CatalogDBObject
+import warnings
+import pandas as pd
+#from lsst.sims.catalogs.db import CatalogDBObject
 from lsst.sims.GalSimInterface import ExampleCCDNoise, SNRdocumentPSF
 from lsst.sims.utils import pupilCoordsFromRaDec
 
@@ -59,8 +61,12 @@ def imSim__init__(self, phosim_objects, obs_metadata=None):
                                           self.phosim_objects['decICRS'].values,
                                           obs_metadata=obs_metadata,
                                           epoch=2000.0)
-    self.phosim_objects.assign(x_pupil=xPupil)
-    self.phosim_objects.assign(y_pupil=yPupil)
+
+    index = self.phosim_objects.index
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore')
+        self.phosim_objects.loc[:, 'x_pupil'] = pd.Series(xPupil, index=index)
+        self.phosim_objects.loc[:, 'y_pupil'] = pd.Series(yPupil, index=index)
 
 def imSim_column_by_name(self, colname):
     """

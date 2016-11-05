@@ -94,8 +94,8 @@ def main():
     # Now further sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
         # Trim the input catalog to a single chip.
-        raICRS = phosim_objects['ra'].values
-        decICRS = phosim_objects['dec'].values
+        raICRS = phosim_objects['raICRS'].values
+        decICRS = phosim_objects['decICRS'].values
         phosim_objects['chipName'] = chipNameFromRaDec(raICRS, decICRS,
                                                        camera=camera,
                                                        obs_metadata=obs,

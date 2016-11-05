@@ -168,8 +168,7 @@ def extract_objects(df):
                'majorAxis',
                'positionAngle', 'sindex',
                'internalAv', 'internalRv',
-               'galacticAv', 'galacticRv',
-               'x_pupil', 'y_pupil')
+               'galacticAv', 'galacticRv')
 
     # Process stars and galaxies separately.
     source_type = 'point'
