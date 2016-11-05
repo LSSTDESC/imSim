@@ -15,13 +15,10 @@ from lsst.sims.photUtils import LSSTdefaults
 from lsst.sims.utils import ObservationMetaData
 from lsst.sims.coordUtils import chipNameFromRaDec
 
-from lsst.sims.GalSimInterface.galSimCatalogs import GalSimBase
 from lsst.sims.GalSimInterface import GalSimStars
 from lsst.sims.GalSimInterface import GalSimGalaxies
 
 import desc.imsim
-from desc.imsim.monkeyPatchedGalSimBase import \
-    phoSimCalculateGalSimSeds, phoSimInitializer, get_phoSimInstanceCatalog
 
 def main():
     """
@@ -46,15 +43,6 @@ def main():
     config = desc.imsim.read_config(arguments.config_file)
 
     logger = desc.imsim.get_logger(arguments.log_level)
-
-    # Monkey Patch the GalSimBase class and replace the routines that
-    # gets the objects and builds the catalog with my version that gets the
-    # information from a phoSim instance catalog file.  This should be temporary
-    # and is a hack.
-    GalSimBase.__init__ = \
-        lambda *args, **kwds: phoSimInitializer(*args, logger=logger, **kwds)
-    GalSimBase._calculateGalSimSeds = phoSimCalculateGalSimSeds
-    GalSimBase.get_fitsFiles = get_phoSimInstanceCatalog
 
     # Get the number of rows to read from the instance file.  Use
     # default if not specified.
@@ -113,34 +101,38 @@ def main():
                                                        obs_metadata=obs,
                                                        epoch=2000.0)
         starDataBase = \
-            phosim_objects.query("galSimType=='pointSource' and chipName=='%s'" % arguments.sensor)
+            phosim_objects.query("galSimType=='pointSource' and chipName=='%s'"
+                                 % arguments.sensor)
         galaxyDataBase = \
-            phosim_objects.query("galSimType=='sersic' and chipName=='%s'" % arguments.sensor)
+            phosim_objects.query("galSimType=='sersic' and chipName=='%s'"
+                                 % arguments.sensor)
     else:
         starDataBase = \
             phosim_objects.query("galSimType=='pointSource'")
         galaxyDataBase = \
             phosim_objects.query("galSimType=='sersic'")
 
-    # Simulate the objects in the Pandas Dataframes. I monkey patched the
-    # abstract base class GalSimBase to take my dataFrame instead of using the
-    # internal databases. This is a hack until we rethink the class design.
-    #
-    # Additionally, I have set the PSF and noise etc globally for all of the
-    # derived classes in the __init__.  For simulation the LSST this should be
-    # the same between all types of objects.
+    # Simulate the objects in the Pandas Dataframes.
+
+    # The GalSim[Stars,Galaxies] classes are subclassed via
+    # desc.imsim.imSim_class_factory, with the new subclass
+    # constructor taking a pandas DataFrame as a parameter instead of
+    # a CatalogDBObject.  In that constructor, the PSF and CCD noise
+    # model are set.  For simulation the LSST this should be the same
+    # between all types of objects.
 
     phot_params = desc.imsim.photometricParameters(commands)
 
     # First simulate stars
-    phoSimStarCatalog = GalSimStars(starDataBase, obs)
+    ImSimStars = desc.imsim.imSim_class_factory(GalSimStars)
+    phoSimStarCatalog = ImSimStars(starDataBase, obs)
     phoSimStarCatalog.photParams = phot_params
     phoSimStarCatalog.camera = camera
     phoSimStarCatalog.get_fitsFiles()
 
     # Now galaxies
-    phoSimGalaxyCatalog = GalSimGalaxies(galaxyDataBase, obs)
-    phoSimGalaxyCatalog.photParams = phot_params
+    ImSimGalaxies = desc.imsim.imSim_class_factory(GalSimGalaxies)
+    phoSimGalaxyCatalog = ImSimGalaxies(galaxyDataBase, obs)
     phoSimGalaxyCatalog.copyGalSimInterpreter(phoSimStarCatalog)
     phoSimGalaxyCatalog.get_fitsFiles()
 

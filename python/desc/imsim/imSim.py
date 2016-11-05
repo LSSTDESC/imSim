@@ -160,55 +160,56 @@ def extract_objects(df):
     if invalid_types:
         warnings.warn("Instance catalog contains unhandled source types:\n%s\nSkipping these." % '\n'.join(invalid_types))
 
-    columns = ('objectID', 'galSimType',
-               'magNorm', 'sedName', 'redShift',
-               'ra', 'dec',
+    columns = ('uniqueId', 'galSimType',
+               'magNorm', 'sedFilepath', 'redshift',
+               'raICRS', 'decICRS',
                'halfLightRadius',
-               'halfLightSemiMinor',
-               'halfLightSemiMajor',
-               'positionAngle', 'sersicIndex',
+               'minorAxis',
+               'majorAxis',
+               'positionAngle', 'sindex',
                'internalAv', 'internalRv',
-               'galacticAv', 'galacticRv')
+               'galacticAv', 'galacticRv',
+               'x_pupil', 'y_pupil')
 
     # Process stars and galaxies separately.
     source_type = 'point'
     stars = df.query("SOURCE_TYPE=='%s'" % source_type)
     phosim_stars = pd.DataFrame(np.zeros((len(stars), len(columns))),
                                 columns=columns)
-    phosim_stars['objectID'] = pd.to_numeric(stars['VALUE']).tolist()
+    phosim_stars['uniqueId'] = pd.to_numeric(stars['VALUE']).tolist()
     phosim_stars['galSimType'] = valid_types[source_type]
     phosim_stars['magNorm'] = pd.to_numeric(stars['MAG_NORM']).tolist()
-    phosim_stars['sedName'] = stars['SED_NAME'].tolist()
-    phosim_stars['redShift'] = pd.to_numeric(stars['REDSHIFT']).tolist()
-    phosim_stars['ra'] = pd.to_numeric(stars['RA']).tolist()
-    phosim_stars['dec'] = pd.to_numeric(stars['DEC']).tolist()
-    phosim_stars['internalAv'] = pd.to_numeric(stars['PAR2']).tolist()
-    phosim_stars['internalRv'] = pd.to_numeric(stars['PAR3']).tolist()
-    phosim_stars['galacticAv'] = pd.to_numeric(stars['PAR5']).tolist()
-    phosim_stars['galacticRv'] = pd.to_numeric(stars['PAR6']).tolist()
+    phosim_stars['sedFilepath'] = stars['SED_NAME'].tolist()
+    phosim_stars['redshift'] = pd.to_numeric(stars['REDSHIFT']).tolist()
+    phosim_stars['raICRS'] = pd.to_numeric(stars['RA']).tolist()
+    phosim_stars['decICRS'] = pd.to_numeric(stars['DEC']).tolist()
+    phosim_stars['internalAv'] = pd.to_numeric(stars['PAR5']).tolist()
+    phosim_stars['internalRv'] = pd.to_numeric(stars['PAR6']).tolist()
+    phosim_stars['galacticAv'] = pd.to_numeric(stars['PAR2']).tolist()
+    phosim_stars['galacticRv'] = pd.to_numeric(stars['PAR3']).tolist()
 
     source_type = 'sersic2d'
     galaxies = df.query("SOURCE_TYPE == '%s'" % source_type)
     phosim_galaxies = pd.DataFrame(np.zeros((len(galaxies), len(columns))),
                                    columns=columns)
-    phosim_galaxies['objectID'] = pd.to_numeric(galaxies['VALUE']).tolist()
+    phosim_galaxies['uniqueId'] = pd.to_numeric(galaxies['VALUE']).tolist()
     phosim_galaxies['galSimType'] = valid_types[source_type]
     phosim_galaxies['magNorm'] = pd.to_numeric(galaxies['MAG_NORM']).tolist()
-    phosim_galaxies['sedName'] = galaxies['SED_NAME'].tolist()
-    phosim_galaxies['redShift'] = pd.to_numeric(galaxies['REDSHIFT']).tolist()
-    phosim_galaxies['ra'] = pd.to_numeric(galaxies['RA']).tolist()
-    phosim_galaxies['dec'] = pd.to_numeric(galaxies['DEC']).tolist()
-    phosim_galaxies['halfLightSemiMajor'] = \
+    phosim_galaxies['sedFilepath'] = galaxies['SED_NAME'].tolist()
+    phosim_galaxies['redshift'] = pd.to_numeric(galaxies['REDSHIFT']).tolist()
+    phosim_galaxies['raICRS'] = pd.to_numeric(galaxies['RA']).tolist()
+    phosim_galaxies['decICRS'] = pd.to_numeric(galaxies['DEC']).tolist()
+    phosim_galaxies['majorAxis'] = \
         sims_utils.radiansFromArcsec(pd.to_numeric(galaxies['PAR1'])).tolist()
-    phosim_galaxies['halfLightSemiMinor'] = \
+    phosim_galaxies['minorAxis'] = \
         sims_utils.radiansFromArcsec(pd.to_numeric(galaxies['PAR2'])).tolist()
-    phosim_galaxies['halfLightRadius'] = phosim_galaxies['halfLightSemiMajor']
+    phosim_galaxies['halfLightRadius'] = phosim_galaxies['majorAxis']
     phosim_galaxies['positionAngle'] = pd.to_numeric(galaxies['PAR3']).tolist()
-    phosim_galaxies['sersicIndex'] = pd.to_numeric(galaxies['PAR4']).tolist()
-    phosim_galaxies['internalAv'] = pd.to_numeric(galaxies['PAR6']).tolist()
-    phosim_galaxies['internalRv'] = pd.to_numeric(galaxies['PAR7']).tolist()
-    phosim_galaxies['galacticAv'] = pd.to_numeric(galaxies['PAR9']).tolist()
-    phosim_galaxies['galacticRv'] = pd.to_numeric(galaxies['PAR10']).tolist()
+    phosim_galaxies['sindex'] = pd.to_numeric(galaxies['PAR4']).tolist()
+    phosim_galaxies['internalAv'] = pd.to_numeric(galaxies['PAR9']).tolist()
+    phosim_galaxies['internalRv'] = pd.to_numeric(galaxies['PAR10']).tolist()
+    phosim_galaxies['galacticAv'] = pd.to_numeric(galaxies['PAR6']).tolist()
+    phosim_galaxies['galacticRv'] = pd.to_numeric(galaxies['PAR7']).tolist()
 
     return pd.concat((phosim_stars, phosim_galaxies), ignore_index=True)
 
@@ -228,7 +229,7 @@ def validate_phosim_object_list(phoSimObjects):
     namedtuple
         A tuple of DataFrames containing the accepted and rejected objects.
     """
-    bad_row_queries = ('(galSimType=="sersic" and halfLightSemiMajor < halfLightSemiMinor)',
+    bad_row_queries = ('(galSimType=="sersic" and majorAxis < minorAxis)',
                        '(magNorm > 50)')
     rejected = dict((query, phoSimObjects.query(query))
                     for query in bad_row_queries)
