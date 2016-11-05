@@ -15,11 +15,12 @@ try:
 except ImportError:
     lsstLog = None
 import lsst.utils as lsstUtils
-from lsst.sims.photUtils import PhotometricParameters
-import lsst.sims.utils as sims_utils
+from lsst.sims.photUtils import LSSTdefaults, PhotometricParameters
+from lsst.sims.utils import ObservationMetaData, radiansFromArcsec
 
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
-           'photometricParameters', 'validate_phosim_object_list',
+           'photometricParameters', 'phosim_obs_metadata',
+           'validate_phosim_object_list',
            'read_config', 'get_config', 'get_logger']
 
 
@@ -199,9 +200,9 @@ def extract_objects(df):
     phosim_galaxies['raICRS'] = pd.to_numeric(galaxies['RA']).tolist()
     phosim_galaxies['decICRS'] = pd.to_numeric(galaxies['DEC']).tolist()
     phosim_galaxies['majorAxis'] = \
-        sims_utils.radiansFromArcsec(pd.to_numeric(galaxies['PAR1'])).tolist()
+        radiansFromArcsec(pd.to_numeric(galaxies['PAR1'])).tolist()
     phosim_galaxies['minorAxis'] = \
-        sims_utils.radiansFromArcsec(pd.to_numeric(galaxies['PAR2'])).tolist()
+        radiansFromArcsec(pd.to_numeric(galaxies['PAR2'])).tolist()
     phosim_galaxies['halfLightRadius'] = phosim_galaxies['majorAxis']
     phosim_galaxies['positionAngle'] = pd.to_numeric(galaxies['PAR3']).tolist()
     phosim_galaxies['sindex'] = pd.to_numeric(galaxies['PAR4']).tolist()
@@ -245,7 +246,7 @@ def validate_phosim_object_list(phoSimObjects):
 
 def photometricParameters(phosim_commands):
     """
-    Factory method to create a PhotometricParameters object based on
+    Factory function to create a PhotometricParameters object based on
     the instance catalog commands.
 
     Parameters
@@ -277,6 +278,36 @@ def photometricParameters(phosim_commands):
                                  darkcurrent=0,
                                  bandpass=phosim_commands['bandpass'])
 
+def phosim_obs_metadata(phosim_commands):
+    """
+    Factory function to create an ObservationMetaData object based
+    on the PhoSim commands extracted from an instance catalog.
+
+    Parameters
+    ----------
+    phosim_commands : dict
+        Dictionary of PhoSim physics commands.
+
+    Returns
+    -------
+    lsst.sims.utils.ObservationMetaData
+
+    Notes
+    -----
+    The seeing from the instance catalog is the value at 500nm at
+    zenith.  Do we need to do a band-specific calculation?
+    """
+    bandpass = phosim_commands['bandpass']
+    obs_md = ObservationMetaData(pointingRA=phosim_commands['rightascension'],
+                                 pointingDec=phosim_commands['declination'],
+                                 mjd=phosim_commands['mjd'],
+                                 rotSkyPos=phosim_commands['rotskypos'],
+                                 bandpassName=bandpass,
+                                 m5=LSSTdefaults().m5(bandpass),
+                                 seeing=phosim_commands['seeing'])
+    # Set the OpsimMetaData attribute with the obshistID info.
+    obs_md.OpsimMetaData = {'obshistID': phosim_commands['obshistid']}
+    return obs_md
 
 class ImSimConfiguration(object):
     """

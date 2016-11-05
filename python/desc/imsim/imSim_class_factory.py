@@ -2,8 +2,7 @@
 Code to generate imSim subclasses of GalSimBase subclasses.
 """
 from __future__ import absolute_import, print_function, division
-import warnings
-import pandas as pd
+import gc
 #from lsst.sims.catalogs.db import CatalogDBObject
 from lsst.sims.GalSimInterface import ExampleCCDNoise, SNRdocumentPSF
 from lsst.sims.utils import pupilCoordsFromRaDec
@@ -24,13 +23,12 @@ def imSim_class_factory(galsim_subclass):
     imSim_class.__imSim_class__ = imSim_class
     return imSim_class
 
-def imSim__init__(self, phosim_objects, obs_metadata=None):
+def imSim__init__(self, phosim_objects, obs_metadata):
     """
     ImSim* subclass constructor.
 
     Parameters
     ----------
-
     phosim_objects : pandas.DataFrame
         A DataFrame containing the instance catalog object data.
     obs_metadata : lsst.sims.utils.ObservationMetaData
@@ -38,8 +36,15 @@ def imSim__init__(self, phosim_objects, obs_metadata=None):
     """
 #    super(self.__imSim_class__, self).__init__(CatalogDBObject(),
 #                                               obs_metadata=obs_metadata)
-    self.phosim_objects = phosim_objects
     self.obs_metadata = obs_metadata
+
+    xPupil, yPupil = pupilCoordsFromRaDec(phosim_objects['raICRS'].values,
+                                          phosim_objects['decICRS'].values,
+                                          obs_metadata=obs_metadata,
+                                          epoch=2000.0)
+    phosim_objects = phosim_objects.assign(x_pupil=xPupil)
+    self.phosim_objects = phosim_objects.assign(y_pupil=yPupil)
+    gc.collect()
 
     self.db_obj = type('DummyDB', (), dict(epoch=2000))
 
@@ -47,8 +52,8 @@ def imSim__init__(self, phosim_objects, obs_metadata=None):
     self.noise_and_background = ExampleCCDNoise(addNoise=True,
                                                 addBackground=True)
 
-    # Add a PSF.  This one Taken from equation 30 of
-    # www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf
+    # Add a PSF.  This one is taken from equation 30 of
+    # www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf .
     #
     # Set seeing from self.obs_metadata.
     self.PSF = \
@@ -57,16 +62,6 @@ def imSim__init__(self, phosim_objects, obs_metadata=None):
     # Add bandpasses to simulate over.
     self.bandpassNames = list(self.obs_metadata.bandpass)
 
-    xPupil, yPupil = pupilCoordsFromRaDec(self.phosim_objects['raICRS'].values,
-                                          self.phosim_objects['decICRS'].values,
-                                          obs_metadata=obs_metadata,
-                                          epoch=2000.0)
-
-    index = self.phosim_objects.index
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore')
-        self.phosim_objects.loc[:, 'x_pupil'] = pd.Series(xPupil, index=index)
-        self.phosim_objects.loc[:, 'y_pupil'] = pd.Series(yPupil, index=index)
 
 def imSim_column_by_name(self, colname):
     """
