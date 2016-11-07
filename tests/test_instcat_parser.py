@@ -42,15 +42,15 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         star = \
             instcat_contents.objects.query("galSimType=='pointSource'").iloc[0]
-        self.assertEqual(star['objectID'], 1046817878020)
-        self.assertAlmostEqual(star['ra'], 31.2400746)
-        self.assertAlmostEqual(star['dec'], -10.09365)
-        self.assertEqual(star['sedName'], 'starSED/phoSimMLT/lte033-4.5-1.0a+0.4.BT-Settl.spec.gz')
+        self.assertEqual(star['uniqueId'], 1046817878020)
+        self.assertAlmostEqual(star['raICRS'], 31.2400746)
+        self.assertAlmostEqual(star['decICRS'], -10.09365)
+        self.assertEqual(star['sedFilepath'], 'starSED/phoSimMLT/lte033-4.5-1.0a+0.4.BT-Settl.spec.gz')
 
         galaxy = instcat_contents.objects.query("galSimType=='sersic'").iloc[0]
-        self.assertEqual(galaxy['objectID'], 34308924793883)
+        self.assertEqual(galaxy['uniqueId'], 34308924793883)
         self.assertAlmostEqual(galaxy['positionAngle'], 2.77863669)
-        self.assertEqual(galaxy['sersicIndex'], 1)
+        self.assertEqual(galaxy['sindex'], 1)
 
         self.assertRaises(desc.imsim.PhosimInstanceCatalogParseError,
                           desc.imsim.parsePhoSimInstanceFile,
@@ -79,8 +79,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                 desc.imsim.validate_phosim_object_list(instcat_contents.objects)
         self.assertEqual(len(rejected), 2)
         self.assertEqual(len(accepted), 19)
-        self.assertEqual(len(rejected.query("halfLightSemiMinor > halfLightSemiMajor")), 1)
-        self.assertEqual(len(rejected.query("magNorm>50")), 1)
+        self.assertEqual(len(rejected.query("minorAxis > majorAxis")), 1)
+        self.assertEqual(len(rejected.query("magNorm > 50")), 1)
 
 if __name__ == '__main__':
     unittest.main()

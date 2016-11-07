@@ -15,11 +15,12 @@ try:
 except ImportError:
     lsstLog = None
 import lsst.utils as lsstUtils
-from lsst.sims.photUtils import PhotometricParameters
-import lsst.sims.utils as sims_utils
+from lsst.sims.photUtils import LSSTdefaults, PhotometricParameters
+from lsst.sims.utils import ObservationMetaData, radiansFromArcsec
 
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
-           'photometricParameters', 'validate_phosim_object_list',
+           'photometricParameters', 'phosim_obs_metadata',
+           'validate_phosim_object_list',
            'read_config', 'get_config', 'get_logger']
 
 
@@ -160,13 +161,13 @@ def extract_objects(df):
     if invalid_types:
         warnings.warn("Instance catalog contains unhandled source types:\n%s\nSkipping these." % '\n'.join(invalid_types))
 
-    columns = ('objectID', 'galSimType',
-               'magNorm', 'sedName', 'redShift',
-               'ra', 'dec',
+    columns = ('uniqueId', 'galSimType',
+               'magNorm', 'sedFilepath', 'redshift',
+               'raICRS', 'decICRS',
                'halfLightRadius',
-               'halfLightSemiMinor',
-               'halfLightSemiMajor',
-               'positionAngle', 'sersicIndex',
+               'minorAxis',
+               'majorAxis',
+               'positionAngle', 'sindex',
                'internalAv', 'internalRv',
                'galacticAv', 'galacticRv')
 
@@ -175,40 +176,40 @@ def extract_objects(df):
     stars = df.query("SOURCE_TYPE=='%s'" % source_type)
     phosim_stars = pd.DataFrame(np.zeros((len(stars), len(columns))),
                                 columns=columns)
-    phosim_stars['objectID'] = pd.to_numeric(stars['VALUE']).tolist()
+    phosim_stars['uniqueId'] = pd.to_numeric(stars['VALUE']).tolist()
     phosim_stars['galSimType'] = valid_types[source_type]
     phosim_stars['magNorm'] = pd.to_numeric(stars['MAG_NORM']).tolist()
-    phosim_stars['sedName'] = stars['SED_NAME'].tolist()
-    phosim_stars['redShift'] = pd.to_numeric(stars['REDSHIFT']).tolist()
-    phosim_stars['ra'] = pd.to_numeric(stars['RA']).tolist()
-    phosim_stars['dec'] = pd.to_numeric(stars['DEC']).tolist()
-    phosim_stars['internalAv'] = pd.to_numeric(stars['PAR2']).tolist()
-    phosim_stars['internalRv'] = pd.to_numeric(stars['PAR3']).tolist()
-    phosim_stars['galacticAv'] = pd.to_numeric(stars['PAR5']).tolist()
-    phosim_stars['galacticRv'] = pd.to_numeric(stars['PAR6']).tolist()
+    phosim_stars['sedFilepath'] = stars['SED_NAME'].tolist()
+    phosim_stars['redshift'] = pd.to_numeric(stars['REDSHIFT']).tolist()
+    phosim_stars['raICRS'] = pd.to_numeric(stars['RA']).tolist()
+    phosim_stars['decICRS'] = pd.to_numeric(stars['DEC']).tolist()
+    phosim_stars['internalAv'] = pd.to_numeric(stars['PAR5']).tolist()
+    phosim_stars['internalRv'] = pd.to_numeric(stars['PAR6']).tolist()
+    phosim_stars['galacticAv'] = pd.to_numeric(stars['PAR2']).tolist()
+    phosim_stars['galacticRv'] = pd.to_numeric(stars['PAR3']).tolist()
 
     source_type = 'sersic2d'
     galaxies = df.query("SOURCE_TYPE == '%s'" % source_type)
     phosim_galaxies = pd.DataFrame(np.zeros((len(galaxies), len(columns))),
                                    columns=columns)
-    phosim_galaxies['objectID'] = pd.to_numeric(galaxies['VALUE']).tolist()
+    phosim_galaxies['uniqueId'] = pd.to_numeric(galaxies['VALUE']).tolist()
     phosim_galaxies['galSimType'] = valid_types[source_type]
     phosim_galaxies['magNorm'] = pd.to_numeric(galaxies['MAG_NORM']).tolist()
-    phosim_galaxies['sedName'] = galaxies['SED_NAME'].tolist()
-    phosim_galaxies['redShift'] = pd.to_numeric(galaxies['REDSHIFT']).tolist()
-    phosim_galaxies['ra'] = pd.to_numeric(galaxies['RA']).tolist()
-    phosim_galaxies['dec'] = pd.to_numeric(galaxies['DEC']).tolist()
-    phosim_galaxies['halfLightSemiMajor'] = \
-        sims_utils.radiansFromArcsec(pd.to_numeric(galaxies['PAR1'])).tolist()
-    phosim_galaxies['halfLightSemiMinor'] = \
-        sims_utils.radiansFromArcsec(pd.to_numeric(galaxies['PAR2'])).tolist()
-    phosim_galaxies['halfLightRadius'] = phosim_galaxies['halfLightSemiMajor']
+    phosim_galaxies['sedFilepath'] = galaxies['SED_NAME'].tolist()
+    phosim_galaxies['redshift'] = pd.to_numeric(galaxies['REDSHIFT']).tolist()
+    phosim_galaxies['raICRS'] = pd.to_numeric(galaxies['RA']).tolist()
+    phosim_galaxies['decICRS'] = pd.to_numeric(galaxies['DEC']).tolist()
+    phosim_galaxies['majorAxis'] = \
+        radiansFromArcsec(pd.to_numeric(galaxies['PAR1'])).tolist()
+    phosim_galaxies['minorAxis'] = \
+        radiansFromArcsec(pd.to_numeric(galaxies['PAR2'])).tolist()
+    phosim_galaxies['halfLightRadius'] = phosim_galaxies['majorAxis']
     phosim_galaxies['positionAngle'] = pd.to_numeric(galaxies['PAR3']).tolist()
-    phosim_galaxies['sersicIndex'] = pd.to_numeric(galaxies['PAR4']).tolist()
-    phosim_galaxies['internalAv'] = pd.to_numeric(galaxies['PAR6']).tolist()
-    phosim_galaxies['internalRv'] = pd.to_numeric(galaxies['PAR7']).tolist()
-    phosim_galaxies['galacticAv'] = pd.to_numeric(galaxies['PAR9']).tolist()
-    phosim_galaxies['galacticRv'] = pd.to_numeric(galaxies['PAR10']).tolist()
+    phosim_galaxies['sindex'] = pd.to_numeric(galaxies['PAR4']).tolist()
+    phosim_galaxies['internalAv'] = pd.to_numeric(galaxies['PAR9']).tolist()
+    phosim_galaxies['internalRv'] = pd.to_numeric(galaxies['PAR10']).tolist()
+    phosim_galaxies['galacticAv'] = pd.to_numeric(galaxies['PAR6']).tolist()
+    phosim_galaxies['galacticRv'] = pd.to_numeric(galaxies['PAR7']).tolist()
 
     return pd.concat((phosim_stars, phosim_galaxies), ignore_index=True)
 
@@ -228,7 +229,7 @@ def validate_phosim_object_list(phoSimObjects):
     namedtuple
         A tuple of DataFrames containing the accepted and rejected objects.
     """
-    bad_row_queries = ('(galSimType=="sersic" and halfLightSemiMajor < halfLightSemiMinor)',
+    bad_row_queries = ('(galSimType=="sersic" and majorAxis < minorAxis)',
                        '(magNorm > 50)')
     rejected = dict((query, phoSimObjects.query(query))
                     for query in bad_row_queries)
@@ -245,7 +246,7 @@ def validate_phosim_object_list(phoSimObjects):
 
 def photometricParameters(phosim_commands):
     """
-    Factory method to create a PhotometricParameters object based on
+    Factory function to create a PhotometricParameters object based on
     the instance catalog commands.
 
     Parameters
@@ -277,6 +278,36 @@ def photometricParameters(phosim_commands):
                                  darkcurrent=0,
                                  bandpass=phosim_commands['bandpass'])
 
+def phosim_obs_metadata(phosim_commands):
+    """
+    Factory function to create an ObservationMetaData object based
+    on the PhoSim commands extracted from an instance catalog.
+
+    Parameters
+    ----------
+    phosim_commands : dict
+        Dictionary of PhoSim physics commands.
+
+    Returns
+    -------
+    lsst.sims.utils.ObservationMetaData
+
+    Notes
+    -----
+    The seeing from the instance catalog is the value at 500nm at
+    zenith.  Do we need to do a band-specific calculation?
+    """
+    bandpass = phosim_commands['bandpass']
+    obs_md = ObservationMetaData(pointingRA=phosim_commands['rightascension'],
+                                 pointingDec=phosim_commands['declination'],
+                                 mjd=phosim_commands['mjd'],
+                                 rotSkyPos=phosim_commands['rotskypos'],
+                                 bandpassName=bandpass,
+                                 m5=LSSTdefaults().m5(bandpass),
+                                 seeing=phosim_commands['seeing'])
+    # Set the OpsimMetaData attribute with the obshistID info.
+    obs_md.OpsimMetaData = {'obshistID': phosim_commands['obshistid']}
+    return obs_md
 
 class ImSimConfiguration(object):
     """
