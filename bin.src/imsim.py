@@ -12,6 +12,7 @@ from lsst.obs.lsstSim import LsstSimMapper
 from lsst.sims.coordUtils import chipNameFromRaDec
 import desc.imsim
 
+
 def main():
     """
     Drive GalSim to simulate the LSST.
@@ -24,7 +25,8 @@ def main():
     parser.add_argument('--outdir', type=str, default='fits',
                         help='Output directory for eimage file')
     parser.add_argument('--sensor', type=str, default=None,
-                        help='Sensor to simulate, e.g., "R:2,2 S:1,1". If None, then simulate all sensors with sources on them')
+                        help='Sensor to simulate, e.g., "R:2,2 S:1,1".' +
+                        'If None, then simulate all sensors with sources on them')
     parser.add_argument('--config_file', type=str, default=None,
                         help="Config file. If None, the default config will be used.")
     parser.add_argument('--log_level', type=str,
