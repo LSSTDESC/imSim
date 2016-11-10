@@ -9,6 +9,7 @@ from lsst.sims.utils import pupilCoordsFromRaDec
 
 __all__ = ['ImSimStars', 'ImSimGalaxies']
 
+
 def imSim_class_factory(galsim_subclass):
     """
     Return a subclass of galsim_subclass that takes a pandas DataFrame
@@ -22,6 +23,7 @@ def imSim_class_factory(galsim_subclass):
                              ('__name__', imSim_class_name)]))
     imSim_class.__imSim_class__ = imSim_class
     return imSim_class
+
 
 def imSim__init__(self, phosim_objects, obs_metadata, catalog_db=None):
     """
