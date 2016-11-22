@@ -174,14 +174,13 @@ def extract_objects(df):
                'halfLightRadius',
                'minorAxis',
                'majorAxis',
-               'positionAngle', 'sindex',
-               'internalAv', 'internalRv',
-               'galacticAv', 'galacticRv')
+               'positionAngle', 'sindex')
 
-    # Process stars and galaxies separately.
+    # Process point sources and galaxies separately.
     source_type = 'point'
     stars = df.query("SOURCE_TYPE=='%s'" % source_type)
     phosim_stars = pd.DataFrame(np.zeros((len(stars), len(columns))),
+                                index=stars.index,
                                 columns=columns)
     phosim_stars['uniqueId'] = pd.to_numeric(stars['VALUE']).tolist()
     phosim_stars['galSimType'] = valid_types[source_type]
@@ -190,14 +189,12 @@ def extract_objects(df):
     phosim_stars['redshift'] = pd.to_numeric(stars['REDSHIFT']).tolist()
     phosim_stars['raICRS'] = pd.to_numeric(stars['RA']).tolist()
     phosim_stars['decICRS'] = pd.to_numeric(stars['DEC']).tolist()
-    phosim_stars['internalAv'] = pd.to_numeric(stars['PAR5']).tolist()
-    phosim_stars['internalRv'] = pd.to_numeric(stars['PAR6']).tolist()
-    phosim_stars['galacticAv'] = pd.to_numeric(stars['PAR2']).tolist()
-    phosim_stars['galacticRv'] = pd.to_numeric(stars['PAR3']).tolist()
+    phosim_stars = extract_extinction(stars, phosim_stars, 1)
 
     source_type = 'sersic2d'
     galaxies = df.query("SOURCE_TYPE == '%s'" % source_type)
     phosim_galaxies = pd.DataFrame(np.zeros((len(galaxies), len(columns))),
+                                   index=galaxies.index,
                                    columns=columns)
     phosim_galaxies['uniqueId'] = pd.to_numeric(galaxies['VALUE']).tolist()
     phosim_galaxies['galSimType'] = valid_types[source_type]
@@ -213,13 +210,84 @@ def extract_objects(df):
     phosim_galaxies['halfLightRadius'] = phosim_galaxies['majorAxis']
     phosim_galaxies['positionAngle'] = pd.to_numeric(galaxies['PAR3']).tolist()
     phosim_galaxies['sindex'] = pd.to_numeric(galaxies['PAR4']).tolist()
-    phosim_galaxies['internalAv'] = pd.to_numeric(galaxies['PAR9']).tolist()
-    phosim_galaxies['internalRv'] = pd.to_numeric(galaxies['PAR10']).tolist()
-    phosim_galaxies['galacticAv'] = pd.to_numeric(galaxies['PAR6']).tolist()
-    phosim_galaxies['galacticRv'] = pd.to_numeric(galaxies['PAR7']).tolist()
+    phosim_galaxies = extract_extinction(galaxies, phosim_galaxies, 5)
 
     return pd.concat((phosim_stars, phosim_galaxies), ignore_index=True)
 
+def extract_extinction(raw_df, object_df, ext_par_start):
+    """
+    Extract the extinction parameters for the 4 possible cases as
+    described in
+    https://bitbucket.org/phosim/phosim_release/wiki/Instance%20Catalog
+
+    Parameters
+    ----------
+    raw_df : pandas.DataFrame
+        The data frame containing the raw column data for the object
+        entries in the instance catalog.
+    object_df : pandas.DataFrame
+        The data frame containing the processed column data, but lacking
+        the extinction parameters.
+    ext_par_start : int
+        The starting parameter number such that the column labeled
+        "PAR%i" % ext_par_start is the column in the raw_df
+        corresponding to the first extinction parameter.  For point
+        sources, ext_par_start=1 (where PAR1 would be 'CCM' or
+        'none').
+
+    Returns
+    -------
+    pandas.DataFrame
+        The data frame resulting from adding the extinction parameters to
+        the object_df data frame.
+    """
+    dfs = []
+
+    selection = raw_df.query("PAR%i=='CCM' and PAR%i=='CCM'"
+                             % (ext_par_start, ext_par_start+3))
+    if len(selection) > 0:
+        iAv = 'PAR%i' % (ext_par_start+1)
+        iRv = 'PAR%i' % (ext_par_start+2)
+        gAv = 'PAR%i' % (ext_par_start+4)
+        gRv = 'PAR%i' % (ext_par_start+5)
+        assignments = dict(internalAv=pd.to_numeric(selection[iAv]).tolist(),
+                           internalRv=pd.to_numeric(selection[iRv]).tolist(),
+                           galacticAv=pd.to_numeric(selection[gAv]).tolist(),
+                           galacticRv=pd.to_numeric(selection[gRv]).tolist())
+        dfs.append(object_df.loc[selection.index].assign(**assignments))
+
+    selection = raw_df.query("PAR%i=='CCM' and PAR%i=='none'"
+                             % (ext_par_start, ext_par_start+3))
+    if len(selection) > 0:
+        iAv = 'PAR%i' % (ext_par_start+1)
+        iRv = 'PAR%i' % (ext_par_start+2)
+        assignments = dict(internalAv=pd.to_numeric(selection[iAv]).tolist(),
+                           internalRv=pd.to_numeric(selection[iRv]).tolist(),
+                           galacticAv=0,
+                           galacticRv=0)
+        dfs.append(object_df.loc[selection.index].assign(**assignments))
+
+    selection = raw_df.query("PAR%i=='none' and PAR%i=='CCM'"
+                             % (ext_par_start, ext_par_start+1))
+    if len(selection) > 0:
+        gAv = 'PAR%i' % (ext_par_start+2)
+        gRv = 'PAR%i' % (ext_par_start+3)
+        assignments = dict(internalAv=0,
+                           internalRv=0,
+                           galacticAv=pd.to_numeric(selection[gAv]).tolist(),
+                           galacticRv=pd.to_numeric(selection[gRv]).tolist())
+        dfs.append(object_df.loc[selection.index].assign(**assignments))
+
+    selection = raw_df.query("PAR%i=='none' and PAR%i=='none'"
+                             % (ext_par_start, ext_par_start+1))
+    if len(selection) > 0:
+        assignments = dict(internalAv=0,
+                           internalRv=0,
+                           galacticAv=0,
+                           galacticRv=0)
+        dfs.append(object_df.loc[selection.index].assign(**assignments))
+
+    return pd.concat(dfs)
 
 def validate_phosim_object_list(phoSimObjects):
     """
@@ -237,15 +305,19 @@ def validate_phosim_object_list(phoSimObjects):
         A tuple of DataFrames containing the accepted and rejected objects.
     """
     bad_row_queries = ('(galSimType=="sersic" and majorAxis < minorAxis)',
-                       '(magNorm > 50)')
+                       '(magNorm > 50)',
+                       '(galacticAv==0 and galacticRv==0)')
+
     rejected = dict((query, phoSimObjects.query(query))
                     for query in bad_row_queries)
-    all_rejected = pd.concat(rejected.values(), ignore_index=True)
+    all_rejected = \
+        pd.concat(rejected.values(), ignore_index=True).drop_duplicates()
     accepted = phoSimObjects.query('not (' + ' or '.join(bad_row_queries) + ')')
-    message = "Omitted %i suspicious objects from" % len(all_rejected)
+    message = "\nOmitted %i suspicious objects from" % len(all_rejected)
     message += " the instance catalog satisfying:\n"
     for query, objs in rejected.items():
         message += "%i  %s\n" % (len(objs), query)
+    message += "Some rows may satisfy more than one condition.\n"
     warnings.warn(message)
     checked_objects = namedtuple('checked_objects', ('accepted', 'rejected'))
     return checked_objects(accepted, all_rejected)
