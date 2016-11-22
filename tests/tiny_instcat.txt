@@ -1,3 +1,4 @@
+#comment
 rightascension 31.1133844
 declination -10.0970060
 mjd 59797.2854090

@@ -22,14 +22,18 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
     def setUp(self):
         self.command_file = os.path.join(os.environ['IMSIM_DIR'],
                                          'tests', 'tiny_instcat.txt')
+        self.extra_commands = 'instcat_extra.txt'
+        with open(self.extra_commands, 'w') as output:
+            for line in open(self.command_file).readlines()[:20]:
+                output.write(line)
+            output.write('extra_command 1\n')
 
     def tearDown(self):
-        pass
+        os.remove(self.extra_commands)
 
     def test_parsePhoSimInstanceFile(self):
         "Test code for parsePhoSimInstanceFile."
-        instcat_contents = \
-            desc.imsim.parsePhoSimInstanceFile(self.command_file)
+        instcat_contents = desc.imsim.parsePhoSimInstanceFile(self.command_file)
         # Test a handful of values directly:
         self.assertEqual(instcat_contents.commands['obshistid'], 161899)
         self.assertEqual(instcat_contents.commands['filter'], 2)
@@ -56,6 +60,14 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                           desc.imsim.parsePhoSimInstanceFile,
                           self.command_file, 10)
 
+    def test_parsePhoSimInstanceFile_warning(self):
+        "Test the warnings emitted by the instance catalog parser."
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            self.assertRaises(UserWarning,
+                              desc.imsim.parsePhoSimInstanceFile,
+                              self.extra_commands)
+
     def test_photometricParameters(self):
         "Test the photometricParameters function."
         instcat_contents = \
@@ -71,8 +83,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
     def test_validate_phosim_object_list(self):
         "Test the validation of the rows of the phoSimObjects DataFrame."
-        instcat_contents = \
-            desc.imsim.parsePhoSimInstanceFile(self.command_file)
+        instcat_contents = desc.imsim.parsePhoSimInstanceFile(self.command_file)
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', 'Omitted', UserWarning)
             accepted, rejected = \

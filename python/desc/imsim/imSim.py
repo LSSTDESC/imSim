@@ -30,7 +30,7 @@ class PhosimInstanceCatalogParseError(RuntimeError):
 PhoSimInstanceCatalogContents = namedtuple('PhoSimInstanceCatalogContents',
                                            ('commands', 'objects'))
 
-_expected_commands = set("""rightascension
+_required_commands = set("""rightascension
 declination
 mjd
 altitude
@@ -89,7 +89,7 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
                    'PAR5', 'PAR6', 'PAR7', 'PAR8', 'PAR9', 'PAR10']
 
     dataFrame = pd.read_csv(fileName, names=columnNames, nrows=numRows,
-                            delim_whitespace=True)
+                            delim_whitespace=True, comment='#')
 
     # Any missing items from the end of the lines etc were turned into NaNs by
     # Pandas to represent that they were missing.  This causes problems later
@@ -101,11 +101,18 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     phoSimHeaderCards = dataFrame.query("STRING != 'object'")
     phoSimSources = dataFrame.query("STRING == 'object'")
 
-    # Check that the commands match the expected set.
+    # Check that the required commands are present in the instance catalog.
     command_set = set(phoSimHeaderCards['STRING'])
-    if command_set != _expected_commands:
-        message = "Commands from the instance catalog %s do match the expected set: " % fileName + str(command_set - _expected_commands) + str(_expected_commands - command_set)
+    missing_commands = _required_commands - command_set
+    if missing_commands:
+        message = "\nRequired commands that are missing from the instance catalog %s:\n   " % fileName + "\n   ".join(missing_commands)
         raise PhosimInstanceCatalogParseError(message)
+
+    # Report on commands that are not part of the required set.
+    extra_commands = command_set - _required_commands
+    if extra_commands:
+        message = "\nExtra commands in the instance catalog %s that are not in the required set:\n   " % fileName + "\n   ".join(extra_commands)
+        warnings.warn(message)
 
     # Turn the list of commands into a dictionary.
     commands = extract_commands(phoSimHeaderCards)
