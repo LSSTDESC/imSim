@@ -7,6 +7,7 @@ import sys
 import warnings
 from collections import namedtuple
 import logging
+import gc
 import ConfigParser
 import numpy as np
 import pandas as pd
@@ -287,7 +288,9 @@ def extract_extinction(raw_df, object_df, ext_par_start):
                            galacticRv=0)
         dfs.append(object_df.loc[selection.index].assign(**assignments))
 
-    return pd.concat(dfs)
+    result = pd.concat(dfs)
+    gc.collect()
+    return result
 
 def validate_phosim_object_list(phoSimObjects):
     """
