@@ -21,9 +21,9 @@ class ImSimClassFactoryTestCase(unittest.TestCase):
         commands, objects = desc.imsim.parsePhoSimInstanceFile(instcat_file)
         obs_md = desc.imsim.phosim_obs_metadata(commands)
         stars = \
-            desc.imsim.ImSimStars(objects.query("galSimType=='pointSource'"),
+            desc.imsim.ImSimStars(objects.query("uniqueId==1046817878020"),
                                   obs_md)
-        self.assertEqual(stars.column_by_name('uniqueId')[0], 1046817878020)
+        self.assertEqual(stars.column_by_name('galSimType')[0], 'pointSource')
         self.assertAlmostEqual(stars.column_by_name('x_pupil')[0], -0.0008283)
         self.assertAlmostEqual(stars.column_by_name('y_pupil')[0], -0.00201296)
 

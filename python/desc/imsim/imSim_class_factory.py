@@ -46,8 +46,7 @@ def imSim__init__(self, phosim_objects, obs_metadata, catalog_db=None):
                                           phosim_objects['decICRS'].values,
                                           obs_metadata=obs_metadata,
                                           epoch=2000.0)
-    phosim_objects = phosim_objects.assign(x_pupil=xPupil)
-    self.phosim_objects = phosim_objects.assign(y_pupil=yPupil)
+    self.phosim_objects = phosim_objects.assign(x_pupil=xPupil, y_pupil=yPupil)
     gc.collect()
 
     self.db_obj = type('DummyDB', (), dict(epoch=2000))
