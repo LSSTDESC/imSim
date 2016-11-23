@@ -190,7 +190,8 @@ def extract_objects(df):
     phosim_stars['redshift'] = pd.to_numeric(stars['REDSHIFT']).tolist()
     phosim_stars['raICRS'] = pd.to_numeric(stars['RA']).tolist()
     phosim_stars['decICRS'] = pd.to_numeric(stars['DEC']).tolist()
-    phosim_stars = extract_extinction(stars, phosim_stars, 1)
+    if len(phosim_stars) > 0:
+        phosim_stars = extract_extinction(stars, phosim_stars, 1)
 
     source_type = 'sersic2d'
     galaxies = df.query("SOURCE_TYPE == '%s'" % source_type)
@@ -211,7 +212,8 @@ def extract_objects(df):
     phosim_galaxies['halfLightRadius'] = phosim_galaxies['majorAxis']
     phosim_galaxies['positionAngle'] = pd.to_numeric(galaxies['PAR3']).tolist()
     phosim_galaxies['sindex'] = pd.to_numeric(galaxies['PAR4']).tolist()
-    phosim_galaxies = extract_extinction(galaxies, phosim_galaxies, 5)
+    if len(phosim_galaxies) > 0:
+        phosim_galaxies = extract_extinction(galaxies, phosim_galaxies, 5)
 
     return pd.concat((phosim_stars, phosim_galaxies), ignore_index=True)
 
@@ -316,12 +318,13 @@ def validate_phosim_object_list(phoSimObjects):
     all_rejected = \
         pd.concat(rejected.values(), ignore_index=True).drop_duplicates()
     accepted = phoSimObjects.query('not (' + ' or '.join(bad_row_queries) + ')')
-    message = "\nOmitted %i suspicious objects from" % len(all_rejected)
-    message += " the instance catalog satisfying:\n"
-    for query, objs in rejected.items():
-        message += "%i  %s\n" % (len(objs), query)
-    message += "Some rows may satisfy more than one condition.\n"
-    warnings.warn(message)
+    if len(all_rejected) != 0:
+        message = "\nOmitted %i suspicious objects from" % len(all_rejected)
+        message += " the instance catalog satisfying:\n"
+        for query, objs in rejected.items():
+            message += "%i  %s\n" % (len(objs), query)
+        message += "Some rows may satisfy more than one condition.\n"
+        warnings.warn(message)
     checked_objects = namedtuple('checked_objects', ('accepted', 'rejected'))
     return checked_objects(accepted, all_rejected)
 
