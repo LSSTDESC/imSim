@@ -3,9 +3,12 @@ Code to generate imSim subclasses of GalSimBase subclasses.
 """
 from __future__ import absolute_import, print_function, division
 import gc
-from lsst.sims.GalSimInterface import GalSimStars, GalSimGalaxies, \
-    ExampleCCDNoise, SNRdocumentPSF
+
 from lsst.sims.utils import pupilCoordsFromRaDec
+
+from lsst.sims.GalSimInterface import GalSimStars, GalSimGalaxies
+from lsst.sims.GalSimInterface import ExampleCCDNoise, SNRdocumentPSF
+from desc.imsim.skyModel import ESOSkyModel
 
 __all__ = ['ImSimStars', 'ImSimGalaxies']
 
@@ -54,8 +57,13 @@ def imSim__init__(self, phosim_objects, obs_metadata, catalog_db=None):
     self.db_obj = type('DummyDB', (), dict(epoch=2000))
 
     # Add noise and sky background
-    self.noise_and_background = ExampleCCDNoise(addNoise=True,
-                                                addBackground=True)
+#    self.noise_and_background = ExampleCCDNoise(addNoise=True,
+#                                                addBackground=True)
+
+    # We need to know more than the basic info for Peter's sky model.
+    # Pass obs_metadata, chip etc...
+    self.noise_and_background = ESOSkyModel(obs_metadata, addNoise=True,
+                                            addBackground=True)
 
     # Add a PSF.  This one is taken from equation 30 of
     # www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf .
