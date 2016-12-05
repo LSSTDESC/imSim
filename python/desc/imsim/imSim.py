@@ -11,10 +11,7 @@ import gc
 import ConfigParser
 import numpy as np
 import pandas as pd
-try:
-    import lsst.log as lsstLog
-except ImportError:
-    lsstLog = None
+import lsst.log as lsstLog
 import lsst.utils as lsstUtils
 from lsst.sims.photUtils import LSSTdefaults, PhotometricParameters
 from lsst.sims.utils import ObservationMetaData, radiansFromArcsec
@@ -498,10 +495,9 @@ def get_logger(log_level):
     logger.setLevel(eval('logging.' + log_level))
 
     # Set similar logging level for Stack code.
-    if lsstLog is not None:
-        if log_level == "CRITICAL":
-            log_level = "FATAL"
-        lsstLog.setLevel(lsstLog.getDefaultLoggerName(),
-                         eval('lsstLog.%s'% log_level))
+    if log_level == "CRITICAL":
+        log_level = "FATAL"
+    lsstLog.setLevel(lsstLog.getDefaultLoggerName(),
+                     eval('lsstLog.%s'% log_level))
 
     return logger
