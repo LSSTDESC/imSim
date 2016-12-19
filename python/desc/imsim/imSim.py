@@ -119,6 +119,7 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     phoSimObjectList = extract_objects(phoSimSources)
     return PhoSimInstanceCatalogContents(commands, phoSimObjectList)
 
+
 def extract_commands(df):
     """
     Extract the phosim commands and repackage as a simple dictionary,
@@ -143,6 +144,7 @@ def extract_commands(df):
     # Add bandpass for convenience
     commands['bandpass'] = 'ugrizy'[commands['filter']]
     return commands
+
 
 def extract_objects(df):
     """
@@ -213,6 +215,7 @@ def extract_objects(df):
         phosim_galaxies = extract_extinction(galaxies, phosim_galaxies, 5)
 
     return pd.concat((phosim_stars, phosim_galaxies), ignore_index=True)
+
 
 def extract_extinction(raw_df, object_df, ext_par_start):
     """
@@ -291,6 +294,7 @@ def extract_extinction(raw_df, object_df, ext_par_start):
     gc.collect()
     return result
 
+
 def validate_phosim_object_list(phoSimObjects):
     """
     Remove rows with column values that are known to cause problems with
@@ -360,6 +364,7 @@ def photometricParameters(phosim_commands):
                                  darkcurrent=0,
                                  bandpass=phosim_commands['bandpass'])
 
+
 def phosim_obs_metadata(phosim_commands):
     """
     Factory function to create an ObservationMetaData object based
@@ -390,6 +395,7 @@ def phosim_obs_metadata(phosim_commands):
     # Set the OpsimMetaData attribute with the obshistID info.
     obs_md.OpsimMetaData = {'obshistID': phosim_commands['obshistid']}
     return obs_md
+
 
 class ImSimConfiguration(object):
     """
@@ -478,6 +484,7 @@ def read_config(config_file=None):
             my_config.set_from_config(key, value)
     return my_config
 
+
 def get_logger(log_level):
     """
     Set up standard logging module and set lsst.log to the same log
@@ -498,6 +505,6 @@ def get_logger(log_level):
     if log_level == "CRITICAL":
         log_level = "FATAL"
     lsstLog.setLevel(lsstLog.getDefaultLoggerName(),
-                     eval('lsstLog.%s'% log_level))
+                     eval('lsstLog.%s' % log_level))
 
     return logger
