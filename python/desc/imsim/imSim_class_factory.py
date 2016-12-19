@@ -7,7 +7,7 @@ import gc
 from lsst.sims.utils import pupilCoordsFromRaDec
 
 from lsst.sims.GalSimInterface import GalSimStars, GalSimGalaxies
-from lsst.sims.GalSimInterface import ExampleCCDNoise, SNRdocumentPSF
+from lsst.sims.GalSimInterface import SNRdocumentPSF
 from desc.imsim.skyModel import ESOSkyModel
 
 __all__ = ['ImSimStars', 'ImSimGalaxies']
@@ -57,11 +57,14 @@ def imSim__init__(self, phosim_objects, obs_metadata, catalog_db=None):
     self.db_obj = type('DummyDB', (), dict(epoch=2000))
 
     # Add noise and sky background
-#    self.noise_and_background = ExampleCCDNoise(addNoise=True,
-#                                                addBackground=True)
-
-    # We need to know more than the basic info for Peter's sky model.
-    # Pass obs_metadata, chip etc...
+    # The simple code using the default lsst-GalSim interface would be:
+    #
+    #    self.noise_and_background = ExampleCCDNoise(addNoise=True,
+    #                                                addBackground=True)
+    #
+    # But, we need a more realistic sky model and we need to pass more than
+    # this basic info to use Peter Y's ESO sky model.
+    # We must pass obs_metadata, chip information etc...
     self.noise_and_background = ESOSkyModel(obs_metadata, addNoise=True,
                                             addBackground=True)
 
