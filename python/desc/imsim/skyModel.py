@@ -1,6 +1,9 @@
 '''
 Classes to represent realistic sky models.
+Note that this extends the default classes located in
+sims_GalSimInterface/python/lsst/sims/GalSimInterface/galSimNoiseAndBackground.py
 '''
+
 import numpy as np
 import astropy.units as u
 
@@ -9,11 +12,8 @@ import lsst.sims.skybrightness as skybrightness
 import galsim
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
 
-# from lsst.sims.photUtils import PhotometricParameters, LSSTdefaults
 
-
-# Code snippet from D. Kirkby.  Note the use of astropy units.  Should we remove
-# these or start doing this everywhere?
+# Code snippet from D. Kirkby.  Note the use of astropy units.
 def skyCountsPerSec(surface_brightness=21, filter_band='r',
                     effective_area=33.212*u.m**2, pixel_size=0.2*u.arcsec):
     # Lookup the zero point corresponding to 24 mag/arcsec**2
@@ -25,6 +25,8 @@ def skyCountsPerSec(surface_brightness=21, filter_band='r',
     return s0 * dB.to(1 / u.arcsec ** 2) * pixel_size ** 2 * effective_area
 
 
+# Here we are defining our own class derived from NoiseAndBackgroundBase for
+# use instead of ExampleCCDNoise
 class ESOSkyModel(NoiseAndBackgroundBase):
     """
     This class wraps the GalSim class CCDNoise.  This derived class returns
@@ -93,8 +95,8 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         skyCounts = skyCountsPerSec(surface_brightness=skyMagnitude,
                                     filter_band=bandPassName)*exposureTime
 
-        print "Magnitude:", skyMagnitude
-        print "Brightness:", skyMagnitude, skyCounts
+        # print "Magnitude:", skyMagnitude
+        # print "Brightness:", skyMagnitude, skyCounts
 
         image = image.copy()
 
