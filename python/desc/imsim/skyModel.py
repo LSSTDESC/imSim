@@ -80,7 +80,6 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         """
 
         # calculate the sky background to be added to each pixel
-
         skyModel = skybrightness.SkyModel(mags=True)
         ra = np.array([self.obs_metadata.pointingRA])
         dec = np.array([self.obs_metadata.pointingDec])
@@ -89,11 +88,6 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
         bandPassName = self.obs_metadata.bandpass
         skyMagnitude = skyModel.returnMags()[bandPassName]
-
-        # skyCounts = calcSkyCountsPerPixelForM5(skyMagnitude, bandpass,
-        #                                        FWHMeff=FWHMeff,
-        #                                        photParams=photParams)
-
         exposureTime = photParams.exptime*u.s
 
         skyCounts = skyCountsPerSec(surface_brightness=skyMagnitude,
