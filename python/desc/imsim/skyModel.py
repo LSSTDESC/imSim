@@ -4,6 +4,8 @@ Note that this extends the default classes located in
 sims_GalSimInterface/python/lsst/sims/GalSimInterface/galSimNoiseAndBackground.py
 '''
 
+from __future__ import absolute_import, division
+
 import numpy as np
 import astropy.units as u
 
