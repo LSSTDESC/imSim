@@ -5,7 +5,7 @@ from __future__ import absolute_import, print_function, division
 import os
 import sys
 import warnings
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 import logging
 import gc
 import ConfigParser
@@ -355,7 +355,7 @@ def photometricParameters(phosim_commands):
     config = get_config()
     nsnap = phosim_commands['nsnap']
     vistime = phosim_commands['vistime']
-    readout_time = config['readout_time']
+    readout_time = config['electronics_readout']['readout_time']
     exptime = (vistime - (nsnap-1)*readout_time)/float(nsnap)
     return PhotometricParameters(exptime=exptime,
                                  nexp=nsnap,
@@ -402,18 +402,21 @@ class ImSimConfiguration(object):
     Configuration parameters for the simulation.  All parameters are
     set in a class-level dictionary to ensure that they are the same
     across all class instances.
+
+    Individual parameter access is via section name:
+
+    >>> config = get_config()
+    >>> config['electronics_readout']['readout_time']
+    3.
     """
-    imsim_parameters = dict()
+    imsim_sections = defaultdict(dict)
 
-    def __getitem__(self, key):
-        return self.imsim_parameters[key]
+    def __getitem__(self, section_name):
+        return self.imsim_sections[section_name]
 
-    def __setitem__(self, key, value):
-        self.imsim_parameters[key] = value
-
-    def set_from_config(self, key, value):
+    def set_from_config(self, section_name, key, value):
         "Set the parameter value with the cast from a string applied."
-        self[key] = self.cast(value)
+        self[section_name][key] = self.cast(value)
 
     @staticmethod
     def cast(value):
@@ -468,20 +471,20 @@ def read_config(config_file=None):
 
     Returns
     -------
-    ImSimConfiguration object
+    dict ImSimConfiguration object
         An instance of ImSimConfiguration filled with the parameters from
         config_file.
     """
     my_config = ImSimConfiguration()
     cp = ConfigParser.SafeConfigParser()
+    cp.optionxform = str
     if config_file is None:
         config_file = os.path.join(lsstUtils.getPackageDir('imsim'),
                                    'data', 'default_imsim_configs')
     cp.read(config_file)
-    # Stuff all of the sections into the same dictionary for now.
     for section in cp.sections():
         for key, value in cp.items(section):
-            my_config.set_from_config(key, value)
+            my_config.set_from_config(section, key, value)
     return my_config
 
 

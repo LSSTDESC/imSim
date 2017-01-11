@@ -14,16 +14,19 @@ import lsst.sims.skybrightness as skybrightness
 import galsim
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
 
+from .imSim import get_config
+
+__all__ = ['skyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
 
 # Code snippet from D. Kirkby.  Note the use of astropy units.
 def skyCountsPerSec(surface_brightness=21, filter_band='r',
                     effective_area=33.212*u.m**2, pixel_size=0.2*u.arcsec):
+    pars = get_skyModel_params()
     # Lookup the zero point corresponding to 24 mag/arcsec**2
-    B0 = 24.
-    s0 = (dict(u=0.732, g=2.214, r=1.681, i=1.249, z=0.862, y=0.452)[filter_band] *
-          u.electron / u.s / u.m ** 2)
+    s0 = pars[filter_band] * u.electron / u.s / u.m ** 2
+
     # Calculate the rate in detected electrons / second
-    dB = (surface_brightness - B0) * u.mag(1 / u.arcsec ** 2)
+    dB = (surface_brightness - pars['B0']) * u.mag(1 / u.arcsec ** 2)
     return s0 * dB.to(1 / u.arcsec ** 2) * pixel_size ** 2 * effective_area
 
 
@@ -134,3 +137,15 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
         return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel,
                                gain=photParams.gain, read_noise=photParams.readnoise)
+
+
+def get_skyModel_params():
+    """
+    Get the zero points and reference magnitude for the sky model.
+
+    Returns
+    -------
+    dict : the skyModel zero points and reference magnitudes.
+    """
+    config = get_config()
+    return config['skyModel_params']

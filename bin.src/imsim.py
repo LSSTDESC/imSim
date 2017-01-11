@@ -101,7 +101,7 @@ def main():
     outdir = arguments.outdir
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
-    prefix = config['eimage_prefix']
+    prefix = config['persistence']['eimage_prefix']
     phoSimGalaxyCatalog.write_images(nameRoot=os.path.join(outdir, prefix) +
                                      str(commands['obshistid']))
 
