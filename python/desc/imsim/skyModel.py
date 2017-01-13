@@ -20,7 +20,7 @@ __all__ = ['skyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
 
 # Code snippet from D. Kirkby.  Note the use of astropy units.
 def skyCountsPerSec(surface_brightness=21, filter_band='r',
-                    effective_area=33.212*u.m**2, pixel_size=0.2*u.arcsec):
+                    effective_area=32.4*u.m**2, pixel_size=0.2*u.arcsec):
     pars = get_skyModel_params()
     # Lookup the zero point corresponding to 24 mag/arcsec**2
     s0 = pars[filter_band] * u.electron / u.s / u.m ** 2
