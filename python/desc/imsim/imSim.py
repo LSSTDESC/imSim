@@ -209,7 +209,8 @@ def extract_objects(df):
     phosim_galaxies['minorAxis'] = \
         radiansFromArcsec(pd.to_numeric(galaxies['PAR2'])).tolist()
     phosim_galaxies['halfLightRadius'] = phosim_galaxies['majorAxis']
-    phosim_galaxies['positionAngle'] = pd.to_numeric(galaxies['PAR3']).tolist()
+    phosim_galaxies['positionAngle'] = \
+        (np.pi/180.*pd.to_numeric(galaxies['PAR3'])).tolist()
     phosim_galaxies['sindex'] = pd.to_numeric(galaxies['PAR4']).tolist()
     if len(phosim_galaxies) > 0:
         phosim_galaxies = extract_extinction(galaxies, phosim_galaxies, 5)

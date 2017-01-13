@@ -5,6 +5,7 @@ from __future__ import absolute_import, print_function
 import os
 import unittest
 import warnings
+import numpy as np
 import desc.imsim
 
 class InstanceCatalogParserTestCase(unittest.TestCase):
@@ -52,7 +53,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         galaxy = instcat_contents.objects.query("uniqueId==34308924793883").iloc[0]
         self.assertEqual(galaxy['galSimType'], 'sersic')
-        self.assertAlmostEqual(galaxy['positionAngle'], 2.77863669)
+        self.assertAlmostEqual(galaxy['positionAngle'], 2.77863669*np.pi/180.)
         self.assertEqual(galaxy['sindex'], 1)
 
         self.assertRaises(desc.imsim.PhosimInstanceCatalogParseError,
