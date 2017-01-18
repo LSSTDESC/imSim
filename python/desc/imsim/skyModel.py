@@ -18,6 +18,7 @@ from .imSim import get_config
 
 __all__ = ['skyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
 
+
 # Code snippet from D. Kirkby.  Note the use of astropy units.
 def skyCountsPerSec(surface_brightness=21, filter_band='r',
                     effective_area=32.4*u.m**2, pixel_size=0.2*u.arcsec):
