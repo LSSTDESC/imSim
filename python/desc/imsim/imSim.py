@@ -174,7 +174,9 @@ def extract_objects(df):
                'halfLightRadius',
                'minorAxis',
                'majorAxis',
-               'positionAngle', 'sindex')
+               'positionAngle', 'sindex',
+               'properMotionRa', 'properMotionDec',
+               'parallax', 'radialVelocity')
 
     # Process point sources and galaxies separately.
     source_type = 'point'
@@ -189,6 +191,10 @@ def extract_objects(df):
     phosim_stars['redshift'] = pd.to_numeric(stars['REDSHIFT']).tolist()
     phosim_stars['raICRS'] = pd.to_numeric(stars['RA']).tolist()
     phosim_stars['decICRS'] = pd.to_numeric(stars['DEC']).tolist()
+    phosim_stars['properMotionRa'] = pd.to_numeric(stars['PAR5']).tolist()
+    phosim_stars['properMotionDec'] = pd.to_numeric(stars['PAR6']).tolist()
+    phosim_stars['parallax'] = pd.to_numeric(stars['PAR7']).tolist()
+    phosim_stars['radialVelocity'] = pd.to_numeric(stars['PAR8']).tolist()
     if len(phosim_stars) > 0:
         phosim_stars = extract_extinction(stars, phosim_stars, 1)
 
