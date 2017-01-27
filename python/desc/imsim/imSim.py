@@ -218,6 +218,8 @@ def extract_objects(df):
     phosim_galaxies['positionAngle'] = \
         (np.pi/180.*pd.to_numeric(galaxies['PAR3'])).tolist()
     phosim_galaxies['sindex'] = pd.to_numeric(galaxies['PAR4']).tolist()
+    phosim_galaxies = phosim_galaxies.assign(raICRS=phosim_galaxies.raJ2000,
+                                             decICRS=phosim_galaxies.decJ2000)
     if len(phosim_galaxies) > 0:
         phosim_galaxies = extract_extinction(galaxies, phosim_galaxies, 5)
 
