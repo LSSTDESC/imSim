@@ -47,8 +47,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         star = instcat_contents.objects.query("uniqueId==1046817878020").iloc[0]
         self.assertEqual(star['galSimType'], 'pointSource')
-        self.assertAlmostEqual(star['raICRS'], 31.2400746)
-        self.assertAlmostEqual(star['decICRS'], -10.09365)
+        self.assertAlmostEqual(star['raJ2000'], 31.2400746)
+        self.assertAlmostEqual(star['decJ2000'], -10.09365)
         self.assertEqual(star['sedFilepath'], 'starSED/phoSimMLT/lte033-4.5-1.0a+0.4.BT-Settl.spec.gz')
 
         galaxy = instcat_contents.objects.query("uniqueId==34308924793883").iloc[0]
