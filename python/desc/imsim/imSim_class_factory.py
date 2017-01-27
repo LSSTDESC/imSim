@@ -47,10 +47,15 @@ def imSim__init__(self, phosim_objects, obs_metadata, catalog_db=None):
     else:
         self.obs_metadata = obs_metadata
 
-    xPupil, yPupil = pupilCoordsFromRaDec(phosim_objects['raICRS'].values,
-                                          phosim_objects['decICRS'].values,
+    xPupil, yPupil = pupilCoordsFromRaDec(phosim_objects['raJ2000'].values,
+                                          phosim_objects['decJ2000'].values,
+                                          pm_ra = phosim_objects['properMotionRa'].values,
+                                          pm_dec = phosim_objects['properMotionDec'].values,
+                                          parallax = phosim_objects['parallax'].values,
+                                          v_rad = phosim_objects['radialVelocity'].values,
                                           obs_metadata=obs_metadata,
                                           epoch=2000.0)
+
     self.phosim_objects = phosim_objects.assign(x_pupil=xPupil, y_pupil=yPupil)
     gc.collect()
 
