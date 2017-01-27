@@ -170,7 +170,7 @@ def extract_objects(df):
 
     columns = ('uniqueId', 'galSimType',
                'magNorm', 'sedFilepath', 'redshift',
-               'raICRS', 'decICRS',
+               'raJ2000', 'decJ2000',
                'halfLightRadius',
                'minorAxis',
                'majorAxis',
@@ -189,8 +189,8 @@ def extract_objects(df):
     phosim_stars['magNorm'] = pd.to_numeric(stars['MAG_NORM']).tolist()
     phosim_stars['sedFilepath'] = stars['SED_NAME'].tolist()
     phosim_stars['redshift'] = pd.to_numeric(stars['REDSHIFT']).tolist()
-    phosim_stars['raICRS'] = pd.to_numeric(stars['RA']).tolist()
-    phosim_stars['decICRS'] = pd.to_numeric(stars['DEC']).tolist()
+    phosim_stars['raJ2000'] = pd.to_numeric(stars['RA']).tolist()
+    phosim_stars['decJ2000'] = pd.to_numeric(stars['DEC']).tolist()
     phosim_stars['properMotionRa'] = pd.to_numeric(stars['PAR5']).tolist()
     phosim_stars['properMotionDec'] = pd.to_numeric(stars['PAR6']).tolist()
     phosim_stars['parallax'] = pd.to_numeric(stars['PAR7']).tolist()
@@ -208,8 +208,8 @@ def extract_objects(df):
     phosim_galaxies['magNorm'] = pd.to_numeric(galaxies['MAG_NORM']).tolist()
     phosim_galaxies['sedFilepath'] = galaxies['SED_NAME'].tolist()
     phosim_galaxies['redshift'] = pd.to_numeric(galaxies['REDSHIFT']).tolist()
-    phosim_galaxies['raICRS'] = pd.to_numeric(galaxies['RA']).tolist()
-    phosim_galaxies['decICRS'] = pd.to_numeric(galaxies['DEC']).tolist()
+    phosim_galaxies['raJ2000'] = pd.to_numeric(galaxies['RA']).tolist()
+    phosim_galaxies['decJ2000'] = pd.to_numeric(galaxies['DEC']).tolist()
     phosim_galaxies['majorAxis'] = \
         radiansFromArcsec(pd.to_numeric(galaxies['PAR1'])).tolist()
     phosim_galaxies['minorAxis'] = \
