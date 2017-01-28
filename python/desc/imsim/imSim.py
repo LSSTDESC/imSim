@@ -15,6 +15,7 @@ import lsst.log as lsstLog
 import lsst.utils as lsstUtils
 from lsst.sims.photUtils import LSSTdefaults, PhotometricParameters
 from lsst.sims.utils import ObservationMetaData, radiansFromArcsec
+from lsst.sims.utils import applyProperMotion, ModifiedJulianDate
 
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
@@ -116,7 +117,7 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     commands = extract_commands(phoSimHeaderCards)
 
     # This dataFrame will contain all of the objects to return.
-    phoSimObjectList = extract_objects(phoSimSources)
+    phoSimObjectList = extract_objects(phoSimSources, commands)
     return PhoSimInstanceCatalogContents(commands, phoSimObjectList)
 
 
@@ -141,12 +142,13 @@ def extract_commands(df):
     commands['nsnap'] = int(commands['nsnap'])
     commands['obshistid'] = int(commands['obshistid'])
     commands['seed'] = int(commands['seed'])
+    commands['mjd'] = float(commands['mjd'])
     # Add bandpass for convenience
     commands['bandpass'] = 'ugrizy'[commands['filter']]
     return commands
 
 
-def extract_objects(df):
+def extract_objects(df, header):
     """
     Extract the object information needed by the sims code
     and pack into a new dataframe.
@@ -155,6 +157,11 @@ def extract_objects(df):
     ----------
     df : pandas.DataFrame
         DataFrame containing the instance catalog object data.
+
+    header : dictionary
+        dictionary containing the PhoSim header cards as output
+        by extract_commands()
+        (necessary for correctly applying proper motion to stars)
 
     Returns
     -------
@@ -170,11 +177,13 @@ def extract_objects(df):
 
     columns = ('uniqueId', 'galSimType',
                'magNorm', 'sedFilepath', 'redshift',
-               'raICRS', 'decICRS',
+               'raJ2000', 'decJ2000',
                'halfLightRadius',
                'minorAxis',
                'majorAxis',
-               'positionAngle', 'sindex')
+               'positionAngle', 'sindex',
+               'properMotionRa', 'properMotionDec',
+               'parallax', 'radialVelocity')
 
     # Process point sources and galaxies separately.
     source_type = 'point'
@@ -187,10 +196,25 @@ def extract_objects(df):
     phosim_stars['magNorm'] = pd.to_numeric(stars['MAG_NORM']).tolist()
     phosim_stars['sedFilepath'] = stars['SED_NAME'].tolist()
     phosim_stars['redshift'] = pd.to_numeric(stars['REDSHIFT']).tolist()
-    phosim_stars['raICRS'] = pd.to_numeric(stars['RA']).tolist()
-    phosim_stars['decICRS'] = pd.to_numeric(stars['DEC']).tolist()
+    phosim_stars['raJ2000'] = pd.to_numeric(stars['RA']).tolist()
+    phosim_stars['decJ2000'] = pd.to_numeric(stars['DEC']).tolist()
+    phosim_stars['properMotionRa'] = pd.to_numeric(stars['PAR5']).tolist()
+    phosim_stars['properMotionDec'] = pd.to_numeric(stars['PAR6']).tolist()
+    phosim_stars['parallax'] = pd.to_numeric(stars['PAR7']).tolist()
+    phosim_stars['radialVelocity'] = pd.to_numeric(stars['PAR8']).tolist()
     if len(phosim_stars) > 0:
         phosim_stars = extract_extinction(stars, phosim_stars, 1)
+
+        mjd = ModifiedJulianDate(TAI=header['mjd'])
+        raICRS, decICRS = applyProperMotion(phosim_stars.raJ2000.values,
+                                            phosim_stars.decJ2000.values,
+                                            phosim_stars.properMotionRa.values,
+                                            phosim_stars.properMotionDec.values,
+                                            phosim_stars.parallax.values,
+                                            phosim_stars.radialVelocity.values,
+                                            mjd=mjd)
+
+        phosim_stars = phosim_stars.assign(raICRS=raICRS, decICRS=decICRS)
 
     source_type = 'sersic2d'
     galaxies = df.query("SOURCE_TYPE == '%s'" % source_type)
@@ -202,8 +226,8 @@ def extract_objects(df):
     phosim_galaxies['magNorm'] = pd.to_numeric(galaxies['MAG_NORM']).tolist()
     phosim_galaxies['sedFilepath'] = galaxies['SED_NAME'].tolist()
     phosim_galaxies['redshift'] = pd.to_numeric(galaxies['REDSHIFT']).tolist()
-    phosim_galaxies['raICRS'] = pd.to_numeric(galaxies['RA']).tolist()
-    phosim_galaxies['decICRS'] = pd.to_numeric(galaxies['DEC']).tolist()
+    phosim_galaxies['raJ2000'] = pd.to_numeric(galaxies['RA']).tolist()
+    phosim_galaxies['decJ2000'] = pd.to_numeric(galaxies['DEC']).tolist()
     phosim_galaxies['majorAxis'] = \
         radiansFromArcsec(pd.to_numeric(galaxies['PAR1'])).tolist()
     phosim_galaxies['minorAxis'] = \
@@ -212,6 +236,14 @@ def extract_objects(df):
     phosim_galaxies['positionAngle'] = \
         (np.pi/180.*pd.to_numeric(galaxies['PAR3'])).tolist()
     phosim_galaxies['sindex'] = pd.to_numeric(galaxies['PAR4']).tolist()
+    n_gal = len(phosim_galaxies.raJ2000.values)
+    phosim_galaxies = phosim_galaxies.assign(raICRS=phosim_galaxies.raJ2000,
+                                             decICRS=phosim_galaxies.decJ2000,
+                                             properMotionRa=np.zeros(n_gal),
+                                             properMotionDec=np.zeros(n_gal),
+                                             parallax=np.zeros(n_gal),
+                                             radialVelocity=np.zeros(n_gal))
+
     if len(phosim_galaxies) > 0:
         phosim_galaxies = extract_extinction(galaxies, phosim_galaxies, 5)
 

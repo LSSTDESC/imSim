@@ -69,6 +69,7 @@ def main():
         phosim_objects['chipName'] = \
             chipNameFromRaDec(phosim_objects['raICRS'].values,
                               phosim_objects['decICRS'].values,
+                              parallax=phosim_objects['parallax'].values,
                               camera=camera, obs_metadata=obs_md,
                               epoch=2000.0)
 
