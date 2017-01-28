@@ -89,6 +89,9 @@ def main():
 
     # First simulate stars
     phoSimStarCatalog = desc.imsim.ImSimStars(starDataBase, obs_md)
+    # Restrict to a single sensor if requested.
+    if arguments.sensor is not None:
+        phoSimStarCatalog.allowed_chips = [arguments.sensor]
     phoSimStarCatalog.photParams = desc.imsim.photometricParameters(commands)
     phoSimStarCatalog.camera = camera
     phoSimStarCatalog.get_fitsFiles()
