@@ -47,6 +47,8 @@ def imSim__init__(self, phosim_objects, obs_metadata, catalog_db=None):
     else:
         self.obs_metadata = obs_metadata
 
+    self._column_cache = {}
+
     xPupil, yPupil = pupilCoordsFromRaDec(phosim_objects['raJ2000'].values,
                                           phosim_objects['decJ2000'].values,
                                           pm_ra = phosim_objects['properMotionRa'].values,
