@@ -10,6 +10,8 @@ import os
 import argparse
 from lsst.obs.lsstSim import LsstSimMapper
 from lsst.sims.coordUtils import chipNameFromRaDec
+from lsst.sims.GalSimInterface import SNRdocumentPSF
+from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
 
 
@@ -90,12 +92,34 @@ def main():
     # First simulate stars
     phoSimStarCatalog = desc.imsim.ImSimStars(starDataBase, obs_md)
     phoSimStarCatalog.photParams = desc.imsim.photometricParameters(commands)
+
+    # Add noise and sky background
+    # The simple code using the default lsst-GalSim interface would be:
+    #
+    #    PhoSimStarCatalog.noise_and_background = ExampleCCDNoise(addNoise=True,
+    #                                                             addBackground=True)
+    #
+    # But, we need a more realistic sky model and we need to pass more than
+    # this basic info to use Peter Y's ESO sky model.
+    # We must pass obs_metadata, chip information etc...
+    phoSimStarCatalog.noise_and_background = ESOSkyModel(obs_metadata, addNoise=True,
+                                                         addBackground=True)
+
+    # Add a PSF.  This one is taken from equation 30 of
+    # www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf .
+    #
+    # Set seeing from self.obs_metadata.
+    phoSimStarCatalog.PSF = \
+        SNRdocumentPSF(obs_md.OpSimMetaData['FWHMgeom'])
+
     phoSimStarCatalog.camera = camera
     phoSimStarCatalog.get_fitsFiles()
 
     # Now galaxies
     phoSimGalaxyCatalog = desc.imsim.ImSimGalaxies(galaxyDataBase, obs_md)
     phoSimGalaxyCatalog.copyGalSimInterpreter(phoSimStarCatalog)
+    phoSimGalaxyCatalog.PSF = phoSimStarCatalog.PSF
+    phoSimGalaxyCatalog.noise_and_background = phoSimStarCatalog.noise_and_background
     phoSimGalaxyCatalog.get_fitsFiles()
 
     # Write out the fits files
