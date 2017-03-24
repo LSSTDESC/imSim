@@ -80,7 +80,7 @@ def imSim__init__(self, phosim_objects, obs_metadata, catalog_db=None):
     #
     # Set seeing from self.obs_metadata.
     self.PSF = \
-        SNRdocumentPSF(self.obs_metadata.seeing[self.obs_metadata.bandpass])
+        SNRdocumentPSF(self.obs_metadata.OpSimMetaData['FWHMgeom'])
 
     # Add bandpasses to simulate over.
     self.bandpassNames = list(self.obs_metadata.bandpass)
