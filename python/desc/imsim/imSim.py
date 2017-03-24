@@ -430,6 +430,9 @@ def phosim_obs_metadata(phosim_commands):
                                  seeing=phosim_commands['FWHMeff'])
     # Set the OpsimMetaData attribute with the obshistID info.
     obs_md.OpsimMetaData = {'obshistID': phosim_commands['obshistid']}
+    obs_md.OpsimMetaData['FWHMgeom'] = phosim_commands['FWHMgeom']
+    obs_md.OpsimMetaData['FWHMeff'] = phosim_commands['FWHMeff']
+    obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['rawSeeing']
     return obs_md
 
 
