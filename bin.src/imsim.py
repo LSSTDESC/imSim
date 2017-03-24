@@ -131,7 +131,8 @@ def main():
         #
         # https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
 
-        airmass = 1.0/np.cos(np.radians(OpsimMetaData['altitude']))
+        # equation 3 of Krisciunas and Schaefer 1991
+        airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-obs_md.OpsimMetaData['altitude']))**2)
 
         phoSimStarCatalog.PSF = \
             Kolmogorov_and_Gaussian_PSF(airmass=airmass,
