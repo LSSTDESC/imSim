@@ -7,6 +7,7 @@ code found in sims_GalSimInterface.
 """
 from __future__ import absolute_import, print_function
 import os
+import numpy as np
 import argparse
 from lsst.obs.lsstSim import LsstSimMapper
 from lsst.sims.coordUtils import chipNameFromRaDec
@@ -129,6 +130,8 @@ def main():
         # Survey Simulations Working Group telecon
         #
         # https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
+
+        airmass = 1.0/np.cos(np.radians(OpsimMetaData['altitude']))
 
         phoSimStarCatalog.PSF = \
             Kolmogorov_and_Gaussian_PSF(airmass=airmass,
