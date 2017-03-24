@@ -11,6 +11,11 @@ import argparse
 from lsst.obs.lsstSim import LsstSimMapper
 from lsst.sims.coordUtils import chipNameFromRaDec
 from lsst.sims.GalSimInterface import SNRdocumentPSF
+try:
+    from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
+except:
+    # in case we are running with an old version of lsst_sims
+    pass
 from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
 
@@ -34,6 +39,12 @@ def main():
     parser.add_argument('--log_level', type=str,
                         choices=['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'],
                         default='INFO', help='Logging level. Default: "INFO"')
+    parser.add_argument('--psf', type=str, default='DoubleGaussian',
+                        choices=['DoubleGaussian', 'Kolmogorov'],
+                        help="PSF model to use; either the double Gaussian "
+                        "from LSE=40 (equation 30), or the Kolmogorov convolved "
+                        "with a Gaussian proposed by David Kirkby at the "
+                        "23 March 2017 SSims telecon")
     arguments = parser.parse_args()
 
     config = desc.imsim.read_config(arguments.config_file)
@@ -105,12 +116,27 @@ def main():
     phoSimStarCatalog.noise_and_background = ESOSkyModel(obs_metadata, addNoise=True,
                                                          addBackground=True)
 
-    # Add a PSF.  This one is taken from equation 30 of
-    # www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf .
-    #
-    # Set seeing from self.obs_metadata.
-    phoSimStarCatalog.PSF = \
-        SNRdocumentPSF(obs_md.OpSimMetaData['FWHMgeom'])
+    # Add a PSF.
+    if arguments.psf.lower() == "doublegaussian":
+        # This one is taken from equation 30 of
+        # www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf .
+        #
+        # Set seeing from self.obs_metadata.
+        phoSimStarCatalog.PSF = \
+            SNRdocumentPSF(obs_md.OpsimMetaData['FWHMgeom'])
+    elif arguments.psf.lower() == "kolmogorov":
+        # This PSF was presented by David Kirkby at the 23 March 2017
+        # Survey Simulations Working Group telecon
+        #
+        # https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
+
+        phoSimStarCatalog.PSF = \
+            Kolmogorov_and_Gaussian_PSF(airmass=airmass,
+                                        rawSeeing=obs_md.OpsimMetaData['rawSeeing'],
+                                        band=obs_md.bandpass)
+    else:
+        raise RuntimeError("Do not know what to do with psf model: "
+                           "%s" % arguments.psf)
 
     phoSimStarCatalog.camera = camera
     phoSimStarCatalog.get_fitsFiles()
