@@ -47,7 +47,10 @@ obshistid
 seed
 seeing
 sunalt
-vistime""".split())
+vistime
+rawSeeing
+FWHMeff
+FWHMgeom""".split())
 
 
 def parsePhoSimInstanceFile(fileName, numRows=None):
