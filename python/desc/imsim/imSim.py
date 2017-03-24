@@ -424,7 +424,7 @@ def phosim_obs_metadata(phosim_commands):
                                  rotSkyPos=phosim_commands['rotskypos'],
                                  bandpassName=bandpass,
                                  m5=LSSTdefaults().m5(bandpass),
-                                 seeing=phosim_commands['seeing'])
+                                 seeing=phosim_commands['FWHMeff'])
     # Set the OpsimMetaData attribute with the obshistID info.
     obs_md.OpsimMetaData = {'obshistID': phosim_commands['obshistid']}
     return obs_md
