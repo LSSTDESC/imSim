@@ -40,7 +40,7 @@ def main():
     parser.add_argument('--log_level', type=str,
                         choices=['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'],
                         default='INFO', help='Logging level. Default: "INFO"')
-    parser.add_argument('--psf', type=str, default='DoubleGaussian',
+    parser.add_argument('--psf', type=str, default='Kolmogorov',
                         choices=['DoubleGaussian', 'Kolmogorov'],
                         help="PSF model to use; either the double Gaussian "
                         "from LSE=40 (equation 30), or the Kolmogorov convolved "
