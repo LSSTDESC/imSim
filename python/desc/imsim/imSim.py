@@ -47,7 +47,10 @@ obshistid
 seed
 seeing
 sunalt
-vistime""".split())
+vistime
+rawSeeing
+FWHMeff
+FWHMgeom""".split())
 
 
 def parsePhoSimInstanceFile(fileName, numRows=None):
@@ -424,9 +427,12 @@ def phosim_obs_metadata(phosim_commands):
                                  rotSkyPos=phosim_commands['rotskypos'],
                                  bandpassName=bandpass,
                                  m5=LSSTdefaults().m5(bandpass),
-                                 seeing=phosim_commands['seeing'])
+                                 seeing=phosim_commands['FWHMeff'])
     # Set the OpsimMetaData attribute with the obshistID info.
     obs_md.OpsimMetaData = {'obshistID': phosim_commands['obshistid']}
+    obs_md.OpsimMetaData['FWHMgeom'] = phosim_commands['FWHMgeom']
+    obs_md.OpsimMetaData['FWHMeff'] = phosim_commands['FWHMeff']
+    obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['rawSeeing']
     return obs_md
 
 

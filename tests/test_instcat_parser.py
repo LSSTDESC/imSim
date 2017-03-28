@@ -25,7 +25,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                          'tests', 'tiny_instcat.txt')
         self.extra_commands = 'instcat_extra.txt'
         with open(self.extra_commands, 'w') as output:
-            for line in open(self.command_file).readlines()[:20]:
+            for line in open(self.command_file).readlines()[:23]:
                 output.write(line)
             output.write('extra_command 1\n')
 

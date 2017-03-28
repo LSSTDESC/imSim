@@ -7,9 +7,17 @@ code found in sims_GalSimInterface.
 """
 from __future__ import absolute_import, print_function
 import os
+import numpy as np
 import argparse
 from lsst.obs.lsstSim import LsstSimMapper
 from lsst.sims.coordUtils import chipNameFromRaDec
+from lsst.sims.GalSimInterface import SNRdocumentPSF
+try:
+    from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
+except:
+    # in case we are running with an old version of lsst_sims
+    pass
+from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
 
 
@@ -32,6 +40,12 @@ def main():
     parser.add_argument('--log_level', type=str,
                         choices=['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'],
                         default='INFO', help='Logging level. Default: "INFO"')
+    parser.add_argument('--psf', type=str, default='Kolmogorov',
+                        choices=['DoubleGaussian', 'Kolmogorov'],
+                        help="PSF model to use; either the double Gaussian "
+                        "from LSE=40 (equation 30), or the Kolmogorov convolved "
+                        "with a Gaussian proposed by David Kirkby at the "
+                        "23 March 2017 SSims telecon")
     arguments = parser.parse_args()
 
     config = desc.imsim.read_config(arguments.config_file)
@@ -90,12 +104,52 @@ def main():
     # First simulate stars
     phoSimStarCatalog = desc.imsim.ImSimStars(starDataBase, obs_md)
     phoSimStarCatalog.photParams = desc.imsim.photometricParameters(commands)
+
+    # Add noise and sky background
+    # The simple code using the default lsst-GalSim interface would be:
+    #
+    #    PhoSimStarCatalog.noise_and_background = ExampleCCDNoise(addNoise=True,
+    #                                                             addBackground=True)
+    #
+    # But, we need a more realistic sky model and we need to pass more than
+    # this basic info to use Peter Y's ESO sky model.
+    # We must pass obs_metadata, chip information etc...
+    phoSimStarCatalog.noise_and_background = ESOSkyModel(obs_metadata, addNoise=True,
+                                                         addBackground=True)
+
+    # Add a PSF.
+    if arguments.psf.lower() == "doublegaussian":
+        # This one is taken from equation 30 of
+        # www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf .
+        #
+        # Set seeing from self.obs_metadata.
+        phoSimStarCatalog.PSF = \
+            SNRdocumentPSF(obs_md.OpsimMetaData['FWHMgeom'])
+    elif arguments.psf.lower() == "kolmogorov":
+        # This PSF was presented by David Kirkby at the 23 March 2017
+        # Survey Simulations Working Group telecon
+        #
+        # https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
+
+        # equation 3 of Krisciunas and Schaefer 1991
+        airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-obs_md.OpsimMetaData['altitude']))**2)
+
+        phoSimStarCatalog.PSF = \
+            Kolmogorov_and_Gaussian_PSF(airmass=airmass,
+                                        rawSeeing=obs_md.OpsimMetaData['rawSeeing'],
+                                        band=obs_md.bandpass)
+    else:
+        raise RuntimeError("Do not know what to do with psf model: "
+                           "%s" % arguments.psf)
+
     phoSimStarCatalog.camera = camera
     phoSimStarCatalog.get_fitsFiles()
 
     # Now galaxies
     phoSimGalaxyCatalog = desc.imsim.ImSimGalaxies(galaxyDataBase, obs_md)
     phoSimGalaxyCatalog.copyGalSimInterpreter(phoSimStarCatalog)
+    phoSimGalaxyCatalog.PSF = phoSimStarCatalog.PSF
+    phoSimGalaxyCatalog.noise_and_background = phoSimStarCatalog.noise_and_background
     phoSimGalaxyCatalog.get_fitsFiles()
 
     # Write out the fits files
