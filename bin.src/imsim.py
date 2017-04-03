@@ -7,14 +7,14 @@ code found in sims_GalSimInterface.
 """
 from __future__ import absolute_import, print_function
 import os
-import numpy as np
 import argparse
+import numpy as np
 from lsst.obs.lsstSim import LsstSimMapper
 from lsst.sims.coordUtils import chipNameFromRaDec
 from lsst.sims.GalSimInterface import SNRdocumentPSF
 try:
     from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
-except:
+except ImportError:
     # in case we are running with an old version of lsst_sims
     pass
 from desc.imsim.skyModel import ESOSkyModel
@@ -114,7 +114,7 @@ def main():
     # But, we need a more realistic sky model and we need to pass more than
     # this basic info to use Peter Y's ESO sky model.
     # We must pass obs_metadata, chip information etc...
-    phoSimStarCatalog.noise_and_background = ESOSkyModel(obs_metadata, addNoise=True,
+    phoSimStarCatalog.noise_and_background = ESOSkyModel(obs_md, addNoise=True,
                                                          addBackground=True)
 
     # Add a PSF.
