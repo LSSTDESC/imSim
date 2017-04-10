@@ -433,6 +433,7 @@ def phosim_obs_metadata(phosim_commands):
     obs_md.OpsimMetaData['FWHMgeom'] = phosim_commands['FWHMgeom']
     obs_md.OpsimMetaData['FWHMeff'] = phosim_commands['FWHMeff']
     obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['rawSeeing']
+    obs_md.OpsimMetaData['altitude'] = phosim_commands['altitude']
     return obs_md
 
 
