@@ -35,6 +35,7 @@ __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
 
+
 PhoSimInstanceCatalogContents = namedtuple('PhoSimInstanceCatalogContents',
                                            ('commands', 'objects'))
 
@@ -116,13 +117,15 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     command_set = set(phoSimHeaderCards['STRING'])
     missing_commands = _required_commands - command_set
     if missing_commands:
-        message = "\nRequired commands that are missing from the instance catalog %s:\n   " % fileName + "\n   ".join(missing_commands)
+        message = "\nRequired commands that are missing from the instance catalog %s:\n   " \
+            % fileName + "\n   ".join(missing_commands)
         raise PhosimInstanceCatalogParseError(message)
 
     # Report on commands that are not part of the required set.
     extra_commands = command_set - _required_commands
     if extra_commands:
-        message = "\nExtra commands in the instance catalog %s that are not in the required set:\n   " % fileName + "\n   ".join(extra_commands)
+        message = "\nExtra commands in the instance catalog %s that are not in the required set:\n   " \
+            % fileName + "\n   ".join(extra_commands)
         warnings.warn(message)
 
     # Turn the list of commands into a dictionary.
@@ -185,7 +188,8 @@ def extract_objects(df, header):
                        sersic2d='sersic')
     invalid_types = set(df['SOURCE_TYPE']) - set(valid_types)
     if invalid_types:
-        warnings.warn("Instance catalog contains unhandled source types:\n%s\nSkipping these." % '\n'.join(invalid_types))
+        warnings.warn("Instance catalog contains unhandled source types:\n%s\nSkipping these."
+                      % '\n'.join(invalid_types))
 
     columns = ('uniqueId', 'galSimType',
                'magNorm', 'sedFilepath', 'redshift',
