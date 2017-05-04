@@ -4,7 +4,11 @@ Unit tests for skyModel code.
 from __future__ import absolute_import
 import os
 import unittest
-import ConfigParser
+try:
+    import configparser
+except ImportError:
+    # python 2 backwards-compatibility
+    import ConfigParser as configparser
 import desc.imsim
 
 
@@ -15,7 +19,7 @@ class SkyModelTestCase(unittest.TestCase):
     def setUp(self):
         self.test_config_file = 'test_config.txt'
         self.zp_u = 0.282598538804
-        cp = ConfigParser.SafeConfigParser()
+        cp = configparser.SafeConfigParser()
         cp.optionxform = str
         section = 'skyModel_params'
         cp.add_section(section)
