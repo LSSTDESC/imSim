@@ -12,11 +12,10 @@ import gc
 # python_future no longer handles configparser as of 0.16.
 # This is needed for PY2/3 compatabiloty.
 try:
-    from configparser import ConfigParser
-    from configparser import SafeConfigParser
+    import configparser
 except ImportError:
-    from ConfigParser import ConfigParser
-    from ConfigParser import SafeConfigParser
+    # python 2 backwards-compatibility
+    import ConfigParser as configparser
 
 import numpy as np
 import pandas as pd
@@ -529,7 +528,7 @@ def read_config(config_file=None):
         config_file.
     """
     my_config = ImSimConfiguration()
-    cp = SafeConfigParser()
+    cp = configparser.SafeConfigParser()
     cp.optionxform = str
     if config_file is None:
         config_file = os.path.join(lsstUtils.getPackageDir('imsim'),
