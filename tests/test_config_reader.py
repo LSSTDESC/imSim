@@ -4,8 +4,13 @@ Unit tests for imSim configuration parameter code.
 from __future__ import print_function, absolute_import
 import os
 import unittest
-import ConfigParser
+try:
+    import configparser
+except ImportError:
+    # python 2 backwards-compatibility
+    import ConfigParser as configparser
 import desc.imsim
+
 
 class ImSimConfigurationTestCase(unittest.TestCase):
     """
@@ -13,11 +18,11 @@ class ImSimConfigurationTestCase(unittest.TestCase):
     """
     def setUp(self):
         self.test_config_file = 'test_config.txt'
-        cp = ConfigParser.SafeConfigParser()
+        cp = configparser.ConfigParser()
         section = 'electronics_readout'
         cp.add_section(section)
         cp.set(section, 'readout_time', '2')
-        with open(self.test_config_file, 'wb') as output:
+        with open(self.test_config_file, 'w') as output:
             cp.write(output)
 
     def tearDown(self):
@@ -47,6 +52,7 @@ class ImSimConfigurationTestCase(unittest.TestCase):
         config = desc.imsim.get_config()
         self.assertAlmostEqual(config['electronics_readout']['readout_time'], 3.)
         self.assertEqual(config['persistence']['eimage_prefix'], 'lsst_e_')
+
 
 if __name__ == '__main__':
     unittest.main()
