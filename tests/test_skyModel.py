@@ -41,5 +41,6 @@ class SkyModelTestCase(unittest.TestCase):
         self.assertAlmostEqual(pars['B0'], 24.)
         self.assertAlmostEqual(pars['u'], self.zp_u)
 
+
 if __name__ == '__main__':
     unittest.main()

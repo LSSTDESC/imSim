@@ -6,6 +6,7 @@ import os
 import unittest
 import desc.imsim
 
+
 class ImSimClassFactoryTestCase(unittest.TestCase):
     "TestCase class for imSim_class_factory."
     def setUp(self):
@@ -26,6 +27,7 @@ class ImSimClassFactoryTestCase(unittest.TestCase):
         self.assertEqual(stars.column_by_name('galSimType')[0], 'pointSource')
         self.assertAlmostEqual(stars.column_by_name('x_pupil')[0], -0.0008283)
         self.assertAlmostEqual(stars.column_by_name('y_pupil')[0], -0.00201296)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -8,6 +8,7 @@ import warnings
 import numpy as np
 import desc.imsim
 
+
 class InstanceCatalogParserTestCase(unittest.TestCase):
     """
     TestCase class for instance catalog parsing code.
@@ -144,6 +145,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertEqual(len(rejected.query("minorAxis > majorAxis")), 1)
         self.assertEqual(len(rejected.query("magNorm > 50")), 1)
         self.assertEqual(len(rejected.query("galacticAv==0 and galacticRv==0")), 4)
+
 
 if __name__ == '__main__':
     unittest.main()

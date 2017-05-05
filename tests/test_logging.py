@@ -5,6 +5,7 @@ from __future__ import absolute_import, print_function
 import unittest
 import desc.imsim
 
+
 class LoggingTestCase(unittest.TestCase):
     "TestCase class for logging."
 
@@ -20,6 +21,7 @@ class LoggingTestCase(unittest.TestCase):
                                     "DEBUG INFO WARN ERROR CRITICAL".split()):
             logger = desc.imsim.get_logger(log_level)
             self.assertEqual(logger.level, level)
+
 
 if __name__ == '__main__':
     unittest.main()

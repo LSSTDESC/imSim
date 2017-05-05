@@ -11,6 +11,7 @@ except ImportError:
     import ConfigParser as configparser
 import desc.imsim
 
+
 class ImSimConfigurationTestCase(unittest.TestCase):
     """
     TestCase class for configuration parameter code.
@@ -51,6 +52,7 @@ class ImSimConfigurationTestCase(unittest.TestCase):
         config = desc.imsim.get_config()
         self.assertAlmostEqual(config['electronics_readout']['readout_time'], 3.)
         self.assertEqual(config['persistence']['eimage_prefix'], 'lsst_e_')
+
 
 if __name__ == '__main__':
     unittest.main()
