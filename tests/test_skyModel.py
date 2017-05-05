@@ -25,7 +25,7 @@ class SkyModelTestCase(unittest.TestCase):
         cp.add_section(section)
         cp.set(section, 'B0', '24.')
         cp.set(section, 'u', str(self.zp_u))
-        with open(self.test_config_file, 'wb') as output:
+        with open(self.test_config_file, 'w') as output:
             cp.write(output)
 
     def tearDown(self):

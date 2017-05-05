@@ -21,7 +21,7 @@ class ImSimConfigurationTestCase(unittest.TestCase):
         section = 'electronics_readout'
         cp.add_section(section)
         cp.set(section, 'readout_time', '2')
-        with open(self.test_config_file, 'wb') as output:
+        with open(self.test_config_file, 'w') as output:
             cp.write(output)
 
     def tearDown(self):
