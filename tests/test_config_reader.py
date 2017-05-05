@@ -17,7 +17,7 @@ class ImSimConfigurationTestCase(unittest.TestCase):
     """
     def setUp(self):
         self.test_config_file = 'test_config.txt'
-        cp = configparser.SafeConfigParser()
+        cp = configparser.ConfigParser()
         section = 'electronics_readout'
         cp.add_section(section)
         cp.set(section, 'readout_time', '2')

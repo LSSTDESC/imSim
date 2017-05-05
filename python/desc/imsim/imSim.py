@@ -528,7 +528,7 @@ def read_config(config_file=None):
         config_file.
     """
     my_config = ImSimConfiguration()
-    cp = configparser.SafeConfigParser()
+    cp = configparser.ConfigParser()
     cp.optionxform = str
     if config_file is None:
         config_file = os.path.join(lsstUtils.getPackageDir('imsim'),

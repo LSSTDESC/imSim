@@ -19,7 +19,7 @@ class SkyModelTestCase(unittest.TestCase):
     def setUp(self):
         self.test_config_file = 'test_config.txt'
         self.zp_u = 0.282598538804
-        cp = configparser.SafeConfigParser()
+        cp = configparser.ConfigParser()
         cp.optionxform = str
         section = 'skyModel_params'
         cp.add_section(section)
