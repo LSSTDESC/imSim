@@ -59,7 +59,7 @@ class ApparentMagnitudes(object):
         for band in bands:
             try:
                 mags[band] = sed.calcMag(self.bps[band])
-            except StandardError as eObj:
+            except Exception as eObj:
                 if str(eObj).startswith('This SED has no flux'):
                     mags[band] = self.max_mag
                 else:
