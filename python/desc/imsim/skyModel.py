@@ -96,7 +96,12 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
         bandPassName = self.obs_metadata.bandpass
         skyMagnitude = skyModel.returnMags()[bandPassName]
-        exposureTime = photParams.exptime*u.s
+
+        # Since we are only producing one eimage, account for cases
+        # where nsnap > 1 with an effective exposure time for the
+        # visit as a whole.  TODO: Undo this change when we write
+        # separate images per exposure.
+        exposureTime = photParams.nexp*photParams.exptime*u.s
 
         skyCounts = skyCountsPerSec(surface_brightness=skyMagnitude,
                                     filter_band=bandPassName)*exposureTime
