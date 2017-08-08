@@ -23,8 +23,34 @@ import lsst.afw.image as afwImage
 import lsst.utils as lsstUtils
 from .focalplane_info import FocalPlaneInfo, cte_matrix
 
-__all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
-           'set_phosim_bboxes']
+__all__ = ['make_ImageSource', 'ImageSource', 'set_itl_bboxes',
+           'set_e2v_bboxes', 'set_phosim_bboxes']
+
+def make_ImageSource(eimage_file, seg_file=None):
+    """
+    Factory function for creating an ImageSource object from an
+    eimage file.
+
+    Parameters
+    ----------
+    eimage_file : str
+        Filename of the eimage file.
+    seg_file : str, optional
+        The segmentation.txt file, the PhoSim-formatted file that
+        describes the properties of the sensors in the focal
+        plane.  If None, then the version in
+        obs_lsstSim/description will be used.
+
+    Returns
+    -------
+    ImageSource object
+    """
+    eimage = fits.open(eimage_file)
+    image_array = eimage[0].data
+    exptime = eimage[0].header['EXPTIME']
+    sensor_id = eimage[0].header['CHIPID'].strip()
+    return ImageSource(image_array, exptime, sensor_id, seg_file=seg_file)
+
 
 class ImageSource(object):
     '''
@@ -305,6 +331,22 @@ class ImageSource(object):
         """
         output = fits.HDUList(fits.PrimaryHDU())
         output.append(self.get_amplifier_hdu(amp_name))
+        output.writeto(outfile, clobber=clobber)
+
+    def write_fits_file(self, outfile, clobber=True):
+        """
+        Write the processed eimage data as a multi-extension FITS file.
+
+        Parameters
+        ----------
+        outfile : str
+            Name of the output FITS file.
+        clobber : bool, optional
+            Flag whether to overwrite an existing output file.  Default: True.
+        """
+        output = fits.HDUList(fits.PrimaryHDU())
+        for amp_name in self.amp_images:
+            output.append(self.get_amplifier_hdu(amp_name))
         output.writeto(outfile, clobber=clobber)
 
     @staticmethod
