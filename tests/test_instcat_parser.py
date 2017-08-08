@@ -129,11 +129,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertEqual(phot_params.gain, 1)
         self.assertEqual(phot_params.bandpass, 'r')
         self.assertEqual(phot_params.nexp, 2)
-<<<<<<< HEAD
-        self.assertAlmostEqual(phot_params.exptime, 33/2.)
-=======
         self.assertAlmostEqual(phot_params.exptime, 15.)
->>>>>>> master
         self.assertEqual(phot_params.readnoise, 0)
         self.assertEqual(phot_params.darkcurrent, 0)
 

@@ -16,8 +16,8 @@ class ImageSourceTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.imSimDir = lsstUtils.getPackageDir('imsim')
-        subprocess.call('''python %s/bin/imsim.py tiny_instcat.txt --outdir . \
---sensor "R:2,2 S:1,1"''' % cls.imSimDir, shell=True)
+        subprocess.call('''python %s/bin/imsim.py %s/tests/tiny_instcat.txt --outdir . \
+--sensor "R:2,2 S:1,1" --psf DoubleGaussian''' % (cls.imSimDir, cls.imSimDir), shell=True)
         cls.eimage_file = glob.glob('lsst_e_161899_*.fits')[0]
         cls.seg_file = \
             os.path.join(cls.imSimDir, 'data', 'segmentation_itl.txt')
@@ -40,7 +40,7 @@ class ImageSourceTestCase(unittest.TestCase):
 
     def test_create_from_eimage(self):
         "Test the .create_from_eimage static method."
-        self.assertAlmostEqual(self.image_source.exptime, 33.)
+        self.assertAlmostEqual(self.image_source.exptime, 30.)
         self.assertTupleEqual(self.image_source.eimage_data.shape, (4000, 4072))
         self.assertTupleEqual(
             self.image_source.amp_images['R22_S11_C00'].getArray().shape,
