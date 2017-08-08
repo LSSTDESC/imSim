@@ -7,7 +7,6 @@ outputs.
 from __future__ import absolute_import, print_function
 import os
 import argparse
-import astropy.io.fits as fits
 import desc.imsim
 
 parser = argparse.ArgumentParser()
@@ -20,4 +19,3 @@ image_source = desc.imsim.make_ImageSource(args.eimage_file,
                                            seg_file=args.seg_file)
 outfile = os.path.basename(args.eimage_file).replace('lsst_e', 'lsst_a')
 image_source.write_fits_file(outfile)
-

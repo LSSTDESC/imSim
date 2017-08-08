@@ -15,7 +15,6 @@ electronics readout effects.
 """
 from __future__ import print_function, absolute_import, division
 import os
-import copy
 import numpy as np
 import astropy.io.fits as fits
 import lsst.afw.geom as afwGeom
@@ -23,10 +22,11 @@ import lsst.afw.image as afwImage
 import lsst.utils as lsstUtils
 from .focalplane_info import FocalPlaneInfo, cte_matrix
 
-__all__ = ['make_ImageSource', 'ImageSource', 'set_itl_bboxes',
+__all__ = ['make_image_source', 'ImageSource', 'set_itl_bboxes',
            'set_e2v_bboxes', 'set_phosim_bboxes']
 
-def make_ImageSource(eimage_file, seg_file=None):
+
+def make_image_source(eimage_file, seg_file=None):
     """
     Factory function for creating an ImageSource object from an
     eimage file.
@@ -142,7 +142,7 @@ class ImageSource(object):
                                     'description', 'segmentation.txt')
         self.fp_props = FocalPlaneInfo.read_phosim_seg_file(seg_file)
 
-    def getAmpImage(self, amp_info_record, imageFactory=afwImage.ImageI):
+    def get_amp_image(self, amp_info_record, imageFactory=afwImage.ImageI):
         """
         Return an amplifier afwImage.Image object with electronics
         readout effects applied.  This method is only provided so that
@@ -371,6 +371,7 @@ class ImageSource(object):
             ymin, ymax = ymax, ymin
         return '[%i:%i,%i:%i]' % (xmin, xmax, ymin, ymax)
 
+
 def set_itl_bboxes(amp):
     """
     Function to apply realistic pixel geometry for ITL sensors.
@@ -398,6 +399,7 @@ def set_itl_bboxes(amp):
                                         afwGeom.Extent2I(3, 2000)))
     return amp
 
+
 def set_e2v_bboxes(amp):
     """
     Function to apply realistic pixel geometry for e2v sensors.
@@ -424,6 +426,7 @@ def set_e2v_bboxes(amp):
     amp.setRawPrescanBBox(afwGeom.Box2I(afwGeom.Point2I(0, 0),
                                         afwGeom.Extent2I(10, 2002)))
     return amp
+
 
 def set_phosim_bboxes(amp):
     """

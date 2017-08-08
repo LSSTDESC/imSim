@@ -9,6 +9,7 @@ import lsst.afw.geom as afwGeom
 
 __all__ = ['FocalPlaneInfo', 'cte_matrix']
 
+
 class FocalPlaneInfo(object):
     """
     Class to serve up electronics readout properties of sensors based
@@ -122,8 +123,9 @@ class FocalPlaneInfo(object):
             The filled FocalPlaneInfo object.
         """
         my_self = FocalPlaneInfo()
-        with open(seg_file, 'r') as f:
-            lines = [line for line in f.readlines() if not line.startswith('#')]
+        with open(seg_file, 'r') as fp:
+            lines = [line for line in fp.readlines()
+                     if not line.startswith('#')]
         i = -1
         while True:
             try:
@@ -138,6 +140,7 @@ class FocalPlaneInfo(object):
             except IndexError:
                 break
         return my_self
+
 
 class SensorProperties(object):
     """
@@ -191,6 +194,7 @@ class SensorProperties(object):
             The object containing the amplifier properties.
         """
         self._amp_names.append(amp_props.name)
+
 
 class AmplifierProperties(object):
     """
@@ -267,17 +271,20 @@ class AmplifierProperties(object):
                                      afwGeom.Extent2I(xsize, ysize))
         self.full_segment \
             = afwGeom.Box2I(afwGeom.Point2I(0, 0),
-                            afwGeom.Extent2I(xsize + serial_prescan
-                                             + serial_overscan,
-                                             ysize + parallel_prescan
-                                             + parallel_overscan))
+                            afwGeom.Extent2I(xsize + serial_prescan +
+                                             serial_overscan,
+                                             ysize + parallel_prescan +
+                                             parallel_overscan))
         self.prescan = afwGeom.Box2I(afwGeom.Point2I(0, 0),
                                      afwGeom.Extent2I(serial_prescan, ysize))
-        self.serial_overscan = afwGeom.Box2I(afwGeom.Point2I(serial_prescan + xsize, 0),
-                                             afwGeom.Extent2I(serial_overscan, ysize))
-        self.parallel_overscan = afwGeom.Box2I(afwGeom.Point2I(0, ysize),
-                                               afwGeom.Extent2I(serial_prescan + xsize + serial_overscan,
-                                                                parallel_overscan))
+        self.serial_overscan \
+            = afwGeom.Box2I(afwGeom.Point2I(serial_prescan + xsize, 0),
+                            afwGeom.Extent2I(serial_overscan, ysize))
+        self.parallel_overscan \
+            = afwGeom.Box2I(afwGeom.Point2I(0, ysize),
+                            afwGeom.Extent2I(serial_prescan + xsize +
+                                             serial_overscan,
+                                             parallel_overscan))
         self.gain = float(tokens[7])
         self.bias_level = float(tokens[9])
         self.read_noise = float(tokens[11])
@@ -285,6 +292,7 @@ class AmplifierProperties(object):
         self.crosstalk = np.array([float(x) for x in tokens[21:]])
         self.flip_x = (tokens[5] == '-1')
         self.flip_y = (tokens[6] == '-1')
+
 
 def cte_matrix(npix, cti, ntransfers=20, nexact=30):
     """
@@ -338,5 +346,5 @@ def cte_matrix(npix, cti, ntransfers=20, nexact=30):
             index = np.where((i - nexact >= jvals) & (i - ntransfers < jvals))
             j = jvals[index]
             my_matrix[i-1, :][index] \
-                = (j*cti)**(i - j)*np.exp(-j*cti)/scipy.special.factorial(i - j)
+                = (j*cti)**(i-j)*np.exp(-j*cti)/scipy.special.factorial(i-j)
     return my_matrix

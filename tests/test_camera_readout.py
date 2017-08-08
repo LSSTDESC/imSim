@@ -10,6 +10,7 @@ import lsst.obs.lsstSim as lsstSim
 import lsst.utils as lsstUtils
 import desc.imsim
 
+
 class ImageSourceTestCase(unittest.TestCase):
     "TestCase class for ImageSource."
 
@@ -60,15 +61,15 @@ class ImageSourceTestCase(unittest.TestCase):
         self.assertEqual(hdu.header['BIASSEC'], "[513:532,1:2000]")
         self.assertAlmostEqual(hdu.header['GAIN'], 1.7)
 
-    def test_getAmpImage(self):
-        "Test the .getAmpImage method."
+    def test_get_amp_image(self):
+        "Test the .get_amp_image method."
         mapper = lsstSim.LsstSimMapper()
         camera = mapper.camera
         raft = 'R:2,2'
         ccd = 'S:1,1'
         sensor = camera[' '.join((raft, ccd))]
         amp_info_record = desc.imsim.set_itl_bboxes(sensor['0,3'])
-        image = self.image_source.getAmpImage(amp_info_record)
+        image = self.image_source.get_amp_image(amp_info_record)
         self.assertTupleEqual(image.getArray().shape, (2020, 532))
 
 

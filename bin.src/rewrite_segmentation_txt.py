@@ -3,8 +3,10 @@
 Script to rewrite a PhoSim segmentation.txt file to have pixel
 geometries that correspond to actual vendor devices.
 """
+from __future__ import absolute_import, print_function
 import os
 import lsst.utils as lsstUtils
+
 
 class AmpGeom(object):
     """
@@ -35,6 +37,7 @@ class AmpGeom(object):
         The key values must be the channel IDs, e.g., '10', '11', etc..
     """
     channel_ids = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
+
     def __init__(self, nx=509, ny=2000, prescan=3, serial_overscan=20,
                  parallel_overscan=20, nsegx=8, nsegy=2,
                  output_nodes=None):
@@ -140,13 +143,12 @@ class AmpGeom(object):
         amp = self.channel_ids.index(channel_id) + 1
         if amp <= self.nsegx:
             return self.output_nodes[channel_id], 1
-        else:
-            return self.output_nodes[channel_id], -1
+        return self.output_nodes[channel_id], -1
 
 if __name__ == '__main__':
     seg_file = os.path.join(lsstUtils.getPackageDir('obs_lsstSim'),
                             'description', 'segmentation.txt')
-    print seg_file
+    print(seg_file)
 
     outfile = 'segmentation.txt_new'
 
@@ -163,6 +165,7 @@ if __name__ == '__main__':
         lines = f.readlines()
 
     def line_format(tokens):
+        "Format string for each line."
         line_format = "%11s " + 4*"%6s" + 2*"%3s" + 8*" %s" + 4*"%3s"
         line_format +=\
             (len(tokens) - len(line_format.split("%")) + 1)*" %s" + "\n"
