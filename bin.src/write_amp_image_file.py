@@ -15,7 +15,7 @@ parser.add_argument("--seg_file", default=None, type=str,
                     help="text file describing the layout of the focalplane")
 args = parser.parse_args()
 
-image_source = desc.imsim.make_ImageSource(args.eimage_file,
-                                           seg_file=args.seg_file)
+image_source = desc.imsim.ImageSource.create_from_eimage(args.eimage_file,
+                                                         seg_file=args.seg_file)
 outfile = os.path.basename(args.eimage_file).replace('lsst_e', 'lsst_a')
 image_source.write_fits_file(outfile)

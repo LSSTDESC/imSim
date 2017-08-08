@@ -22,34 +22,8 @@ import lsst.afw.image as afwImage
 import lsst.utils as lsstUtils
 from .focalplane_info import FocalPlaneInfo, cte_matrix
 
-__all__ = ['make_image_source', 'ImageSource', 'set_itl_bboxes',
-           'set_e2v_bboxes', 'set_phosim_bboxes']
-
-
-def make_image_source(eimage_file, seg_file=None):
-    """
-    Factory function for creating an ImageSource object from an
-    eimage file.
-
-    Parameters
-    ----------
-    eimage_file : str
-        Filename of the eimage file.
-    seg_file : str, optional
-        The segmentation.txt file, the PhoSim-formatted file that
-        describes the properties of the sensors in the focal
-        plane.  If None, then the version in
-        obs_lsstSim/description will be used.
-
-    Returns
-    -------
-    ImageSource object
-    """
-    eimage = fits.open(eimage_file)
-    image_array = eimage[0].data
-    exptime = eimage[0].header['EXPTIME']
-    sensor_id = eimage[0].header['CHIPID'].strip()
-    return ImageSource(image_array, exptime, sensor_id, seg_file=seg_file)
+__all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
+           'set_phosim_bboxes']
 
 
 class ImageSource(object):
@@ -104,7 +78,7 @@ class ImageSource(object):
         self._make_amp_images()
 
     @staticmethod
-    def create_from_eimage(eimage_file, sensor_id, seg_file=None):
+    def create_from_eimage(eimage_file, sensor_id=None, seg_file=None):
         """
         Create an ImageSource object from a PhoSim eimage file.
 
@@ -113,8 +87,9 @@ class ImageSource(object):
         eimage_file : str
            Filename of the eimage FITS file from which the amplifier
            images will be extracted.
-        sensor_id : str
-            The raft and sensor identifier, e.g., 'R22_S11'.
+        sensor_id : str, optional
+            The raft and sensor identifier, e.g., 'R22_S11'.  If None,
+            then extract the CHIPID keyword in the primarey HDU.
         seg_file : str, optional
             Full path of segmentation.txt file, the PhoSim-formatted file
             that describes the properties of the sensors in the focal
@@ -129,6 +104,8 @@ class ImageSource(object):
         """
         eimage = fits.open(eimage_file)
         exptime = eimage[0].header['EXPTIME']
+        if sensor_id is None:
+            sensor_id = eimage[0].header['CHIPID']
 
         image_source = ImageSource(eimage[0].data, exptime, sensor_id,
                                    seg_file=seg_file)
@@ -345,6 +322,7 @@ class ImageSource(object):
             Flag whether to overwrite an existing output file.  Default: True.
         """
         output = fits.HDUList(fits.PrimaryHDU())
+        output[0].header = self.eimage[0].header
         for amp_name in self.amp_images:
             output.append(self.get_amplifier_hdu(amp_name))
         output.writeto(outfile, clobber=clobber)
