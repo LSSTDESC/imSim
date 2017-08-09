@@ -15,8 +15,10 @@ electronics readout effects.
 """
 from __future__ import print_function, absolute_import, division
 import os
+from collections import OrderedDict
 import numpy as np
 import astropy.io.fits as fits
+import astropy.time
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.utils as lsstUtils
@@ -42,7 +44,7 @@ class ImageSource(object):
         The exposure time of the image in seconds.
     sensor_id : str
         The raft and sensor identifier, e.g., 'R22_S11'.
-    amp_images : dict
+    amp_images : OrderedDict
         Dictionary of amplifier images.
     fp_props : FocalPlaneInfo object
         Object containing the readout properties of the sensors in the
@@ -63,9 +65,7 @@ class ImageSource(object):
         seg_file : str, optional
             The segmentation.txt file, the PhoSim-formatted file that
             describes the properties of the sensors in the focal
-            plane.  If None, then the version in
-            obs_lsstSim/description will be used.
-
+            plane.  If None, then the version in imSim/data will be used.
         """
         self.eimage = fits.HDUList()
         self.eimage.append(fits.PrimaryHDU(image_array))
@@ -115,8 +115,8 @@ class ImageSource(object):
 
     def _read_seg_file(self, seg_file):
         if seg_file is None:
-            seg_file = os.path.join(lsstUtils.getPackageDir('obs_lsstSim'),
-                                    'description', 'segmentation.txt')
+            seg_file = os.path.join(lsstUtils.getPackageDir('imSim'),
+                                    'data', 'segmentation_itl.txt')
         self.fp_props = FocalPlaneInfo.read_phosim_seg_file(seg_file)
 
     def get_amp_image(self, amp_info_record, imageFactory=afwImage.ImageI):
@@ -171,7 +171,7 @@ class ImageSource(object):
         """
         Make the amplifier images for all the amps in the sensor.
         """
-        self.amp_images = {}
+        self.amp_images = OrderedDict()
         sensor_props = self.fp_props.get_sensor(self.sensor_id)
         for amp_name in sensor_props.amp_names:
             self._make_amp_image(amp_name)
@@ -310,7 +310,8 @@ class ImageSource(object):
         output.append(self.get_amplifier_hdu(amp_name))
         output.writeto(outfile, clobber=clobber)
 
-    def write_fits_file(self, outfile, clobber=True):
+    def write_fits_file(self, outfile, clobber=True, run_number=None,
+                        lsst_num='LCA-11021_RTM-000'):
         """
         Write the processed eimage data as a multi-extension FITS file.
 
@@ -323,8 +324,23 @@ class ImageSource(object):
         """
         output = fits.HDUList(fits.PrimaryHDU())
         output[0].header = self.eimage[0].header
-        for amp_name in self.amp_images:
+        if run_number is None:
+            run_number = output[0].header['OBSID']
+        output[0].header['RUNNUM'] = run_number
+        mjd_obs = astropy.time.Time(output[0].header['MJD-OBS'], format='mjd')
+        output[0].header['DATE-OBS'] = mjd_obs.isot
+        output[0].header['LSST_NUM'] = lsst_num
+        output[0].header['TESTTYPE'] = 'IMSIM'
+        output[0].header['IMGTYPE'] = 'SKYEXP'
+        output[0].header['MONOWL'] = -1
+        output[0].header['OUTFILE'] = os.path.basename(outfile)
+        # Use seg_ids to write the image extensions in the order
+        # specified by LCA-10140.
+        seg_ids = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
+        for seg_id in seg_ids:
+            amp_name = '_C'.join((self.sensor_id, seg_id))
             output.append(self.get_amplifier_hdu(amp_name))
+            output[-1].header['EXTNAME'] = 'Segment%s' % seg_id
         output.writeto(outfile, clobber=clobber)
 
     @staticmethod
