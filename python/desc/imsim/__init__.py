@@ -4,5 +4,7 @@ try:
 except ImportError:
     pass
 from .imSim import *
+from .camera_readout import *
+from .focalplane_info import *
 from .imSim_class_factory import *
 from .skyModel import *
