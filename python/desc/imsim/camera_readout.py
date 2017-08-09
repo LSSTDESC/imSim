@@ -326,7 +326,7 @@ class ImageSource(object):
         output[0].header = self.eimage[0].header
         if run_number is None:
             run_number = output[0].header['OBSID']
-        output[0].header['RUNNUM'] = run_number
+        output[0].header['RUNNUM'] = str(run_number)
         mjd_obs = astropy.time.Time(output[0].header['MJD-OBS'], format='mjd')
         output[0].header['DATE-OBS'] = mjd_obs.isot
         output[0].header['LSST_NUM'] = lsst_num
