@@ -72,6 +72,12 @@ class ImageSourceTestCase(unittest.TestCase):
         image = self.image_source.get_amp_image(amp_info_record)
         self.assertTupleEqual(image.getArray().shape, (2020, 532))
 
+    def test_set_noao_keyword(self):
+        "Test the set_noao_keyword function."
+        hdu = fits.ImageHDU()
+        slot = 'S00'
+        desc.imsim.set_noao_keywords(hdu, slot)
+
 
 class FocalPlaneInfoTestCase(unittest.TestCase):
     "TestCase class for FocalPlaneInfo."
