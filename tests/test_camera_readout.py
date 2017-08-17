@@ -7,6 +7,7 @@ import glob
 import itertools
 import subprocess
 import unittest
+import astropy.io.fits as fits
 import lsst.obs.lsstSim as lsstSim
 import lsst.utils as lsstUtils
 import desc.imsim
@@ -75,13 +76,21 @@ class ImageSourceTestCase(unittest.TestCase):
 
     def test_set_noao_keywords(self):
         "Test the set_noao_keywords function."
-        for slot in ('S%i%i' % x for x in
-                     itertools.product(range(3), range(3))):
-            for amp in ('%i%i' % chan for chan in
-                        itertools.product((0, 1), range(8))):
-                hdu = fits.ImageHDU()
-                hdu.name = 'Segment%s' % amp
-                desc.imsim.set_noao_keywords(hdu, slot)
+        # Test for DETSIZE check.
+        hdu = fits.ImageHDU()
+        hdu.name = 'Segment00'
+        self.assertRaises(RuntimeError, desc.imsim.set_noao_keywords,
+                          hdu, 'S00')
+
+        for detsize in ('[1:4096,1:4004]', '[1:4072,1:4000]'):
+            for slot in ('S%i%i' % x for x in
+                         itertools.product(range(3), range(3))):
+                for amp in ('%i%i' % chan for chan in
+                            itertools.product((0, 1), range(8))):
+                    hdu = fits.ImageHDU()
+                    hdu.name = 'Segment%s' % amp
+                    hdu.header['DETSIZE'] = detsize
+                    desc.imsim.set_noao_keywords(hdu, slot)
 
 
 class FocalPlaneInfoTestCase(unittest.TestCase):
