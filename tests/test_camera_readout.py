@@ -4,6 +4,7 @@ Unit tests for electronics readout simulation code.
 from __future__ import absolute_import, print_function
 import os
 import glob
+import itertools
 import subprocess
 import unittest
 import lsst.obs.lsstSim as lsstSim
@@ -72,11 +73,15 @@ class ImageSourceTestCase(unittest.TestCase):
         image = self.image_source.get_amp_image(amp_info_record)
         self.assertTupleEqual(image.getArray().shape, (2020, 532))
 
-    def test_set_noao_keyword(self):
-        "Test the set_noao_keyword function."
-        hdu = fits.ImageHDU()
-        slot = 'S00'
-        desc.imsim.set_noao_keywords(hdu, slot)
+    def test_set_noao_keywords(self):
+        "Test the set_noao_keywords function."
+        for slot in ('S%i%i' % x for x in
+                     itertools.product(range(3), range(3))):
+            for amp in ('%i%i' % chan for chan in
+                        itertools.product((0, 1), range(8))):
+                hdu = fits.ImageHDU()
+                hdu.name = 'Segment%s' % amp
+                desc.imsim.set_noao_keywords(hdu, slot)
 
 
 class FocalPlaneInfoTestCase(unittest.TestCase):
