@@ -12,11 +12,8 @@ import numpy as np
 from lsst.obs.lsstSim import LsstSimMapper
 from lsst.sims.coordUtils import chipNameFromRaDec
 from lsst.sims.GalSimInterface import SNRdocumentPSF
-try:
-    from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
-except ImportError:
-    # in case we are running with an old version of lsst_sims
-    pass
+from lsst.sims.GalSimInterface import LSSTCameraWrapper, GalSimCameraWrapper
+from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
 from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
 
@@ -117,8 +114,8 @@ def main():
     # But, we need a more realistic sky model and we need to pass more than
     # this basic info to use Peter Y's ESO sky model.
     # We must pass obs_metadata, chip information etc...
-    phoSimStarCatalog.noise_and_background = ESOSkyModel(obs_md, addNoise=True,
-                                                         addBackground=True)
+    phoSimStarCatalog.noise_and_background \
+        = ESOSkyModel(obs_md, addNoise=True, addBackground=True)
 
     # Add a PSF.
     if arguments.psf.lower() == "doublegaussian":
@@ -146,6 +143,11 @@ def main():
                            "%s" % arguments.psf)
 
     phoSimStarCatalog.camera = camera
+    try:
+        phoSimStarCatalog.camera_wrapper = LSSTCameraWrapper()
+    except NameError:
+        pass
+
     phoSimStarCatalog.get_fitsFiles()
 
     # Now galaxies
