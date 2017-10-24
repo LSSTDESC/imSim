@@ -143,11 +143,7 @@ def main():
                            "%s" % arguments.psf)
 
     phoSimStarCatalog.camera = camera
-    try:
-        phoSimStarCatalog.camera_wrapper = LSSTCameraWrapper()
-    except NameError:
-        pass
-
+    phoSimStarCatalog.camera_wrapper = LSSTCameraWrapper()
     phoSimStarCatalog.get_fitsFiles()
 
     # Now galaxies
