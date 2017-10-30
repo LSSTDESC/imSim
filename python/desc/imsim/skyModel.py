@@ -146,21 +146,49 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         @param [out] the input image with the background and noise model added to it.
         """
 
-        # calculate the sky background to be added to each pixel
-        skyModel = skybrightness.SkyModel(mags=True)
-        ra = np.array([self.obs_metadata.pointingRA])
-        dec = np.array([self.obs_metadata.pointingDec])
-        mjd = self.obs_metadata.mjd.TAI
-        skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
+        obs_db = 'minion_1016_sqlite_new_dithers.db'
+        conn = sqlite3.connect(obs_db)
+        c = conn.cursor()
+        c.execute("SELECT obsHistID FROM ObsHistory WHERE airmass>0")
+        rows = c.fetchall()
 
-        bandPassName = self.obs_metadata.bandpass
+        gen = ObservationMetaDataGenerator(database=obs_db, driver='sqlite')
+        obs_md = gen.getObservationMetaData(obsHistID=rows[0][0], boundLength=3)[0]
+
+        n_chips = 196
+        name_list, center_x, center_y = get_chip_names_centers()
+        lsst_camera = LsstSimMapper().camera
+
+        ra, dec = np.empty(n_chips, dtype=float), np.empty(n_chips, dtype=float)
+
+        ct_chip = list(4 * np.arange(0, n_chips, 1))
+        name_list = np.asarray(name_list)[ct_chip]
+        
+        ra, dec = lsst.sims.coordUtils.raDecFromPixelCoords(xPix=center_x[:n_chips],
+                    yPix=center_y[:n_chips], chipName=name_list, camera=lsst_camera, 
+                    obs_metadata=obs_md, epoch=2000.0, includeDistortion=True)
+
+        bandPassName = 'r' # should be getting from obs_md, but obs_md returns y-band
+        mjd = obs_md.mjd.TAI
+
+        skyModel = skybrightness.SkyModel(mags=True)
+        skyModel.setRaDecMjd(ra, dec, mjd=mjd, degrees=True)
         skyMagnitude = skyModel.returnMags()[bandPassName]
 
         # Since we are only producing one eimage, account for cases
         # where nsnap > 1 with an effective exposure time for the
         # visit as a whole.  TODO: Undo this change when we write
         # separate images per exposure.
-        exposureTime = photParams.nexp*photParams.exptime*u.s
+
+        #### ADDED
+        nexp = 2
+        exptime = 15
+        exposureTime = nexp*exptime*u.s
+        ####
+
+        #### REMOVED
+        #exposureTime = photParams.nexp*photParams.exptime*u.s
+        ####
 
         skyCounts = skyCountsPerSec(surface_brightness=skyMagnitude,
                                     filter_band=bandPassName)*exposureTime
@@ -171,7 +199,24 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         image = image.copy()
 
         if self.addBackground:
-            image += skyCounts
+            #### REMOVED
+            #image += skyCounts
+            ####
+
+
+            #### ADDED
+            image = image.array
+
+            n_subpix = 22
+
+            k = 0
+            for i in range(int(np.sqrt(n_chips))):
+                it = i*n_subpix
+            for j in range(int(np.sqrt(n_chips))):
+                jt = j*n_subpix
+                image[it:it+n_subpix, jt:jt+n_subpix] = skyCounts[k]
+                k = k+1 
+            ####
 
             # if we are adding the skyCounts to the image,there is no need # to pass
             # a skyLevel parameter to the noise model.  skyLevel is # just used to
@@ -183,9 +228,20 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         else:
             skyLevel = skyCounts*photParams.gain
 
+
         if self.addNoise:
-            noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
-            image.addNoise(noiseModel)
+            #### ADDED
+            back_image = galsim.image.Image(image)
+            noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=None)
+            back_image.addNoise(noiseModel)
+            image = back_image
+            ####
+
+            #### REMOVED
+            #noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
+            #image.addNoise(noiseModel)
+            ####
+
 
         return image
 
@@ -199,10 +255,15 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         routine can both Poisson fluctuate the background and add read noise.
         We turn off the read noise by adjusting the parameters in the photParams.
         """
+        #### ADDED
+        return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel, 
+                               gain=1.0, read_noise=2.5)
+        ####
 
-        return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel,
-                               gain=photParams.gain, read_noise=photParams.readnoise)
-
+        #### REMOVED
+        #return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel,
+         #                      gain=photParams.gain, read_noise=photParams.readnoise)
+        ####
 
 def get_skyModel_params():
     """
