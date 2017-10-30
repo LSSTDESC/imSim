@@ -37,6 +37,59 @@ def skyCountsPerSec(surface_brightness=21, filter_band='r',
     return s0 * dB.to(1 / u.arcsec ** 2) * pixel_size ** 2 * effective_area
 
 
+def get_chip_names_center():
+    """Get the names and pixel centers for each sensor on the LSST camera.
+
+    Returns
+    -------
+    name_list: list
+        List specifying raft and labels for each sensor on the camera. For example, 
+        one sensor may be labelled: 'R:4,2 S:1,0'.
+    center_x: np.array length name_list
+        x-coordinates of pixel centers for each chip
+    center_y: np.array length name_list
+        y-coordinates of pixel centers for each chip
+    """
+
+    name_list = []
+    x_pix_list = []
+    y_pix_list = []
+    n_chips = 0
+
+    lsst_camera = LsstSimMapper().camera
+
+    # Get chip names
+    for chip in lsst_camera:
+        chip_name = chip.getName()
+        n_chips += 1
+
+        corner_list = lsst.sims.coordUtils.getCornerPixels(chip_name, lsst_camera)
+
+        for corner in corner_list:
+            x_pix_list.append(corner[0])
+            y_pix_list.append(corner[1])
+            name_list.append(chip_name)
+
+    # Get chip centers
+    center_x = np.empty(n_chips, dtype=float)
+    center_y = np.empty(n_chips, dtype=float)
+
+    for ix_ct in range(n_chips):
+        ix = ix_ct*4
+        chip_name = name_list[ix]
+
+        xx = 0.25*(x_pix_list[ix] + x_pix_list[ix+1] +
+                    x_pix_list[ix+2] + x_pix_list[ix+3])
+
+        yy = 0.25*(y_pix_list[ix] + y_pix_list[ix+1] + 
+                    y_pix_list[ix+2] + y_pix_list[ix+3])
+
+        center_x[ix_ct] = xx
+        center_y[ix_ct] = yy
+
+    return(name_list, center_x, center_y)
+
+
 # Here we are defining our own class derived from NoiseAndBackgroundBase for
 # use instead of ExampleCCDNoise
 class ESOSkyModel(NoiseAndBackgroundBase):
