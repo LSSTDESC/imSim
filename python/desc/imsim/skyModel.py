@@ -10,11 +10,17 @@ import numpy as np
 import astropy.units as u
 
 import lsst.sims.skybrightness as skybrightness
+import lsst.sims.coordUtils
 
 import galsim
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
 
 from .imSim import get_config
+
+from lsst.obs.lsstSim import LsstSimMapper
+from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
+
+import sqlite3
 
 __all__ = ['skyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
 
