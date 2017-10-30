@@ -37,7 +37,7 @@ def skyCountsPerSec(surface_brightness=21, filter_band='r',
     return s0 * dB.to(1 / u.arcsec ** 2) * pixel_size ** 2 * effective_area
 
 
-def get_chip_names_center():
+def get_chip_names_centers():
     """Get the names and pixel centers for each sensor on the LSST camera.
 
     Returns
@@ -194,7 +194,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
                                     filter_band=bandPassName)*exposureTime
 
         # print "Magnitude:", skyMagnitude
-        # print "Brightness:", skyMagnitude, skyCounts
+        print "Brightness:", skyMagnitude, skyCounts
 
         image = image.copy()
 
@@ -212,10 +212,10 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             k = 0
             for i in range(int(np.sqrt(n_chips))):
                 it = i*n_subpix
-            for j in range(int(np.sqrt(n_chips))):
-                jt = j*n_subpix
-                image[it:it+n_subpix, jt:jt+n_subpix] = skyCounts[k]
-                k = k+1 
+                for j in range(int(np.sqrt(n_chips))):
+                    jt = j*n_subpix
+                    image[it:it+n_subpix, jt:jt+n_subpix] = skyCounts[k]
+                    k += 1 
             ####
 
             # if we are adding the skyCounts to the image,there is no need # to pass
