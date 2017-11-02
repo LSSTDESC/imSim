@@ -6,6 +6,8 @@ sims_GalSimInterface/python/lsst/sims/GalSimInterface/galSimNoiseAndBackground.p
 
 from __future__ import absolute_import, division
 
+import matplotlib.pyplot as plt
+
 import numpy as np
 import astropy.units as u
 
@@ -149,24 +151,26 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         obs_db = 'minion_1016_sqlite_new_dithers.db'
         conn = sqlite3.connect(obs_db)
         c = conn.cursor()
-        c.execute("SELECT obsHistID FROM ObsHistory WHERE airmass>0")
+        c.execute("SELECT obsHistID, moonPhase, dist2Moon, moonAlt FROM ObsHistory WHERE airmass>0")
         rows = c.fetchall()
+	
+	print(rows[7177])
 
         gen = ObservationMetaDataGenerator(database=obs_db, driver='sqlite')
-        obs_md = gen.getObservationMetaData(obsHistID=rows[0][0], boundLength=3)[0]
+        obs_md = gen.getObservationMetaData(obsHistID=rows[7177][0], boundLength=3)[0]
 
-        n_chips = 196
         name_list, center_x, center_y = get_chip_names_centers()
         lsst_camera = LsstSimMapper().camera
+	n_chips = len(center_x)	
 
         ra, dec = np.empty(n_chips, dtype=float), np.empty(n_chips, dtype=float)
 
         ct_chip = list(4 * np.arange(0, n_chips, 1))
         name_list = np.asarray(name_list)[ct_chip]
-        
-        ra, dec = lsst.sims.coordUtils.raDecFromPixelCoords(xPix=center_x[:n_chips],
-                    yPix=center_y[:n_chips], chipName=name_list, camera=lsst_camera, 
+        ra, dec = lsst.sims.coordUtils.raDecFromPixelCoords(xPix=center_x,
+                    yPix=center_y, chipName=name_list, camera=lsst_camera, 
                     obs_metadata=obs_md, epoch=2000.0, includeDistortion=True)
+
 
         bandPassName = 'r' # should be getting from obs_md, but obs_md returns y-band
         mjd = obs_md.mjd.TAI
@@ -192,7 +196,17 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
         skyCounts = skyCountsPerSec(surface_brightness=skyMagnitude,
                                     filter_band=bandPassName)*exposureTime
+	
+	type(skyCounts)
+	print(skyCounts)
+        #plt.figure(figsize=(10,7))
+        #plt.scatter(ra, dec, c=skyCounts, s=150)
+	#plt.colorbar().set_label('Mean sky level per chip (elec/30s)')
+	#plt.xlabel('RA (deg)')
+	#plt.ylabel('DEC (deg)')
+        #plt.show()
 
+	'''
         # print "Magnitude:", skyMagnitude
         print "Brightness:", skyMagnitude, skyCounts
 
@@ -241,9 +255,9 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             #noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
             #image.addNoise(noiseModel)
             ####
+	'''
 
-
-        return image
+        return ra, dec, skyCounts
 
     def getNoiseModel(self, skyLevel=0.0, photParams=None):
 
