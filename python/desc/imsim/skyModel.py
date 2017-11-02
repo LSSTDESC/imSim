@@ -154,10 +154,11 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         c.execute("SELECT obsHistID, moonPhase, dist2Moon, moonAlt FROM ObsHistory WHERE airmass>0")
         rows = c.fetchall()
 	
-	print(rows[7177])
+	obsid = 7177
+	print(rows[obsid])
 
         gen = ObservationMetaDataGenerator(database=obs_db, driver='sqlite')
-        obs_md = gen.getObservationMetaData(obsHistID=rows[7177][0], boundLength=3)[0]
+        obs_md = gen.getObservationMetaData(obsHistID=rows[obsid][0], boundLength=3)[0]
 
         name_list, center_x, center_y = get_chip_names_centers()
         lsst_camera = LsstSimMapper().camera
@@ -197,7 +198,6 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         skyCounts = skyCountsPerSec(surface_brightness=skyMagnitude,
                                     filter_band=bandPassName)*exposureTime
 	
-	type(skyCounts)
 	print(skyCounts)
         #plt.figure(figsize=(10,7))
         #plt.scatter(ra, dec, c=skyCounts, s=150)
@@ -205,57 +205,6 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 	#plt.xlabel('RA (deg)')
 	#plt.ylabel('DEC (deg)')
         #plt.show()
-
-	'''
-        # print "Magnitude:", skyMagnitude
-        print "Brightness:", skyMagnitude, skyCounts
-
-        image = image.copy()
-
-        if self.addBackground:
-            #### REMOVED
-            #image += skyCounts
-            ####
-
-
-            #### ADDED
-            image = image.array
-
-            n_subpix = 22
-
-            k = 0
-            for i in range(int(np.sqrt(n_chips))):
-                it = i*n_subpix
-                for j in range(int(np.sqrt(n_chips))):
-                    jt = j*n_subpix
-                    image[it:it+n_subpix, jt:jt+n_subpix] = skyCounts[k]
-                    k += 1 
-            ####
-
-            # if we are adding the skyCounts to the image,there is no need # to pass
-            # a skyLevel parameter to the noise model.  skyLevel is # just used to
-            # calculate the level of Poisson noise.  If the # sky background is
-            # included in the image, the Poisson noise # will be calculated from the
-            # actual image brightness.
-            skyLevel = 0.0
-
-        else:
-            skyLevel = skyCounts*photParams.gain
-
-
-        if self.addNoise:
-            #### ADDED
-            back_image = galsim.image.Image(image)
-            noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=None)
-            back_image.addNoise(noiseModel)
-            image = back_image
-            ####
-
-            #### REMOVED
-            #noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
-            #image.addNoise(noiseModel)
-            ####
-	'''
 
         return ra, dec, skyCounts
 
