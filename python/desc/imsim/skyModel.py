@@ -14,21 +14,23 @@ import lsst.sims.skybrightness as skybrightness
 import galsim
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
 
+from lsst.sims.photUtils import Sed
+
 from .imSim import get_config
 
 __all__ = ['skyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
 
 
-# Code snippet from D. Kirkby.  Note the use of astropy units.
-def skyCountsPerSec(surface_brightness=21, filter_band='r',
-                    effective_area=32.4*u.m**2, pixel_size=0.2*u.arcsec):
-    pars = get_skyModel_params()
-    # Lookup the zero point corresponding to 24 mag/arcsec**2
-    s0 = pars[filter_band] * u.electron / u.s / u.m ** 2
-
-    # Calculate the rate in detected electrons / second
-    dB = (surface_brightness - pars['B0']) * u.mag(1 / u.arcsec ** 2)
-    return s0 * dB.to(1 / u.arcsec ** 2) * pixel_size ** 2 * effective_area
+def skyCountsPerSec(skySpec, bandpass, photParams):
+	# Calculate the rate in detected electrons / second.
+  
+	skySed = Sed(wavelen = skySpec.wave, flambda = skySpec.spec)
+	
+	skycounts = skySED.calcADU(bandpass, photParams)
+	
+	skycounts_persec = skycounts / photParams.exptime / photParams.nexp / photParams.gain * u.electron / u.s / u.m ** 2
+	
+	return skycounts_persec
 
 
 # Here we are defining our own class derived from NoiseAndBackgroundBase for
@@ -96,15 +98,16 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
         bandPassName = self.obs_metadata.bandpass
         skyMagnitude = skyModel.returnMags()[bandPassName]
+        skySpec = skyModel.returnWaveSpec()
 
         # Since we are only producing one eimage, account for cases
         # where nsnap > 1 with an effective exposure time for the
         # visit as a whole.  TODO: Undo this change when we write
         # separate images per exposure.
-        exposureTime = photParams.nexp*photParams.exptime*u.s
+        exposureTime = photParams.nexp*photParams.exptime
 
-        skyCounts = skyCountsPerSec(surface_brightness=skyMagnitude,
-                                    filter_band=bandPassName)*exposureTime
+        # bandpass is the CatSim bandpass object
+        skyCounts = skyCountsPerSec(skySpec, bandpass, photParams)*exposureTime*u.s
 
         # print "Magnitude:", skyMagnitude
         # print "Brightness:", skyMagnitude, skyCounts
