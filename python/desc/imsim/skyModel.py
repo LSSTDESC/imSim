@@ -23,8 +23,8 @@ __all__ = ['skyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
 
 def skyCountsPerSec(skySpec, bandpass, photParams):
 	# Calculate the rate in detected electrons / second.
-  
-	skySed = Sed(wavelen = skySpec.wave, flambda = skySpec.spec)
+  	
+	skySed = Sed(wavelen = skySpec.wave, flambda = skySpec.spec[0,:])
 	
 	skycounts = skySED.calcADU(bandpass, photParams)
 	
