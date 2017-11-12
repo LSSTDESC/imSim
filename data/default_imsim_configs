@@ -4,6 +4,10 @@ readout_time = 3.
 [persistence]
 eimage_prefix = lsst_e_
 
+[cosmic_rays]
+catalog = default
+#catalog = None
+
 [skyModel_params]
 B0 = 24.
 u = 0.282598538804

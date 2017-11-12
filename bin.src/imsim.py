@@ -155,6 +155,9 @@ def main():
     phoSimGalaxyCatalog.noise_and_background = phoSimStarCatalog.noise_and_background
     phoSimGalaxyCatalog.get_fitsFiles()
 
+    # Add cosmic rays to the eimages.
+    phoSimGalaxyCatalog.add_cosmic_rays()
+
     # Write out the fits files
     outdir = arguments.outdir
     if not os.path.isdir(outdir):

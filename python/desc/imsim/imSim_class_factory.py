@@ -2,11 +2,15 @@
 Code to generate imSim subclasses of GalSimBase subclasses.
 """
 from __future__ import absolute_import, print_function, division
+import os
+import copy
 import gc
-
+import galsim
 from lsst.sims.utils import pupilCoordsFromRaDec
-
 from lsst.sims.GalSimInterface import GalSimStars, GalSimGalaxies
+import lsst.utils as lsstUtils
+from .imSim import get_config
+from .cosmic_rays import CosmicRays
 
 __all__ = ['ImSimStars', 'ImSimGalaxies']
 
@@ -21,7 +25,8 @@ def imSim_class_factory(galsim_subclass):
                        (galsim_subclass,),
                        dict([('column_by_name', imSim_column_by_name),
                              ('__init__', imSim__init__),
-                             ('__name__', imSim_class_name)]))
+                             ('__name__', imSim_class_name),
+                             ('add_cosmic_rays', imSim_add_cosmic_rays)]))
     imSim_class.__imSim_class__ = imSim_class
     return imSim_class
 
@@ -81,6 +86,28 @@ def imSim_column_by_name(self, colname):
     if colname not in self.phosim_objects:
         return super(self.__imSim_class__, self).column_by_name(colname)
     return self.phosim_objects[colname].values
+
+
+def imSim_add_cosmic_rays(self):
+    """
+    Add cosmic rays draw from a catalog of CRs extracted from single
+    sensor darks.
+    """
+    config = get_config()
+    catalog = config['cosmic_rays']['catalog']
+    if catalog is None:
+        return
+    elif catalog == 'default':
+        catalog = os.path.join(lsstUtils.getPackageDir('imsim'),
+                               'data', 'cosmic_ray_catalog.fits.gz')
+    crs = CosmicRays()
+    crs.read_catalog(catalog)
+
+    exptime = self.photParams.nexp*self.photParams.exptime
+    for name, image in self.galSimInterpreter.detectorImages.items():
+        imarr = copy.deepcopy(image.array)
+        self.galSimInterpreter.detectorImages[name] = \
+            galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
 
 ImSimStars = imSim_class_factory(GalSimStars)
 ImSimGalaxies = imSim_class_factory(GalSimGalaxies)

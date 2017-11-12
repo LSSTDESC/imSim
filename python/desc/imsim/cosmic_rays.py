@@ -3,6 +3,7 @@ Code to add cosmic rays to LSST CCDs.  The cosmic ray hits are
 harvested from real CCD dark frames taken for Camera electro-optical
 testing.
 """
+from __future__ import print_function
 from collections import namedtuple, defaultdict
 import numpy as np
 import numpy.random as random
@@ -119,12 +120,18 @@ class CosmicRays(list):
         self.extend(crs.values())
 
 if __name__ == '__main__':
+    import os
+    import copy
+    import galsim
+    import lsst.utils as lsstUtils
+
     crs = CosmicRays()
-    crs.read_catalog('cosmic_ray_catalog.fits.gz')
+    catalog = os.path.join(lsstUtils.getPackageDir('imsim'),
+                           'data', 'cosmic_ray_catalog.fits.gz')
+    crs.read_catalog(catalog)
 
-    imarr = np.zeros((2000, 512), dtype=np.int)
-    imarr = crs.paint(imarr, exptime=500)
-
-    foo = fits.HDUList([fits.PrimaryHDU()])
-    foo[0].data = imarr
-    foo.writeto('foo.fits', overwrite=True)
+    image = galsim.ImageF(random.normal(1000., 7., (2000, 509)))
+    imarray = copy.deepcopy(image.array)
+    imarray = crs.paint(imarray, exptime=500)
+    image = galsim.ImageF(imarray)
+    image.write('galsim_image.fits')
