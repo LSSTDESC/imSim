@@ -9,7 +9,7 @@ import numpy as np
 import numpy.random as random
 import astropy.io.fits as fits
 
-__all__ = ['CosmicRays']
+__all__ = ['CosmicRays', 'write_cosmic_ray_catalog']
 
 CR_Span = namedtuple('CR_Span', 'x0 y0 pixel_values'.split())
 
@@ -118,6 +118,43 @@ class CosmicRays(list):
             for i, span in enumerate(cr_cat.data):
                 crs[span[0]].append(CR_Span(*tuple(span)[1:]))
         self.extend(crs.values())
+
+def write_cosmic_ray_catalog(fp_id, x0, y0, pixel_values, exptime, num_pix,
+                             outfile='cosmic_ray_catalog.fits', overwrite=True):
+    """
+    Write cosmic ray pixel footprint data as a binary table to a FITS file.
+
+    Parameters
+    ----------
+    fp_id: sequence
+        Sequence containing the footprint ids for each span.
+    x0: sequence
+        Sequence containing the starting x-index for each span.
+    y0: sequence
+        Sequence containing the y-index for each span.
+    pixel_values: sequence of sequences
+        Sequence containing the pixel values in each span.
+    exptime: float
+        Total exposure time (seconds) of the CR data.
+    num_pix: int
+        Number of pixels in the sensor used to detect these CRs.
+    outfile: str, optional
+        Filename of output catalog FITS file.
+        Default: 'cosmic_ray_catalog.fits'
+    overwrite: bool, optional
+        Flag to overwrite an existing outfile. Default: True
+    """
+    hdu_list = fits.HDUList([fits.PrimaryHDU()])
+    columns = [fits.Column(name='fp_id', format='I', array=fp_id),
+               fits.Column(name='x0', format='I', array=x0),
+               fits.Column(name='y0', format='I', array=y0),
+               fits.Column(name='pixel_values', format='PJ()',
+                           array=np.array(pixel_values, dtype=np.object))]
+    hdu_list.append(fits.BinTableHDU.from_columns(columns))
+    hdu_list[-1].name = 'COSMIC_RAYS'
+    hdu_list[-1].header['EXPTIME'] = exptime
+    hdu_list[-1].header['NUM_PIX'] = num_pix
+    hdu_list.writeto(outfile, overwrite=overwrite)
 
 if __name__ == '__main__':
     import os

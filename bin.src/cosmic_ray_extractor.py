@@ -16,6 +16,7 @@ import lsst.afw.image as afw_image
 import lsst.afw.math as afw_math
 import lsst.eotest.image_utils as imutils
 import lsst.eotest.sensor as sensorTest
+import desc.imsim
 
 def bg_image(ccd, amp, nx=10, ny=10):
     """
@@ -165,17 +166,8 @@ if __name__ == '__main__':
                     row = gains[amp]*image.getImage().getArray()[iy, ix0:ix1+1]
                     pixel_values.append(np.array(row, dtype=np.int))
 
-    hdu_list = fits.HDUList([fits.PrimaryHDU()])
-    columns = [fits.Column(name='fp_id', format='I', array=fp_id),
-               fits.Column(name='x0', format='I', array=x0),
-               fits.Column(name='y0', format='I', array=y0),
-               fits.Column(name='pixel_values', format='PJ()',
-                           array=np.array(pixel_values, dtype=np.object))]
-    hdu_list.append(fits.BinTableHDU.from_columns(columns))
-    hdu_list[-1].name = 'COSMIC_RAYS'
-    hdu_list[-1].header['EXPTIME'] = exptime
-    hdu_list[-1].header['NUM_PIX'] = int(float(num_pix)/len(darks))
-    hdu_list.writeto(args.outfile, overwrite=True)
-
+    desc.imsim.write_cosmic_ray_catalog(fp_id, x0, y0, pixel_values,
+                                        exptime, int(float(num_pix)/len(darks)),
+                                        outfile=args.outfile)
     for item in glob.glob('tmp_*.fits'):
         os.remove(item)
