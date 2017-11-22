@@ -42,7 +42,7 @@ class ImageSourceTestCase(unittest.TestCase):
     def test_create_from_eimage(self):
         "Test the .create_from_eimage static method."
         self.assertAlmostEqual(self.image_source.exptime, 30.)
-        self.assertTupleEqual(self.image_source.eimage_data.shape, (4000, 4072))
+        self.assertTupleEqual(self.image_source.eimage_data.shape, (4072, 4000))
         self.assertTupleEqual(
             self.image_source.amp_images['R22_S11_C00'].getArray().shape,
             (2020, 532))
