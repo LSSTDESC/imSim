@@ -65,10 +65,10 @@ class SkyModelTestCase(unittest.TestCase):
         skymodel = desc.imsim.ESOSkyModel(obs_md, addNoise=False,
                                           addBackground=True)
         image_2 = galsim.Image(100, 100)
-        image_2 = skymodel.addNoiseAndBackground(image_2, photParams=photPars_2)
+        image_2 = skymodel.addNoiseAndBackground(image_2, 'R:4,2 S:1,0', photParams=photPars_2)
 
         image_1 = galsim.Image(100, 100)
-        image_1 = skymodel.addNoiseAndBackground(image_1, photParams=photPars_1)
+        image_1 = skymodel.addNoiseAndBackground(image_1, 'R:4,2 S:1,0', photParams=photPars_1)
 
         self.assertNotEqual(image_1.array[0, 0], 0)
         self.assertAlmostEqual(2*image_1.array[0, 0], image_2.array[0, 0])
