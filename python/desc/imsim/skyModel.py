@@ -92,6 +92,27 @@ def get_chip_names_centers():
     return(name_list, center_x, center_y)
 
 
+def get_chip_center(chip_name, camera):
+
+    corner_list = lsst.sims.coordUtils.getCornerPixels(chip_name, camera)
+
+    x_pix_list = []
+    y_pix_list = []
+
+    for corner in corner_list:
+        x_pix_list.append(corner[0])
+        y_pix_list.append(corner[1])
+
+    center_x = 0.25*(x_pix_list[0] + x_pix_list[1] +
+                    x_pix_list[2] + x_pix_list[3])
+
+    center_y = 0.25*(y_pix_list[0] + y_pix_list[1] +
+                    y_pix_list[2] + y_pix_list[3])
+
+    return(center_x, center_y)
+
+
+
 # Here we are defining our own class derived from NoiseAndBackgroundBase for
 # use instead of ExampleCCDNoise
 class ESOSkyModel(NoiseAndBackgroundBase):
@@ -123,7 +144,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         else:
             self.randomNumbers = galsim.UniformDeviate(seed)
 
-    def addNoiseAndBackground(self, image, bandpass=None, m5=None,
+    def addNoiseAndBackground(self, image, chipName, bandpass=None, m5=None,
                               FWHMeff=None,
                               photParams=None):
         """
@@ -148,65 +169,64 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         @param [out] the input image with the background and noise model added to it.
         """
 
-        obs_db = 'minion_1016_sqlite_new_dithers.db'
-        conn = sqlite3.connect(obs_db)
-        c = conn.cursor()
-        c.execute("SELECT obsHistID, moonPhase, dist2Moon, moonAlt FROM ObsHistory WHERE airmass>0")
-        rows = c.fetchall()
+        #obs_db = 'minion_1016_sqlite_new_dithers.db'
+        #conn = sqlite3.connect(obs_db)
+        #c = conn.cursor()
+        #c.execute("SELECT obsHistID, moonPhase, dist2Moon, moonAlt FROM ObsHistory WHERE airmass>0")
+        #rows = c.fetchall()
 	
-	obsid = 7177
-	print(rows[obsid])
+	#obsid = 7177
 
-        gen = ObservationMetaDataGenerator(database=obs_db, driver='sqlite')
-        obs_md = gen.getObservationMetaData(obsHistID=rows[obsid][0], boundLength=3)[0]
+        #gen = ObservationMetaDataGenerator(database=obs_db, driver='sqlite')
+        #obs_md = gen.getObservationMetaData(obsHistID=rows[obsid][0], boundLength=3)[0]
 
-        name_list, center_x, center_y = get_chip_names_centers()
-        lsst_camera = LsstSimMapper().camera
-	n_chips = len(center_x)	
+        camera = LsstSimMapper().camera
+        center_x, center_y = get_chip_center(chipName, camera)
 
-        ra, dec = np.empty(n_chips, dtype=float), np.empty(n_chips, dtype=float)
-
-        ct_chip = list(4 * np.arange(0, n_chips, 1))
-        name_list = np.asarray(name_list)[ct_chip]
-        ra, dec = lsst.sims.coordUtils.raDecFromPixelCoords(xPix=center_x,
-                    yPix=center_y, chipName=name_list, camera=lsst_camera, 
-                    obs_metadata=obs_md, epoch=2000.0, includeDistortion=True)
-
-
-        bandPassName = 'r' # should be getting from obs_md, but obs_md returns y-band
-        mjd = obs_md.mjd.TAI
-
+        
         skyModel = skybrightness.SkyModel(mags=True)
-        skyModel.setRaDecMjd(ra, dec, mjd=mjd, degrees=True)
-        skyMagnitude = skyModel.returnMags()[bandPassName]
+        ra, dec = lsst.sims.coordUtils.raDecFromPixelCoords(xPix=center_x,
+                    yPix=center_y, chipName=chipName, camera=camera, 
+                    obs_metadata=self.obs_metadata, epoch=2000.0, includeDistortion=True)
+        mjd = self.obs_metadata.mjd.TAI
+        skyModel.setRaDecMjd([ra], [dec], mjd=mjd, degrees=True)
+         
+        bandPassName = self.obs_metadata.bandpass # obs_metadata returns y-band
+	skyMagnitude = skyModel.returnMags()[bandPassName]
 
         # Since we are only producing one eimage, account for cases
         # where nsnap > 1 with an effective exposure time for the
         # visit as a whole.  TODO: Undo this change when we write
         # separate images per exposure.
 
-        #### ADDED
-        nexp = 2
-        exptime = 15
-        exposureTime = nexp*exptime*u.s
-        ####
-
-        #### REMOVED
-        #exposureTime = photParams.nexp*photParams.exptime*u.s
-        ####
+        
+        exposureTime = photParams.nexp*photParams.exptime*u.s
+        
 
         skyCounts = skyCountsPerSec(surface_brightness=skyMagnitude,
                                     filter_band=bandPassName)*exposureTime
 	
-	print(skyCounts)
-        #plt.figure(figsize=(10,7))
-        #plt.scatter(ra, dec, c=skyCounts, s=150)
-	#plt.colorbar().set_label('Mean sky level per chip (elec/30s)')
-	#plt.xlabel('RA (deg)')
-	#plt.ylabel('DEC (deg)')
-        #plt.show()
+        # print "Magnitude:", skyMagnitude
+        # print "Brightness:", skyMagnitude, skyCounts
 
-        return ra, dec, skyCounts
+        if self.addBackground:
+            image += skyCounts
+
+	    # if we are adding the skyCounts to the image,there is no need # to pass
+            # a skyLevel parameter to the noise model.  skyLevel is # just used to
+            # calculate the level of Poisson noise.  If the # sky background is
+            # included in the image, the Poisson noise # will be calculated from the
+            # actual image brightness.
+            skyLevel = 0.0
+
+        else:
+	    skyLevel = skyCounts*photParams.gain
+
+        if self.addNoise:
+            noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
+            image.addNoise(noiseModel)	
+
+        return image
 
     def getNoiseModel(self, skyLevel=0.0, photParams=None):
 
@@ -218,15 +238,10 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         routine can both Poisson fluctuate the background and add read noise.
         We turn off the read noise by adjusting the parameters in the photParams.
         """
-        #### ADDED
-        return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel, 
-                               gain=1.0, read_noise=2.5)
-        ####
-
-        #### REMOVED
-        #return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel,
-         #                      gain=photParams.gain, read_noise=photParams.readnoise)
-        ####
+        
+        return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel,
+                               gain=photParams.gain, read_noise=photParams.readnoise)
+        
 
 def get_skyModel_params():
     """
