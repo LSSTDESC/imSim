@@ -23,15 +23,20 @@ class CosmicRays(list):
     ----------
     num_pix: int
         Number of pixels for the sensors from which the CRs were extracted.
-        Should be approximately 4000**2
+        Should be approximately 4000**2.
     exptime: float
         Sum of exposure times (seconds) of the input darks.
+    ccd_rate: float
+        Cosmic rays per second per CCD.
     """
-    def __init__(self, *args, **kwds):
-        "Constructor."
-        super(CosmicRays, self).__init__(*args, **kwds)
+    def __init__(self):
+        """
+        Constructor.
+        """
+        super(CosmicRays, self).__init__()
         self.num_pix = 0
         self.exptime = 0
+        self.ccd_rate = 0
 
     def paint(self, image_array, exptime=30., num_crs=None):
         """
@@ -57,8 +62,8 @@ class CosmicRays(list):
         numpy.array: The input image array with the CRs added.
         """
         if num_crs is None:
-            num_crs = random.poisson(len(self)/float(self.num_pix)/self.exptime
-                                     *float(np.prod(image_array.shape))*exptime)
+            ccd_frac = float(np.prod(image_array.shape))/self.num_pix
+            num_crs = random.poisson(exptime*self.ccd_rate*ccd_frac)
         for i in range(num_crs):
             image_array = self.paint_cr(image_array)
         return image_array
@@ -98,26 +103,39 @@ class CosmicRays(list):
                     pass
         return image_array
 
-    def read_catalog(self, catalog_file, extname='COSMIC_RAYS'):
+    @staticmethod
+    def read_catalog(catalog_file, ccd_rate=None, extname='COSMIC_RAYS'):
         """
-        Read a FITS file containing a cosmic ray catalog.  New CR data
-        will be appended.
+        Read a FITS file containing a cosmic ray catalog.
 
         Parameters
         ----------
         catalog_file: str
             Filename of the cosmic ray catalog.
+        ccd_rate: float, optional
+            Mean number of cosmic rays per second per CCD.  If None (default),
+            extract the rate from the catalog file.
         extname: str, optional
             Extension name of the cosmic ray catalog.  Default: 'COSMIC_RAYS'
+
+        Returns
+        -------
+        CosmicRays instance.
         """
+        cosmic_rays = CosmicRays()
         with fits.open(catalog_file) as catalog:
             cr_cat = catalog[extname]
-            self.exptime += cr_cat.header['EXPTIME']
-            self.num_pix = cr_cat.header['NUM_PIX']
+            cosmic_rays.num_pix = cr_cat.header['NUM_PIX']
+            cosmic_rays.exptime = cr_cat.header['EXPTIME']
             crs = defaultdict(list)
             for i, span in enumerate(cr_cat.data):
                 crs[span[0]].append(CR_Span(*tuple(span)[1:]))
-        self.extend(crs.values())
+        super(CosmicRays, cosmic_rays).extend(crs.values())
+        if ccd_rate is None:
+            cosmic_rays.ccd_rate = float(len(cosmic_rays))/cosmic_rays.exptime
+        else:
+            cosmic_rays.ccd_rate = ccd_rate
+        return cosmic_rays
 
 def write_cosmic_ray_catalog(fp_id, x0, y0, pixel_values, exptime, num_pix,
                              outfile='cosmic_ray_catalog.fits', overwrite=True):

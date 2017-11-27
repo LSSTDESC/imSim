@@ -29,8 +29,7 @@ class CosmicRaysTestCase(unittest.TestCase):
 
     def test_read_catalog(self):
         "Test the catalog contents."
-        crs = CosmicRays()
-        crs.read_catalog(self.test_catalog)
+        crs = CosmicRays.read_catalog(self.test_catalog)
         self.assertEqual(len(crs), 3)
         self.assertEqual(len(crs[0]), 3)
         self.assertEqual(crs[0][0].x0, 10)
@@ -40,8 +39,7 @@ class CosmicRaysTestCase(unittest.TestCase):
     def test_paint_cr(self):
         "Test the painting of a CR into an input image array."
         imarr = np.zeros((3, 3))
-        crs = CosmicRays()
-        crs.read_catalog(self.test_catalog)
+        crs = CosmicRays.read_catalog(self.test_catalog)
         imarr = crs.paint_cr(imarr, index=0, pixel=(0, 0))
         np.testing.assert_array_equal(self.test_image, imarr)
 

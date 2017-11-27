@@ -94,14 +94,14 @@ def imSim_add_cosmic_rays(self):
     sensor darks.
     """
     config = get_config()
-    catalog = config['cosmic_rays']['catalog']
-    if catalog is None:
+    ccd_rate = config['cosmic_rays']['ccd_rate']
+    if ccd_rate == 0:
         return
-    elif catalog == 'default':
+    catalog = config['cosmic_rays']['catalog']
+    if catalog == 'default':
         catalog = os.path.join(lsstUtils.getPackageDir('imsim'),
                                'data', 'cosmic_ray_catalog.fits.gz')
-    crs = CosmicRays()
-    crs.read_catalog(catalog)
+    crs = CosmicRays.read_catalog(catalog, ccd_rate=ccd_rate)
 
     exptime = self.photParams.nexp*self.photParams.exptime
     for name, image in self.galSimInterpreter.detectorImages.items():
