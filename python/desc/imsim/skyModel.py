@@ -112,7 +112,52 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         image = image.copy()
 
         if self.addBackground:
-            image += skyCounts
+            #image += skyCounts  # The below stuff does this more carefully via Craig's sensor code.
+
+            # Make a PhotonArray to hold the sky photons
+            npix = np.prod(image.array.shape)
+            photons_per_pixel = 100.  # Somewhat arbitrary.  Smaller is more accurate, but slower.
+            flux_per_photon = skyCounts / photons_per_pixel
+            nphotons = photons_per_pixel * npix
+            photon_array = galsim.PhotonArray(nphotons)
+
+            # Set the position of the photons
+            self.randomNumbers.generate(photon_array.x)
+            photon_arra.x *= (image.xmax - image.xmin + 1)
+            photon_arra.x += image.xmin - 0.5
+            self.randomNumbers.generate(photon_array.y)
+            photon_arra.y *= (image.ymax - image.ymin + 1)
+            photon_arra.y += image.ymin - 0.5
+            # Range of each should now be from min - 0.5 to max + 0.5, since min/max refer to the pixel centers
+
+            # Set the flux of the photons
+            photon_array.flux = flux_per_photon
+
+            # Set the wavelenghts
+            sed = galsim.SED(1, 'nm', 'fphotons')  # Constant for now.  Should replace with sky SED.
+            bandPassName = self.obs_metadata.bandpass
+            bandpass=self.bandpassDict[bandPassName]  # No bandpassDict yet.  Need to add that.
+            gs_bandpass = galsim.Bandpass(galsim.LookupTable(x=bandpass.wavelen, f=bandpass.sb),
+                                          wave_type='nm')
+            waves = galsim.WavelengthSampler(sed=sed, bandpass=gs_bandpass, rng=self.randomNumbers)
+            waves.applyTo(photon_array)
+
+            # Set the angles
+            fratio = 1.234  # From https://www.lsst.org/scientists/keynumbers
+            obscuration = 0.606  # (8.4**2 - 6.68**2)**0.5 / 8.4
+            angles = galsim.FRatioAngles(fratio, obscuration, self._rng)
+            angles.applyTo(photon_array)
+
+            # Use a SiliconSensor to get TreeRings, B/F
+            treering_center = ...  # This should be a set PositionD(x,y) for each CCD.  Could be off the edge of the image.
+            treering_func = ... # This should be a LookupTable, probaby read from a file.  Maybe different for each CCD.
+            nrecalc = max(10000,flux_per_photon*npix)  # The default is 10000, but we can do at least npix for sky photons. (Probably much higher even)
+            sensor = galsim.SiliconSensor(rng=self.randomNumbers, nrecalc=nrecalc,
+                                          treering_center=treering_center,
+                                          treering_func=treering_func)
+
+            # Accumulate the photons on the image.
+            sensor.accumulate(photon_array, image)
 
             # if we are adding the skyCounts to the image,there is no need # to pass
             # a skyLevel parameter to the noise model.  skyLevel is # just used to
