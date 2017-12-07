@@ -65,8 +65,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
     def addNoiseAndBackground(self, image, bandpass=None, m5=None,
                               FWHMeff=None,
                               photParams=None,
-                              tree_ring_center=galsim.PositionD(0, 0),
-                              tree_ring_func=None):
+                              detector=None)
         """
         This method actually adds the sky background and noise to an image.
 
@@ -86,12 +85,9 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         PhotometricParameters class that carries details about the
         photometric response of the telescope.  Defaults to None.
 
-
-        @param [in] treering_center should be a set PositionD(x,y) for each CCD.
-        Could be off the edge of the image.
-
-        @param [in] treering_func should be a LookupTable, probably
-        read from a file.  Maybe different for each CCD.
+        @param [in] detector is a GalSimDetector object, used for
+        passing detector-specific info, such as the tree ring model,
+        to the galsim code.
 
         @param [out] the input image with the background and noise model added to it.
         """
@@ -189,8 +185,8 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             # Use a SiliconSensor to get TreeRings, B/F
             nrecalc = max(10000,flux_per_photon*npix)  # The default is 10000, but we can do at least npix for sky photons. (Probably much higher even)
             sensor = galsim.SiliconSensor(rng=self.randomNumbers, nrecalc=nrecalc,
-                                          treering_center=tree_ring_center,
-                                          treering_func=tree_ring_func)
+                                          treering_center=detector.tree_rings.center,
+                                          treering_func=detector.tree_rings.func)
 
             # Accumulate the photons on the image.
             sensor.accumulate(photon_array, image)
