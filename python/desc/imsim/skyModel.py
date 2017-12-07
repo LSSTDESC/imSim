@@ -119,56 +119,98 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         if self.addBackground:
             #image += skyCounts  # The below stuff does this more carefully via Craig's sensor code.
 
-            # skyCounts is the expectation value of the counts in each pixel.
-            # We want these values to vary according to Poisson statistics.
-            # One way to do that would be to make nphotons = npix * skyCounts and give them all
-            # random positions within the image.  Then each pixel would have a Poisson variation
-            # in its count of how many photons fall in it.
-            # However, we would like to speed up the calculation (and reduce the memory demands)
-            # by dropping in photon bundles that effectively do many photons at once.
-            # Unfortunately, if we still just did random positions, this would increase the
-            # variance in each pixel, so the values would have the wrong statistics.  Instead,
-            # we fix the number of bundles per pixel and put all the variance in the flux.
-            #
-            # To get the right expected flux and variance in each pixel, we need:
-            #
-            #     nbundles_per_pixel * mean(flux_per_bundle) = skyCounts
-            #     nbundles_per_pixel * var(flux_per_bundle) = skyCounts
-            #
-            # I.e., we can get the right statistics if mean(flux_per_bundle) = var(flux_per_bundle).
-            # A convenient way to do that is to have the fluxes of the bundles be generated from
-            # a Poisson distribution.
+            if False:
+                # Saving this option in case we need it for speed, but for now, we'll do the
+                # simple thing of having all the photons with flux=1 and get the Poisson variation
+                # naturally by randomizing the position across the whole image.
 
-            # Make a PhotonArray to hold the sky photons
-            npix = np.prod(image.array.shape)
-            nbundles_per_pix = 20  # Somewhat arbitrary.  Larger is more accurate, but slower.
-            if skyCounts < bundles_per_pix:  # Don't put < 1 real photon per "bundle"
-                nbundles_per_pix = int(skyCounts)
-            flux_per_bundle = skyCounts / nbundles_per_pix
-            nbundles = npix * nbundles_per_pix
-            photon_array = galsim.PhotonArray(nbundles)
+                # skyCounts is the expectation value of the counts in each pixel.
+                # We want these values to vary according to Poisson statistics.
+                # One way to do that would be to make nphotons = npix * skyCounts and give them all
+                # random positions within the image.  Then each pixel would have a Poisson variation
+                # in its count of how many photons fall in it.
+                # However, we would like to speed up the calculation (and reduce the memory demands)
+                # by dropping in photon bundles that effectively do many photons at once.
+                # Unfortunately, if we still just did random positions, this would increase the
+                # variance in each pixel, so the values would have the wrong statistics.  Instead,
+                # we fix the number of bundles per pixel and put all the variance in the flux.
+                #
+                # To get the right expected flux and variance in each pixel, we need:
+                #
+                #     nbundles_per_pixel * mean(flux_per_bundle) = skyCounts
+                #     nbundles_per_pixel * var(flux_per_bundle) = skyCounts
+                #
+                # I.e., we can get the right statistics if
+                #
+                #     mean(flux_per_bundle) = var(flux_per_bundle).
+                #
+                # A convenient way to do that is to have the fluxes of the bundles be generated from
+                # a Poisson distribution.
 
-            # Generate the x,y values.
-            xx, yy = np.meshgrid(np.arange(image.xmin, image.xmax+1),
-                                 np.arange(image.ymin, image.ymax+1))
-            xx = xx.ravel()
-            yy = yy.ravel()
-            assert len(xx) == npix
-            assert len(yy) == npix
-            xx = np.repeat(xx, nbundles_per_pix)
-            yy = np.repeat(yy, nbundles_per_pix)
-            assert len(xx) == len(photon_array)
-            assert len(yy) == len(photon_array)
-            galsim.utilities.permute(self.randomNumbers, xx, yy)  # Randomly reshuffle in place
-            photon_array.x = xx
-            photon_array.y = yy
+                # Make a PhotonArray to hold the sky photons
+                npix = np.prod(image.array.shape)
+                nbundles_per_pix = 20  # Somewhat arbitrary.  Larger is more accurate, but slower.
+                if skyCounts < bundles_per_pix:  # Don't put < 1 real photon per "bundle"
+                    nbundles_per_pix = int(skyCounts)
+                flux_per_bundle = skyCounts / nbundles_per_pix
+                nbundles = npix * nbundles_per_pix
+                photon_array = galsim.PhotonArray(nbundles)
 
-            # Set the flux of the photons
-            flux_pd = galsim.PoissonDeviate(self.randomNumbers, mean=flux_per_bundle)
-            flux_pd.generate(photon_array.flux)
+                # Generate the x,y values.
+                xx, yy = np.meshgrid(np.arange(image.xmin, image.xmax+1),
+                                    np.arange(image.ymin, image.ymax+1))
+                xx = xx.ravel()
+                yy = yy.ravel()
+                assert len(xx) == npix
+                assert len(yy) == npix
+                xx = np.repeat(xx, nbundles_per_pix)
+                yy = np.repeat(yy, nbundles_per_pix)
+                assert len(xx) == len(photon_array)
+                assert len(yy) == len(photon_array)
+                galsim.utilities.permute(self.randomNumbers, xx, yy)  # Randomly reshuffle in place
+
+                # The above values are pixel centers.  Add a random offset within each pixel.
+                self.randomNumbers.generate(photon_array.x)  # Random values from 0..1
+                photon_array.x -= 0.5
+                self.randomNumbers.generate(photon_array.y)
+                photon_array.y -= 0.5
+                photon_array.x += xx
+                photon_array.y += yy
+
+                # Set the flux of the photons
+                flux_pd = galsim.PoissonDeviate(self.randomNumbers, mean=flux_per_bundle)
+                flux_pd.generate(photon_array.flux)
+
+            else:
+                # Simpler method that has all the pixels with flux=1.
+                # Might be too slow, in which case consider switching to the above code.
+
+                npix = np.prod(image.array.shape)
+                nphotons = npix * skyCounts
+                # Technically, this should be a Poisson variate with this expectation value.
+                nphotons = galsim.PoissonDeviate(self.randomNumbers, mean=nphotons)()
+                photon_array = galsim.PhotonArray(nphotons)
+
+                # Generate the x,y values.
+                self.randomNumbers.generate(photon_array.x) # 0..1 so far
+                photon_array.x *= (image.xmax - image.xmin + 1)
+                photon_array.x += image.xmin - 0.5  # Now from xmin-0.5 .. xmax+0.5
+                self.randomNumbers.generate(photon_array.y)
+                photon_array.y *= (image.ymax - image.ymin + 1)
+                photon_array.y += image.ymin - 0.5
+
+                # Flux in this case is simple.  All flux = 1.
+                photon_array.flux = 1
 
             # Set the wavelengths
-            sed = galsim.SED(1, 'nm', 'fphotons')  # Constant for now.  Should replace with sky SED.
+            # Note from Lynne Jones on Slack re sky brightness/sed:
+            #   You most likely already know this, but sims_skybrightness can generate a sky
+            #   background sed appropriate for a set of input conditions (pointing, time and
+            #   then it adds twilight, Moon, zodiacal light, etc).
+            # It looks like we're already using this (?) for the skyMagnitude, so it would
+            # presumably be simple to get the sed from that too.
+            sed = galsim.SED(1, 'nm', 'fphotons')  # Placeholder until then..
+
             bandPassName = self.obs_metadata.bandpass
             bandpass=self.bandpassDict[bandPassName]  # No bandpassDict yet.  Need to add that.
             gs_bandpass = galsim.Bandpass(galsim.LookupTable(x=bandpass.wavelen, f=bandpass.sb),
@@ -182,8 +224,10 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             angles = galsim.FRatioAngles(fratio, obscuration, self._rng)
             angles.applyTo(photon_array)
 
-            # Use a SiliconSensor to get TreeRings, B/F
-            nrecalc = max(10000,flux_per_photon*npix)  # The default is 10000, but we can do at least npix for sky photons. (Probably much higher even)
+            # The main slow bit in the Silicon sensor is when recalculating the pixel boundaries.
+            # We do this after every nrecalc electrons.  It's only really important to do when
+            # the flux per pixel is around 1000.  So in this case, that's npix * 1000 electrons.
+            nrecalc = npix * 1000
             sensor = galsim.SiliconSensor(rng=self.randomNumbers, nrecalc=nrecalc,
                                           treering_center=detector.tree_rings.center,
                                           treering_func=detector.tree_rings.func)
