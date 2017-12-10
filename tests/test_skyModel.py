@@ -9,6 +9,7 @@ try:
 except ImportError:
     # python 2 backwards-compatibility
     import ConfigParser as configparser
+import numpy as np
 import galsim
 import desc.imsim
 
@@ -62,7 +63,8 @@ class SkyModelTestCase(unittest.TestCase):
         self.assertEqual(photPars_1.nexp, 1)
         self.assertEqual(photPars_1.exptime, 15.)
 
-        skymodel = desc.imsim.ESOSkyModel(obs_md, addNoise=False,
+        seed = 100
+        skymodel = desc.imsim.ESOSkyModel(obs_md, seed=100, addNoise=False,
                                           addBackground=True)
         image_2 = galsim.Image(100, 100)
         image_2 = skymodel.addNoiseAndBackground(image_2, photParams=photPars_2)
@@ -71,7 +73,11 @@ class SkyModelTestCase(unittest.TestCase):
         image_1 = skymodel.addNoiseAndBackground(image_1, photParams=photPars_1)
 
         self.assertNotEqual(image_1.array[0, 0], 0)
-        self.assertAlmostEqual(2*image_1.array[0, 0], image_2.array[0, 0])
+
+        nphot_1 = np.mean(image_1.array.ravel())
+        nphot_2 = np.mean(image_2.array.ravel())
+        self.assertAlmostEqual(2*nphot_1, 852.69940, places=4)
+        self.assertAlmostEqual(nphot_2, 852.12073, places=4)
 
 if __name__ == '__main__':
     unittest.main()

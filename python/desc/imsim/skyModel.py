@@ -5,13 +5,12 @@ sims_GalSimInterface/python/lsst/sims/GalSimInterface/galSimNoiseAndBackground.p
 '''
 
 from __future__ import absolute_import, division
-
+from collections import namedtuple
 import numpy as np
 import astropy.units as u
-
-import lsst.sims.skybrightness as skybrightness
-
 import galsim
+from lsst.sims.photUtils import BandpassDict
+import lsst.sims.skybrightness as skybrightness
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
 
 from .imSim import get_config
@@ -39,7 +38,8 @@ class ESOSkyModel(NoiseAndBackgroundBase):
     a sky model based on the ESO model as implemented in
     """
 
-    def __init__(self, obs_metadata, seed=None, addNoise=True, addBackground=True):
+    def __init__(self, obs_metadata, seed=None, bandpassDict=None,
+                 addNoise=True, addBackground=True):
         """
         @param [in] addNoise is a boolean telling the wrapper whether or not
         to add noise to the image
@@ -53,6 +53,8 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         """
 
         self.obs_metadata = obs_metadata
+        if bandpassDict is None:
+            self.bandpassDict = BandpassDict.loadBandpassesFromFiles()[0]
 
         self.addNoise = addNoise
         self.addBackground = addBackground
@@ -65,7 +67,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
     def addNoiseAndBackground(self, image, bandpass=None, m5=None,
                               FWHMeff=None,
                               photParams=None,
-                              detector=None)
+                              detector=None):
         """
         This method actually adds the sky background and noise to an image.
 
@@ -92,6 +94,13 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         @param [out] the input image with the background and noise model added to it.
         """
 
+        if detector is None:
+            # Make a dummy detector object with default tree ring
+            # properties.
+            DummyDetector = namedtuple('DummyDetector', ['tree_rings'])
+            TreeRingInfo = namedtuple('TreeRingInfo', ['center', 'func'])
+            detector = DummyDetector(TreeRingInfo(galsim.PositionD(0, 0), None))
+
         # calculate the sky background to be added to each pixel
         skyModel = skybrightness.SkyModel(mags=True)
         ra = np.array([self.obs_metadata.pointingRA])
@@ -108,8 +117,10 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         # separate images per exposure.
         exposureTime = photParams.nexp*photParams.exptime*u.s
 
-        skyCounts = skyCountsPerSec(surface_brightness=skyMagnitude,
-                                    filter_band=bandPassName)*exposureTime
+        # TODO: figure out why skyCountsPerSec returns a np.array
+        skyCounts \
+            = (skyCountsPerSec(surface_brightness=skyMagnitude,
+                               filter_band=bandPassName)*exposureTime).value[0]
 
         # print "Magnitude:", skyMagnitude
         # print "Brightness:", skyMagnitude, skyCounts
@@ -154,7 +165,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
                     nbundles_per_pix = int(skyCounts)
                 flux_per_bundle = skyCounts / nbundles_per_pix
                 nbundles = npix * nbundles_per_pix
-                photon_array = galsim.PhotonArray(nbundles)
+                photon_array = galsim.PhotonArray(int(nbundles))
 
                 # Generate the x,y values.
                 xx, yy = np.meshgrid(np.arange(image.xmin, image.xmax+1),
@@ -189,7 +200,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
                 nphotons = npix * skyCounts
                 # Technically, this should be a Poisson variate with this expectation value.
                 nphotons = galsim.PoissonDeviate(self.randomNumbers, mean=nphotons)()
-                photon_array = galsim.PhotonArray(nphotons)
+                photon_array = galsim.PhotonArray(int(nphotons))
 
                 # Generate the x,y values.
                 self.randomNumbers.generate(photon_array.x) # 0..1 so far
@@ -202,18 +213,13 @@ class ESOSkyModel(NoiseAndBackgroundBase):
                 # Flux in this case is simple.  All flux = 1.
                 photon_array.flux = 1
 
-            # Set the wavelengths
-            # Note from Lynne Jones on Slack re sky brightness/sed:
-            #   You most likely already know this, but sims_skybrightness can generate a sky
-            #   background sed appropriate for a set of input conditions (pointing, time and
-            #   then it adds twilight, Moon, zodiacal light, etc).
-            # It looks like we're already using this (?) for the skyMagnitude, so it would
-            # presumably be simple to get the sed from that too.
-            sed = galsim.SED(1, 'nm', 'fphotons')  # Placeholder until then..
+            sed = galsim.SED(galsim.LookupTable(x=skyModel.wave, f=skyModel.spec[0,:]),
+                                                wave_type='nm', flux_type='flambda')
 
             bandPassName = self.obs_metadata.bandpass
-            bandpass=self.bandpassDict[bandPassName]  # No bandpassDict yet.  Need to add that.
-            gs_bandpass = galsim.Bandpass(galsim.LookupTable(x=bandpass.wavelen, f=bandpass.sb),
+            bandpass = self.bandpassDict[bandPassName]
+            index = np.where(bandpass.sb != 0)
+            gs_bandpass = galsim.Bandpass(galsim.LookupTable(x=bandpass.wavelen[index], f=bandpass.sb[index]),
                                           wave_type='nm')
             waves = galsim.WavelengthSampler(sed=sed, bandpass=gs_bandpass, rng=self.randomNumbers)
             waves.applyTo(photon_array)
@@ -221,7 +227,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             # Set the angles
             fratio = 1.234  # From https://www.lsst.org/scientists/keynumbers
             obscuration = 0.606  # (8.4**2 - 6.68**2)**0.5 / 8.4
-            angles = galsim.FRatioAngles(fratio, obscuration, self._rng)
+            angles = galsim.FRatioAngles(fratio, obscuration, self.randomNumbers)
             angles.applyTo(photon_array)
 
             # The main slow bit in the Silicon sensor is when recalculating the pixel boundaries.
