@@ -76,8 +76,8 @@ class SkyModelTestCase(unittest.TestCase):
 
         nphot_1 = np.mean(image_1.array.ravel())
         nphot_2 = np.mean(image_2.array.ravel())
-        self.assertAlmostEqual(2*nphot_1, 852.69940, places=4)
-        self.assertAlmostEqual(nphot_2, 852.12073, places=4)
+        dnphot = 3.
+        self.assertTrue(nphot_2 - dnphot < 2*nphot_1 < nphot_2 + dnphot)
 
 if __name__ == '__main__':
     unittest.main()

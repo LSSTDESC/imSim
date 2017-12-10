@@ -130,7 +130,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         if self.addBackground:
             #image += skyCounts  # The below stuff does this more carefully via Craig's sensor code.
 
-            if False:
+            if True:
                 # Saving this option in case we need it for speed, but for now, we'll do the
                 # simple thing of having all the photons with flux=1 and get the Poisson variation
                 # naturally by randomizing the position across the whole image.
@@ -161,7 +161,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
                 # Make a PhotonArray to hold the sky photons
                 npix = np.prod(image.array.shape)
                 nbundles_per_pix = 20  # Somewhat arbitrary.  Larger is more accurate, but slower.
-                if skyCounts < bundles_per_pix:  # Don't put < 1 real photon per "bundle"
+                if skyCounts < nbundles_per_pix:  # Don't put < 1 real photon per "bundle"
                     nbundles_per_pix = int(skyCounts)
                 flux_per_bundle = skyCounts / nbundles_per_pix
                 nbundles = npix * nbundles_per_pix
@@ -176,9 +176,9 @@ class ESOSkyModel(NoiseAndBackgroundBase):
                 assert len(yy) == npix
                 xx = np.repeat(xx, nbundles_per_pix)
                 yy = np.repeat(yy, nbundles_per_pix)
-                assert len(xx) == len(photon_array)
-                assert len(yy) == len(photon_array)
-                galsim.utilities.permute(self.randomNumbers, xx, yy)  # Randomly reshuffle in place
+                assert len(xx) == photon_array.size()
+                assert len(yy) == photon_array.size()
+                galsim.random.permute(self.randomNumbers, xx, yy)  # Randomly reshuffle in place
 
                 # The above values are pixel centers.  Add a random offset within each pixel.
                 self.randomNumbers.generate(photon_array.x)  # Random values from 0..1
