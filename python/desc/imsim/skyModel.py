@@ -137,7 +137,6 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         image = image.copy()
 
         if self.addBackground:
-            skyLevel = skyCounts*photParams.gain
             if self.fast_background:
                 image += skyCounts
             else:   # The below stuff does this more carefully via Craig's sensor code.
@@ -156,6 +155,8 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             # the Poisson noise will be calculated from the actual
             # image brightness.
             skyLevel = 0
+        else:
+            skyLevel = skyCounts*photParams.gain
 
         if self.addNoise:
             noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
