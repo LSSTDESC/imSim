@@ -30,8 +30,6 @@ def skyCountsPerSec(surface_brightness=21, filter_band='r',
     return s0 * dB.to(1 / u.arcsec ** 2) * pixel_size ** 2 * effective_area
 
 
-# Here we are defining our own class derived from NoiseAndBackgroundBase for
-# use instead of ExampleCCDNoise
 class ESOSkyModel(NoiseAndBackgroundBase):
     """
     This class wraps the GalSim class CCDNoise.  This derived class returns
@@ -41,17 +39,31 @@ class ESOSkyModel(NoiseAndBackgroundBase):
     def __init__(self, obs_metadata, seed=None, bandpassDict=None,
                  addNoise=True, addBackground=True, fast_background=False):
         """
-        @param [in] addNoise is a boolean telling the wrapper whether or not
-        to add noise to the image
-
-        @param [in] addBackground is a boolean telling the wrapper whether
-        or not to add the skybackground to the image
-
-        @param [in] seed is an (optional) int that will seed the
-        random number generator used by the noise model. Defaults to None,
-        which causes GalSim to generate the seed from the system.
+        Parameters
+        ----------
+        obs_metadata: lsst.sims.utils.ObservationMetaData
+            Visit-specific data such as pointing direction,
+            observation time, seeing, bandpass info, etc..  This info
+            is extracted from the phosim instance catalog headers.
+        seed: int, optional
+            Seed value passed to the random number generator used by
+            the noise model. Defaults to None, which causes GalSim to
+            generate the seed from the system.
+        bandpassDict: lsst.sims.photUtils.BandpassDict, optional
+            Bandpass dictionary used by the sims code.  If None (default),
+            the BandpassDict.loadBandpassesFromFiles function is called
+            which reads in the standard LSST bandpasses.
+        addNoise: bool, optional [True]
+            Flag to add noise from the NoiseAndBackgroundBase noise model.
+            TODO: Determine what this does.  If it is read noise, it should
+            be turned off, since the electronic readout code will add that.
+        addBackground: bool, optional [True]
+            Add sky background.
+        fast_background: bool, optional [False]
+            If True, just add the expected sky background counts to
+            each pixel.  Otherwise, process the background photons
+            through the sensor model.
         """
-
         self.obs_metadata = obs_metadata
         if bandpassDict is None:
             self.bandpassDict = BandpassDict.loadBandpassesFromFiles()[0]
