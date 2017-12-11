@@ -54,9 +54,8 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             the BandpassDict.loadBandpassesFromFiles function is called
             which reads in the standard LSST bandpasses.
         addNoise: bool, optional [True]
-            Flag to add noise from the NoiseAndBackgroundBase noise model.
-            TODO: Determine what this does.  If it is read noise, it should
-            be turned off, since the electronic readout code will add that.
+            Flag to add Poisson noise in the case where a constant sky
+            level is added to the image.
         addBackground: bool, optional [True]
             Add sky background.
         fast_background: bool, optional [False]
@@ -170,7 +169,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         else:
             skyLevel = skyCounts*photParams.gain
 
-        if self.addNoise:
+        if self.addNoise and self.fast_background:
             noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
             image.addNoise(noiseModel)
 

@@ -40,9 +40,11 @@ def main():
     parser.add_argument('--psf', type=str, default='Kolmogorov',
                         choices=['DoubleGaussian', 'Kolmogorov'],
                         help="PSF model to use; either the double Gaussian "
-                        "from LSE=40 (equation 30), or the Kolmogorov convolved "
+                        "from LSE-40 (equation 30) or the Kolmogorov convolved "
                         "with a Gaussian proposed by David Kirkby at the "
                         "23 March 2017 SSims telecon")
+    parser.add_argument('--disable_sensor_model', default=False, action='store_true',
+                        help='disable sensor effects')
     arguments = parser.parse_args()
 
     config = desc.imsim.read_config(arguments.config_file)
@@ -115,7 +117,8 @@ def main():
     # this basic info to use Peter Y's ESO sky model.
     # We must pass obs_metadata, chip information etc...
     phoSimStarCatalog.noise_and_background \
-        = ESOSkyModel(obs_md, addNoise=True, addBackground=True)
+        = ESOSkyModel(obs_md, addNoise=True, addBackground=True,
+                      fast_background=arguments.disable_sensor_model)
 
     # Add a PSF.
     if arguments.psf.lower() == "doublegaussian":
@@ -144,6 +147,7 @@ def main():
 
     phoSimStarCatalog.camera = camera
     phoSimStarCatalog.camera_wrapper = LSSTCameraWrapper()
+    phoSimStarCatalog.apply_sensor_model = not arguments.disable_sensor_model
     phoSimStarCatalog.get_fitsFiles()
 
     # Now galaxies
