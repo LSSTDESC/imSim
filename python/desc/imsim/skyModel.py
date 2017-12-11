@@ -149,13 +149,13 @@ class ESOSkyModel(NoiseAndBackgroundBase):
                     photon_array = self.get_photon_array(image, skyCounts)
                 image = self.process_photon_array(image, detector, photon_array)
 
-                # If we are adding the skyCounts to the image, there is no
-                # need to pass a skyLevel parameter to the noise model.
-                # skyLevel is just used to calculate the level of Poisson
-                # noise.  If the sky background is included in the image,
-                # the Poisson noise will be calculated from the actual
-                # image brightness.
-                skyLevel = 0
+            # If we are adding the skyCounts to the image, there is no
+            # need to pass a skyLevel parameter to the noise model.
+            # skyLevel is just used to calculate the level of Poisson
+            # noise.  If the sky background is included in the image,
+            # the Poisson noise will be calculated from the actual
+            # image brightness.
+            skyLevel = 0
 
         if self.addNoise:
             noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
