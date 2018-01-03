@@ -250,7 +250,7 @@ def extract_objects(df, header):
     phosim_galaxies['majorAxis'] = \
         radiansFromArcsec(pd.to_numeric(galaxies['PAR1'])).tolist()
     phosim_galaxies['minorAxis'] = \
-        radiansFromArcsec(pd.to_numeric(galaxies['PAR2'])).tolist()
+        radiansFromArcsec(np.abs(pd.to_numeric(galaxies['PAR2']))).tolist()
     phosim_galaxies['halfLightRadius'] = phosim_galaxies['majorAxis']
     phosim_galaxies['positionAngle'] = \
         (np.pi/180.*pd.to_numeric(galaxies['PAR3'])).tolist()
@@ -367,7 +367,9 @@ def validate_phosim_object_list(phoSimObjects):
     """
     bad_row_queries = ('(galSimType=="sersic" and majorAxis < minorAxis)',
                        '(magNorm > 50)',
-                       '(galacticAv==0 and galacticRv==0)')
+                       '(galacticAv==0 and galacticRv==0)',
+                       '(majorAxis < 0)',
+                       '(minorAxis < 0)')
 
     rejected = dict((query, phoSimObjects.query(query))
                     for query in bad_row_queries)
