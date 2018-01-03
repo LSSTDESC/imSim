@@ -76,7 +76,7 @@ class SkyModelTestCase(unittest.TestCase):
         nx, ny = 30, 30
         # Making an ESOSkyModel is expensive, so do it once and set
         # the .fast_background attribute by hand.
-        skymodel = desc.imsim.ESOSkyModel(obs_md, seed=100, addNoise=False,
+        skymodel = desc.imsim.ESOSkyModel(obs_md, seed=seed, addNoise=False,
                                           addBackground=True, fast_background=True)
 
         # Check fast background model, i.e., with sensor effects turned off.
@@ -110,10 +110,6 @@ class SkyModelTestCase(unittest.TestCase):
         dt_unbundled = time.time() - t0
         self._apply_sky_background_tests(image_1, image_2)
 
-        print("npix = %i" % (nx*ny))
-        print("dt_fast = %.2e s" % dt_fast)
-        print("dt_bundled/dt_fast = %.2f" % (dt_bundled/dt_fast))
-        print("dt_unbundled/dt_bundled = %.2f" % (dt_unbundled/dt_bundled))
 
 if __name__ == '__main__':
     unittest.main()
