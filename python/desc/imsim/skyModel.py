@@ -81,6 +81,41 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         # do it only once in the constructor.
         self.skyModel = skybrightness.SkyModel(mags=True)
 
+        # Wavelength and angle samplers need only be constructed at
+        # most once per SED and bandpass, so build them lazily as
+        # properties.
+        self._waves = None
+        self._angles = None
+
+        self.photon_array = None
+
+    @property
+    def waves(self):
+        if self._waves is None:
+            sed = galsim.SED(galsim.LookupTable(x=self.skyModel.wave,
+                                                f=self.skyModel.spec[0,:]),
+                             wave_type='nm', flux_type='flambda')
+            bandPassName = self.obs_metadata.bandpass
+            bandpass = self.bandpassDict[bandPassName]
+            index = np.where(bandpass.sb != 0)
+            gs_bandpass \
+                = galsim.Bandpass(galsim.LookupTable(x=bandpass.wavelen[index],
+                                                     f=bandpass.sb[index]),
+                                  wave_type='nm')
+            self._waves = galsim.WavelengthSampler(sed=sed,
+                                                   bandpass=gs_bandpass,
+                                                   rng=self.randomNumbers)
+        return self._waves
+
+    @property
+    def angles(self):
+        if self._angles is None:
+            fratio = 1.234  # From https://www.lsst.org/scientists/keynumbers
+            obscuration = 0.606  # (8.4**2 - 6.68**2)**0.5 / 8.4
+            self._angles \
+                = galsim.FRatioAngles(fratio, obscuration, self.randomNumbers)
+        return self._angles
+
     def addNoiseAndBackground(self, image, bandpass=None, m5=None,
                               FWHMeff=None,
                               photParams=None,
@@ -158,6 +193,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
                     # Unbundled version where each photon has flux=1
                     photon_array = self.get_photon_array(image, skyCounts)
                 image = self.process_photon_array(image, detector, photon_array)
+                self.photon_array = photon_array
 
             # If we are adding the skyCounts to the image, there is no
             # need to pass a skyLevel parameter to the noise model.
@@ -262,26 +298,14 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         return photon_array
 
     def process_photon_array(self, image, detector, photon_array):
-        sed = galsim.SED(galsim.LookupTable(x=self.skyModel.wave, f=self.skyModel.spec[0,:]),
-                         wave_type='nm', flux_type='flambda')
+        self.waves.applyTo(photon_array)
+        self.angles.applyTo(photon_array)
 
-        bandPassName = self.obs_metadata.bandpass
-        bandpass = self.bandpassDict[bandPassName]
-        index = np.where(bandpass.sb != 0)
-        gs_bandpass = galsim.Bandpass(galsim.LookupTable(x=bandpass.wavelen[index], f=bandpass.sb[index]),
-                                      wave_type='nm')
-        waves = galsim.WavelengthSampler(sed=sed, bandpass=gs_bandpass, rng=self.randomNumbers)
-        waves.applyTo(photon_array)
-
-        # Set the angles
-        fratio = 1.234  # From https://www.lsst.org/scientists/keynumbers
-        obscuration = 0.606  # (8.4**2 - 6.68**2)**0.5 / 8.4
-        angles = galsim.FRatioAngles(fratio, obscuration, self.randomNumbers)
-        angles.applyTo(photon_array)
-
-        # The main slow bit in the Silicon sensor is when recalculating the pixel boundaries.
-        # We do this after every nrecalc electrons.  It's only really important to do when
-        # the flux per pixel is around 1000.  So in this case, that's npix * 1000 electrons.
+        # The main slow bit in the Silicon sensor is when
+        # recalculating the pixel boundaries.  We do this after every
+        # nrecalc electrons.  It's only really important to do when
+        # the flux per pixel is around 1000.  So in this case, that's
+        # npix * 1000 electrons.
         nrecalc = np.prod(image.array.shape) * 1000
         sensor = galsim.SiliconSensor(rng=self.randomNumbers, nrecalc=nrecalc,
                                       treering_center=detector.tree_rings.center,
