@@ -152,11 +152,15 @@ def extract_commands(df):
     """
     my_dict = df[['STRING', 'VALUE']].set_index('STRING').T.to_dict('list')
     commands = dict(((key, value[0]) for key, value in my_dict.items()))
-    commands['filter'] = int(commands['filter'])
-    commands['nsnap'] = int(commands['nsnap'])
-    commands['obshistid'] = int(commands['obshistid'])
-    commands['seed'] = int(commands['seed'])
-    commands['mjd'] = float(commands['mjd'])
+    for key in commands:
+        if key in 'filter camconfig nsnap obshistid seed minsource'.split():
+            commands[key] = int(commands[key])
+        else:
+            try:
+                commands[key] = float(commands[key])
+            except ValueError:
+                # Attempted to convert string to float so just carry on.
+                pass
     # Add bandpass for convenience
     commands['bandpass'] = 'ugrizy'[commands['filter']]
     return commands
