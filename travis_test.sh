@@ -1,4 +1,5 @@
 #!/bin/bash
+source scl_source enable devtoolset-6
 source /lsst/stack/loadLSST.bash
 setup lsst_sims
 pip install nose
