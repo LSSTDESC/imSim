@@ -10,11 +10,17 @@ from timing_tests import sky_bg_timing, StarTimer, obs_md
 seed = 1001
 
 print("sky bg timing tests")
-skymodel = desc.imsim.ESOSkyModel(obs_md, seed=seed, addNoise=False,
-                                  addBackground=True,
-                                  fast_background=False)
-fast_sky_bg_timing, fast_nphot = sky_bg_timing(skymodel, bundle_photons=True)
-slow_sky_bg_timing, slow_nphot = sky_bg_timing(skymodel, bundle_photons=False)
+nxy_min = 10
+nxy_max = 300
+npts = 8
+bundled_skymodel = desc.imsim.ESOSkyModel(obs_md, seed=seed, addNoise=False,
+                                          addBackground=True)
+unbundled_skymodel = desc.imsim.ESOSkyModel(obs_md, seed=seed, addNoise=False,
+                                            addBackground=True, bundles_per_pix=1)
+fast_sky_bg_timing, fast_nphot = sky_bg_timing(bundled_skymodel, nxy_min=nxy_min,
+                                               nxy_max=nxy_max, npts=npts)
+slow_sky_bg_timing, slow_nphot = sky_bg_timing(unbundled_skymodel, nxy_min=nxy_min,
+                                               nxy_max=nxy_max, npts=npts)
 
 with open('sky_bg_timing.txt', 'w') as output:
     for numpix in fast_sky_bg_timing:
