@@ -203,7 +203,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
         return image
 
-    def process_photons(self, image, skyCounts, detector, chunk_size=10000):
+    def process_photons(self, image, skyCounts, detector, chunk_size=10000000):
         # The main slow bit in the Silicon sensor is when
         # recalculating the pixel boundaries.  We do this after every
         # nrecalc electrons.  It's only really important to do when
