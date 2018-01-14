@@ -36,16 +36,14 @@ class GalSimBandpasses(object):
 
 gs_bandpasses = GalSimBandpasses()
 
-def sky_bg_timing(skymodel, bundle_photons=True, nxy_min=10, nxy_max=300,
-                  npts=8, pixel_scale=0.2):
+def sky_bg_timing(skymodel, nxy_min=10, nxy_max=300, npts=8, pixel_scale=0.2):
     timing = OrderedDict()
     nphot = OrderedDict()
     for nxy in [int(x) for x in np.logspace(np.log10(nxy_min),
                                             np.log10(nxy_max), npts)]:
         image = galsim.Image(nxy, nxy, scale=pixel_scale)
         t0 = time.clock()
-        skymodel.addNoiseAndBackground(image, photParams=photParams,
-                                       bundle_photons=bundle_photons)
+        skymodel.addNoiseAndBackground(image, photParams=photParams)
         timing[nxy] = time.clock() - t0
         try:
             nphot[nxy] = skymodel.photon_array.size()

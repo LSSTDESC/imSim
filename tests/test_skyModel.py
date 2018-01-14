@@ -100,13 +100,14 @@ class SkyModelTestCase(unittest.TestCase):
         self._apply_sky_background_tests(image_1, image_2)
 
         # Test with unbundled photons.
+        skymodel_unbundled \
+            = desc.imsim.ESOSkyModel(obs_md, seed=seed, addNoise=False,
+                                     addBackground=True, bundles_per_pix=1)
         t0 = time.time()
         image_2 = galsim.Image(nx, ny)
-        image_2 = skymodel.addNoiseAndBackground(image_2, photParams=photPars_2,
-                                                 bundle_photons=False)
+        image_2 = skymodel.addNoiseAndBackground(image_2, photParams=photPars_2)
         image_1 = galsim.Image(nx, ny)
-        image_1 = skymodel.addNoiseAndBackground(image_1, photParams=photPars_1,
-                                                 bundle_photons=False)
+        image_1 = skymodel.addNoiseAndBackground(image_1, photParams=photPars_1)
         dt_unbundled = time.time() - t0
         self._apply_sky_background_tests(image_1, image_2)
 
