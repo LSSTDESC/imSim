@@ -86,6 +86,12 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         # do it only once in the constructor.
         self.skyModel = skybrightness.SkyModel(mags=True)
 
+        # Calculate the sky background to be added to each pixel
+        ra = np.array([self.obs_metadata.pointingRA])
+        dec = np.array([self.obs_metadata.pointingDec])
+        mjd = self.obs_metadata.mjd.TAI
+        self.skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
+
         # Wavelength and angle samplers need only be constructed at
         # most once per SED and bandpass, so build them lazily as
         # properties.
@@ -155,12 +161,6 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             DummyDetector = namedtuple('DummyDetector', ['tree_rings'])
             TreeRingInfo = namedtuple('TreeRingInfo', ['center', 'func'])
             detector = DummyDetector(TreeRingInfo(galsim.PositionD(0, 0), None))
-
-        # calculate the sky background to be added to each pixel
-        ra = np.array([self.obs_metadata.pointingRA])
-        dec = np.array([self.obs_metadata.pointingDec])
-        mjd = self.obs_metadata.mjd.TAI
-        self.skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
 
         bandPassName = self.obs_metadata.bandpass
         skyMagnitude = self.skyModel.returnMags()[bandPassName]
