@@ -1,6 +1,5 @@
 #!/bin/bash
-source scl_source enable devtoolset-6
-source /lsst/stack/loadLSST.bash
+source /opt/lsst/software/stack/loadLSST.bash
 setup lsst_sims
 pip install nose
 pip install coveralls
