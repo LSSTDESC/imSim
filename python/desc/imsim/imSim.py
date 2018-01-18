@@ -184,7 +184,8 @@ def extract_objects(df, header):
     """
     # Check for unhandled source types and emit warning if any are present.
     valid_types = dict(point='pointSource',
-                       sersic2d='sersic')
+                       sersic2d='sersic',
+                       knots='RandomWalk')
     invalid_types = set(df['SOURCE_TYPE']) - set(valid_types)
     if invalid_types:
         warnings.warn("Instance catalog contains unhandled source types:\n%s\nSkipping these."
@@ -265,7 +266,44 @@ def extract_objects(df, header):
     if len(phosim_galaxies) > 0:
         phosim_galaxies = extract_extinction(galaxies, phosim_galaxies, 5)
 
-    return pd.concat((phosim_stars, phosim_galaxies), ignore_index=True)
+    # Finally, extracts the random walk components
+    source_type = 'knots'
+    knots = df.query("SOURCE_TYPE == '%s'" % source_type)
+    phosim_knots = pd.DataFrame(np.zeros((len(knots), len(columns))),
+                                   index=knots.index,
+                                   columns=columns)
+    phosim_knots['uniqueId'] = pd.to_numeric(knots['VALUE']).tolist()
+    phosim_knots['galSimType'] = valid_types[source_type]
+    phosim_knots['magNorm'] = pd.to_numeric(knots['MAG_NORM']).tolist()
+    phosim_knots['sedFilepath'] = knots['SED_NAME'].tolist()
+    phosim_knots['redshift'] = pd.to_numeric(knots['REDSHIFT']).tolist()
+    phosim_knots['raJ2000'] = pd.to_numeric(knots['RA']).tolist()
+    phosim_knots['decJ2000'] = pd.to_numeric(knots['DEC']).tolist()
+    phosim_knots['majorAxis'] = \
+        radiansFromArcsec(pd.to_numeric(knots['PAR1'])).tolist()
+    phosim_knots['minorAxis'] = \
+        radiansFromArcsec(pd.to_numeric(knots['PAR2'])).tolist()
+    phosim_knots['halfLightRadius'] = phosim_knots['majorAxis']
+    phosim_knots['positionAngle'] = \
+        (np.pi/180.*pd.to_numeric(knots['PAR3'])).tolist()
+    phosim_knots['sindex'] = pd.to_numeric(knots['PAR4']).tolist()
+    phosim_knots['gamma1'] = pd.to_numeric(knots['GAMMA1']).tolist()
+    phosim_knots['gamma2'] = pd.to_numeric(knots['GAMMA2']).tolist()
+    phosim_knots['kappa'] = pd.to_numeric(knots['KAPPA']).tolist()
+
+    if len(phosim_knots) > 0:
+        n_gal = len(phosim_knots.raJ2000.values)
+        phosim_knots = phosim_knots.assign(raICRS=phosim_knots.raJ2000,
+                                             decICRS=phosim_knots.decJ2000,
+                                             properMotionRa=np.zeros(n_gal),
+                                             properMotionDec=np.zeros(n_gal),
+                                             parallax=np.zeros(n_gal),
+                                             radialVelocity=np.zeros(n_gal))
+
+        phosim_knots = extract_extinction(knots, phosim_knots, 5)
+
+
+    return pd.concat((phosim_stars, phosim_galaxies, phosim_knots), ignore_index=True)
 
 
 def extract_extinction(raw_df, object_df, ext_par_start):

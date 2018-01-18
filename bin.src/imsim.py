@@ -90,11 +90,18 @@ def main():
         galaxyDataBase = \
             phosim_objects.query("galSimType=='sersic' and chipName=='%s'"
                                  % arguments.sensor)
+
+        randomWalkDataBase = \
+            phosim_objects.query("galSimType=='RandomWalk' and chipName=='%s'"
+                                 % arguments.sensor)
+
     else:
         starDataBase = \
             phosim_objects.query("galSimType=='pointSource'")
         galaxyDataBase = \
             phosim_objects.query("galSimType=='sersic'")
+        randomWalkDataBase = \
+            phosim_objects.query("galSimType=='RandomWalk'")
 
     # Simulate the objects in the Pandas Dataframes.
 
@@ -146,9 +153,17 @@ def main():
     phoSimStarCatalog.camera_wrapper = LSSTCameraWrapper()
     phoSimStarCatalog.get_fitsFiles()
 
+    # Random Walk component
+    randomWalkCatalog = desc.imsim.ImSimRandomWalk(randomWalkDataBase, obs_md)
+    randomWalkCatalog.copyGalSimInterpreter(phoSimStarCatalog)
+    randomWalkCatalog.PSF = phoSimStarCatalog.PSF
+    randomWalkCatalog.noise_and_background = phoSimStarCatalog.noise_and_background
+    randomWalkCatalog.get_fitsFiles()
+
+
     # Now galaxies
     phoSimGalaxyCatalog = desc.imsim.ImSimGalaxies(galaxyDataBase, obs_md)
-    phoSimGalaxyCatalog.copyGalSimInterpreter(phoSimStarCatalog)
+    phoSimGalaxyCatalog.copyGalSimInterpreter(randomWalkCatalog)
     phoSimGalaxyCatalog.PSF = phoSimStarCatalog.PSF
     phoSimGalaxyCatalog.noise_and_background = phoSimStarCatalog.noise_and_background
     phoSimGalaxyCatalog.get_fitsFiles()

@@ -7,12 +7,12 @@ import copy
 import gc
 import galsim
 from lsst.sims.utils import pupilCoordsFromRaDec
-from lsst.sims.GalSimInterface import GalSimStars, GalSimGalaxies
+from lsst.sims.GalSimInterface import GalSimStars, GalSimGalaxies, GalSimRandomWalk
 import lsst.utils as lsstUtils
 from .imSim import get_config
 from .cosmic_rays import CosmicRays
 
-__all__ = ['ImSimStars', 'ImSimGalaxies']
+__all__ = ['ImSimStars', 'ImSimGalaxies', 'ImSimRandomWalk']
 
 
 def imSim_class_factory(galsim_subclass):
@@ -111,3 +111,4 @@ def imSim_add_cosmic_rays(self):
 
 ImSimStars = imSim_class_factory(GalSimStars)
 ImSimGalaxies = imSim_class_factory(GalSimGalaxies)
+ImSimRandomWalk = imSim_class_factory(GalSimRandomWalk)
