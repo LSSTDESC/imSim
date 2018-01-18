@@ -1,4 +1,6 @@
-language: cpp
+language: python
+python:
+  - "3.6"
 os: linux
 sudo: required
 dist: trusty
@@ -16,11 +18,11 @@ install:
   - sudo service docker restart
   - sleep 5
   - sudo docker pull heather999/test:version4.0test
-#  - pip install coveralls
+  - pip install coveralls
 
 script:
   - sudo chown -R 1000:1000 .
   - docker run -v `pwd`:/home/imSim heather999/test:version4.0test /home/imSim/travis_test.sh
 
-#after_success:
-#  - coveralls
+after_success:
+  - coveralls
