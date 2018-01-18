@@ -19,7 +19,7 @@ install:
 #  - pip install coveralls
 
 script:
-#  - sudo chown -R 1000:1000 .
+  - sudo chown -R 1000:1000 .
   - docker run -v `pwd`:/home/imSim heather999/test:version4.0test /home/imSim/travis_test.sh
 
 #after_success:
