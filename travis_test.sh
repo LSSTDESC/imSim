@@ -9,4 +9,3 @@ setup imsim
 cd /home/imSim
 scons
 nosetests -s --with-coverage --cover-package=desc.imsim
-pylint --py3k `find . -name \*.py -print`
