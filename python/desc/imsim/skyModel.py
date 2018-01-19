@@ -14,34 +14,49 @@ import lsst.sims.skybrightness as skybrightness
 import galsim
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
 
+from lsst.sims.photUtils import BandpassDict
+
 from lsst.sims.photUtils import Sed
 
 from .imSim import get_config
 
 __all__ = ['skyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
 
+#galBandpassDict = BandpassDict.loadTotalBandpassesFromFiles(['u','g', 'r', 'i', 'z', 'y'])
 
-def skyCountsPerSec(skySpec, bandpass, photParams):
-	# Calculate the rate in detected electrons / second.
-  	
-	skySed = Sed(wavelen = skySpec.wave, flambda = skySpec.spec[0,:])
-	
-	skycounts = skySED.calcADU(bandpass, photParams)
-	
-	skycounts_persec = skycounts / photParams.exptime / photParams.nexp / photParams.gain * u.electron / u.s / u.m ** 2
-	
-	return skycounts_persec
 
+def skyCountsPerSec(skyModel, photPars, filter_name='u', magNorm=None):
+    # if not hasattr(skyCountsPerSec, '_bp_dict'):
+    #	skyCountsPerSec._bp_dict = BandpassDict.loadTotalBandpassesFromFiles(['u','g', 'r', 'i', 'z', 'y'])
+    #bandpass = skyCountsPerSec._bp_dict[filter_name]
+    galBandpassDict = BandpassDict.loadTotalBandpassesFromFiles(
+        ['u', 'g', 'r', 'i', 'z', 'y'])
+    bandpass = galBandpassDict[filter_name]
+    wave, spec = skyModel.returnWaveSpec()
+    skymodel_Sed = Sed(wavelen=wave, flambda=spec[0, :])
+    if magNorm:
+        skymodel_fluxNorm = skymodel_Sed.calcFluxNorm(magNorm, bandpass)
+        skymodel_Sed.multiplyFluxNorm(skymodel_fluxNorm)
+    sky_counts = skymodel_Sed.calcADU(bandpass=bandpass, photParams=photPars) * (
+        100**2) / photPars.exptime / photPars.effarea / photPars.nexp / photPars.gain * u.electron / u.s / u.m ** 2
+    return sky_counts
 
 # Here we are defining our own class derived from NoiseAndBackgroundBase for
 # use instead of ExampleCCDNoise
+
+
 class ESOSkyModel(NoiseAndBackgroundBase):
     """
     This class wraps the GalSim class CCDNoise.  This derived class returns
     a sky model based on the ESO model as implemented in
     """
 
-    def __init__(self, obs_metadata, seed=None, addNoise=True, addBackground=True):
+    def __init__(
+            self,
+            obs_metadata,
+            seed=None,
+            addNoise=True,
+            addBackground=True):
         """
         @param [in] addNoise is a boolean telling the wrapper whether or not
         to add noise to the image
@@ -64,7 +79,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         else:
             self.randomNumbers = galsim.UniformDeviate(seed)
 
-    def addNoiseAndBackground(self, image, bandpass=None, m5=None,
+    def addNoiseAndBackground(self, image, bandpass='u', m5=None,
                               FWHMeff=None,
                               photParams=None):
         """
@@ -90,24 +105,23 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         """
 
         # calculate the sky background to be added to each pixel
-        skyModel = skybrightness.SkyModel(mags=True)
+        skyModel = skybrightness.SkyModel(mags=False)
         ra = np.array([self.obs_metadata.pointingRA])
         dec = np.array([self.obs_metadata.pointingDec])
         mjd = self.obs_metadata.mjd.TAI
         skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
 
         bandPassName = self.obs_metadata.bandpass
-        skyMagnitude = skyModel.returnMags()[bandPassName]
-        skySpec = skyModel.returnWaveSpec()
 
         # Since we are only producing one eimage, account for cases
         # where nsnap > 1 with an effective exposure time for the
         # visit as a whole.  TODO: Undo this change when we write
         # separate images per exposure.
-        exposureTime = photParams.nexp*photParams.exptime
+        exposureTime = photParams.nexp * photParams.exptime
 
         # bandpass is the CatSim bandpass object
-        skyCounts = skyCountsPerSec(skySpec, bandpass, photParams)*exposureTime*u.s
+        skyCounts = skyCountsPerSec(
+            skyModel, photParams, bandPassName) * exposureTime * u.s
 
         # print "Magnitude:", skyMagnitude
         # print "Brightness:", skyMagnitude, skyCounts
@@ -125,16 +139,16 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             skyLevel = 0.0
 
         else:
-            skyLevel = skyCounts*photParams.gain
+            skyLevel = skyCounts * photParams.gain
 
         if self.addNoise:
-            noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
+            noiseModel = self.getNoiseModel(
+                skyLevel=skyLevel, photParams=photParams)
             image.addNoise(noiseModel)
 
         return image
 
     def getNoiseModel(self, skyLevel=0.0, photParams=None):
-
         """
         This method returns the noise model implemented for this wrapper
         class.
@@ -144,8 +158,11 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         We turn off the read noise by adjusting the parameters in the photParams.
         """
 
-        return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel,
-                               gain=photParams.gain, read_noise=photParams.readnoise)
+        return galsim.CCDNoise(
+            self.randomNumbers,
+            sky_level=skyLevel,
+            gain=photParams.gain,
+            read_noise=photParams.readnoise)
 
 
 def get_skyModel_params():
