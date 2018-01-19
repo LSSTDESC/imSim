@@ -26,12 +26,9 @@ __all__ = ['skyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
 
 
 def skyCountsPerSec(skyModel, photPars, filter_name='u', magNorm=None):
-    # if not hasattr(skyCountsPerSec, '_bp_dict'):
-    #	skyCountsPerSec._bp_dict = BandpassDict.loadTotalBandpassesFromFiles(['u','g', 'r', 'i', 'z', 'y'])
-    #bandpass = skyCountsPerSec._bp_dict[filter_name]
-    galBandpassDict = BandpassDict.loadTotalBandpassesFromFiles(
-        ['u', 'g', 'r', 'i', 'z', 'y'])
-    bandpass = galBandpassDict[filter_name]
+    if not hasattr(skyCountsPerSec, '_bp_dict'):
+    	skyCountsPerSec._bp_dict = BandpassDict.loadTotalBandpassesFromFiles(['u','g', 'r', 'i', 'z', 'y'])
+    bandpass = skyCountsPerSec._bp_dict[filter_name]
     wave, spec = skyModel.returnWaveSpec()
     skymodel_Sed = Sed(wavelen=wave, flambda=spec[0, :])
     if magNorm:
