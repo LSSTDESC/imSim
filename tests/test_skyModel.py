@@ -11,15 +11,18 @@ except ImportError:
     import ConfigParser as configparser
 import galsim
 import desc.imsim
+import lsst.sims.skybrightness as skybrightness
+import numpy as np
 
 
 class SkyModelTestCase(unittest.TestCase):
     """
     TestCase class for skyModel module code.
     """
+
     def setUp(self):
         self.test_config_file = 'test_config.txt'
-        self.zp_u = 0.282598538804
+        self.zp_u = 0.28259860576333784
         cp = configparser.ConfigParser()
         cp.optionxform = str
         section = 'skyModel_params'
@@ -65,31 +68,35 @@ class SkyModelTestCase(unittest.TestCase):
         skymodel = desc.imsim.ESOSkyModel(obs_md, addNoise=False,
                                           addBackground=True)
         image_2 = galsim.Image(100, 100)
-        image_2 = skymodel.addNoiseAndBackground(image_2, photParams=photPars_2)
+        image_2 = skymodel.addNoiseAndBackground(
+            image_2, photParams=photPars_2)
 
         image_1 = galsim.Image(100, 100)
-        image_1 = skymodel.addNoiseAndBackground(image_1, photParams=photPars_1)
+        image_1 = skymodel.addNoiseAndBackground(
+            image_1, photParams=photPars_1)
 
         self.assertNotEqual(image_1.array[0, 0], 0)
-        self.assertAlmostEqual(2*image_1.array[0, 0], image_2.array[0, 0])
-     
+        self.assertAlmostEqual(2 * image_1.array[0, 0], image_2.array[0, 0])
+
     def test_skycounts_function(self):
         """
-        Test that the sky counts per sec function gives the right result for hte previously 
-        calculated zero points. (Defined as the number of electrons per second for 
+        Test that the sky counts per sec function gives the right result for the previously
+        calculated zero points. (Defined as the number of electrons per second for
         a 24 magnitude source, the default for skyCountsperSec will be set to u band and 24 mag.)
         """
-        
+
         desc.imsim.read_config()
-    	instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',
+        instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',
                                     'tiny_instcat.txt')
         commands, objects = desc.imsim.parsePhoSimInstanceFile(instcat_file)
         obs_md = desc.imsim.phosim_obs_metadata(commands)
         photPars_2 = desc.imsim.photometricParameters(commands)
-        skymodel = desc.imsim.ESOSkyModel(obs_md, addNoise=False,
-                                          addBackground=True)
-        skycounts_persec_u = skymodel.skyCountsPerSec()
-        self.assertAlmostEqual(skycounts_persec_u, self.zp_u)
+        skyModel = skybrightness.SkyModel(mags=False)
+        skyModel.setRaDecMjd(0., 90., 58000, azAlt=True, degrees=True)
+        skycounts_persec_u = desc.imsim.skyCountsPerSec(
+            skyModel, photPars_2, 'u', 24)
+        self.assertAlmostEqual(skycounts_persec_u.value, self.zp_u)
+
 
 if __name__ == '__main__':
     unittest.main()
