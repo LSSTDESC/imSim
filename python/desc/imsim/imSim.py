@@ -400,6 +400,7 @@ def validate_phosim_object_list(phoSimObjects):
         A tuple of DataFrames containing the accepted and rejected objects.
     """
     bad_row_queries = ('(galSimType=="sersic" and majorAxis < minorAxis)',
+                       '(galSimType=="RandomWalk" and sindex < 1)',
                        '(magNorm > 50)',
                        '(galacticAv==0 and galacticRv==0)')
 
