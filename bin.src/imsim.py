@@ -43,6 +43,10 @@ def main():
                         "from LSE=40 (equation 30), or the Kolmogorov convolved "
                         "with a Gaussian proposed by David Kirkby at the "
                         "23 March 2017 SSims telecon")
+    parser.add_argument('--checkpoint_file', type=str, default=None,
+                        help='Checkpoint file name.')
+    parser.add_argument('--nobj_checkpoint', type=int, default=1000,
+                        help='# objects to process between checkpoints')
     arguments = parser.parse_args()
 
     config = desc.imsim.read_config(arguments.config_file)
@@ -144,14 +148,16 @@ def main():
 
     phoSimStarCatalog.camera = camera
     phoSimStarCatalog.camera_wrapper = LSSTCameraWrapper()
-    phoSimStarCatalog.get_fitsFiles()
+    phoSimStarCatalog.get_fitsFiles(arguments.checkpoint_file,
+                                    arguments.nobj_checkpoint)
 
     # Now galaxies
     phoSimGalaxyCatalog = desc.imsim.ImSimGalaxies(galaxyDataBase, obs_md)
     phoSimGalaxyCatalog.copyGalSimInterpreter(phoSimStarCatalog)
     phoSimGalaxyCatalog.PSF = phoSimStarCatalog.PSF
     phoSimGalaxyCatalog.noise_and_background = phoSimStarCatalog.noise_and_background
-    phoSimGalaxyCatalog.get_fitsFiles()
+    phoSimGalaxyCatalog.get_fitsFiles(arguments.checkpoint_file,
+                                      arguments.nobj_checkpoint)
 
     # Add cosmic rays to the eimages.
     phoSimGalaxyCatalog.add_cosmic_rays()
