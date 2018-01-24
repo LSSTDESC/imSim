@@ -160,10 +160,9 @@ def main():
     randomWalkCatalog.noise_and_background = phoSimStarCatalog.noise_and_background
     randomWalkCatalog.get_fitsFiles()
 
-
     # Now galaxies
     phoSimGalaxyCatalog = desc.imsim.ImSimGalaxies(galaxyDataBase, obs_md)
-    phoSimGalaxyCatalog.copyGalSimInterpreter(randomWalkCatalog)
+    phoSimGalaxyCatalog.copyGalSimInterpreter(phoSimStarCatalog)
     phoSimGalaxyCatalog.PSF = phoSimStarCatalog.PSF
     phoSimGalaxyCatalog.noise_and_background = phoSimStarCatalog.noise_and_background
     phoSimGalaxyCatalog.get_fitsFiles()
