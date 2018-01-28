@@ -3,6 +3,7 @@ Code to determine deviations in the Zernike coefficients as determined by the
 AOS open loop control system. Results do not include contributions from the
 closed loop lookup table.
 """
+
 import os
 
 import numpy as np
@@ -12,7 +13,7 @@ from scipy import optimize
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 MATRIX_PATH = os.path.join(FILE_DIR, 'sensitivity_matrix.txt')
 
-DEBUG = True
+DEBUG = False
 
 
 def get_sensitivity_matrix():
@@ -30,6 +31,40 @@ def get_sensitivity_matrix():
     """
 
     return np.genfromtxt(MATRIX_PATH).reshape((35, 19, 50))
+
+
+def mock_distortions():
+    """
+    Returns an array of mock optical distortions as a (35, 50) array
+
+    @param [out] A numpy array representing mock optical distortions
+    """
+
+    distortion_sizes = [
+        # M2: Piston (microns), x/y decenter (microns), x/y tilt (arcsec)
+        -15.0, 0.1, -2.0, 1.0, -0.1,
+
+        # Camera: Piston (microns), x/y decenter (microns), x/y tilt (arcsec)
+        -30.0, -1.0, -0.5, 0.1, -1.5,
+
+        # M1M3: bending modes (microns)
+        -0.5, 0.1, 0.1, 0.1, 0.1,
+        0.1, 0.1, 0.1, 0.1, 0.1,
+        0.1, 0.1, 0.1, 0.1, 0.1,
+        0.1, 0.1, 0.1, 0.1, 0.1,
+
+        # M2: bending modes (microns)
+        -0.4, 0.1, 0.1, 0.1, 0.1,
+        0.1, 0.1, 0.1, 0.1, 0.1,
+        0.1, 0.1, 0.1, 0.1, 0.1,
+        0.1, 0.1, 0.1, 0.1, 0.1,
+    ]
+
+    distortion = np.zeros((35, 50))
+    for i in range(35):
+        distortion[i] = distortion_sizes[i]
+
+    return distortion
 
 
 def cartesian_samp_coords():
@@ -109,7 +144,8 @@ def _raise_zernike_deviations(fp_x, fp_y, distortion_vectors):
     if not isinstance(fp_y, (float, int)):
         raise TypeError(type_err.format('fp_y', 'float'))
 
-    r_focal_plane = 100  # Todo: Change place holder value for focal plane radius
+    # Todo: Change place holder value (100) to focal plane radius
+    r_focal_plane = 100
     r_coordinates = fp_x * fp_x + fp_y + fp_y
     if r_coordinates >= r_focal_plane:
         raise ValueError('Provided coordinates are outside LSST focal plane')
@@ -125,7 +161,7 @@ def _raise_zernike_deviations(fp_x, fp_y, distortion_vectors):
         raise ValueError(dist_val_err.format(distortions_shape))
 
 
-def zernike_deviations(fp_x, fp_y, distortion_vectors):
+def interp_z_deviations(fp_x, fp_y, distortion_vectors):
     """
     Return the interpolated zernike coefficients at a focal plane position
 
@@ -136,6 +172,8 @@ def zernike_deviations(fp_x, fp_y, distortion_vectors):
     @param [in] distortion_vectors is an array describing deviations in
     each optical degree of freedom sampled at 35 positions.
     It should have shape (35, 50).
+
+    @param [out] A list of 19 zernike coefficients
     """
 
     _raise_zernike_deviations(fp_x, fp_y, distortion_vectors)
@@ -157,30 +195,126 @@ def zernike_deviations(fp_x, fp_y, distortion_vectors):
     return out
 
 
+def _error_fit_func(p, x_arr, y_arr, z_arr):
+    """
+    Calculates the residual of a 2d fit using as:
+        _fit_func`(p, x_arr, y_arr) - z_val
+
+    @param [in] p is an array of the coefficients for the fit
+
+    @param [in] x_arr is an array of x coordinates
+
+    @param [in] y_arr is an array of y coordinates
+
+    @param [in] z_val is an array of the expected value of the fit evaluated
+        at x_arr and y_arr
+
+    @param [out] An array of the residuals
+    """
+
+    return _fit_func(p, x_arr, y_arr) - z_arr
+
+
+def _fit_func(p, x_arr, y_arr):
+    """
+    Calculates the value of a two dimensional, second order polynomial
+
+    @param [in] p is an array of 7 polynomial coefficients
+
+    @param [in] x_arr is an array of x coordinates
+
+    @param [in] y_arr is an array of y coordinates
+
+    @param [out] An array of the polynomial evaluated at x_arr and y_arr
+    """
+
+    x_terms = p[0] * x_arr * x_arr + p[1] * x_arr + p[2]
+    y_terms = p[3] * y_arr * y_arr + p[4] * y_arr + p[5]
+    cross_terms = p[6] * x_arr * y_arr
+    return x_terms + y_terms + cross_terms
+
+
+def fit_z_deviations(fp_x, fp_y, distortion_vectors):
+    """
+    Return the zernike coefficients at a focal plane position using a 2d fit
+
+    @param [in] fp_x is the desired focal plane x coordinate
+
+    @param [in] fp_y is the desired focal plane y coordinate
+
+    @param [in] distortion_vectors is an array describing deviations in
+    each optical degree of freedom sampled at 35 positions.
+    It should have shape (35, 50).
+
+    @param [out] A list of 19 zernike coefficients
+    """
+
+    _raise_zernike_deviations(fp_x, fp_y, distortion_vectors)
+
+    sensitivity_matrix = get_sensitivity_matrix()
+    num_sampling_positions = sensitivity_matrix.shape[0]
+    num_zernike_coefficients = sensitivity_matrix.shape[1]
+
+    coefficients = np.zeros((num_sampling_positions, num_zernike_coefficients))
+    for i in range(num_sampling_positions):
+        coefficients[i] = sensitivity_matrix[i].dot(distortion_vectors[i])
+
+    x, y = cartesian_samp_coords()
+    out = []
+    for i in range(num_zernike_coefficients):
+        fit_coeff = optimize.leastsq(_error_fit_func, np.arange(0, 7),
+                                     args=(x, y, coefficients[:, i]))
+
+        fit_eval = _fit_func(fit_coeff[0], fp_x, fp_y)
+        out.append(fit_eval)
+
+    return out
+
+
+def _calc_residuals(func, distortions):
+
+    sensitivity_matrix = get_sensitivity_matrix()
+
+    num_positions = sensitivity_matrix.shape[0]
+    num_coefficients = sensitivity_matrix.shape[1]
+
+    # Determine the coefficients at the sampling points
+    coefficients = np.zeros((num_positions, num_coefficients))
+    for i in range(num_positions):
+        coefficients[i] = sensitivity_matrix[i].dot(distortions[i])
+
+    # Determine the residuals from a 2d fit
+    x, y = cartesian_samp_coords()
+    residuals = np.zeros((num_positions, num_coefficients))
+    for i, (x_i, y_i) in enumerate(zip(x, y)):
+        fit_coefficients = func(x_i, y_i, distortions)
+        residuals[i] = np.subtract(coefficients[i], fit_coefficients)
+
+    return residuals.transpose()
+
+
+def _plot_residuals(func, distortions, path, format):
+
+    # This is a throw away function so we encapsulate this import
+    from matplotlib import pyplot as plt
+
+    x, y = cartesian_samp_coords()
+    residuals = _calc_residuals(func, distortions)
+
+    fig = plt.figure(figsize=(18, 15))
+    for i in range(19):
+        axis = fig.add_subplot(4, 5, i + 1)
+        axis.scatter(x, y, c=residuals[i], cmap='bwr',
+                     label='Z_{}'.format(i + 4))
+        axis.legend()
+
+    plt.tight_layout()
+    plt.savefig(path, format=format)
+
+
 if __name__ == "__main__" and DEBUG:
-    distortion_sizes = [
-        # M2: Piston (microns), x/y decenter (microns), x/y tilt (arcsec)
-        -15.0, 0.1, -2.0, 1.0, -0.1,
 
-        # Camera: Piston (microns), x/y decenter (microns), x/y tilt (arcsec)
-        -30.0, -1.0, -0.5, 0.1, -1.5,
-
-        # M1M3: bending modes (microns)
-        -0.5, 0.1, 0.1, 0.1, 0.1,
-        0.1, 0.1, 0.1, 0.1, 0.1,
-        0.1, 0.1, 0.1, 0.1, 0.1,
-        0.1, 0.1, 0.1, 0.1, 0.1,
-
-        # M2: bending modes (microns)
-        -0.4, 0.1, 0.1, 0.1, 0.1,
-        0.1, 0.1, 0.1, 0.1, 0.1,
-        0.1, 0.1, 0.1, 0.1, 0.1,
-        0.1, 0.1, 0.1, 0.1, 0.1,
-    ]
-
-    test_distortions = np.zeros((35, 50))
-    for i in range(35):
-        test_distortions[i] = distortion_sizes[i]
-
-    coef = zernike_deviations(0, 0, test_distortions)
-    print(coef)
+    # Todo: Residuals may be calculated using an incorrect array slice
+    distortions = mock_distortions()
+    _plot_residuals(fit_z_deviations, distortions, 'fit_resids.jpg', 'jpg')
+    _plot_residuals(interp_z_deviations, distortions, 'interp_resids.jpg', 'jpg')
