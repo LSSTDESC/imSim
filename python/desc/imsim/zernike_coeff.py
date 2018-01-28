@@ -6,7 +6,8 @@ closed loop lookup table.
 import os
 
 import numpy as np
-from scipy.interpolate import *
+from scipy.interpolate import interp2d
+from scipy import optimize
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 MATRIX_PATH = os.path.join(FILE_DIR, 'sensitivity_matrix.txt')
@@ -31,9 +32,9 @@ def get_sensitivity_matrix():
     return np.genfromtxt(MATRIX_PATH).reshape((35, 19, 50))
 
 
-def sampling_coordinates():
+def cartesian_samp_coords():
     """
-    Returns two lists with 35 sampling coordinates in the focal plane
+    Returns two lists with 35 cartesian sampling coordinates in the focal plane
 
     @param [out] a list of 35 x coordinates
 
@@ -56,7 +57,38 @@ def sampling_coordinates():
     x_list.extend([1.185, -1.185, -1.185, 1.185])
     y_list.extend([1.185, 1.185, -1.185, -1.185])
 
-    return x_list, y_list
+    return np.array(x_list), np.array(y_list)
+
+
+def polar_samp_coords():
+    """
+    Returns two lists with 35 polar sampling coordinates in the focal plane
+
+    @param [out] a list of 35 r coordinates
+
+    @param [out] a list of 35 theta coordinates
+    """
+
+    # Initialize with central point
+    r_list = [0.]
+    theta_list = [0.]
+
+    # Loop over points on spines
+    radii = [0.379, 0.841, 1.237, 1.535, 1.708]
+    angles = [0, 60, 120, 180, 240, 300]
+    for radius in radii:
+        for angle in angles:
+            r_list.append(radius)
+            theta_list.append(angle)
+
+    # Add Corner raft points
+    x_raft_coords = [1.185, -1.185, -1.185, 1.185]
+    y_raft_coords = [1.185, 1.185, -1.185, -1.185]
+    for x, y in zip(x_raft_coords, y_raft_coords):
+        theta_list.append(np.arctan2(y, x))
+        r_list.append(np.sqrt(x * x + y * y))
+
+    return np.array(r_list), np.array(theta_list)
 
 
 def _raise_zernike_deviations(fp_x, fp_y, distortion_vectors):
@@ -117,7 +149,7 @@ def zernike_deviations(fp_x, fp_y, distortion_vectors):
         coefficients[i] = sensitivity_matrix[i].dot(distortion_vectors[i])
 
     out = []
-    x, y = sampling_coordinates()
+    x, y = cartesian_samp_coords()
     for i in range(num_zernike_coefficients):
         interp_func = interp2d(x, y, coefficients[:, i], kind='cubic')
         out.extend(interp_func(fp_x, fp_y))
