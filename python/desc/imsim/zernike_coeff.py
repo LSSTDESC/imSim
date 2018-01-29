@@ -1,5 +1,5 @@
 """
-Code to determine deviations in the Zernike coefficients as determined by the
+Code to determine deviations in the Zernike coefficients determined by the
 AOS open loop control system. Results do not include contributions from the
 closed loop lookup table.
 """
@@ -12,8 +12,6 @@ from scipy import optimize
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 MATRIX_PATH = os.path.join(FILE_DIR, 'sensitivity_matrix.txt')
-
-DEBUG = False
 
 
 def get_sensitivity_matrix():
@@ -33,9 +31,13 @@ def get_sensitivity_matrix():
     return np.genfromtxt(MATRIX_PATH).reshape((35, 19, 50))
 
 
+# Todo: Current distortions are persistent - change them to being random
 def mock_distortions():
     """
-    Returns an array of mock optical distortions as a (35, 50) array
+    Returns an array of mock optical deviations as a (35, 50) array
+
+    Deviations are simulated randomly at 35 positions in the LSST focal plane
+    for each of LSST's 50 optical degrees of freedom.
 
     @param [out] A numpy array representing mock optical distortions
     """
@@ -62,6 +64,7 @@ def mock_distortions():
 
     distortion = np.zeros((35, 50))
     for i in range(35):
+        # Insert random behavior here
         distortion[i] = distortion_sizes[i]
 
     return distortion
@@ -128,7 +131,7 @@ def polar_samp_coords():
 
 def _raise_zernike_deviations(fp_x, fp_y, distortion_vectors):
     """
-    Type and value check arguments for `zernike_deviations`
+    Type and value check arguments for calculating zernike deviations
 
     @param [in] fp_x should be a float or int type
 
@@ -195,6 +198,25 @@ def interp_z_deviations(fp_x, fp_y, distortion_vectors):
     return out
 
 
+def _fit_func(p, x_arr, y_arr):
+    """
+    Calculates the value of a two dimensional, second order polynomial
+
+    @param [in] p is an array of 7 polynomial coefficients
+
+    @param [in] x_arr is an array of x coordinates
+
+    @param [in] y_arr is an array of y coordinates
+
+    @param [out] An array of the polynomial evaluated at x_arr and y_arr
+    """
+
+    x_terms = p[0] * x_arr * x_arr + p[1] * x_arr + p[2]
+    y_terms = p[3] * y_arr * y_arr + p[4] * y_arr + p[5]
+    cross_terms = p[6] * x_arr * y_arr
+    return x_terms + y_terms + cross_terms
+
+
 def _error_fit_func(p, x_arr, y_arr, z_arr):
     """
     Calculates the residual of a 2d fit using as:
@@ -213,25 +235,6 @@ def _error_fit_func(p, x_arr, y_arr, z_arr):
     """
 
     return _fit_func(p, x_arr, y_arr) - z_arr
-
-
-def _fit_func(p, x_arr, y_arr):
-    """
-    Calculates the value of a two dimensional, second order polynomial
-
-    @param [in] p is an array of 7 polynomial coefficients
-
-    @param [in] x_arr is an array of x coordinates
-
-    @param [in] y_arr is an array of y coordinates
-
-    @param [out] An array of the polynomial evaluated at x_arr and y_arr
-    """
-
-    x_terms = p[0] * x_arr * x_arr + p[1] * x_arr + p[2]
-    y_terms = p[3] * y_arr * y_arr + p[4] * y_arr + p[5]
-    cross_terms = p[6] * x_arr * y_arr
-    return x_terms + y_terms + cross_terms
 
 
 def fit_z_deviations(fp_x, fp_y, distortion_vectors):
@@ -269,52 +272,3 @@ def fit_z_deviations(fp_x, fp_y, distortion_vectors):
         out.append(fit_eval)
 
     return out
-
-
-def _calc_residuals(func, distortions):
-
-    sensitivity_matrix = get_sensitivity_matrix()
-
-    num_positions = sensitivity_matrix.shape[0]
-    num_coefficients = sensitivity_matrix.shape[1]
-
-    # Determine the coefficients at the sampling points
-    coefficients = np.zeros((num_positions, num_coefficients))
-    for i in range(num_positions):
-        coefficients[i] = sensitivity_matrix[i].dot(distortions[i])
-
-    # Determine the residuals from a 2d fit
-    x, y = cartesian_samp_coords()
-    residuals = np.zeros((num_positions, num_coefficients))
-    for i, (x_i, y_i) in enumerate(zip(x, y)):
-        fit_coefficients = func(x_i, y_i, distortions)
-        residuals[i] = np.subtract(coefficients[i], fit_coefficients)
-
-    return residuals.transpose()
-
-
-def _plot_residuals(func, distortions, path, format):
-
-    # This is a throw away function so we encapsulate this import
-    from matplotlib import pyplot as plt
-
-    x, y = cartesian_samp_coords()
-    residuals = _calc_residuals(func, distortions)
-
-    fig = plt.figure(figsize=(18, 15))
-    for i in range(19):
-        axis = fig.add_subplot(4, 5, i + 1)
-        axis.scatter(x, y, c=residuals[i], cmap='bwr',
-                     label='Z_{}'.format(i + 4))
-        axis.legend()
-
-    plt.tight_layout()
-    plt.savefig(path, format=format)
-
-
-if __name__ == "__main__" and DEBUG:
-
-    # Todo: Residuals may be calculated using an incorrect array slice
-    distortions = mock_distortions()
-    _plot_residuals(fit_z_deviations, distortions, 'fit_resids.jpg', 'jpg')
-    _plot_residuals(interp_z_deviations, distortions, 'interp_resids.jpg', 'jpg')
