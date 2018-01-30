@@ -31,7 +31,7 @@ def get_sensitivity_matrix():
     return np.genfromtxt(MATRIX_PATH).reshape((35, 19, 50))
 
 
-def mock_distortions():
+def mock_distortions(deviation):
     """
     Returns an array of mock optical deviations as a (35, 50) array
 
@@ -41,9 +41,9 @@ def mock_distortions():
     @param [out] A numpy array representing mock optical distortions
     """
 
-    distortion_sizes = [
+    max_distortion = np.array([
         # M2: Piston (microns), x/y decenter (microns), x/y tilt (arcsec)
-        -15.0, 0.1, -2.0, 1.0, -0.1,
+        -15.0, 2, -4.0, 1.0, 0.5,
 
         # Camera: Piston (microns), x/y decenter (microns), x/y tilt (arcsec)
         -30.0, -1.0, -0.5, 0.1, -1.5,
@@ -59,14 +59,14 @@ def mock_distortions():
         0.1, 0.1, 0.1, 0.1, 0.1,
         0.1, 0.1, 0.1, 0.1, 0.1,
         0.1, 0.1, 0.1, 0.1, 0.1,
-    ]
+    ])
 
+    min_distortion = (1 - 2 * deviation) * max_distortion
+    random_signs = np.random.choice([-1, 1], size=50)
     distortion = np.zeros((35, 50))
     for i in range(35):
-        # Insert random behavior here
-        rand_distortion = np.random.uniform(0.7 * distortion_sizes[i],
-                                            1.3 * distortion_sizes[i])
-        distortion[i] = rand_distortion
+        rand_distortion = np.random.uniform(min_distortion, max_distortion)
+        distortion[i] = random_signs * rand_distortion
 
     return distortion
 
