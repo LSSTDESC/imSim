@@ -68,10 +68,10 @@ def calc_residuals(func, distortions):
     return residuals
 
 
-def plot_array(array, path, frmt):
+def plot_array(data_array, path, frmt, match_colorbar=False):
     """Write to file a plot of data from a (35, 19) array
 
-    @param [in] array is a (35, 19) array
+    @param [in] data_array is a (35, 19) array
 
     @param [in] path is the desired output location of the image
 
@@ -79,14 +79,19 @@ def plot_array(array, path, frmt):
     """
 
     x, y = cartesian_samp_coords()
-    data = array.transpose()
+    ticks = np.arange(-2, 2.5, .5)
+    tick_labels = ['-2', '', '-1', '', '0', '', '1', '', '2']
 
-    fig = plt.figure(figsize=(18, 15))
+    fig = plt.figure(figsize=(22, 15))
     for i in range(19):
         # Format figure
         axis = fig.add_subplot(4, 5, i + 1)
-        axis.set_xlim(-1.5, 1.5)
-        axis.xaxis.set_ticks(np.arange(-1.5, 2.0, .5))
+        axis.set_ylim(-2, 2)
+        axis.set_xlim(-2, 2)
+        for sub_axis in (axis.yaxis, axis.xaxis):
+            sub_axis.set_ticks(ticks)
+            sub_axis.set_ticklabels(tick_labels, fontsize=15)
+
         if i % 5:
             axis.set_yticklabels([])
 
@@ -94,18 +99,26 @@ def plot_array(array, path, frmt):
             axis.set_xticklabels([])
 
         # Plot data
-        label = 'Z_{}'.format(i + 4)
-        vlim = max(np.abs(np.amin(data)), np.abs(np.amax(data)))
+        if match_colorbar:
+            vlim_data = data_array
+
+        else:
+            vlim_data = data_array[:, i]
+
+        vlim = max(np.abs(np.amin(vlim_data)),
+                       np.abs(np.amax(vlim_data)))
+
         scatter = axis.scatter(x, y,
-                               c=data[i],
+                               c=data_array[:, i],
                                cmap='bwr',
-                               label=label,
+                               label='Z_{}'.format(i + 4),
                                vmin=-vlim,
                                vmax=vlim)
         axis.legend()
+        fig.colorbar(scatter)
 
-    cb_ax = fig.add_axes([0.93, 0.09, 0.02, 0.8])
-    fig.colorbar(scatter, cax=cb_ax)
+    #cb_ax = fig.add_axes([0.93, 0.09, 0.02, 0.8])
+
     plt.savefig(path, format=frmt)
 
 
@@ -141,7 +154,7 @@ if __name__ == "__main__":
     if not os.path.exists(fig_dir):
         os.mkdir(fig_dir)
 
-    moc_distort = mock_distortions(.1)
+    moc_distort = mock_distortions(.2)
 
     coeff = coeff_at_sampling_points(moc_distort)
     coeff_path = os.path.join(fig_dir, 'coeff.jpg')
@@ -149,10 +162,11 @@ if __name__ == "__main__":
 
     fit_residuals = calc_residuals(fit_z_deviations, moc_distort)
     fit_path = os.path.join(fig_dir, 'fit_resids.jpg')
-    plot_array(fit_residuals, fit_path, 'jpg')
+    plot_array(fit_residuals, fit_path, 'jpg', True)
 
     interp_residuals = calc_residuals(interp_z_deviations, moc_distort)
     interp_path = os.path.join(fig_dir, 'interp_resids.jpg')
-    plot_array(interp_residuals, interp_path, 'jpg')
+    plot_array(interp_residuals, interp_path, 'jpg', True)
 
-    plot_nominal_zernikes(os.path.join(fig_dir, 'nominal_zernikes.jpg'), 'jpg')
+    nominal_path = os.path.join(fig_dir, 'nominal_zernikes.jpg')
+    plot_nominal_zernikes(nominal_path, 'jpg')

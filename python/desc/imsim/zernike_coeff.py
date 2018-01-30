@@ -266,10 +266,11 @@ def fit_z_deviations(fp_x, fp_y, distortion_vectors):
     x, y = cartesian_samp_coords()
     out = []
     for i in range(num_zernike_coefficients):
-        fit_coeff = optimize.leastsq(_error_fit_func, np.arange(0, 7),
-                                     args=(x, y, coefficients[:, i]))
+        optimal = optimize.leastsq(_error_fit_func, np.arange(0, 7),
+                                   args=(x, y, coefficients[:, i]))
 
-        fit_eval = _fit_func(fit_coeff[0], fp_x, fp_y)
+        fit_coeff = optimal[0]
+        fit_eval = _fit_func(fit_coeff, fp_x, fp_y)
         out.append(fit_eval)
 
     return out
