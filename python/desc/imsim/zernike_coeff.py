@@ -31,7 +31,6 @@ def get_sensitivity_matrix():
     return np.genfromtxt(MATRIX_PATH).reshape((35, 19, 50))
 
 
-# Todo: Current distortions are persistent - change them to being random
 def mock_distortions():
     """
     Returns an array of mock optical deviations as a (35, 50) array
@@ -65,7 +64,9 @@ def mock_distortions():
     distortion = np.zeros((35, 50))
     for i in range(35):
         # Insert random behavior here
-        distortion[i] = distortion_sizes[i]
+        rand_distortion = np.random.uniform(0.7 * distortion_sizes[i],
+                                            1.3 * distortion_sizes[i])
+        distortion[i] = rand_distortion
 
     return distortion
 

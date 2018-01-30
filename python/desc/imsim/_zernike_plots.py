@@ -41,6 +41,52 @@ def _coeff_at_sampling_points(distortions):
     return coefficients
 
 
+def _plot_coeff(distortions, path, frmt):
+    """Writes to file a plot of zernike coefficients at 35 sampling locations
+
+    @param [in] distortions is a (35, 50) array of mock optical deviations in
+    each of the 50 optical degrees of freedom at 35 sampling coordinates.
+
+    @param [in] path is the desired output location of the image
+
+    @param [in] format is the desired format of the image (eg. jpeg or eps)
+    """
+
+    # _plot_coeff is a throw away function so we encapsulate this import
+    from matplotlib import pyplot as plt
+
+    x, y = cartesian_samp_coords()
+    coeff = _coeff_at_sampling_points(distortions)
+    coeff = coeff.transpose()
+
+    fig = plt.figure(figsize=(18, 15))
+    for i in range(19):
+        # Format figure
+        axis = fig.add_subplot(4, 5, i + 1)
+        axis.set_xlim(-1.5, 1.5)
+        axis.xaxis.set_ticks(np.arange(-1.5, 2.0, .5))
+        if i % 5:
+            axis.set_yticklabels([])
+
+        if i < 14:
+            axis.set_xticklabels([])
+
+        # Plot data
+        label = 'Z_{}'.format(i + 4)
+        vlim = max(np.abs(np.amin(coeff)), np.abs(np.amax(coeff)))
+        scatter = axis.scatter(x, y,
+                               c=coeff[i],
+                               cmap='bwr',
+                               label=label,
+                               vmin=-vlim,
+                               vmax=vlim)
+        axis.legend()
+
+    cb_ax = fig.add_axes([0.93, 0.09, 0.02, 0.8])
+    fig.colorbar(scatter, cax=cb_ax)
+    plt.savefig(path, format=frmt)
+
+
 def _calc_residuals(func, distortions):
     """Calculates the residuals for a fit of the zernike coefficients
 
@@ -66,36 +112,7 @@ def _calc_residuals(func, distortions):
     return residuals
 
 
-def _plot_coeff(distortions, path, format):
-    """Writes to file a plot of zernike coefficients at 35 sampling locations
-
-    @param [in] distortions is a (35, 50) array of mock optical deviations in
-    each of the 50 optical degrees of freedom at 35 sampling coordinates.
-
-    @param [in] path is the desired output location of the image
-
-    @param [in] format is the desired format of the image (eg. jpeg or eps)
-    """
-
-    # _plot_coeff is a throw away function so we encapsulate this import
-    from matplotlib import pyplot as plt
-
-    x, y = cartesian_samp_coords()
-    coeff = _coeff_at_sampling_points(distortions)
-    coeff = coeff.transpose()
-
-    fig = plt.figure(figsize=(18, 15))
-    for i in range(19):
-        axis = fig.add_subplot(4, 5, i + 1)
-        axis.scatter(x, y, c=coeff[i], cmap='bwr',
-                     label='Z_{}'.format(i + 4))
-        axis.legend()
-
-    plt.tight_layout()
-    plt.savefig(path, format=format)
-
-
-def _plot_residuals(func, distortions, path, format):
+def _plot_residuals(func, distortions, path, frmt):
     """Calculates the residuals for a fit of the zernike coefficients
 
     @param [in] func is the fit function to calculate residuals for
@@ -117,13 +134,30 @@ def _plot_residuals(func, distortions, path, format):
 
     fig = plt.figure(figsize=(18, 15))
     for i in range(19):
+        # Format figure
         axis = fig.add_subplot(4, 5, i + 1)
-        axis.scatter(x, y, c=residuals[i], cmap='bwr',
-                     label='Z_{}'.format(i + 4))
+        axis.set_xlim(-1.5, 1.5)
+        axis.xaxis.set_ticks(np.arange(-1.5, 2.0, .5))
+        if i % 5:
+            axis.set_yticklabels([])
+
+        if i < 14:
+            axis.set_xticklabels([])
+
+        # Plot data
+        label = 'Z_{}'.format(i + 4)
+        vlim = max(np.abs(np.amin(residuals)), np.abs(np.amax(residuals)))
+        scatter = axis.scatter(x, y,
+                               c=residuals[i],
+                               cmap='bwr',
+                               label=label,
+                               vmin=-vlim,
+                               vmax=vlim)
         axis.legend()
 
-    plt.tight_layout()
-    plt.savefig(path, format=format)
+    cb_ax = fig.add_axes([0.93, 0.09, 0.02, 0.8])
+    fig.colorbar(scatter, cax=cb_ax)
+    plt.savefig(path, format=frmt)
 
 
 if __name__ == "__main__":
@@ -137,7 +171,3 @@ if __name__ == "__main__":
     _plot_coeff(moc_distort, os.path.join(fig_dir, 'coeff.jpg'), 'jpg')
     _plot_residuals(fit_z_deviations, moc_distort,
                     os.path.join(fig_dir, 'fit_resids.jpg'), 'jpg')
-
-    # Will raise a series of interpolation warnings
-    _plot_residuals(interp_z_deviations, moc_distort,
-                    os.path.join(fig_dir, 'interp_resids.jpg'), 'jpg')
