@@ -43,19 +43,19 @@ def mock_distortions(deviation):
 
     max_distortion = np.array([
         # M2: Piston (microns), x/y decenter (microns), x/y tilt (arcsec)
-        -15.0, 2, -4.0, 1.0, 0.5,
+        15.0, 5.0, 5.0, 0.75, 0.75,
 
         # Camera: Piston (microns), x/y decenter (microns), x/y tilt (arcsec)
-        -30.0, -1.0, -0.5, 0.1, -1.5,
+        30.0, 2.0, 2.5, 1.5, 1.5,
 
         # M1M3: bending modes (microns)
-        -0.5, 0.1, 0.1, 0.1, 0.1,
+        0.5, 0.2, 0.1, 0.1, 0.1,
         0.1, 0.1, 0.1, 0.1, 0.1,
         0.1, 0.1, 0.1, 0.1, 0.1,
         0.1, 0.1, 0.1, 0.1, 0.1,
 
         # M2: bending modes (microns)
-        -0.4, 0.1, 0.1, 0.1, 0.1,
+        0.4, 0.1, 0.1, 0.1, 0.1,
         0.1, 0.1, 0.1, 0.1, 0.1,
         0.1, 0.1, 0.1, 0.1, 0.1,
         0.1, 0.1, 0.1, 0.1, 0.1,

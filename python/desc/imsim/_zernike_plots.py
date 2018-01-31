@@ -68,7 +68,7 @@ def calc_residuals(func, distortions):
     return residuals
 
 
-def plot_array(data_array, path, frmt, match_colorbar=False):
+def plot_array(data_array, name, path, frmt, match_colorbar=False):
     """Write to file a plot of data from a (35, 19) array
 
     @param [in] data_array is a (35, 19) array
@@ -114,10 +114,10 @@ def plot_array(data_array, path, frmt, match_colorbar=False):
                                label='Z_{}'.format(i + 4),
                                vmin=-vlim,
                                vmax=vlim)
+
+        fig.suptitle(name, fontsize=30)
         axis.legend()
         fig.colorbar(scatter)
-
-    #cb_ax = fig.add_axes([0.93, 0.09, 0.02, 0.8])
 
     plt.savefig(path, format=frmt)
 
@@ -158,15 +158,18 @@ if __name__ == "__main__":
 
     coeff = coeff_at_sampling_points(moc_distort)
     coeff_path = os.path.join(fig_dir, 'coeff.jpg')
-    plot_array(coeff, coeff_path, 'jpg')
+    coeff_title = 'Zernike Coefficients'
+    plot_array(coeff, coeff_title, coeff_path, 'jpg')
 
     fit_residuals = calc_residuals(fit_z_deviations, moc_distort)
     fit_path = os.path.join(fig_dir, 'fit_resids.jpg')
-    plot_array(fit_residuals, fit_path, 'jpg', True)
+    fit_title = 'Fit Residuals'
+    plot_array(fit_residuals, fit_title, fit_path, 'jpg')
 
     interp_residuals = calc_residuals(interp_z_deviations, moc_distort)
     interp_path = os.path.join(fig_dir, 'interp_resids.jpg')
-    plot_array(interp_residuals, interp_path, 'jpg', True)
+    interp_title = 'Interpolation Residuals'
+    plot_array(interp_residuals, interp_title, interp_path, 'jpg')
 
     nominal_path = os.path.join(fig_dir, 'nominal_zernikes.jpg')
     plot_nominal_zernikes(nominal_path, 'jpg')
