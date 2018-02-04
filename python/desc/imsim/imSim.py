@@ -571,8 +571,11 @@ def get_logger(log_level):
 def get_obs_lsstSim_camera(log_level=lsstLog.WARN):
     """
     Get the obs_lsstSim CameraMapper object, setting the default
-    log-level at WARN in ordert to silence the INFO message about
-    "Loading Posix exposure registry from ."
+    log-level at WARN in order to silence the INFO message about
+    "Loading Posix exposure registry from .". Note that this only
+    affects the 'CameraMapper' logging level.  The logging level set
+    by any calling code (e.g., imsim.py) will still apply to other log
+    messages made by imSim code.
     """
     lsstLog.setLevel('CameraMapper', log_level)
     return obs_lsstSim.LsstSimMapper().camera
