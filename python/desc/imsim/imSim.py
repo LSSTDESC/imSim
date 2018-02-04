@@ -20,6 +20,7 @@ except ImportError:
 import numpy as np
 import pandas as pd
 import lsst.log as lsstLog
+import lsst.obs.lsstSim as obs_lsstSim
 import lsst.utils as lsstUtils
 from lsst.sims.photUtils import LSSTdefaults, PhotometricParameters
 from lsst.sims.utils import ObservationMetaData, radiansFromArcsec
@@ -28,8 +29,7 @@ from lsst.sims.utils import applyProperMotion, ModifiedJulianDate
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
            'validate_phosim_object_list',
-           'read_config', 'get_config', 'get_logger']
-
+           'read_config', 'get_config', 'get_logger', 'get_obs_lsstSim_camera']
 
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
@@ -566,3 +566,13 @@ def get_logger(log_level):
                      eval('lsstLog.%s' % log_level))
 
     return logger
+
+
+def get_obs_lsstSim_camera(log_level=lsstLog.WARN):
+    """
+    Get the obs_lsstSim CameraMapper object, setting the default
+    log-level at WARN in ordert to silence the INFO message about
+    "Loading Posix exposure registry from ."
+    """
+    lsstLog.setLevel('CameraMapper', log_level)
+    return obs_lsstSim.LsstSimMapper().camera
