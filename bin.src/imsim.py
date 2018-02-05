@@ -9,10 +9,9 @@ from __future__ import absolute_import, print_function
 import os
 import argparse
 import numpy as np
-from lsst.obs.lsstSim import LsstSimMapper
 from lsst.sims.coordUtils import chipNameFromRaDec
 from lsst.sims.GalSimInterface import SNRdocumentPSF
-from lsst.sims.GalSimInterface import LSSTCameraWrapper, GalSimCameraWrapper
+from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
 from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
@@ -76,7 +75,7 @@ def main():
     # PhoSim commands at the top of the instance file.
     obs_md = desc.imsim.phosim_obs_metadata(commands)
 
-    camera = LsstSimMapper().camera
+    camera = desc.imsim.get_obs_lsstSim_camera()
 
     # Sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
