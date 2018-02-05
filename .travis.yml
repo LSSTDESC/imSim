@@ -22,7 +22,8 @@ install:
 
 script:
   - sudo chown -R 1000:1000 .
-  - docker run -v `pwd`:/home/travis/imSim lsstdesc/stack-sims:w_2018_03-sims_2_5_0 /home/travis/imSim/travis_test.sh
+  - echo ${TRAVIS_BUILD_DIR}
+  - docker run -v `pwd`:${TRAVIS_BUILD_DIR} lsstdesc/stack-sims:w_2018_03-sims_2_5_0 ${TRAVIS_BUILD_DIR}/travis_test.sh
 
 after_success:
   - coveralls
