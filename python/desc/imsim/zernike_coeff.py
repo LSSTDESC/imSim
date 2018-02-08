@@ -10,7 +10,7 @@ import numpy as np
 from scipy.interpolate import interp2d
 from scipy.optimize import leastsq
 
-from zernike_cartesian import gen_superposition
+from zernike_polar import gen_superposition
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 MATRIX_PATH = os.path.join(FILE_DIR, 'sensitivity_matrix.txt')
@@ -18,9 +18,12 @@ MATRIX_PATH = os.path.join(FILE_DIR, 'sensitivity_matrix.txt')
 
 def _calc_fit_error(p, x_arr, y_arr, z_arr):
     """
-    Calculates the residuals of a function returned by _gen_fit_func
+    Calculates the residuals of a superposition of zernike polynomials
 
-    @param [in] p is an array of 22 polynomial coefficients for the fit
+    Generates a function representing a superposition of 22 zernike polynomials
+    using given coefficients and returns the residuals.
+
+    @param [in] p is an array of 22 polynomial coefficients for the superposition
 
     @param [in] x_arr is an array of x coordinates
 
@@ -60,6 +63,37 @@ def get_cartesian_sampling():
     y_list.extend([1.185, 1.185, -1.185, -1.185])
 
     return np.array(x_list), np.array(y_list)
+
+
+def get_polar_sampling():
+    """
+    Return 35 polar sampling coordinates in the focal plane
+
+    @param [out] an array of 35 x coordinates
+
+    @param [out] an array of 35 y coordinates
+    """
+
+    # Initialize with central point
+    r_list = [0.]
+    theta_list = [0.]
+
+    # Loop over points on spines
+    radii = [0.379, 0.841, 1.237, 1.535, 1.708]
+    angles = [0, 60, 120, 180, 240, 300]
+    for radius in radii:
+        for angle in angles:
+            r_list.append(radius)
+            theta_list.append(angle)
+
+    # Add Corner raft points
+    x_raft_coords = [1.185, -1.185, -1.185, 1.185]
+    y_raft_coords = [1.185, 1.185, -1.185, -1.185]
+    for x, y in zip(x_raft_coords, y_raft_coords):
+        theta_list.append(np.arctan2(y, x))
+        r_list.append(np.sqrt(x * x + y * y))
+
+    return np.array(r_list), np.array(theta_list)
 
 
 def moc_deviations(spread):
@@ -109,7 +143,7 @@ def moc_deviations(spread):
     return distortion
 
 
-class ClosedLoopZ:
+class OpticalZernikes:
     """
     This class provides fit functions for the zernike coefficients returned by
     the LSST AOS closed loop control system. It includes 19 functions that map
@@ -118,12 +152,17 @@ class ClosedLoopZ:
     """
 
     sensitivity = np.genfromtxt(MATRIX_PATH).reshape((35, 19, 50))
+    polar_coords = get_polar_sampling()
 
-    def __init__(self, deviations):
+    def __init__(self, deviations=None):
         """
         @param [in] deviations is a (35, 50) array representing deviations in
         each of LSST's optical degrees of freedom at 35 sampling coordinates
         """
+
+        self._cartesian_cords = None
+        if deviations is None:
+            deviations = moc_deviations(.2)
 
         self.sampling_coeff = self._calc_sampling_coeff(deviations)
         self._fit_functions = self._optimize_fits()
@@ -148,16 +187,19 @@ class ClosedLoopZ:
         return coefficients.transpose()
 
     @property
-    def cartesian_sampling(self):
+    def cartesian_coords(self):
         """
-        Return 35 cartesian sampling coordinates in the focal plane
+        Lazy loads 35 cartesian sampling coordinates in the focal plane
 
         @param [out] an array of 35 x coordinates
 
         @param [out] an array of 35 y coordinates
         """
 
-        return get_cartesian_sampling()
+        if self._cartesian_cords is None:
+            self._cartesian_cords = get_cartesian_sampling()
+
+        return self._cartesian_cords
 
     def _optimize_fits(self):
         """
@@ -167,7 +209,7 @@ class ClosedLoopZ:
         """
 
         out = []
-        x, y = self.cartesian_sampling
+        x, y = self.polar_coords
         for coefficient in self.sampling_coeff:
             optimal = leastsq(_calc_fit_error, np.ones((22,)),
                               args=(x, y, coefficient))
@@ -178,7 +220,7 @@ class ClosedLoopZ:
 
         return out
 
-    def interp_deviations(self, fp_x, fp_y, kind='cubic'):
+    def _interp_deviations(self, fp_x, fp_y, kind='cubic'):
         """
         Determine the zernike coefficients at given coordinates by interpolating
 
@@ -191,7 +233,7 @@ class ClosedLoopZ:
         @param [out] An array of 19 zernike coefficients for z=4 through z=22
         """
 
-        x, y = self.cartesian_sampling
+        x, y = self.cartesian_coords
         num_zernike_coeff = self.sampling_coeff.shape[0]
         out_arr = np.zeros(num_zernike_coeff)
 
@@ -201,9 +243,22 @@ class ClosedLoopZ:
 
         return out_arr
 
-    def fit_coefficients(self, fp_x, fp_y):
+    def polar_coeff(self, fp_r, fp_t):
         """
-        Determine the zernike coefficients using a fir of zernike polynomials
+        Determine the zernike coefficients using a fit of zernike polynomials
+
+        @param [in] fp_r is the desired focal plane radial coordinate
+
+        @param [in] fp_t is the desired focal plane angular coordinate
+
+        @param [out] An array of 19 zernike coefficients for z=4 through z=22
+        """
+
+        return np.array([f(fp_r, fp_t) for f in self._fit_functions])
+
+    def cartesian_coeff(self, fp_x, fp_y):
+        """
+        Determine the zernike coefficients using a fit of zernike polynomials
 
         @param [in] fp_x is the desired focal plane x coordinate
 
@@ -212,12 +267,14 @@ class ClosedLoopZ:
         @param [out] An array of 19 zernike coefficients for z=4 through z=22
         """
 
-        return np.array([f(fp_x, fp_y) for f in self._fit_functions])
+        fp_r = np.sqrt(fp_x ** 2 + fp_y ** 2)
+        fp_t = np.arctan2(fp_y, fp_x)
+        return self.polar_coeff(fp_r, fp_t)
 
 
-# Check run times for CloosedLoopZ
+# Check run times for OpticalZernikes
 if __name__ == '__main__':
-    n_runs = 10
+    n_runs = 1
     n_coords = 1000
 
     optical_deviations = moc_deviations(spread=.4)
@@ -226,14 +283,14 @@ if __name__ == '__main__':
 
     from timeit import timeit
 
-    init_time = timeit('ClosedLoopZ(optical_deviations)',
+    init_time = timeit('OpticalZernikes(optical_deviations)',
                        globals=globals(),
                        number=n_runs)
 
     print('init time:', init_time / n_runs)
 
-    closed_loop = ClosedLoopZ(optical_deviations)
-    runtime = timeit('closed_loop.fit_coefficients(x_coords, y_coords)',
+    closed_loop = OpticalZernikes(optical_deviations)
+    runtime = timeit('closed_loop.cartesian_coeff(x_coords, y_coords)',
                      globals=globals(),
                      number=n_runs)
 
