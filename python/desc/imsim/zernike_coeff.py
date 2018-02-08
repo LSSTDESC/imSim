@@ -10,41 +10,10 @@ import numpy as np
 from scipy.interpolate import interp2d
 from scipy.optimize import leastsq
 
-from zernike_cartesian import *
+from zernike_cartesian import gen_superposition
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 MATRIX_PATH = os.path.join(FILE_DIR, 'sensitivity_matrix.txt')
-
-
-def _gen_fit_func(p):
-    """
-    A generator function for a superposition of zernike polynomials
-
-    Uses given coefficients to generate a function representing a superposition
-    of the first 22 Zernike polynomials in the Noll basis:
-        f(x, y) = p[i-1] * z_i
-
-    @param [in] p is an array of 22 polynomial coefficients
-
-    @param [out] a function object
-    """
-
-    def fit_func(x_arr, y_arr):
-        fit = p[0] * z_1(x_arr, y_arr) + p[1] * z_2(x_arr, y_arr) \
-              + p[2] * z_3(x_arr, y_arr) + p[3] * z_4(x_arr, y_arr) \
-              + p[4] * z_5(x_arr, y_arr) + p[5] * z_6(x_arr, y_arr) \
-              + p[6] * z_7(x_arr, y_arr) + p[7] * z_8(x_arr, y_arr) \
-              + p[8] * z_9(x_arr, y_arr) + p[9] * z_10(x_arr, y_arr) \
-              + p[10] * z_11(x_arr, y_arr) + p[11] * z_12(x_arr, y_arr) \
-              + p[12] * z_13(x_arr, y_arr) + p[13] * z_14(x_arr, y_arr) \
-              + p[14] * z_15(x_arr, y_arr) + p[15] * z_16(x_arr, y_arr) \
-              + p[16] * z_17(x_arr, y_arr) + p[17] * z_18(x_arr, y_arr) \
-              + p[18] * z_19(x_arr, y_arr) + p[19] * z_20(x_arr, y_arr) \
-              + p[20] * z_21(x_arr, y_arr) + p[21] * z_22(x_arr, y_arr)
-
-        return fit
-
-    return fit_func
 
 
 def _calc_fit_error(p, x_arr, y_arr, z_arr):
@@ -62,7 +31,7 @@ def _calc_fit_error(p, x_arr, y_arr, z_arr):
     @param [out] An array of the residuals
     """
 
-    return _gen_fit_func(p)(x_arr, y_arr) - z_arr
+    return gen_superposition(p)(x_arr, y_arr) - z_arr
 
 
 def get_cartesian_sampling():
@@ -204,7 +173,7 @@ class ClosedLoopZ:
                               args=(x, y, coefficient))
 
             fit_coeff = optimal[0]
-            fit_func = _gen_fit_func(fit_coeff)
+            fit_func = gen_superposition(fit_coeff)
             out.append(fit_func)
 
         return out
