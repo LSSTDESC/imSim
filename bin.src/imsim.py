@@ -17,6 +17,8 @@ from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
 from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
 
+_POINT_SOURCE = 1
+_SERSIC_2D = 2
 
 def main():
     """
@@ -91,6 +93,7 @@ def main():
     dec_phosim = np.zeros(num_objects, dtype=float)
 
     unique_id = np.zeros(num_objects, dtype=int)
+    object_type = np.zeros(num_objects, dtype=int)
 
     i_obj = 0
     with open(arguments.file, 'r') as input_file:
@@ -103,6 +106,11 @@ def main():
             unique_id[i_obj] = int(params[1])
             ra_phosim[i_obj] = float(params[2])
             dec_phosim[i_obj] = float(params[3])
+            if params[12].lower() == 'point':
+                object_type[i_obj] = _POINT_SOURCE
+            else:
+                raise RuntimeError("Do not know how to handle "
+                                   "object type: %s" % params[12])
 
     ra_icrs, dec_icrs = PhoSimAstrometryBase.icrsFromPhoSim(ra_phosim, dec_phosim,
                                                             obs_md)
