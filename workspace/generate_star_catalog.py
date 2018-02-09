@@ -25,7 +25,14 @@ if __name__ == "__main__":
     phosim_header_map['FWHMeff'] = ('FWHMeff', None)
     phosim_header_map['FWHMgeom'] = ('FWHMgeom',None)
 
+    obj_name = 'star_objects.txt'
+
     cat = PhoSimCatalogPoint(db, obs_metadata=obs)
     cat.phoSimHeaderMap = phosim_header_map
-    cat.write_catalog('catalogs/star_catalog.txt', chunk_size=10000)
+    with open('catalogs/star_catalog.txt', 'w') as out_file:
+        cat.write_header(out_file)
+        out_file.write('includeobj %s\n' % obj_name)
+
+    cat.write_catalog('catalogs/%s' % obj_name, chunk_size=10000,
+                      write_header=False)
 
