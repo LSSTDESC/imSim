@@ -18,7 +18,7 @@ if __name__ == "__main__":
     obs_gen = ObservationMetaDataGenerator(database=opsimdb)
     obs_list = obs_gen.getObservationMetaData(obsHistID=230)
     obs = obs_list[0]
-    obs.boundLength=0.5
+    obs.boundLength=0.05
 
     phosim_header_map = copy.deepcopy(DefaultPhoSimHeaderMap)
     phosim_header_map['rawSeeing'] = ('rawSeeing', None)
