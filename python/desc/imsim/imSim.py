@@ -22,6 +22,7 @@ import pandas as pd
 import lsst.log as lsstLog
 import lsst.obs.lsstSim as obs_lsstSim
 import lsst.utils as lsstUtils
+from lsst.sims.coordUtils import lsst_camera
 from lsst.sims.photUtils import LSSTdefaults, PhotometricParameters
 from lsst.sims.utils import ObservationMetaData, radiansFromArcsec
 from lsst.sims.utils import applyProperMotion, ModifiedJulianDate
@@ -387,4 +388,4 @@ def get_obs_lsstSim_camera(log_level=lsstLog.WARN):
     messages made by imSim code.
     """
     lsstLog.setLevel('CameraMapper', log_level)
-    return obs_lsstSim.LsstSimMapper().camera
+    return lsst_camera()
