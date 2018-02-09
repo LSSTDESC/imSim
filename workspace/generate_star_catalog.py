@@ -1,4 +1,5 @@
 import os
+import copy
 from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
 from lsst.sims.catUtils.exampleCatalogDefinitions import PhoSimCatalogPoint
 from lsst.sims.catUtils.exampleCatalogDefinitions import DefaultPhoSimHeaderMap
@@ -19,7 +20,12 @@ if __name__ == "__main__":
     obs = obs_list[0]
     obs.boundLength=0.5
 
+    phosim_header_map = copy.deepcopy(DefaultPhoSimHeaderMap)
+    phosim_header_map['rawSeeing'] = ('rawSeeing', None)
+    phosim_header_map['FWHMeff'] = ('FWHMeff', None)
+    phosim_header_map['FWHMgeom'] = ('FWHMgeom',None)
+
     cat = PhoSimCatalogPoint(db, obs_metadata=obs)
-    cat.phoSimHeaderMap = DefaultPhoSimHeaderMap
+    cat.phoSimHeaderMap = phosim_header_map
     cat.write_catalog('catalogs/star_catalog.txt', chunk_size=10000)
 
