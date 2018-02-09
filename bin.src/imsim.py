@@ -92,6 +92,23 @@ def main():
     ra_phosim = np.zeros(num_objects, dtype=float)
     dec_phosim = np.zeros(num_objects, dtype=float)
 
+    sed_name = [None]*num_objects
+    mag_norm = np.zeros(num_objects, dtype=float)
+    gamma1 = np.zeros(num_objects, dtype=float)
+    gamma2 = np.zeros(num_objects, dtype=float)
+    kappa = np.zeros(num_objects, dtype=float)
+
+    internal_av = np.zeros(num_objects, dtype=float)
+    internal_rv = np.zeros(num_objects, dtype=float)
+    galactic_av = np.zeros(num_objects, dtype=float)
+    galactic_rv = np.zeros(num_objects, dtype=float)
+    semi_major_arcsec = np.zeros(num_objects, dtype=float)
+    semi_minor_arcsec = np.zeros(num_objects, dtype=float)
+    position_angle_degrees = np.zeros(num_objects, dtype=float)
+    sersic_index = np.zeros(num_objects, dtype=float)
+    redshift = np.zeros(num_objects, dtype=float)
+
+
     unique_id = np.zeros(num_objects, dtype=int)
     object_type = np.zeros(num_objects, dtype=int)
 
@@ -106,9 +123,38 @@ def main():
             unique_id[i_obj] = int(params[1])
             ra_phosim[i_obj] = float(params[2])
             dec_phosim[i_obj] = float(params[3])
+            mag_norm[i_obj] = float(params[4])
+            sed_name[i_obj] = params[5]
+            redshift[i_obj] = float(params[6])
+            gamma1[i_obj] = float(params[7])
+            gamma2[i_obj] = float(params[8])
+            kappa[i_obj] = float(params[9])
             if params[12].lower() == 'point':
                 object_type[i_obj] = _POINT_SOURCE
-            else:
+                i_gal_dust_model = 14
+                if params[13].lower() != 'none':
+                    i_gal_dust_model = 16
+                    internal_av[i_obj] = float(params[14])
+                    internal_rv[i_obj] =float(params[15])
+                if params[i_gal_dust_model].lower() != 'none':
+                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
+                    galactic_rv[i_obj] = float(params[i_gal_dust_model+2])
+            elif params[12].lower() == 'sersic2d':
+                object_type[i_obj] = _SERSIC_2D
+                semi_major_arcsec[i_obj] = float(params[13])
+                semi_minor_arcsec[i_obj] = float(params[14])
+                position_angle_degrees[i_obj] = float(params[15])
+                sersic_index[i_obj] = float(params[16])
+                i_gal_dust_model = 18
+                if params[17].lower() != 'none':
+                    i_gal_dust_model = 19
+                    internal_av[i_obj] = float(params[17])
+                    internal_rv[i_obj] = float(params[18])
+                if params[i_gal_dust_model].lower() != 'none':
+                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
+                    galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
+
+t            else:
                 raise RuntimeError("Do not know how to handle "
                                    "object type: %s" % params[12])
 
