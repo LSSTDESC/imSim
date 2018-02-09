@@ -10,6 +10,7 @@ import os
 import argparse
 import numpy as np
 from lsst.sims.coordUtils import chipNameFromRaDec
+from lsst.sims.catUtils.mixins import PhoSimAstrometryBase
 from lsst.sims.GalSimInterface import SNRdocumentPSF
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
@@ -73,6 +74,38 @@ def main():
     obs_md = desc.imsim.phosim_obs_metadata(commands)
 
     camera = desc.imsim.get_obs_lsstSim_camera()
+
+    num_objects = 0
+    ct_rows = 0
+    with open(arguments.file, 'r') as input_file:
+        for line in input_file:
+            ct_rows += 1
+            params = line.strip().split()
+            if params[0] == 'object':
+                num_objects += 1
+            if numRows is not None and ct_rows>=numRows:
+                break
+
+    # RA, Dec in the coordinate system expected by PhoSim
+    ra_phosim = np.zeros(num_objects, dtype=float)
+    dec_phosim = np.zeros(num_objects, dtype=float)
+
+    unique_id = np.zeros(num_objects, dtype=int)
+
+    i_obj = 0
+    with open(arguments.file, 'r') as input_file:
+        for line in input_file:
+            params = line.strip().split()
+            if params[0] != 'object':
+                continue
+            if numRows is not None and i_obj>=num_objects:
+                break
+            unique_id[i_obj] = int(params[1])
+            ra_phosim[i_obj] = float(params[2])
+            dec_phosim[i_obj] = float(params[3])
+
+    ra_icrs, dec_icrs = PhoSimAstrometryBase.icrsFromPhoSim(ra_phosim, dec_phosim,
+                                                            obs_md)
 
     # Sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
