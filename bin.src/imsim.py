@@ -9,7 +9,7 @@ from __future__ import absolute_import, print_function
 import os
 import argparse
 import numpy as np
-from lsst.sims.coordUtils import chipNameFromRaDec
+from lsst.sims.coordUtils import chipNameFromRaDecLSST
 from lsst.sims.catUtils.mixins import PhoSimAstrometryBase
 from lsst.sims.GalSimInterface import SNRdocumentPSF
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
@@ -114,6 +114,8 @@ def main():
 
     ra_obs, dec_obs = PhoSimAstrometryBase.icrsFromPhoSim(ra_phosim, dec_phosim,
                                                           obs_md)
+
+    chip_name = chipNameFromRaDecLSST(ra_obs, dec_obs, obs_metadata=obs_md)
 
     # Sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
