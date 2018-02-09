@@ -65,11 +65,8 @@ def main():
     # The PhoSim instance file contains both pointing commands and
     # objects.  The parser will split them and return a both phosim
     # command dictionary and a dataframe of objects.
-    commands, phosim_objects = \
+    commands = \
         desc.imsim.parsePhoSimInstanceFile(arguments.file, numRows)
-
-    phosim_objects = \
-        desc.imsim.validate_phosim_object_list(phosim_objects).accepted
 
     # Build the ObservationMetaData with values taken from the
     # PhoSim commands at the top of the instance file.
