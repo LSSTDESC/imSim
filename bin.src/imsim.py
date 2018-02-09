@@ -112,8 +112,8 @@ def main():
                 raise RuntimeError("Do not know how to handle "
                                    "object type: %s" % params[12])
 
-    ra_icrs, dec_icrs = PhoSimAstrometryBase.icrsFromPhoSim(ra_phosim, dec_phosim,
-                                                            obs_md)
+    ra_obs, dec_obs = PhoSimAstrometryBase.icrsFromPhoSim(ra_phosim, dec_phosim,
+                                                          obs_md)
 
     # Sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
