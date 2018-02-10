@@ -9,16 +9,12 @@ from __future__ import absolute_import, print_function
 import os
 import argparse
 import numpy as np
-from lsst.sims.coordUtils import chipNameFromRaDecLSST
-from lsst.sims.catUtils.mixins import PhoSimAstrometryBase
 from lsst.sims.GalSimInterface import SNRdocumentPSF
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
 from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
 
-_POINT_SOURCE = 1
-_SERSIC_2D = 2
 
 def main():
     """
@@ -77,91 +73,12 @@ def main():
 
     camera = desc.imsim.get_obs_lsstSim_camera()
 
-    num_objects = 0
-    ct_rows = 0
-    with open(arguments.file, 'r') as input_file:
-        for line in input_file:
-            ct_rows += 1
-            params = line.strip().split()
-            if params[0] == 'object':
-                num_objects += 1
-            if numRows is not None and ct_rows>=numRows:
-                break
+    phot_params = desc.imsim.photometricParameters(commands)
 
-    # RA, Dec in the coordinate system expected by PhoSim
-    ra_phosim = np.zeros(num_objects, dtype=float)
-    dec_phosim = np.zeros(num_objects, dtype=float)
+    desc.imsim.sources_from_file(arguments.file, obs_md, phot_params,
+                                 numRows=numRows)
 
-    sed_name = [None]*num_objects
-    mag_norm = np.zeros(num_objects, dtype=float)
-    gamma1 = np.zeros(num_objects, dtype=float)
-    gamma2 = np.zeros(num_objects, dtype=float)
-    kappa = np.zeros(num_objects, dtype=float)
-
-    internal_av = np.zeros(num_objects, dtype=float)
-    internal_rv = np.zeros(num_objects, dtype=float)
-    galactic_av = np.zeros(num_objects, dtype=float)
-    galactic_rv = np.zeros(num_objects, dtype=float)
-    semi_major_arcsec = np.zeros(num_objects, dtype=float)
-    semi_minor_arcsec = np.zeros(num_objects, dtype=float)
-    position_angle_degrees = np.zeros(num_objects, dtype=float)
-    sersic_index = np.zeros(num_objects, dtype=float)
-    redshift = np.zeros(num_objects, dtype=float)
-
-
-    unique_id = np.zeros(num_objects, dtype=int)
-    object_type = np.zeros(num_objects, dtype=int)
-
-    i_obj = 0
-    with open(arguments.file, 'r') as input_file:
-        for line in input_file:
-            params = line.strip().split()
-            if params[0] != 'object':
-                continue
-            if numRows is not None and i_obj>=num_objects:
-                break
-            unique_id[i_obj] = int(params[1])
-            ra_phosim[i_obj] = float(params[2])
-            dec_phosim[i_obj] = float(params[3])
-            mag_norm[i_obj] = float(params[4])
-            sed_name[i_obj] = params[5]
-            redshift[i_obj] = float(params[6])
-            gamma1[i_obj] = float(params[7])
-            gamma2[i_obj] = float(params[8])
-            kappa[i_obj] = float(params[9])
-            if params[12].lower() == 'point':
-                object_type[i_obj] = _POINT_SOURCE
-                i_gal_dust_model = 14
-                if params[13].lower() != 'none':
-                    i_gal_dust_model = 16
-                    internal_av[i_obj] = float(params[14])
-                    internal_rv[i_obj] =float(params[15])
-                if params[i_gal_dust_model].lower() != 'none':
-                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
-                    galactic_rv[i_obj] = float(params[i_gal_dust_model+2])
-            elif params[12].lower() == 'sersic2d':
-                object_type[i_obj] = _SERSIC_2D
-                semi_major_arcsec[i_obj] = float(params[13])
-                semi_minor_arcsec[i_obj] = float(params[14])
-                position_angle_degrees[i_obj] = float(params[15])
-                sersic_index[i_obj] = float(params[16])
-                i_gal_dust_model = 18
-                if params[17].lower() != 'none':
-                    i_gal_dust_model = 19
-                    internal_av[i_obj] = float(params[17])
-                    internal_rv[i_obj] = float(params[18])
-                if params[i_gal_dust_model].lower() != 'none':
-                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
-                    galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
-
-            else:
-                raise RuntimeError("Do not know how to handle "
-                                   "object type: %s" % params[12])
-
-    ra_obs, dec_obs = PhoSimAstrometryBase.icrsFromPhoSim(ra_phosim, dec_phosim,
-                                                          obs_md)
-
-    chip_name = chipNameFromRaDecLSST(ra_obs, dec_obs, obs_metadata=obs_md)
+    exit()
 
     # Sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:

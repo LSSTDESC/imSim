@@ -26,11 +26,25 @@ from lsst.sims.coordUtils import lsst_camera
 from lsst.sims.photUtils import LSSTdefaults, PhotometricParameters
 from lsst.sims.utils import ObservationMetaData, radiansFromArcsec
 from lsst.sims.utils import applyProperMotion, ModifiedJulianDate
+from lsst.sims.coordUtils import chipNameFromRaDecLSST
+from lsst.sims.coordUtils import lsst_camera
+from lsst.sims.catUtils.mixins import PhoSimAstrometryBase
+from lsst.sims.utils import _pupilCoordsFromObserved
+from lsst.sims.utils import radiansFromArcsec
+from lsst.sims.GalSimInterface import GalSimCelestialObject
+from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
+from lsst.sims.utils import defaultSpecMap
+
+_POINT_SOURCE = 1
+_SERSIC_2D = 2
 
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
            'validate_phosim_object_list',
-           'read_config', 'get_config', 'get_logger', 'get_obs_lsstSim_camera']
+           'sources_from_file',
+           'read_config', 'get_config', 'get_logger',
+           'get_obs_lsstSim_camera',
+           '_POINT_SOURCE', '_SERSIC_2D']
 
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
@@ -58,6 +72,19 @@ vistime
 rawSeeing
 FWHMeff
 FWHMgeom""".split())
+
+
+def get_obs_lsstSim_camera(log_level=lsstLog.WARN):
+    """
+    Get the obs_lsstSim CameraMapper object, setting the default
+    log-level at WARN in order to silence the INFO message about
+    "Loading Posix exposure registry from .". Note that this only
+    affects the 'CameraMapper' logging level.  The logging level set
+    by any calling code (e.g., imsim.py) will still apply to other log
+    messages made by imSim code.
+    """
+    lsstLog.setLevel('CameraMapper', log_level)
+    return lsst_camera()
 
 
 def parsePhoSimInstanceFile(fileName, numRows=None):
@@ -127,6 +154,190 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     commands = extract_commands(phoSimHeaderCards)
 
     return commands
+
+
+def sources_from_file(file_name, obs_md, phot_params, numRows=None):
+    """
+    Read in an InstanceCatalog and extract all of the astrophysical
+    sources from it
+
+    Parameters
+    ----------
+    file_name: str
+        The name of the InstanceCatalog
+
+    obs_md: ObservationMetaData
+        The ObservationMetaData characterizing the pointing
+
+    phot_params: PhotometricParameters
+        The PhotometricParameters characterizing this telescope
+
+    numRows: int (optional)
+        The number of rows of the InstanceCatalog to read in (including the
+        header)
+    """
+
+    camera = get_obs_lsstSim_camera()
+
+    num_objects = 0
+    ct_rows = 0
+    with open(file_name, 'r') as input_file:
+        for line in input_file:
+            ct_rows += 1
+            params = line.strip().split()
+            if params[0] == 'object':
+                num_objects += 1
+            if numRows is not None and ct_rows>=numRows:
+                break
+
+    # RA, Dec in the coordinate system expected by PhoSim
+    ra_phosim = np.zeros(num_objects, dtype=float)
+    dec_phosim = np.zeros(num_objects, dtype=float)
+
+    sed_name = [None]*num_objects
+    mag_norm = np.zeros(num_objects, dtype=float)
+    gamma1 = np.zeros(num_objects, dtype=float)
+    gamma2 = np.zeros(num_objects, dtype=float)
+    kappa = np.zeros(num_objects, dtype=float)
+
+    internal_av = np.zeros(num_objects, dtype=float)
+    internal_rv = np.zeros(num_objects, dtype=float)
+    galactic_av = np.zeros(num_objects, dtype=float)
+    galactic_rv = np.zeros(num_objects, dtype=float)
+    semi_major_arcsec = np.zeros(num_objects, dtype=float)
+    semi_minor_arcsec = np.zeros(num_objects, dtype=float)
+    position_angle_degrees = np.zeros(num_objects, dtype=float)
+    sersic_index = np.zeros(num_objects, dtype=float)
+    redshift = np.zeros(num_objects, dtype=float)
+
+    unique_id = np.zeros(num_objects, dtype=int)
+    object_type = np.zeros(num_objects, dtype=int)
+
+    i_obj = -1
+    with open(file_name, 'r') as input_file:
+        for line in input_file:
+            params = line.strip().split()
+            if params[0] != 'object':
+                continue
+            if numRows is not None and i_obj>=num_objects:
+                break
+            i_obj += 1
+            unique_id[i_obj] = int(params[1])
+            ra_phosim[i_obj] = float(params[2])
+            dec_phosim[i_obj] = float(params[3])
+            mag_norm[i_obj] = float(params[4])
+            sed_name[i_obj] = params[5]
+            redshift[i_obj] = float(params[6])
+            gamma1[i_obj] = float(params[7])
+            gamma2[i_obj] = float(params[8])
+            kappa[i_obj] = float(params[9])
+            if params[12].lower() == 'point':
+                object_type[i_obj] = _POINT_SOURCE
+                i_gal_dust_model = 14
+                if params[13].lower() != 'none':
+                    i_gal_dust_model = 16
+                    internal_av[i_obj] = float(params[14])
+                    internal_rv[i_obj] =float(params[15])
+                if params[i_gal_dust_model].lower() != 'none':
+                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
+                    galactic_rv[i_obj] = float(params[i_gal_dust_model+2])
+            elif params[12].lower() == 'sersic2d':
+                object_type[i_obj] = _SERSIC_2D
+                semi_major_arcsec[i_obj] = float(params[13])
+                semi_minor_arcsec[i_obj] = float(params[14])
+                position_angle_degrees[i_obj] = float(params[15])
+                sersic_index[i_obj] = float(params[16])
+                i_gal_dust_model = 18
+                if params[17].lower() != 'none':
+                    i_gal_dust_model = 19
+                    internal_av[i_obj] = float(params[17])
+                    internal_rv[i_obj] = float(params[18])
+                if params[i_gal_dust_model].lower() != 'none':
+                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
+                    galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
+
+            else:
+                raise RuntimeError("Do not know how to handle "
+                                   "object type: %s" % params[12])
+
+    ra_obs, dec_obs = PhoSimAstrometryBase.icrsFromPhoSim(ra_phosim, dec_phosim,
+                                                          obs_md)
+
+    ra_obs_rad = np.radians(ra_obs)
+    dec_obs_rad = np.radians(dec_obs)
+    semi_major_radians = radiansFromArcsec(semi_major_arcsec)
+    semi_minor_radians = radiansFromArcsec(semi_minor_arcsec)
+    position_angle_radians = np.radians(position_angle_degrees)
+
+    x_pupil, y_pupil = _pupilCoordsFromObserved(ra_obs_rad,
+                                                dec_obs_rad,
+                                                obs_md)
+
+    chip_name = chipNameFromRaDecLSST(ra_obs, dec_obs, obs_metadata=obs_md)
+
+    bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
+
+    sed_dir = lsstUtils.getPackageDir('sims_sed_library')
+
+    gs_object_list = []
+    for i_obj in range(num_objects):
+        if object_type[i_obj] == _POINT_SOURCE:
+            gs_type = 'pointSource'
+        elif object_type[i_obj] == _SERSIC_2D:
+            gs_type = 'sersic'
+
+        # load the SED
+        sed_obj = Sed()
+        sed_obj.readSED_flambda(os.path.join(sed_dir, sed_name[i_obj]))
+        fnorm = getImsimFluxNorm(sed_obj, mag_norm[i_obj])
+        sed_obj.multiplyFluxNorm(fnorm)
+        if internal_av[i_obj] != 0.0:
+            a_int, b_int= sed_obj.setupCCMab()
+            sed_obj.addCCMDust(a_int, b_int,
+                               A_v = internal_av[i_obj],
+                               R_v = internal_rv[i_obj])
+
+        if redshift[i_obj] != 0.0:
+            sed_obj.redshiftSED(redshift[i_obj], dimming=True)
+
+        if galactic_av[i_obj] != 0.0:
+            a_g, b_g = sed_obj.setupCCMab()
+            sed_obj.addCCMDust(a_g, b_g,
+                               A_v = galactic_av[i_obj],
+                               R_v = galactic_rv[i_obj])
+
+        gs_object = GalSimCelestialObject(gs_type,
+                                          x_pupil[i_obj],
+                                          y_pupil[i_obj],
+                                          semi_major_arcsec[i_obj],
+                                          semi_minor_arcsec[i_obj],
+                                          semi_major_arcsec[i_obj],
+                                          position_angle_radians[i_obj],
+                                          sersic_index[i_obj],
+                                          sed_obj,
+                                          bp_dict,
+                                          phot_params,
+                                          gamma1=gamma1[i_obj],
+                                          gamma2=gamma2[i_obj],
+                                          kappa=kappa[i_obj],
+                                          uniqueId=unique_id[i_obj])
+
+
+    chip_name_to_int = {}
+    int_to_chip_name = {}
+    i_chip = 0
+    chip_name_to_int[None] = -1
+    int_to_chip_name[-1] = None
+    for det in lsst_camera():
+        name = det.getName()
+        chip_name_to_int[name] = i_chip
+        int_to_chip_name[i_chip] = name
+        i_chip += 1
+
+    chip_dex = np.zeros(len(chip_name), dtype=int)
+    for i_name, name in enumerate(chip_name):
+        chip_dex[i_name] = chip_name_to_int[name]
+
 
 
 def extract_commands(df):
@@ -377,15 +588,3 @@ def get_logger(log_level):
 
     return logger
 
-
-def get_obs_lsstSim_camera(log_level=lsstLog.WARN):
-    """
-    Get the obs_lsstSim CameraMapper object, setting the default
-    log-level at WARN in order to silence the INFO message about
-    "Loading Posix exposure registry from .". Note that this only
-    affects the 'CameraMapper' logging level.  The logging level set
-    by any calling code (e.g., imsim.py) will still apply to other log
-    messages made by imSim code.
-    """
-    lsstLog.setLevel('CameraMapper', log_level)
-    return lsst_camera()
