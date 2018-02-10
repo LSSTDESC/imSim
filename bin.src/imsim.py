@@ -154,7 +154,7 @@ def main():
                     galactic_av[i_obj] = float(params[i_gal_dust_model+1])
                     galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
 
-t            else:
+            else:
                 raise RuntimeError("Do not know how to handle "
                                    "object type: %s" % params[12])
 
