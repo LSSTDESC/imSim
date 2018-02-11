@@ -26,8 +26,8 @@ from lsst.sims.coordUtils import lsst_camera
 from lsst.sims.photUtils import LSSTdefaults, PhotometricParameters
 from lsst.sims.utils import ObservationMetaData, radiansFromArcsec
 from lsst.sims.utils import applyProperMotion, ModifiedJulianDate
-from lsst.sims.coordUtils import chipNameFromRaDecLSST
-from lsst.sims.coordUtils import lsst_camera
+from lsst.sims.coordUtils import getCornerPixels
+from lsst.sims.coordUtils import pixelCoordsFromPupilCoords
 from lsst.sims.catUtils.mixins import PhoSimAstrometryBase
 from lsst.sims.utils import _pupilCoordsFromObserved
 from lsst.sims.utils import radiansFromArcsec
@@ -175,6 +175,20 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     numRows: int (optional)
         The number of rows of the InstanceCatalog to read in (including the
         header)
+
+    Returns
+    -------
+    gs_obj_arr: numpy array
+        Contains the GalSimCelestialObjects for all of the
+        astrophysical sources in this InstanceCatalog
+
+    out_obj_dict: dict
+        Keyed on the names of the detectors in the LSST camera.
+        The values are numpy arrays of GalSimCelestialObjects
+        that should be simulated for that detector, including
+        objects that are near the edge of the chip or
+        just bright (in which case, they might still illuminate
+        the detector).
     """
 
     camera = get_obs_lsstSim_camera()
@@ -195,7 +209,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     dec_phosim = np.zeros(num_objects, dtype=float)
 
     sed_name = [None]*num_objects
-    mag_norm = np.zeros(num_objects, dtype=float)
+    mag_norm = 55.0*np.ones(num_objects, dtype=float)
     gamma1 = np.zeros(num_objects, dtype=float)
     gamma2 = np.zeros(num_objects, dtype=float)
     kappa = np.zeros(num_objects, dtype=float)
@@ -273,13 +287,11 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                                                 dec_obs_rad,
                                                 obs_md)
 
-    chip_name = chipNameFromRaDecLSST(ra_obs, dec_obs, obs_metadata=obs_md)
-
     bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
 
     sed_dir = lsstUtils.getPackageDir('sims_sed_library')
 
-    gs_object_list = []
+    gs_object_arr = []
     for i_obj in range(num_objects):
         if object_type[i_obj] == _POINT_SOURCE:
             gs_type = 'pointSource'
@@ -322,23 +334,40 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                                           kappa=kappa[i_obj],
                                           uniqueId=unique_id[i_obj])
 
+        gs_object_arr.append(gs_object)
 
-    chip_name_to_int = {}
-    int_to_chip_name = {}
-    i_chip = 0
-    chip_name_to_int[None] = -1
-    int_to_chip_name[-1] = None
+    gs_object_arr = np.array(gs_object_arr)
+
+    # how close to the edge of the detector a source has
+    # to be before we will just simulate it anyway
+    pix_tol = 50.0
+
+    # any source brighter than this will be considered
+    # so bright that it should be simulated for all
+    # detectors, just in case light scatters onto them.
+    max_mag = 16.0
+
+    out_obj_dict = {}
     for det in lsst_camera():
-        name = det.getName()
-        chip_name_to_int[name] = i_chip
-        int_to_chip_name[i_chip] = name
-        i_chip += 1
+        chip_name = det.getName()
+        pixel_corners = getCornerPixels(chip_name, lsst_camera())
+        x_min = pixel_corners[0][0]
+        x_max = pixel_corners[2][0]
+        y_min = pixel_corners[0][1]
+        y_max = pixel_corners[3][1]
+        xpix, ypix = pixelCoordsFromPupilCoords(x_pupil, y_pupil,
+                                                chipName=chip_name,
+                                                camera=lsst_camera())
 
-    chip_dex = np.zeros(len(chip_name), dtype=int)
-    for i_name, name in enumerate(chip_name):
-        chip_dex[i_name] = chip_name_to_int[name]
+        valid = np.where(np.logical_or(mag_norm<16.0,
+                         np.logical_and(xpix>x_min-pix_tol,
+                         np.logical_and(xpix<x_max+pix_tol,
+                         np.logical_and(ypix>y_min-pix_tol,
+                                        ypix<y_max+pix_tol)))))
 
+        out_obj_dict[chip_name] = gs_object_arr[valid]
 
+    return gs_object_arr, out_obj_dict
 
 def extract_commands(df):
     """

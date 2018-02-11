@@ -75,8 +75,11 @@ def main():
 
     phot_params = desc.imsim.photometricParameters(commands)
 
-    desc.imsim.sources_from_file(arguments.file, obs_md, phot_params,
-                                 numRows=numRows)
+    (gs_object_arr,
+     gs_object_dict)  = desc.imsim.sources_from_file(arguments.file,
+                                                     obs_md,
+                                                     phot_params,
+                                                     numRows=numRows)
 
     exit()
 
