@@ -65,7 +65,7 @@ def main():
     # objects.  The parser will split them and return a both phosim
     # command dictionary and a dataframe of objects.
     commands = \
-        desc.imsim.parsePhoSimInstanceFile(arguments.file, numRows)
+        desc.imsim.metadata_from_file(arguments.file)
 
     # Build the ObservationMetaData with values taken from the
     # PhoSim commands at the top of the instance file.

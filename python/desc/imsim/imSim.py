@@ -42,6 +42,7 @@ __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
            'validate_phosim_object_list',
            'sources_from_file',
+           'metadata_from_file',
            'read_config', 'get_config', 'get_logger',
            'get_obs_lsstSim_camera',
            '_POINT_SOURCE', '_SERSIC_2D']
@@ -152,6 +153,47 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
 
     # Turn the list of commands into a dictionary.
     commands = extract_commands(phoSimHeaderCards)
+
+    return commands
+
+
+def metadata_from_file(file_name):
+    """
+    Read in the InstanceCatalog specified by file_name.
+    Return a dict of the header values from that
+    InstanceCatalog.
+    """
+    input_params = {}
+    with open(file_name, 'r') as in_file:
+        for line in in_file:
+            params = line.strip().split()
+            if params[0] == 'object':
+                continue
+            float_val = float(params[1])
+            int_val = int(float_val)
+            if np.abs(float_val-int_val)>1.0e-10:
+                val = float_val
+            else:
+                val = int_val
+            input_params[params[0]] = val
+
+    command_set = set(input_params.keys())
+    missing_commands = _required_commands - command_set
+    if missing_commands:
+        message = "\nRequired commands that are missing from the instance catalog %s:\n   " \
+            % fileName + "\n   ".join(missing_commands)
+        raise PhosimInstanceCatalogParseError(message)
+
+    # Report on commands that are not part of the required set.
+    extra_commands = command_set - _required_commands
+    if extra_commands:
+        message = "\nExtra commands in the instance catalog %s that are not in the required set:\n   " \
+            % fileName + "\n   ".join(extra_commands)
+        warnings.warn(message)
+
+    commands = dict(((key, value) for key, value in input_params.items()))
+    # Add bandpass for convenience
+    commands['bandpass'] = 'ugrizy'[commands['filter']]
 
     return commands
 
