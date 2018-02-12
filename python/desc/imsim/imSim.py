@@ -18,7 +18,6 @@ except ImportError:
     import ConfigParser as configparser
 
 import numpy as np
-import pandas as pd
 import lsst.log as lsstLog
 import lsst.obs.lsstSim as obs_lsstSim
 import lsst.utils as lsstUtils
