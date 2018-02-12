@@ -75,57 +75,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertAlmostEqual(obs.mjd.TAI, metadata['mjd'], 7)
         self.assertEqual(obs.bandpass, 'r')
 
-    def test_extinction_parsing(self):
-        "Test the parsing of the extinction parameters."
-        instcat_contents = desc.imsim.parsePhoSimInstanceFile(self.command_file)
-        star = instcat_contents.objects.query("uniqueId==1046817878020").iloc[0]
-        self.assertEqual(star['internalAv'], 0)
-        self.assertEqual(star['internalRv'], 0)
-        self.assertAlmostEqual(star['galacticAv'], 0.0635117705)
-        self.assertAlmostEqual(star['galacticRv'], 3.1)
-
-        star = instcat_contents.objects.query("uniqueId==956090372100").iloc[0]
-        self.assertAlmostEqual(star['internalAv'], 0.0651282621)
-        self.assertAlmostEqual(star['internalRv'], 3.1)
-        self.assertAlmostEqual(star['galacticAv'], 0.0651282621)
-        self.assertAlmostEqual(star['galacticRv'], 3.1)
-
-        star = instcat_contents.objects.query("uniqueId==956090392580").iloc[0]
-        self.assertAlmostEqual(star['internalAv'], 0.0639515271)
-        self.assertAlmostEqual(star['internalRv'], 3.1)
-        self.assertEqual(star['galacticAv'], 0)
-        self.assertEqual(star['galacticRv'], 0)
-
-        star = instcat_contents.objects.query("uniqueId==811883374596").iloc[0]
-        self.assertEqual(star['internalAv'], 0)
-        self.assertEqual(star['internalRv'], 0)
-        self.assertEqual(star['galacticAv'], 0)
-        self.assertEqual(star['galacticRv'], 0)
-
-        galaxy = instcat_contents.objects.query("uniqueId==34308924793883").iloc[0]
-        self.assertAlmostEqual(galaxy['internalAv'], 0.100000001)
-        self.assertAlmostEqual(galaxy['internalRv'], 3.0999999)
-        self.assertAlmostEqual(galaxy['galacticAv'], 0.0594432589)
-        self.assertAlmostEqual(galaxy['galacticRv'], 3.1)
-
-        galaxy = instcat_contents.objects.query("uniqueId==34314197354523").iloc[0]
-        self.assertEqual(galaxy['internalAv'], 0)
-        self.assertEqual(galaxy['internalRv'], 0)
-        self.assertAlmostEqual(galaxy['galacticAv'], 0.0595998126)
-        self.assertAlmostEqual(galaxy['galacticRv'], 3.1)
-
-        galaxy = instcat_contents.objects.query("uniqueId==34307989098523").iloc[0]
-        self.assertAlmostEqual(galaxy['internalAv'], 0.300000012)
-        self.assertAlmostEqual(galaxy['internalRv'], 3.0999999)
-        self.assertEqual(galaxy['galacticAv'], 0)
-        self.assertEqual(galaxy['galacticRv'], 0)
-
-        galaxy = instcat_contents.objects.query("uniqueId==34307989098524").iloc[0]
-        self.assertEqual(galaxy['internalAv'], 0)
-        self.assertEqual(galaxy['internalRv'], 0)
-        self.assertEqual(galaxy['galacticAv'], 0)
-        self.assertEqual(galaxy['galacticRv'], 0)
-
     def test_parsePhoSimInstanceFile_warning(self):
         "Test the warnings emitted by the instance catalog parser."
         with warnings.catch_warnings():
