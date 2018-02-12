@@ -22,44 +22,58 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         pass
 
     def setUp(self):
-        self.command_file = os.path.join(os.environ['IMSIM_DIR'],
-                                         'tests', 'tiny_instcat.txt')
+        self.phosim_file = os.path.join(os.environ['IMSIM_DIR'],
+                                         'tests', 'data',
+                                         'phosim_stars.txt')
         self.extra_commands = 'instcat_extra.txt'
         with open(self.extra_commands, 'w') as output:
-            for line in open(self.command_file).readlines()[:23]:
+            for line in open(self.phosim_file).readlines()[:23]:
                 output.write(line)
             output.write('extra_command 1\n')
 
     def tearDown(self):
         os.remove(self.extra_commands)
 
-    def test_parsePhoSimInstanceFile(self):
+    def test_metadata_from_file(self):
         "Test code for parsePhoSimInstanceFile."
-        instcat_contents = desc.imsim.parsePhoSimInstanceFile(self.command_file)
-        # Test a handful of values directly:
-        self.assertEqual(instcat_contents.commands['obshistid'], 161899)
-        self.assertEqual(instcat_contents.commands['filter'], 2)
-        self.assertAlmostEqual(instcat_contents.commands['altitude'],
-                               43.6990272)
-        self.assertAlmostEqual(instcat_contents.commands['vistime'], 33.)
-        self.assertAlmostEqual(instcat_contents.commands['bandpass'], 'r')
+        metadata = desc.imsim.metadata_from_file(self.phosim_file)
+        self.assertAlmostEqual(metadata['rightascension'], 53.0091385, 7)
+        self.assertAlmostEqual(metadata['declination'], -27.4389488, 7)
+        self.assertAlmostEqual(metadata['mjd'], 59580.1397460, 7)
+        self.assertAlmostEqual(metadata['altitude'], 66.3464409, 7)
+        self.assertAlmostEqual(metadata['azimuth'], 270.2764762, 7)
+        self.assertEqual(metadata['filter'], 2)
+        self.assertIsInstance(metadata['filter'], int)
+        self.assertEqual(metadata['bandpass'], 'r')
+        self.assertAlmostEqual(metadata['rotskypos'], 256.7507532, 7)
+        self.assertAlmostEqual(metadata['FWHMeff'], 1.1219680, 7)
+        self.assertAlmostEqual(metadata['FWHMgeom'], 0.9742580, 7)
+        self.assertAlmostEqual(metadata['dist2moon'], 124.2838277, 7)
+        self.assertAlmostEqual(metadata['moonalt'], -36.1323801, 7)
+        self.assertAlmostEqual(metadata['moondec'], -23.4960252, 7)
+        self.assertAlmostEqual(metadata['moonphase'], 3.8193650, 7)
+        self.assertAlmostEqual(metadata['moonra'], 256.4036553, 7)
+        self.assertEqual(metadata['nsnap'], 2)
+        self.assertIsInstance(metadata['nsnap'], int)
+        self.assertEqual(metadata['obshistid'], 230)
+        self.assertIsInstance(metadata['obshistid'], int)
+        self.assertAlmostEqual(metadata['rawSeeing'], 0.8662850, 7)
+        self.assertAlmostEqual(metadata['rottelpos'], 0.0000000, 7)
+        self.assertEqual(metadata['seed'], 230)
+        self.assertIsInstance(metadata['seed'], int)
+        self.assertAlmostEqual(metadata['seeing'], 0.8662850, 7)
+        self.assertAlmostEqual(metadata['sunalt'], -32.7358290, 7)
+        self.assertAlmostEqual(metadata['vistime'], 33.0000000, 7)
 
-        self.assertEqual(len(instcat_contents.objects), 21)
+        self.assertEqual(len(metadata), 23)  # 22 lines plus 'bandpass'
 
-        star = instcat_contents.objects.query("uniqueId==1046817878020").iloc[0]
-        self.assertEqual(star['galSimType'], 'pointSource')
-        self.assertAlmostEqual(star['raJ2000'], 31.2400746)
-        self.assertAlmostEqual(star['decJ2000'], -10.09365)
-        self.assertEqual(star['sedFilepath'], 'starSED/phoSimMLT/lte033-4.5-1.0a+0.4.BT-Settl.spec.gz')
+        obs = desc.imsim.phosim_obs_metadata(metadata)
 
-        galaxy = instcat_contents.objects.query("uniqueId==34308924793883").iloc[0]
-        self.assertEqual(galaxy['galSimType'], 'sersic')
-        self.assertAlmostEqual(galaxy['positionAngle'], 2.77863669*np.pi/180.)
-        self.assertEqual(galaxy['sindex'], 1)
-
-        self.assertRaises(desc.imsim.PhosimInstanceCatalogParseError,
-                          desc.imsim.parsePhoSimInstanceFile,
-                          self.command_file, 10)
+        self.assertAlmostEqual(obs.pointingRA, metadata['rightascension'], 7)
+        self.assertAlmostEqual(obs.pointingDec, metadata['declination'], 7)
+        self.assertAlmostEqual(obs.rotSkyPos, metadata['rotskypos'], 7)
+        self.assertAlmostEqual(obs.mjd.TAI, metadata['mjd'], 7)
+        self.assertEqual(obs.bandpass, 'r')
 
     def test_extinction_parsing(self):
         "Test the parsing of the extinction parameters."
