@@ -38,7 +38,7 @@ from lsst.sims.utils import defaultSpecMap
 _POINT_SOURCE = 1
 _SERSIC_2D = 2
 
-__all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
+__all__ = ['PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
            'validate_phosim_object_list',
            'sources_from_file',
@@ -86,75 +86,6 @@ def get_obs_lsstSim_camera(log_level=lsstLog.WARN):
     """
     lsstLog.setLevel('CameraMapper', log_level)
     return lsst_camera()
-
-
-def parsePhoSimInstanceFile(fileName, numRows=None):
-    """
-    Read a PhoSim instance catalog into a Pandas dataFrame. Then use
-    the information that was read-in to build and return a command
-    dictionary and object dataFrame.
-
-    Parameters
-    ----------
-    fileName : str
-        The instance catalog filename.
-    numRows : int, optional
-        The number of rows to read from the instance catalog.
-        If None (the default), then all of the rows will be read in.
-
-    Returns
-    -------
-    dict
-        contains the header metadata from the PhoSimInstanceCatalog.
-    """
-
-    # Read the text instance file into Pandas.  Note that the top of the file
-    # has commands in it, followed by one line per object.
-    #
-    # Note: I have chosen to use pandas here (as opposed to straight numpy e.g.)
-    # because Pandas gracefully handles missing values including at the end
-    # of lines.  Not every line is the same length in the instance file since
-    # different classes of objects have different numbers of parameters.  The
-    # other table reading options do not handle this situation well.
-    columnNames = ['STRING', 'VALUE', 'RA', 'DEC', 'MAG_NORM', 'SED_NAME',
-                   'REDSHIFT', 'GAMMA1', 'GAMMA2', 'KAPPA',
-                   'DELTA_RA', 'DELTA_DEC',
-                   'SOURCE_TYPE',
-                   'PAR1', 'PAR2', 'PAR3', 'PAR4',
-                   'PAR5', 'PAR6', 'PAR7', 'PAR8', 'PAR9', 'PAR10']
-
-    dataFrame = pd.read_csv(fileName, names=columnNames, nrows=numRows,
-                            delim_whitespace=True, comment='#')
-
-    # Any missing items from the end of the lines etc were turned into NaNs by
-    # Pandas to represent that they were missing.  This causes problems later
-    # with the checks in the SED calculations in the GalSim interface.  So,
-    # convert them into 0.0 instead.
-    dataFrame.fillna('0.0', inplace=True)
-
-    # Split the dataFrame into commands and sources.
-    phoSimHeaderCards = dataFrame.query("STRING != 'object'")
-    phoSimSources = dataFrame.query("STRING == 'object'")
-
-    # Check that the required commands are present in the instance catalog.
-    command_set = set(phoSimHeaderCards['STRING'])
-    missing_commands = _required_commands - command_set
-    if missing_commands:
-        message = "\nRequired commands that are missing from the instance catalog %s:\n   " \
-            % fileName + "\n   ".join(missing_commands)
-        raise PhosimInstanceCatalogParseError(message)
-
-    # Report on commands that are not part of the required set.
-    extra_commands = command_set - _required_commands
-    if extra_commands:
-        message = "\nExtra commands in the instance catalog %s that are not in the required set:\n   " \
-            % fileName + "\n   ".join(extra_commands)
-        warnings.warn(message)
-
-    # Turn the list of commands into a dictionary.
-    commands = extract_commands(phoSimHeaderCards)
-
-    return commands
 
 
 def metadata_from_file(file_name):
@@ -410,32 +341,6 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
         out_obj_dict[chip_name] = gs_object_arr[valid]
 
     return gs_object_arr, out_obj_dict
-
-def extract_commands(df):
-    """
-    Extract the phosim commands and repackage as a simple dictionary,
-    applying appropriate casts.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing the instance catalog command data.
-
-    Returns
-    -------
-    dict
-        A dictionary with the phosim command values.
-    """
-    my_dict = df[['STRING', 'VALUE']].set_index('STRING').T.to_dict('list')
-    commands = dict(((key, value[0]) for key, value in my_dict.items()))
-    commands['filter'] = int(commands['filter'])
-    commands['nsnap'] = int(commands['nsnap'])
-    commands['obshistid'] = int(commands['obshistid'])
-    commands['seed'] = int(commands['seed'])
-    commands['mjd'] = float(commands['mjd'])
-    # Add bandpass for convenience
-    commands['bandpass'] = 'ugrizy'[commands['filter']]
-    return commands
 
 
 def validate_phosim_object_list(phoSimObjects):
