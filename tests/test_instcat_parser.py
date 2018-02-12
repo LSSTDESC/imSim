@@ -35,7 +35,10 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         os.remove(self.extra_commands)
 
     def test_metadata_from_file(self):
-        "Test code for parsePhoSimInstanceFile."
+        """
+        Test methods that get ObservationMetaData
+        from InstanceCatalogs.
+        """
         metadata = desc.imsim.metadata_from_file(self.phosim_file)
         self.assertAlmostEqual(metadata['rightascension'], 53.0091385, 7)
         self.assertAlmostEqual(metadata['declination'], -27.4389488, 7)
