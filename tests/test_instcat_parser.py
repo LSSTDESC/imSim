@@ -11,7 +11,7 @@ from lsst.sims.utils import _pupilCoordsFromRaDec
 from lsst.sims.utils import arcsecFromRadians
 from lsst.sims.photUtils import Sed, BandpassDict
 from lsst.sims.photUtils import Bandpass, PhotometricParameters
-from lsst.sims.utils import defaultSpecMap
+from lsst.sims.coordUtils import chipNameFromPupilCoordsLSST
 
 
 class InstanceCatalogParserTestCase(unittest.TestCase):
@@ -140,7 +140,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         for i_obj, gs_obj in enumerate(gs_object_arr):
             sed = Sed()
             full_sed_name = os.path.join(os.environ['SIMS_SED_LIBRARY_DIR'],
-                                         defaultSpecMap[truth_data['sedFilename'][i_obj]])
+                                         truth_data['sedFilename'][i_obj])
             sed.readSED_flambda(full_sed_name)
             fnorm = sed.calcFluxNorm(truth_data['magNorm'][i_obj], imsim_bp)
             sed.multiplyFluxNorm(fnorm)
@@ -151,6 +151,32 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             for bp in ('u', 'g', 'r', 'i', 'z', 'y'):
                 flux = sed.calcADU(bp_dict[bp], phot_params)*phot_params.gain
                 self.assertAlmostEqual(flux/gs_obj.flux(bp), 1.0, 10)
+
+        ######## test that objects are assigned to the right chip in
+        ######## gs_object_dict
+
+        unique_id_dict = {}
+        for chip_name in gs_object_dict:
+            local_unique_id_list = []
+            for gs_object in gs_object_dict[chip_name]:
+                local_unique_id_list.append(gs_object.uniqueId)
+            local_unique_id_list = set(local_unique_id_list)
+            unique_id_dict[chip_name] = local_unique_id_list
+
+        valid = 0
+        valid_chip_names = set()
+        for unq, xpup, ypup in zip(truth_data['uniqueId'],
+                                   truth_data['x_pupil'],
+                                   truth_data['y_pupil']):
+
+            chip_name = chipNameFromPupilCoordsLSST(xpup, ypup)[0]
+            if chip_name is not None:
+               self.assertIn(unq, unique_id_dict[chip_name])
+               valid_chip_names.add(chip_name)
+               valid += 1
+
+        self.assertGreater(valid, 10)
+        self.assertGreater(len(valid_chip_names), 5)
 
     def test_parsePhoSimInstanceFile_warning(self):
         "Test the warnings emitted by the instance catalog parser."
