@@ -315,10 +315,10 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
     def test_photometricParameters(self):
         "Test the photometricParameters function."
-        instcat_contents = \
-            desc.imsim.parsePhoSimInstanceFile(self.command_file, 40)
+        commands = desc.imsim.metadata_from_file(self.phosim_file)
+
         phot_params = \
-            desc.imsim.photometricParameters(instcat_contents.commands)
+            desc.imsim.photometricParameters(commands)
         self.assertEqual(phot_params.gain, 1)
         self.assertEqual(phot_params.bandpass, 'r')
         self.assertEqual(phot_params.nexp, 2)
