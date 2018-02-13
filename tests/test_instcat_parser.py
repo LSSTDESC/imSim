@@ -202,7 +202,9 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                 ('redshift', float), ('gamma1', float),
                                 ('gamma2', float), ('kappa', float),
                                 ('galacticAv', float), ('galacticRv', float),
-                                ('internalAv', float), ('internalRv', float)])
+                                ('internalAv', float), ('internalRv', float),
+                                ('minorAxis', float), ('majorAxis', float),
+                                ('positionAngle', float), ('sindex', float)])
 
         truth_data = np.genfromtxt(os.path.join(self.data_dir, 'truth_galaxies.txt'),
                                    dtype=truth_dtype, delimiter=';')
