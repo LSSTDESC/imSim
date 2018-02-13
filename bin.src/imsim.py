@@ -9,9 +9,14 @@ from __future__ import absolute_import, print_function
 import os
 import argparse
 import numpy as np
+from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
+from lsst.sims.photUtils import BandpassDict
+from lsst.sims.GalSimInterface import make_galsim_detector
 from lsst.sims.GalSimInterface import SNRdocumentPSF
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
+from lsst.sims.GalSimInterface import GalSimDetector
+from lsst.sims.GalSimInterface import GalSimInterpreter
 from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
 
@@ -45,6 +50,8 @@ def main():
                         help='Checkpoint file name.')
     parser.add_argument('--nobj_checkpoint', type=int, default=1000,
                         help='# objects to process between checkpoints')
+    parser.add_argument('--seed', type=int, default=267,
+                        help='integer used to seed random number generator')
     arguments = parser.parse_args()
 
     config = desc.imsim.read_config(arguments.config_file)
@@ -72,6 +79,7 @@ def main():
     obs_md = desc.imsim.phosim_obs_metadata(commands)
 
     camera = desc.imsim.get_obs_lsstSim_camera()
+    camera_wrapper = LSSTCameraWrapper()
 
     phot_params = desc.imsim.photometricParameters(commands)
 
@@ -81,38 +89,17 @@ def main():
                                                      phot_params,
                                                      numRows=numRows)
 
-    exit()
-
     # Sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
-        # Trim the input catalog to a single chip.
-        phosim_objects['chipName'] = \
-            chipNameFromRaDec(phosim_objects['raICRS'].values,
-                              phosim_objects['decICRS'].values,
-                              parallax=phosim_objects['parallax'].values,
-                              camera=camera, obs_metadata=obs_md,
-                              epoch=2000.0)
-
-        starDataBase = \
-            phosim_objects.query("galSimType=='pointSource' and chipName=='%s'"
-                                 % arguments.sensor)
-        galaxyDataBase = \
-            phosim_objects.query("galSimType=='sersic' and chipName=='%s'"
-                                 % arguments.sensor)
+        detector_list = [make_galsim_detector(camera_wrapper, arguments.sensor,
+                                              phot_params, obs_md)]
     else:
-        starDataBase = \
-            phosim_objects.query("galSimType=='pointSource'")
-        galaxyDataBase = \
-            phosim_objects.query("galSimType=='sersic'")
-
-    # Simulate the objects in the Pandas Dataframes.
-
-    # First simulate stars
-    phoSimStarCatalog = desc.imsim.ImSimStars(starDataBase, obs_md)
-    # Restrict to a single sensor if requested.
-    if arguments.sensor is not None:
-        phoSimStarCatalog.allowed_chips = [arguments.sensor]
-    phoSimStarCatalog.photParams = desc.imsim.photometricParameters(commands)
+        detector_list = []
+        for det in camera_wrapper.camera:
+            det_type = det.getType()
+            if det_type != WAVEFRONT and det_type != GUIDER:
+                detector_list.append(make_galsim_detector(camera_wrapper, det.getName(),
+                                                          phot_params, obs_md))
 
     # Add noise and sky background
     # The simple code using the default lsst-GalSim interface would be:
@@ -123,16 +110,24 @@ def main():
     # But, we need a more realistic sky model and we need to pass more than
     # this basic info to use Peter Y's ESO sky model.
     # We must pass obs_metadata, chip information etc...
-    phoSimStarCatalog.noise_and_background \
+    noise_and_background \
         = ESOSkyModel(obs_md, addNoise=True, addBackground=True)
 
+    bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
+
+    gs_interpreter = GalSimInterpreter(obs_metadata=obs_md,
+                                       epoch=2000.0,
+                                       detectors=detector_list,
+                                       bandpassDict=bp_dict,
+                                       noiseWrapper=noise_and_background,
+                                       seed=arguments.seed)
     # Add a PSF.
     if arguments.psf.lower() == "doublegaussian":
         # This one is taken from equation 30 of
         # www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf .
         #
         # Set seeing from self.obs_metadata.
-        phoSimStarCatalog.PSF = \
+        local_PSF = \
             SNRdocumentPSF(obs_md.OpsimMetaData['FWHMgeom'])
     elif arguments.psf.lower() == "kolmogorov":
         # This PSF was presented by David Kirkby at the 23 March 2017
@@ -143,13 +138,28 @@ def main():
         # equation 3 of Krisciunas and Schaefer 1991
         airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-obs_md.OpsimMetaData['altitude']))**2)
 
-        phoSimStarCatalog.PSF = \
+        local_PSF = \
             Kolmogorov_and_Gaussian_PSF(airmass=airmass,
                                         rawSeeing=obs_md.OpsimMetaData['rawSeeing'],
                                         band=obs_md.bandpass)
     else:
         raise RuntimeError("Do not know what to do with psf model: "
                            "%s" % arguments.psf)
+
+    gs_interpreter.setPSF(PSF=local_PSF)
+
+    exit()
+
+    # Simulate the objects in the Pandas Dataframes.
+
+    # First simulate stars
+    phoSimStarCatalog = desc.imsim.ImSimStars(starDataBase, obs_md)
+    # Restrict to a single sensor if requested.
+    if arguments.sensor is not None:
+        phoSimStarCatalog.allowed_chips = [arguments.sensor]
+    phoSimStarCatalog.photParams = desc.imsim.photometricParameters(commands)
+
+
 
     phoSimStarCatalog.camera = camera
     phoSimStarCatalog.camera_wrapper = LSSTCameraWrapper()
