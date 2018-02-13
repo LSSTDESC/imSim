@@ -119,7 +119,7 @@ def metadata_from_file(file_name):
     extra_commands = command_set - _required_commands
     if extra_commands:
         message = "\nExtra commands in the instance catalog %s that are not in the required set:\n   " \
-            % fileName + "\n   ".join(extra_commands)
+            % file_name + "\n   ".join(extra_commands)
         warnings.warn(message)
 
     commands = dict(((key, value) for key, value in input_params.items()))
