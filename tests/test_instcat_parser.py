@@ -83,7 +83,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertAlmostEqual(obs.mjd.TAI, metadata['mjd'], 7)
         self.assertEqual(obs.bandpass, 'r')
 
-    def test_object_extraction(self):
+    def test_object_extraction_stars(self):
         """
         Test that method to get GalSimCelestialObjects from
         InstanceCatalogs works
