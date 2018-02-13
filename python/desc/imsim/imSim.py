@@ -29,6 +29,7 @@ from lsst.sims.coordUtils import getCornerPixels
 from lsst.sims.coordUtils import pixelCoordsFromPupilCoords
 from lsst.sims.catUtils.mixins import PhoSimAstrometryBase
 from lsst.sims.utils import _pupilCoordsFromObserved
+from lsst.sims.utils import _observedFromAppGeo
 from lsst.sims.utils import radiansFromArcsec
 from lsst.sims.GalSimInterface import GalSimCelestialObject
 from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
@@ -246,11 +247,15 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                 raise RuntimeError("Do not know how to handle "
                                    "object type: %s" % params[12])
 
-    ra_obs, dec_obs = PhoSimAstrometryBase.icrsFromPhoSim(ra_phosim, dec_phosim,
-                                                          obs_md)
+    ra_appGeo, dec_appGeo = PhoSimAstrometryBase._appGeoFromPhoSim(np.radians(ra_phosim),
+                                                                   np.radians(dec_phosim),
+                                                                   obs_md)
 
-    ra_obs_rad = np.radians(ra_obs)
-    dec_obs_rad = np.radians(dec_obs)
+    (ra_obs_rad,
+     dec_obs_rad) = _observedFromAppGeo(ra_appGeo, dec_appGeo,
+                                        obs_metadata=obs_md,
+                                        includeRefraction=True)
+
     semi_major_radians = radiansFromArcsec(semi_major_arcsec)
     semi_minor_radians = radiansFromArcsec(semi_minor_arcsec)
     position_angle_radians = np.radians(position_angle_degrees)
