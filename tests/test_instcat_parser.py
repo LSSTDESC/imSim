@@ -9,6 +9,9 @@ import numpy as np
 import desc.imsim
 from lsst.sims.utils import _pupilCoordsFromRaDec
 from lsst.sims.utils import arcsecFromRadians
+from lsst.sims.photUtils import Sed, BandpassDict
+from lsst.sims.photUtils import Bandpass, PhotometricParameters
+from lsst.sims.utils import defaultSpecMap
 
 
 class InstanceCatalogParserTestCase(unittest.TestCase):
@@ -101,12 +104,16 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                 ('sedFilename', str, 200), ('magNorm', float),
                                 ('raJ2000', float), ('decJ2000', float),
                                 ('pmRA', float), ('pmDec', float),
-                                ('parallax', float), ('v_rad', float)])
+                                ('parallax', float), ('v_rad', float),
+                                ('Av', float), ('Rv', float)])
 
         truth_data = np.genfromtxt(os.path.join(self.data_dir, 'truth_stars.txt'),
                                    dtype=truth_dtype, delimiter=';')
 
         np.testing.assert_array_equal(truth_data['uniqueId'], id_arr)
+
+        ######## test that pupil coordinates are correct to within
+        ######## half a milliarcsecond
 
         x_pup_test, y_pup_test = _pupilCoordsFromRaDec(truth_data['raJ2000'],
                                                        truth_data['decJ2000'],
@@ -122,6 +129,28 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                          (y_pup_test[i_obj]-gs_obj.yPupilRadians)**2)
             dd = arcsecFromRadians(dd)
             self.assertLess(dd, 0.0005)
+
+        ######## test that fluxes are correctly calculated
+
+        bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
+        imsim_bp = Bandpass()
+        imsim_bp.imsimBandpass()
+        phot_params = PhotometricParameters(nexp=1, exptime=30.0)
+
+        for i_obj, gs_obj in enumerate(gs_object_arr):
+            sed = Sed()
+            full_sed_name = os.path.join(os.environ['SIMS_SED_LIBRARY_DIR'],
+                                         defaultSpecMap[truth_data['sedFilename'][i_obj]])
+            sed.readSED_flambda(full_sed_name)
+            fnorm = sed.calcFluxNorm(truth_data['magNorm'][i_obj], imsim_bp)
+            sed.multiplyFluxNorm(fnorm)
+            a_x, b_x = sed.setupCCMab()
+            sed.addCCMDust(a_x, b_x, A_v=truth_data['Av'][i_obj],
+                           R_v=truth_data['Rv'][i_obj])
+
+            for bp in ('u', 'g', 'r', 'i', 'z', 'y'):
+                flux = sed.calcADU(bp_dict[bp], phot_params)*phot_params.gain
+                self.assertAlmostEqual(flux/gs_obj.flux(bp), 1.0, 10)
 
     def test_parsePhoSimInstanceFile_warning(self):
         "Test the warnings emitted by the instance catalog parser."
