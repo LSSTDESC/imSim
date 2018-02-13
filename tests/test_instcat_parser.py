@@ -326,19 +326,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertEqual(phot_params.readnoise, 0)
         self.assertEqual(phot_params.darkcurrent, 0)
 
-    def test_validate_phosim_object_list(self):
-        "Test the validation of the rows of the phoSimObjects DataFrame."
-        instcat_contents = desc.imsim.parsePhoSimInstanceFile(self.command_file)
-        with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', '\nOmitted', UserWarning)
-            accepted, rejected = \
-                desc.imsim.validate_phosim_object_list(instcat_contents.objects)
-        self.assertEqual(len(rejected), 5)
-        self.assertEqual(len(accepted), 16)
-        self.assertEqual(len(rejected.query("minorAxis > majorAxis")), 1)
-        self.assertEqual(len(rejected.query("magNorm > 50")), 1)
-        self.assertEqual(len(rejected.query("galacticAv==0 and galacticRv==0")), 4)
-
 
 if __name__ == '__main__':
     unittest.main()

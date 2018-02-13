@@ -40,7 +40,6 @@ _SERSIC_2D = 2
 
 __all__ = ['PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
-           'validate_phosim_object_list',
            'sources_from_file',
            'metadata_from_file',
            'read_config', 'get_config', 'get_logger',
@@ -345,41 +344,6 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
         out_obj_dict[chip_name] = gs_object_arr[valid]
 
     return gs_object_arr, out_obj_dict
-
-
-def validate_phosim_object_list(phoSimObjects):
-    """
-    Remove rows with column values that are known to cause problems with
-    the sim_GalSimInterface code.
-
-    Parameters
-    ----------
-    phoSimObjects : pandas.DataFrame
-       DataFrame of parsed object lines from the instance catalog.
-
-    Returns
-    -------
-    namedtuple
-        A tuple of DataFrames containing the accepted and rejected objects.
-    """
-    bad_row_queries = ('(galSimType=="sersic" and majorAxis < minorAxis)',
-                       '(magNorm > 50)',
-                       '(galacticAv==0 and galacticRv==0)')
-
-    rejected = dict((query, phoSimObjects.query(query))
-                    for query in bad_row_queries)
-    all_rejected = \
-        pd.concat(rejected.values(), ignore_index=True).drop_duplicates()
-    accepted = phoSimObjects.query('not (' + ' or '.join(bad_row_queries) + ')')
-    if len(all_rejected) != 0:
-        message = "\nOmitted %i suspicious objects from" % len(all_rejected)
-        message += " the instance catalog satisfying:\n"
-        for query, objs in rejected.items():
-            message += "%i  %s\n" % (len(objs), query)
-        message += "Some rows may satisfy more than one condition.\n"
-        warnings.warn(message)
-    checked_objects = namedtuple('checked_objects', ('accepted', 'rejected'))
-    return checked_objects(accepted, all_rejected)
 
 
 def photometricParameters(phosim_commands):
