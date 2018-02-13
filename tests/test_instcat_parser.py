@@ -7,6 +7,8 @@ import unittest
 import warnings
 import numpy as np
 import desc.imsim
+from lsst.sims.utils import _pupilCoordsFromRaDec
+from lsst.sims.utils import arcsecFromRadians
 
 
 class InstanceCatalogParserTestCase(unittest.TestCase):
@@ -22,8 +24,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         pass
 
     def setUp(self):
-        self.phosim_file = os.path.join(os.environ['IMSIM_DIR'],
-                                         'tests', 'data',
+        self.data_dir = os.path.join(os.environ['IMSIM_DIR'], 'tests', 'data')
+        self.phosim_file = os.path.join(self.data_dir,
                                          'phosim_stars.txt')
         self.extra_commands = 'instcat_extra.txt'
         with open(self.extra_commands, 'w') as output:
@@ -77,6 +79,49 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertAlmostEqual(obs.rotSkyPos, metadata['rotskypos'], 7)
         self.assertAlmostEqual(obs.mjd.TAI, metadata['mjd'], 7)
         self.assertEqual(obs.bandpass, 'r')
+
+    def test_object_extraction(self):
+        """
+        Test that method to get GalSimCelestialObjects from
+        InstanceCatalogs works
+        """
+        commands = desc.imsim.metadata_from_file(self.phosim_file)
+        obs_md = desc.imsim.phosim_obs_metadata(commands)
+        phot_params = desc.imsim.photometricParameters(commands)
+        (gs_object_arr,
+         gs_object_dict) = desc.imsim.sources_from_file(self.phosim_file,
+                                                        obs_md,
+                                                        phot_params)
+
+        id_arr = np.zeros(len(gs_object_arr), dtype=int)
+        for i_obj in range(len(gs_object_arr)):
+            id_arr[i_obj] = gs_object_arr[i_obj].uniqueId
+
+        truth_dtype = np.dtype([('uniqueId', int), ('x_pupil', float), ('y_pupil', float),
+                                ('sedFilename', str, 200), ('magNorm', float),
+                                ('raJ2000', float), ('decJ2000', float),
+                                ('pmRA', float), ('pmDec', float),
+                                ('parallax', float), ('v_rad', float)])
+
+        truth_data = np.genfromtxt(os.path.join(self.data_dir, 'truth_stars.txt'),
+                                   dtype=truth_dtype, delimiter=';')
+
+        np.testing.assert_array_equal(truth_data['uniqueId'], id_arr)
+
+        x_pup_test, y_pup_test = _pupilCoordsFromRaDec(truth_data['raJ2000'],
+                                                       truth_data['decJ2000'],
+                                                       pm_ra=truth_data['pmRA'],
+                                                       pm_dec=truth_data['pmDec'],
+                                                       v_rad=truth_data['v_rad'],
+                                                       parallax=truth_data['parallax'],
+                                                       obs_metadata=obs_md)
+
+        for i_obj, gs_obj in enumerate(gs_object_arr):
+            self.assertEqual(truth_data['uniqueId'][i_obj], gs_obj.uniqueId)
+            dd = np.sqrt((x_pup_test[i_obj]-gs_obj.xPupilRadians)**2 +
+                         (y_pup_test[i_obj]-gs_obj.yPupilRadians)**2)
+            dd = arcsecFromRadians(dd)
+            self.assertLess(dd, 0.0005)
 
     def test_parsePhoSimInstanceFile_warning(self):
         "Test the warnings emitted by the instance catalog parser."
