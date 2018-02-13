@@ -211,6 +211,19 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         np.testing.assert_array_equal(truth_data['uniqueId'], id_arr)
 
+        ######## test that galaxy parameters are correctly read in
+
+        g1 = truth_data['gamma1']/(1.0-truth_data['kappa'])
+        g2 = truth_data['gamma2']/(1.0-truth_data['kappa'])
+        mu = 1.0/((1.0-truth_data['kappa'])**2 - (truth_data['gamma1']**2 + truth_data['gamma2']**2))
+        for i_obj, gs_obj in enumerate(gs_object_arr):
+            self.assertAlmostEqual(gs_obj.mu/mu[i_obj], 1.0, 6)
+            self.assertAlmostEqual(gs_obj.g1/g1[i_obj], 1.0, 6)
+            self.assertAlmostEqual(gs_obj.g2/g2[i_obj], 1.0, 6)
+            self.assertGreater(np.abs(gs_obj.mu), 0.0)
+            self.assertGreater(np.abs(gs_obj.g1), 0.0)
+            self.assertGreater(np.abs(gs_obj.g2), 0.0)
+
         ######## test that pupil coordinates are correct to within
         ######## half a milliarcsecond
 
