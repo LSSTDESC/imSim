@@ -310,7 +310,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             self.assertRaises(UserWarning,
-                              desc.imsim.parsePhoSimInstanceFile,
+                              desc.imsim.metadata_from_file,
                               self.extra_commands)
 
     def test_photometricParameters(self):
