@@ -224,6 +224,17 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             self.assertGreater(np.abs(gs_obj.g1), 0.0)
             self.assertGreater(np.abs(gs_obj.g2), 0.0)
 
+            self.assertAlmostEqual(gs_obj.halfLightRadiusRadians,
+                                   truth_data['majorAxis'][i_obj], 13)
+            self.assertAlmostEqual(gs_obj.minorAxisRadians,
+                                   truth_data['minorAxis'][i_obj], 13)
+            self.assertAlmostEqual(gs_obj.majorAxisRadians,
+                                   truth_data['majorAxis'][i_obj], 13)
+            self.assertAlmostEqual(gs_obj.positionAngleRadians,
+                                   truth_data['positionAngle'][i_obj], 7)
+            self.assertAlmostEqual(gs_obj.sindex,
+                                   truth_data['sindex'][i_obj], 10)
+
         ######## test that pupil coordinates are correct to within
         ######## half a milliarcsecond
 
