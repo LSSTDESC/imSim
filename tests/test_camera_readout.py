@@ -17,9 +17,9 @@ class ImageSourceTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.imSimDir = lsstUtils.getPackageDir('imsim')
-        subprocess.call('''python %s/bin/imsim.py %s/tests/tiny_instcat.txt --outdir . \
+        subprocess.call('''python %s/bin/imsim.py %s/tests/data/phosim_combined.txt --outdir . \
 --sensor "R:2,2 S:1,1" --psf DoubleGaussian''' % (cls.imSimDir, cls.imSimDir), shell=True)
-        cls.eimage_file = glob.glob('lsst_e_161899_*.fits')[0]
+        cls.eimage_file = glob.glob('lsst_e_230_*.fits')[0]
         cls.seg_file = \
             os.path.join(cls.imSimDir, 'data', 'segmentation_itl.txt')
 
