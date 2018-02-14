@@ -165,35 +165,6 @@ def main():
     gs_interpreter.writeImages(nameRoot=os.path.join(outdir, prefix) +
                                         str(commands['obshistid']))
 
-    exit()
-
-    # Simulate the objects in the Pandas Dataframes.
-
-    # First simulate stars
-    phoSimStarCatalog = desc.imsim.ImSimStars(starDataBase, obs_md)
-    # Restrict to a single sensor if requested.
-    if arguments.sensor is not None:
-        phoSimStarCatalog.allowed_chips = [arguments.sensor]
-    phoSimStarCatalog.photParams = desc.imsim.photometricParameters(commands)
-
-
-
-    phoSimStarCatalog.camera = camera
-    phoSimStarCatalog.camera_wrapper = LSSTCameraWrapper()
-    phoSimStarCatalog.get_fitsFiles(arguments.checkpoint_file,
-                                    arguments.nobj_checkpoint)
-
-    # Now galaxies
-    phoSimGalaxyCatalog = desc.imsim.ImSimGalaxies(galaxyDataBase, obs_md)
-    phoSimGalaxyCatalog.copyGalSimInterpreter(phoSimStarCatalog)
-    phoSimGalaxyCatalog.PSF = phoSimStarCatalog.PSF
-    phoSimGalaxyCatalog.noise_and_background = phoSimStarCatalog.noise_and_background
-    phoSimGalaxyCatalog.get_fitsFiles(arguments.checkpoint_file,
-                                      arguments.nobj_checkpoint)
-
-    # Add cosmic rays to the eimages.
-    phoSimGalaxyCatalog.add_cosmic_rays()
-
 
 if __name__ == "__main__":
     main()
