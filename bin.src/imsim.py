@@ -113,7 +113,7 @@ def main():
     noise_and_background \
         = ESOSkyModel(obs_md, addNoise=True, addBackground=True)
 
-    bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
+    bp_dict = BandpassDict.loadTotalBandpassesFromFiles(bandpassNames=obs_md.bandpass)
 
     gs_interpreter = GalSimInterpreter(obs_metadata=obs_md,
                                        epoch=2000.0,
@@ -148,6 +148,21 @@ def main():
 
     gs_interpreter.setPSF(PSF=local_PSF)
 
+    if arguments.sensor is not None:
+        for gs_obj in gs_object_dict[arguments.sensor]:
+            gs_interpreter.drawObject(gs_obj)
+    else:
+        for gs_obj in gs_object_arr:
+            gs_interpreter.drawObject(gs_obj)
+
+    # Write out the fits files
+    outdir = arguments.outdir
+    if not os.path.isdir(outdir):
+        os.makedirs(outdir)
+    prefix = config['persistence']['eimage_prefix']
+    gs_interpreter.writeImages(nameRoot=os.path.join(outdir, prefix) +
+                                        str(commands['obshistid']))
+
     exit()
 
     # Simulate the objects in the Pandas Dataframes.
@@ -177,13 +192,6 @@ def main():
     # Add cosmic rays to the eimages.
     phoSimGalaxyCatalog.add_cosmic_rays()
 
-    # Write out the fits files
-    outdir = arguments.outdir
-    if not os.path.isdir(outdir):
-        os.makedirs(outdir)
-    prefix = config['persistence']['eimage_prefix']
-    phoSimGalaxyCatalog.write_images(nameRoot=os.path.join(outdir, prefix) +
-                                     str(commands['obshistid']))
 
 if __name__ == "__main__":
     main()
