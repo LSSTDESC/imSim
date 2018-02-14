@@ -88,26 +88,5 @@ def imSim_column_by_name(self, colname):
     return self.phosim_objects[colname].values
 
 
-def imSim_add_cosmic_rays(self):
-    """
-    Add cosmic rays draw from a catalog of CRs extracted from single
-    sensor darks.
-    """
-    config = get_config()
-    ccd_rate = config['cosmic_rays']['ccd_rate']
-    if ccd_rate == 0:
-        return
-    catalog = config['cosmic_rays']['catalog']
-    if catalog == 'default':
-        catalog = os.path.join(lsstUtils.getPackageDir('imsim'),
-                               'data', 'cosmic_ray_catalog.fits.gz')
-    crs = CosmicRays.read_catalog(catalog, ccd_rate=ccd_rate)
-
-    exptime = self.photParams.nexp*self.photParams.exptime
-    for name, image in self.galSimInterpreter.detectorImages.items():
-        imarr = copy.deepcopy(image.array)
-        self.galSimInterpreter.detectorImages[name] = \
-            galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
-
 ImSimStars = imSim_class_factory(GalSimStars)
 ImSimGalaxies = imSim_class_factory(GalSimGalaxies)

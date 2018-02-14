@@ -8,6 +8,8 @@ import warnings
 from collections import namedtuple, defaultdict
 import logging
 import gc
+import copy
+import galsim
 
 # python_future no longer handles configparser as of 0.16.
 # This is needed for PY2/3 compatabiloty.
@@ -34,6 +36,7 @@ from lsst.sims.utils import radiansFromArcsec
 from lsst.sims.GalSimInterface import GalSimCelestialObject
 from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
 from lsst.sims.utils import defaultSpecMap
+from desc.imsim import CosmicRays
 
 _POINT_SOURCE = 1
 _SERSIC_2D = 2
@@ -44,6 +47,7 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'metadata_from_file',
            'read_config', 'get_config', 'get_logger',
            'get_obs_lsstSim_camera',
+           'add_cosmic_rays',
            '_POINT_SOURCE', '_SERSIC_2D']
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -532,3 +536,39 @@ def get_logger(log_level):
 
     return logger
 
+def add_cosmic_rays(gs_interpreter, phot_params):
+    """
+    Add cosmic rays draw from a catalog of CRs extracted from single
+    sensor darks.
+
+    Parameters
+    ----------
+    gs_interpreter: lsst.sims.GalSimInterface.GalSimInterpreter
+        The object that is actually drawing the images
+
+    phot_params: lsst.sims.photUtils.PhotometricParameters
+        An object containing the physical parameters characterizing
+        the photometric properties of the telescope/camera system.
+
+    Returns
+    -------
+    None
+        Will act on gs_interpreter, adding cosmic rays to its images.
+    """
+    config = get_config()
+    ccd_rate = config['cosmic_rays']['ccd_rate']
+    if ccd_rate == 0:
+        return
+    catalog = config['cosmic_rays']['catalog']
+    if catalog == 'default':
+        catalog = os.path.join(lsstUtils.getPackageDir('imsim'),
+                               'data', 'cosmic_ray_catalog.fits.gz')
+    crs = CosmicRays.read_catalog(catalog, ccd_rate=ccd_rate)
+
+    exptime = phot_params.nexp*phot_params.exptime
+    for name, image in gs_interpreter.detectorImages.items():
+        imarr = copy.deepcopy(image.array)
+        gs_interpreter.detectorImages[name] = \
+            galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
+
+    return None

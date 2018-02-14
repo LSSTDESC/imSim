@@ -155,6 +155,8 @@ def main():
         for gs_obj in gs_object_arr:
             gs_interpreter.drawObject(gs_obj)
 
+    desc.imsim.add_cosmic_rays(gs_interpreter, phot_params)
+
     # Write out the fits files
     outdir = arguments.outdir
     if not os.path.isdir(outdir):
