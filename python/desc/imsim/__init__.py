@@ -6,6 +6,5 @@ except ImportError:
 from .imSim import *
 from .camera_readout import *
 from .focalplane_info import *
-from .imSim_class_factory import *
 from .skyModel import *
 from .cosmic_rays import *
