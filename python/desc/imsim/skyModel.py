@@ -15,28 +15,62 @@ import galsim
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
 
 from lsst.sims.photUtils import BandpassDict
-
 from lsst.sims.photUtils import Sed
 
 from .imSim import get_config
 
 __all__ = ['skyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
 
-#galBandpassDict = BandpassDict.loadTotalBandpassesFromFiles(['u','g', 'r', 'i', 'z', 'y'])
+
+class skyCountsPerSec():
+    """
+    This is a class that is used to calculate the number of sky counts per
+    second.
+    """
+    def __init__(self, skyModel, photParams, bandpassdic):
+        """
+
+        @param [in] skyModel is an instantation of the skybrightness.SkyModel
+        class that carries information about the sky for the current conditions.
+
+        @photParams [in] is an instantiation of the
+        PhotometricParameters class that carries details about the
+        photometric response of the telescope.
+
+        @bandpassdic [in] is an instantation of the Bandpassdict class that
+        holds the bandpasses.
+        """
+
+        self.skyModel = skyModel
+        self.photParams = photParams
+        self.bandpassdic = bandpassdic
+
+    def __call__(self, filter_name='u', magNorm=None):
+        """
+        This method calls the skyCountsPerSec object and calculates the sky
+        counts.
+
+        @param [in] filter_name is a string that indicates the name of the filter
+        for which to make the calculation.
+
+        @param [in] magNorm is an option to calculate the skycounts for a given
+        magnitude.  When calculating the counts from just the information in skyModel
+        this should be set as MagNorm=None.
+        """
+
+        bandpass = self.bandpassdic[filter_name]
+        wave, spec = self.skyModel.returnWaveSpec()
+        skymodel_Sed = Sed(wavelen=wave, flambda=spec[0, :])
+        if magNorm:
+            skymodel_fluxNorm = skymodel_Sed.calcFluxNorm(magNorm, bandpass)
+            skymodel_Sed.multiplyFluxNorm(skymodel_fluxNorm)
+        sky_counts = skymodel_Sed.calcADU(bandpass=bandpass, photParams=self.photParams)
+        expTime = self.photParams.nexp * self.photParams.exptime * u.s
+        sky_counts_persec = sky_counts * 0.2**2 / expTime
+
+        return sky_counts_persec
 
 
-def skyCountsPerSec(skyModel, photPars, filter_name='u', magNorm=None):
-    if not hasattr(skyCountsPerSec, '_bp_dict'):
-    	skyCountsPerSec._bp_dict = BandpassDict.loadTotalBandpassesFromFiles(['u','g', 'r', 'i', 'z', 'y'])
-    bandpass = skyCountsPerSec._bp_dict[filter_name]
-    wave, spec = skyModel.returnWaveSpec()
-    skymodel_Sed = Sed(wavelen=wave, flambda=spec[0, :])
-    if magNorm:
-        skymodel_fluxNorm = skymodel_Sed.calcFluxNorm(magNorm, bandpass)
-        skymodel_Sed.multiplyFluxNorm(skymodel_fluxNorm)
-    sky_counts = skymodel_Sed.calcADU(bandpass=bandpass, photParams=photPars) * (
-        100**2) / photPars.exptime / photPars.effarea / photPars.nexp / photPars.gain * u.electron / u.s / u.m ** 2
-    return sky_counts
 
 # Here we are defining our own class derived from NoiseAndBackgroundBase for
 # use instead of ExampleCCDNoise
@@ -48,12 +82,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
     a sky model based on the ESO model as implemented in
     """
 
-    def __init__(
-            self,
-            obs_metadata,
-            seed=None,
-            addNoise=True,
-            addBackground=True):
+    def __init__(self, obs_metadata, seed=None, addNoise=True, addBackground=True):
         """
         @param [in] addNoise is a boolean telling the wrapper whether or not
         to add noise to the image
@@ -109,16 +138,17 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
 
         bandPassName = self.obs_metadata.bandpass
+        bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u','g','r','i','z','y'])
 
         # Since we are only producing one eimage, account for cases
         # where nsnap > 1 with an effective exposure time for the
         # visit as a whole.  TODO: Undo this change when we write
         # separate images per exposure.
+
         exposureTime = photParams.nexp * photParams.exptime
 
-        # bandpass is the CatSim bandpass object
-        skyCounts = skyCountsPerSec(
-            skyModel, photParams, bandPassName) * exposureTime * u.s
+        skycounts_persec = skyCountsPerSec(skyModel, photParams, bandPassdic)
+        skyCounts = skycounts_persec(bandPassName) * exposureTime * u.s
 
         # print "Magnitude:", skyMagnitude
         # print "Brightness:", skyMagnitude, skyCounts
