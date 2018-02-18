@@ -22,7 +22,7 @@ from .imSim import get_config
 __all__ = ['SkyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
 
 
-class SkyCountsPerSec():
+class SkyCountsPerSec(object):
     """
     This is a class that is used to calculate the number of sky counts per
     second.
