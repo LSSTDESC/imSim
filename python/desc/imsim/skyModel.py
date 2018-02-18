@@ -19,10 +19,10 @@ from lsst.sims.photUtils import Sed
 
 from .imSim import get_config
 
-__all__ = ['skyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
+__all__ = ['SkyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
 
 
-class skyCountsPerSec():
+class SkyCountsPerSec():
     """
     This is a class that is used to calculate the number of sky counts per
     second.
@@ -47,13 +47,13 @@ class skyCountsPerSec():
 
     def __call__(self, filter_name='u', magNorm=None):
         """
-        This method calls the skyCountsPerSec object and calculates the sky
+        This method calls the SkyCountsPerSec object and calculates the sky
         counts.
 
         @param [in] filter_name is a string that indicates the name of the filter
         for which to make the calculation.
 
-        @param [in] magNorm is an option to calculate the skycounts for a given
+        @param [in] magNorm is an option to calculate the sky counts for a given
         magnitude.  When calculating the counts from just the information in skyModel
         this should be set as MagNorm=None.
         """
@@ -147,7 +147,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
         exposureTime = photParams.nexp * photParams.exptime
 
-        skycounts_persec = skyCountsPerSec(skyModel, photParams, bandPassdic)
+        skycounts_persec = SkyCountsPerSec(skyModel, photParams, bandPassdic)
         skyCounts = skycounts_persec(bandPassName) * exposureTime * u.s
 
         # print "Magnitude:", skyMagnitude

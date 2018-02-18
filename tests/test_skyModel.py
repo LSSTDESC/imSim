@@ -80,7 +80,7 @@ class SkyModelTestCase(unittest.TestCase):
 
     def test_skycounts_function(self):
         """
-        Test that the skyCountsPerSec class gives the right result for the previously
+        Test that the SkyCountsPerSec class gives the right result for the previously
         calculated zero points. (This is defined as the number of counts per second for
         a 24 magnitude source.)  Here we set magNorm=24 to calculate the zero points
         but when calculating the sky background from the sky brightness
@@ -97,7 +97,7 @@ class SkyModelTestCase(unittest.TestCase):
         skyModel.setRaDecMjd(0., 90., 58000, azAlt=True, degrees=True)
 
         bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u','g','r','i','z','y'])
-        skycounts_persec = desc.imsim.skyModel.skyCountsPerSec(skyModel, photPars_2, bandPassdic)
+        skycounts_persec = desc.imsim.skyModel.SkyCountsPerSec(skyModel, photPars_2, bandPassdic)
 
         skycounts_persec_u = skycounts_persec('u', 24)
         self.assertAlmostEqual(skycounts_persec_u.value, self.zp_u)
