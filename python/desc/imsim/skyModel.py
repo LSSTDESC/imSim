@@ -14,25 +14,68 @@ import lsst.sims.skybrightness as skybrightness
 import galsim
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
 
+from lsst.sims.photUtils import BandpassDict
+from lsst.sims.photUtils import Sed
+
 from .imSim import get_config
 
-__all__ = ['skyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
+__all__ = ['SkyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
 
 
-# Code snippet from D. Kirkby.  Note the use of astropy units.
-def skyCountsPerSec(surface_brightness=21, filter_band='r',
-                    effective_area=32.4*u.m**2, pixel_size=0.2*u.arcsec):
-    pars = get_skyModel_params()
-    # Lookup the zero point corresponding to 24 mag/arcsec**2
-    s0 = pars[filter_band] * u.electron / u.s / u.m ** 2
+class SkyCountsPerSec(object):
+    """
+    This is a class that is used to calculate the number of sky counts per
+    second.
+    """
+    def __init__(self, skyModel, photParams, bandpassdic):
+        """
 
-    # Calculate the rate in detected electrons / second
-    dB = (surface_brightness - pars['B0']) * u.mag(1 / u.arcsec ** 2)
-    return s0 * dB.to(1 / u.arcsec ** 2) * pixel_size ** 2 * effective_area
+        @param [in] skyModel is an instantation of the skybrightness.SkyModel
+        class that carries information about the sky for the current conditions.
+
+        @photParams [in] is an instantiation of the
+        PhotometricParameters class that carries details about the
+        photometric response of the telescope.
+
+        @bandpassdic [in] is an instantation of the Bandpassdict class that
+        holds the bandpasses.
+        """
+
+        self.skyModel = skyModel
+        self.photParams = photParams
+        self.bandpassdic = bandpassdic
+
+    def __call__(self, filter_name='u', magNorm=None):
+        """
+        This method calls the SkyCountsPerSec object and calculates the sky
+        counts.
+
+        @param [in] filter_name is a string that indicates the name of the filter
+        for which to make the calculation.
+
+        @param [in] magNorm is an option to calculate the sky counts for a given
+        magnitude.  When calculating the counts from just the information in skyModel
+        this should be set as MagNorm=None.
+        """
+
+        bandpass = self.bandpassdic[filter_name]
+        wave, spec = self.skyModel.returnWaveSpec()
+        skymodel_Sed = Sed(wavelen=wave, flambda=spec[0, :])
+        if magNorm:
+            skymodel_fluxNorm = skymodel_Sed.calcFluxNorm(magNorm, bandpass)
+            skymodel_Sed.multiplyFluxNorm(skymodel_fluxNorm)
+        sky_counts = skymodel_Sed.calcADU(bandpass=bandpass, photParams=self.photParams)
+        expTime = self.photParams.nexp * self.photParams.exptime * u.s
+        sky_counts_persec = sky_counts * 0.2**2 / expTime
+
+        return sky_counts_persec
+
 
 
 # Here we are defining our own class derived from NoiseAndBackgroundBase for
 # use instead of ExampleCCDNoise
+
+
 class ESOSkyModel(NoiseAndBackgroundBase):
     """
     This class wraps the GalSim class CCDNoise.  This derived class returns
@@ -62,7 +105,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         else:
             self.randomNumbers = galsim.UniformDeviate(seed)
 
-    def addNoiseAndBackground(self, image, bandpass=None, m5=None,
+    def addNoiseAndBackground(self, image, bandpass='u', m5=None,
                               FWHMeff=None,
                               photParams=None):
         """
@@ -88,23 +131,24 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         """
 
         # calculate the sky background to be added to each pixel
-        skyModel = skybrightness.SkyModel(mags=True)
+        skyModel = skybrightness.SkyModel(mags=False)
         ra = np.array([self.obs_metadata.pointingRA])
         dec = np.array([self.obs_metadata.pointingDec])
         mjd = self.obs_metadata.mjd.TAI
         skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
 
         bandPassName = self.obs_metadata.bandpass
-        skyMagnitude = skyModel.returnMags()[bandPassName]
+        bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u','g','r','i','z','y'])
 
         # Since we are only producing one eimage, account for cases
         # where nsnap > 1 with an effective exposure time for the
         # visit as a whole.  TODO: Undo this change when we write
         # separate images per exposure.
-        exposureTime = photParams.nexp*photParams.exptime*u.s
 
-        skyCounts = skyCountsPerSec(surface_brightness=skyMagnitude,
-                                    filter_band=bandPassName)*exposureTime
+        exposureTime = photParams.nexp * photParams.exptime
+
+        skycounts_persec = SkyCountsPerSec(skyModel, photParams, bandPassdic)
+        skyCounts = skycounts_persec(bandPassName) * exposureTime * u.s
 
         # print "Magnitude:", skyMagnitude
         # print "Brightness:", skyMagnitude, skyCounts
@@ -122,16 +166,16 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             skyLevel = 0.0
 
         else:
-            skyLevel = skyCounts*photParams.gain
+            skyLevel = skyCounts * photParams.gain
 
         if self.addNoise:
-            noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
+            noiseModel = self.getNoiseModel(
+                skyLevel=skyLevel, photParams=photParams)
             image.addNoise(noiseModel)
 
         return image
 
     def getNoiseModel(self, skyLevel=0.0, photParams=None):
-
         """
         This method returns the noise model implemented for this wrapper
         class.
@@ -141,8 +185,11 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         We turn off the read noise by adjusting the parameters in the photParams.
         """
 
-        return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel,
-                               gain=photParams.gain, read_noise=photParams.readnoise)
+        return galsim.CCDNoise(
+            self.randomNumbers,
+            sky_level=skyLevel,
+            gain=photParams.gain,
+            read_noise=photParams.readnoise)
 
 
 def get_skyModel_params():
