@@ -15,6 +15,7 @@ electronics readout effects.
 """
 from __future__ import print_function, absolute_import, division
 import os
+import warnings
 from collections import namedtuple, OrderedDict
 import numpy as np
 import astropy.io.fits as fits
@@ -23,6 +24,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.utils as lsstUtils
 from .focalplane_info import FocalPlaneInfo, cte_matrix
+from .imSim import get_logger
 
 __all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
            'set_phosim_bboxes', 'set_noao_keywords']
@@ -50,7 +52,8 @@ class ImageSource(object):
         Object containing the readout properties of the sensors in the
         focal plane, extracted from the segmentation.txt file.
     '''
-    def __init__(self, image_array, exptime, sensor_id, seg_file=None):
+    def __init__(self, image_array, exptime, sensor_id, seg_file=None,
+                 logger=None):
         """
         Class constructor.
 
@@ -66,6 +69,9 @@ class ImageSource(object):
             The segmentation.txt file, the PhoSim-formatted file that
             describes the properties of the sensors in the focal
             plane.  If None, then the version in imSim/data will be used.
+        logger: logging.Logger [None]
+            logging.Logger object to use. If None, then a logger with level
+            INFO will be used.
         """
         self.eimage = fits.HDUList()
         self.eimage.append(fits.PrimaryHDU(image_array))
@@ -77,24 +83,33 @@ class ImageSource(object):
         self._read_seg_file(seg_file)
         self._make_amp_images()
 
+        if logger is None:
+            self.logger = get_logger('INFO')
+        else:
+            self.logger = logger
+
     @staticmethod
-    def create_from_eimage(eimage_file, sensor_id=None, seg_file=None):
+    def create_from_eimage(eimage_file, sensor_id=None, seg_file=None,
+                           logger=None):
         """
         Create an ImageSource object from a PhoSim eimage file.
 
         Parameters
         ----------
-        eimage_file : str
+        eimage_file: str
            Filename of the eimage FITS file from which the amplifier
            images will be extracted.
-        sensor_id : str, optional
+        sensor_id: str, optional
             The raft and sensor identifier, e.g., 'R22_S11'.  If None,
             then extract the CHIPID keyword in the primarey HDU.
-        seg_file : str, optional
+        seg_file: str, optional
             Full path of segmentation.txt file, the PhoSim-formatted file
             that describes the properties of the sensors in the focal
             plane.  If None, then the version in obs_lsstSim/description
             will be used.
+        logger: logging.Logger [None]
+            logging.Logger object to use. If None, then a logger with level
+            INFO will be used.
 
         Returns
         -------
@@ -108,7 +123,7 @@ class ImageSource(object):
             sensor_id = eimage[0].header['CHIPID']
 
         image_source = ImageSource(eimage[0].data, exptime, sensor_id,
-                                   seg_file=seg_file)
+                                   seg_file=seg_file, logger=logger)
         image_source.eimage = eimage
         image_source.eimage_data = eimage[0].data
         return image_source
@@ -277,8 +292,16 @@ class ImageSource(object):
                             do_not_scale_image_data=True)
 
         # Copy keywords from eimage primary header.
-        for key in self.eimage[0].header.keys():
-            hdu.header[key] = self.eimage[0].header[key]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for key in self.eimage[0].header.keys():
+                try:
+                    hdu.header[key] = self.eimage[0].header[key]
+                except ValueError as eobj:
+                    # eimages produced by phosim contain non-ASCII or
+                    # non-printable characters resulting in a ValueError.
+                    self.logger.warn("ValueError raised while attempting to "
+                                     "read {} from eimage header".format(key))
 
         # Set NOAO geometry keywords.
         amp_props = self.fp_props.get_amp(amp_name)
@@ -293,24 +316,24 @@ class ImageSource(object):
 
         return hdu
 
-    def write_amplifier_image(self, amp_name, outfile, clobber=True):
+    def write_amplifier_image(self, amp_name, outfile, overwrite=True):
         """
         Write the pixel data for the specified amplifier as FITS image.
 
         Parameters
         ----------
-        amp_name : str
+        amp_name: str
             Amplifier id, e.g., "R22_S11_C00".
-        outfile : str
+        outfile: str
             Filename of the FITS file to be written.
-        clobber : bool, optional
+        overwrite: bool [True]
             Flag whether to overwrite an existing output file.
         """
         output = fits.HDUList(fits.PrimaryHDU())
         output.append(self.get_amplifier_hdu(amp_name))
-        output.writeto(outfile, clobber=clobber)
+        output.writeto(outfile, overwrite=overwrite)
 
-    def write_fits_file(self, outfile, clobber=True, run_number=None,
+    def write_fits_file(self, outfile, overwrite=True, run_number=None,
                         lsst_num='LCA-11021_RTM-000'):
         """
         Write the processed eimage data as a multi-extension FITS file.
@@ -319,7 +342,7 @@ class ImageSource(object):
         ----------
         outfile : str
             Name of the output FITS file.
-        clobber : bool, optional
+        overwrite : bool, optional
             Flag whether to overwrite an existing output file.  Default: True.
         """
         output = fits.HDUList(fits.PrimaryHDU())
@@ -341,7 +364,7 @@ class ImageSource(object):
             amp_name = '_C'.join((self.sensor_id, seg_id))
             output.append(self.get_amplifier_hdu(amp_name))
             output[-1].header['EXTNAME'] = 'Segment%s' % seg_id
-        output.writeto(outfile, clobber=clobber)
+        output.writeto(outfile, overwrite=overwrite)
 
     @staticmethod
     def _noao_section_keyword(bbox, flipx=False, flipy=False):
