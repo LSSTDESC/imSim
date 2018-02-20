@@ -288,8 +288,7 @@ class ImageSource(object):
             Image HDU with the pixel data and header keywords
             appropriate for the requested sensor segment.
         """
-        hdu = fits.ImageHDU(data=self.amp_images[amp_name].getArray(),
-                            do_not_scale_image_data=True)
+        hdu = fits.ImageHDU(data=self.amp_images[amp_name].getArray().astype(np.int32))
 
         # Copy keywords from eimage primary header.
         with warnings.catch_warnings():
