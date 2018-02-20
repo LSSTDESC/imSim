@@ -9,14 +9,10 @@ from __future__ import absolute_import, print_function
 import os
 import argparse
 import numpy as np
-from lsst.obs.lsstSim import LsstSimMapper
 from lsst.sims.coordUtils import chipNameFromRaDec
 from lsst.sims.GalSimInterface import SNRdocumentPSF
-try:
-    from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
-except ImportError:
-    # in case we are running with an old version of lsst_sims
-    pass
+from lsst.sims.GalSimInterface import LSSTCameraWrapper
+from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
 from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
 
@@ -46,6 +42,10 @@ def main():
                         "from LSE=40 (equation 30), or the Kolmogorov convolved "
                         "with a Gaussian proposed by David Kirkby at the "
                         "23 March 2017 SSims telecon")
+    parser.add_argument('--checkpoint_file', type=str, default=None,
+                        help='Checkpoint file name.')
+    parser.add_argument('--nobj_checkpoint', type=int, default=1000,
+                        help='# objects to process between checkpoints')
     arguments = parser.parse_args()
 
     config = desc.imsim.read_config(arguments.config_file)
@@ -75,7 +75,7 @@ def main():
     # PhoSim commands at the top of the instance file.
     obs_md = desc.imsim.phosim_obs_metadata(commands)
 
-    camera = LsstSimMapper().camera
+    camera = desc.imsim.get_obs_lsstSim_camera()
 
     # Sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
@@ -117,8 +117,8 @@ def main():
     # But, we need a more realistic sky model and we need to pass more than
     # this basic info to use Peter Y's ESO sky model.
     # We must pass obs_metadata, chip information etc...
-    phoSimStarCatalog.noise_and_background = ESOSkyModel(obs_md, addNoise=True,
-                                                         addBackground=True)
+    phoSimStarCatalog.noise_and_background \
+        = ESOSkyModel(obs_md, addNoise=True, addBackground=True)
 
     # Add a PSF.
     if arguments.psf.lower() == "doublegaussian":
@@ -146,14 +146,20 @@ def main():
                            "%s" % arguments.psf)
 
     phoSimStarCatalog.camera = camera
-    phoSimStarCatalog.get_fitsFiles()
+    phoSimStarCatalog.camera_wrapper = LSSTCameraWrapper()
+    phoSimStarCatalog.get_fitsFiles(arguments.checkpoint_file,
+                                    arguments.nobj_checkpoint)
 
     # Now galaxies
     phoSimGalaxyCatalog = desc.imsim.ImSimGalaxies(galaxyDataBase, obs_md)
     phoSimGalaxyCatalog.copyGalSimInterpreter(phoSimStarCatalog)
     phoSimGalaxyCatalog.PSF = phoSimStarCatalog.PSF
     phoSimGalaxyCatalog.noise_and_background = phoSimStarCatalog.noise_and_background
-    phoSimGalaxyCatalog.get_fitsFiles()
+    phoSimGalaxyCatalog.get_fitsFiles(arguments.checkpoint_file,
+                                      arguments.nobj_checkpoint)
+
+    # Add cosmic rays to the eimages.
+    phoSimGalaxyCatalog.add_cosmic_rays()
 
     # Write out the fits files
     outdir = arguments.outdir

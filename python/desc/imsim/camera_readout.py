@@ -69,7 +69,7 @@ class ImageSource(object):
         """
         self.eimage = fits.HDUList()
         self.eimage.append(fits.PrimaryHDU(image_array))
-        self.eimage_data = self.eimage[0].data
+        self.eimage_data = self.eimage[0].data.transpose()
 
         self.exptime = exptime
         self.sensor_id = sensor_id

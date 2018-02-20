@@ -20,6 +20,7 @@ except ImportError:
 import numpy as np
 import pandas as pd
 import lsst.log as lsstLog
+import lsst.obs.lsstSim as obs_lsstSim
 import lsst.utils as lsstUtils
 from lsst.sims.photUtils import LSSTdefaults, PhotometricParameters
 from lsst.sims.utils import ObservationMetaData, radiansFromArcsec
@@ -28,8 +29,7 @@ from lsst.sims.utils import applyProperMotion, ModifiedJulianDate
 __all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
            'validate_phosim_object_list',
-           'read_config', 'get_config', 'get_logger']
-
+           'read_config', 'get_config', 'get_logger', 'get_obs_lsstSim_camera']
 
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
@@ -251,6 +251,9 @@ def extract_objects(df, header):
     phosim_galaxies['positionAngle'] = \
         (np.pi/180.*pd.to_numeric(galaxies['PAR3'])).tolist()
     phosim_galaxies['sindex'] = pd.to_numeric(galaxies['PAR4']).tolist()
+    phosim_galaxies['gamma1'] = pd.to_numeric(galaxies['GAMMA1']).tolist()
+    phosim_galaxies['gamma2'] = pd.to_numeric(galaxies['GAMMA2']).tolist()
+    phosim_galaxies['kappa'] = pd.to_numeric(galaxies['KAPPA']).tolist()
     n_gal = len(phosim_galaxies.raJ2000.values)
     phosim_galaxies = phosim_galaxies.assign(raICRS=phosim_galaxies.raJ2000,
                                              decICRS=phosim_galaxies.decJ2000,
@@ -563,3 +566,16 @@ def get_logger(log_level):
                      eval('lsstLog.%s' % log_level))
 
     return logger
+
+
+def get_obs_lsstSim_camera(log_level=lsstLog.WARN):
+    """
+    Get the obs_lsstSim CameraMapper object, setting the default
+    log-level at WARN in order to silence the INFO message about
+    "Loading Posix exposure registry from .". Note that this only
+    affects the 'CameraMapper' logging level.  The logging level set
+    by any calling code (e.g., imsim.py) will still apply to other log
+    messages made by imSim code.
+    """
+    lsstLog.setLevel('CameraMapper', log_level)
+    return obs_lsstSim.LsstSimMapper().camera
