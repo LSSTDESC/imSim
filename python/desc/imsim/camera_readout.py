@@ -88,6 +88,9 @@ class ImageSource(object):
         else:
             self.logger = logger
 
+    def __del__(self):
+        self.eimage.close()
+
     @staticmethod
     def create_from_eimage(eimage_file, sensor_id=None, seg_file=None,
                            logger=None):
