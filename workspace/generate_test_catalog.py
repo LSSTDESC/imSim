@@ -11,7 +11,7 @@ from lsst.sims.catUtils.mixins import AstrometryStars, CameraCoords
 from lsst.sims.catUtils.mixins import AstrometryGalaxies, EBVmixin
 from lsst.sims.catUtils.baseCatalogModels import StarObj
 from lsst.sims.catUtils.baseCatalogModels import GalaxyBulgeObj
-from lsst.sims.catalogs.decorators import cached
+from lsst.sims.catalogs.decorators import cached, compound
 
 
 class FilteringMixin(object):
@@ -58,23 +58,17 @@ class GalaxyTestMixin(object):
         if not hasattr(self, '_galaxy_test_rng'):
             self._galaxy_test_rng = np.random.RandomState(88)
 
-    @cached
-    def get_gamma1(self):
+    @compound('gamma1', 'gamma2', 'kappa')
+    def get_lensingParams(self):
         self._init_gal_test()
         n_obj = len(self.column_by_name('raJ2000'))
-        return self._galaxy_test_rng.random_sample(n_obj)
-
-    @cached
-    def get_gamma2(self):
-        self._init_gal_test()
-        n_obj = len(self.column_by_name('raJ2000'))
-        return self._galaxy_test_rng.random_sample(n_obj)
-
-    @cached
-    def get_kappa(self):
-        self._init_gal_test()
-        n_obj = len(self.column_by_name('raJ2000'))
-        return self._galaxy_test_rng.random_sample(n_obj)
+        g_mag = self._galaxy_test_rng.random_sample(n_obj)
+        kappa = self._galaxy_test_rng.random_sample(n_obj)
+        g1_r = self._galaxy_test_rng.random_sample(n_obj)
+        g2_r = np.sqrt(1.0-g1_r**2)
+        gamma1 = (1.0-kappa)*g1_r
+        gamma2 = (1.0-kappa)*g2_r
+        return np.array([gamma1, gamma2, kappa])
 
     @cached
     def get_internalAv(self):
