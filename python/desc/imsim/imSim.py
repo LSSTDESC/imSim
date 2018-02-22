@@ -281,8 +281,40 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
 
     sed_dir = lsstUtils.getPackageDir('sims_sed_library')
 
+    object_is_valid = np.array([True]*num_objects)
+
+    invalid_objects = np.where(np.logical_or(
+                               mag_norm>50.0,
+                               np.logical_and(galactic_av==0.0, galactic_rv==0.0),
+                               np.logical_and(object_type==_SERSIC_2D,
+                                              semi_major_arcsec<semi_minor_arcsec)
+                               ))
+
+    object_is_valid[invalid_objects] = False
+
+    if len(invalid_objects[0]) > 0:
+        message = "\nOmitted %d suspicious objects from " % len(invalid_objects[0])
+        message += "the instance catalog:\n"
+        for i_obj in invalid_objects[0]:
+
+            if object_type[i_obj] == _POINT_SOURCE:
+                gs_type = 'pointSource'
+            elif object_type[i_obj] == _SERSIC_2D:
+                gs_type = 'sersic'
+            message += "    uniqueId %d -- %s " % (unique_id[i_obj], gs_type)
+            message += "mag_norm %.2e " % mag_norm[i_obj]
+            message += "galacticAv %.2e " % galactic_av[i_obj]
+            message += "galacticRv %.2e " % galactic_rv[i_obj]
+            message += "major_axis_arcsec %.2e " % semi_major_arcsec[i_obj]
+            message += "minor_axis_arcsec %.2e " % semi_minor_arcsec[i_obj]
+            message += "\n"
+        warnings.warn(message)
+
     gs_object_arr = []
     for i_obj in range(num_objects):
+        if not object_is_valid[i_obj]:
+            continue
+
         if object_type[i_obj] == _POINT_SOURCE:
             gs_type = 'pointSource'
         elif object_type[i_obj] == _SERSIC_2D:
@@ -337,6 +369,18 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     # detectors, just in case light scatters onto them.
     max_mag = 16.0
 
+    # down-select mag_norm, x_pupil, and y_pupil
+    # to only contain those objects that were
+    # deemed to be valid above
+    valid = np.where(object_is_valid)
+    mag_norm = mag_norm[valid]
+    x_pupil = x_pupil[valid]
+    y_pupil = y_pupil[valid]
+
+    assert len(mag_norm) == len(gs_object_arr)
+    assert len(x_pupil) == len(gs_object_arr)
+    assert len(y_pupil) == len(gs_object_arr)
+
     out_obj_dict = {}
     for det in lsst_camera():
         chip_name = det.getName()
@@ -349,13 +393,13 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                                                 chipName=chip_name,
                                                 camera=lsst_camera())
 
-        valid = np.where(np.logical_or(mag_norm<16.0,
-                         np.logical_and(xpix>x_min-pix_tol,
-                         np.logical_and(xpix<x_max+pix_tol,
-                         np.logical_and(ypix>y_min-pix_tol,
-                                        ypix<y_max+pix_tol)))))
+        on_chip = np.where(np.logical_or(mag_norm<16.0,
+                           np.logical_and(xpix>x_min-pix_tol,
+                           np.logical_and(xpix<x_max+pix_tol,
+                           np.logical_and(ypix>y_min-pix_tol,
+                                          ypix<y_max+pix_tol)))), True, False)
 
-        out_obj_dict[chip_name] = gs_object_arr[valid]
+        out_obj_dict[chip_name] = gs_object_arr[on_chip]
 
     return gs_object_arr, out_obj_dict
 
