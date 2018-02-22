@@ -450,7 +450,7 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     namedtuple
         This contains the PhoSim commands, the objects, and the
         original DataFrames containing the header lines and object
-        lines which were parsed with pandas.read_csv.
+        lines
     """
 
     commands = metadata_from_file(fileName)
