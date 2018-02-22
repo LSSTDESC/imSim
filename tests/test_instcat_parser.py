@@ -356,10 +356,25 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
     def test_validate_phosim_object_list(self):
         "Test the validation of the rows of the phoSimObjects DataFrame."
         cat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests', 'tiny_instcat.txt')
+
         with warnings.catch_warnings(record=True) as wa:
             instcat_contents = desc.imsim.parsePhoSimInstanceFile(cat_file)
         self.assertGreater(len(wa), 1)
-        message = wa[1].message.args[0]
+
+        # we must detect which warning is the warning we are actually
+        # testing, because PALPY keeps raising ERFAWarnings over our
+        # request for dates in the future
+        desired_warning_dex = -1
+        for i_ww, ww in enumerate(wa):
+            if 'Omitted 5 suspicious objects' in ww.message.args[0]:
+                desired_warning_dex = i_ww
+                break
+
+        if desired_warning_dex<0:
+            raise RuntimeError("Expected warning about bad sources "
+                               "not issued")
+
+        message = wa[desired_warning_dex].message.args[0]
         self.assertIn('Omitted 5 suspicious objects', message)
         self.assertIn('uniqueId 34307989098524', message)
         self.assertIn('uniqueId 811883374597', message)
