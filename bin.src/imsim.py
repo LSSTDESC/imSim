@@ -68,26 +68,17 @@ def main():
         logger.info("Reading all rows from the instance catalog %s.",
                     arguments.file)
 
-    # The PhoSim instance file contains both pointing commands and
-    # objects.  The parser will split them and return a both phosim
-    # command dictionary and a dataframe of objects.
-    commands = \
-        desc.imsim.metadata_from_file(arguments.file)
-
-    # Build the ObservationMetaData with values taken from the
-    # PhoSim commands at the top of the instance file.
-    obs_md = desc.imsim.phosim_obs_metadata(commands)
-
     camera = desc.imsim.get_obs_lsstSim_camera()
     camera_wrapper = LSSTCameraWrapper()
 
-    phot_params = desc.imsim.photometricParameters(commands)
+    catalog_contents = desc.imsim.parsePhoSimInstanceFile(arguments.file,
+                                                          numRows=numRows)
 
-    (gs_object_arr,
-     gs_object_dict)  = desc.imsim.sources_from_file(arguments.file,
-                                                     obs_md,
-                                                     phot_params,
-                                                     numRows=numRows)
+    obs_md = catalog_contents.obs_metadata
+    phot_params = catalog_contents.phot_params
+    sources = catalog_contents.sources
+    gs_object_arr = sources[0]
+    gs_object_dict = sources[1]
 
     # Sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
@@ -163,7 +154,7 @@ def main():
         os.makedirs(outdir)
     prefix = config['persistence']['eimage_prefix']
     gs_interpreter.writeImages(nameRoot=os.path.join(outdir, prefix) +
-                                        str(commands['obshistid']))
+                                        str(obs_md.OpsimMetaData['obshistID']))
 
 
 if __name__ == "__main__":
