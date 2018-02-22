@@ -115,7 +115,7 @@ def metadata_from_file(file_name):
     missing_commands = _required_commands - command_set
     if missing_commands:
         message = "\nRequired commands that are missing from the instance catalog %s:\n   " \
-            % fileName + "\n   ".join(missing_commands)
+            % file_name + "\n   ".join(missing_commands)
         raise PhosimInstanceCatalogParseError(message)
 
     # Report on commands that are not part of the required set.
