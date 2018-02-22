@@ -385,6 +385,14 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         for unq_id in bad_unique_ids:
             self.assertIn('uniqueId %d' % unq_id, message)
 
+        self.assertEqual(len(instcat_contents.sources[0]), 16)
+        for obj in instcat_contents.sources[0]:
+            self.assertNotIn(obj.uniqueId, bad_unique_ids)
+
+        for chip_name in instcat_contents.sources[1]:
+            for obj in instcat_contents.sources[1][chip_name]:
+                self.assertNotIn(obj.uniqueId, bad_unique_ids)
+
 
 if __name__ == '__main__':
     unittest.main()
