@@ -100,9 +100,14 @@ def metadata_from_file(file_name):
     input_params = {}
     with open(file_name, 'r') as in_file:
         for line in in_file:
+            if line[0] == '#':
+                continue
+
             params = line.strip().split()
+
             if params[0] == 'object':
                 continue
+
             float_val = float(params[1])
             int_val = int(float_val)
             if np.abs(float_val-int_val)>1.0e-10:
