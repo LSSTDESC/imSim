@@ -48,11 +48,16 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'read_config', 'get_config', 'get_logger',
            'get_obs_lsstSim_camera',
            'add_cosmic_rays',
-           '_POINT_SOURCE', '_SERSIC_2D']
+           '_POINT_SOURCE', '_SERSIC_2D',
+           'parsePhoSimInstanceFile']
 
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
 
+PhoSimInstanceCatalogContents = namedtuple('PhoSimInstanceCatalogContents',
+                                            ('obs_metadata',
+                                             'phot_params',
+                                             'sources'))
 
 _required_commands = set("""rightascension
 declination
@@ -424,6 +429,41 @@ def phosim_obs_metadata(phosim_commands):
     obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['rawSeeing']
     obs_md.OpsimMetaData['altitude'] = phosim_commands['altitude']
     return obs_md
+
+
+def parsePhoSimInstanceFile(fileName, numRows=None):
+    """
+    Read a PhoSim instance catalog into a Pandas dataFrame. Then use
+    the information that was read-in to build and return a command
+    dictionary and object dataFrame.
+
+    Parameters
+    ----------
+    fileName : str
+        The instance catalog filename.
+    numRows : int, optional
+        The number of rows to read from the instance catalog.
+        If None (the default), then all of the rows will be read in.
+
+    Returns
+    -------
+    namedtuple
+        This contains the PhoSim commands, the objects, and the
+        original DataFrames containing the header lines and object
+        lines which were parsed with pandas.read_csv.
+    """
+
+    commands = metadata_from_file(fileName)
+    obs_metadata = phosim_obs_metadata(commands)
+    phot_params = photometricParameters(commands)
+    sources = sources_from_file(fileName,
+                                obs_metadata,
+                                phot_params,
+                                numRows=numRows)
+
+    return PhoSimInstanceCatalogContents(obs_metadata,
+                                         phot_params,
+                                         sources)
 
 
 class ImSimConfiguration(object):
