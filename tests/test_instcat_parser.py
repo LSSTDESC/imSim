@@ -5,6 +5,8 @@ from __future__ import absolute_import, print_function
 import os
 import unittest
 import warnings
+import tempfile
+import shutil
 import numpy as np
 import desc.imsim
 from lsst.sims.utils import _pupilCoordsFromRaDec
@@ -21,13 +23,18 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.config = desc.imsim.read_config()
+        cls.data_dir = os.path.join(os.environ['IMSIM_DIR'], 'tests', 'data')
+        cls.scratch_dir = tempfile.mkdtemp(prefix=cls.data_dir)
+
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        if os.path.exists(cls.scratch_dir):
+            for file_name in os.listdir(cls.scratch_dir):
+                os.unlink(os.path.join(cls.scratch_dir, file_name))
+            shutil.rmtree(cls.scratch_dir)
 
     def setUp(self):
-        self.data_dir = os.path.join(os.environ['IMSIM_DIR'], 'tests', 'data')
         self.phosim_file = os.path.join(self.data_dir,
                                          'phosim_stars.txt')
         self.extra_commands = 'instcat_extra.txt'
@@ -39,6 +46,25 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
     def tearDown(self):
         os.remove(self.extra_commands)
+
+    def test_required_commands_error(self):
+        """
+        Test that an error is raised if required commands are
+        missing from the InstanceCatalog file
+        """
+        dummy_catalog = tempfile.mktemp(prefix=self.scratch_dir)
+        with open(self.phosim_file, 'r') as input_file:
+            input_lines = input_file.readlines()
+            with open(dummy_catalog, 'w') as output_file:
+                for line in input_lines[:8]:
+                    output_file.write(line)
+                for line in input_lines[24:]:
+                    output_file.write(line)
+
+        with self.assertRaises(desc.imsim.PhosimInstanceCatalogParseError) as ee:
+            results = desc.imsim.parsePhoSimInstanceFile(dummy_catalog)
+        self.assertIn("Required commands", ee.exception.args[0])
+
 
     def test_metadata_from_file(self):
         """
