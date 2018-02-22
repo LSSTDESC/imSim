@@ -31,10 +31,11 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.phosim_file = os.path.join(self.data_dir,
                                          'phosim_stars.txt')
         self.extra_commands = 'instcat_extra.txt'
-        with open(self.extra_commands, 'w') as output:
-            for line in open(self.phosim_file).readlines()[:23]:
-                output.write(line)
-            output.write('extra_command 1\n')
+        with open(self.phosim_file, 'r') as input_file:
+            with open(self.extra_commands, 'w') as output:
+                for line in input_file.readlines()[:23]:
+                    output.write(line)
+                output.write('extra_command 1\n')
 
     def tearDown(self):
         os.remove(self.extra_commands)
