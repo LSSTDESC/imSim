@@ -393,7 +393,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                                                 chipName=chip_name,
                                                 camera=lsst_camera())
 
-        on_chip = np.where(np.logical_or(mag_norm<16.0,
+        on_chip = np.where(np.logical_or(mag_norm<max_mag,
                            np.logical_and(xpix>x_min-pix_tol,
                            np.logical_and(xpix<x_max+pix_tol,
                            np.logical_and(ypix>y_min-pix_tol,
