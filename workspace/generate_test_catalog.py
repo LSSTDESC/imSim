@@ -62,12 +62,12 @@ class GalaxyTestMixin(object):
     def get_lensingParams(self):
         self._init_gal_test()
         n_obj = len(self.column_by_name('raJ2000'))
-        g_mag = self._galaxy_test_rng.random_sample(n_obj)
-        kappa = self._galaxy_test_rng.random_sample(n_obj)
-        g1_r = self._galaxy_test_rng.random_sample(n_obj)
+        g_mag = 0.01*self._galaxy_test_rng.random_sample(n_obj)
+        kappa = 0.01+0.01*self._galaxy_test_rng.random_sample(n_obj)
+        g1_r = 0.72+0.1*self._galaxy_test_rng.random_sample(n_obj)
         g2_r = np.sqrt(1.0-g1_r**2)
-        gamma1 = (1.0-kappa)*g1_r
-        gamma2 = (1.0-kappa)*g2_r
+        gamma1 = (1.0-kappa)*g1_r*g_mag
+        gamma2 = (1.0-kappa)*g2_r*g_mag
         return np.array([gamma1, gamma2, kappa])
 
     @cached
