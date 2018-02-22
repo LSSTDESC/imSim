@@ -353,6 +353,20 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertEqual(phot_params.readnoise, 0)
         self.assertEqual(phot_params.darkcurrent, 0)
 
+    def test_validate_phosim_object_list(self):
+        "Test the validation of the rows of the phoSimObjects DataFrame."
+        cat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests', 'tiny_instcat.txt')
+        with warnings.catch_warnings(record=True) as wa:
+            instcat_contents = desc.imsim.parsePhoSimInstanceFile(cat_file)
+        self.assertGreater(len(wa), 1)
+        message = wa[1].message.args[0]
+        self.assertIn('Omitted 5 suspicious objects', message)
+        self.assertIn('uniqueId 34307989098524', message)
+        self.assertIn('uniqueId 811883374597', message)
+        self.assertIn('uniqueId 811883374596', message)
+        self.assertIn('uniqueId 956090392580', message)
+        self.assertIn('uniqueId 34307989098523', message)
+
 
 if __name__ == '__main__':
     unittest.main()
