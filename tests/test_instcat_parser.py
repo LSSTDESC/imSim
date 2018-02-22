@@ -375,12 +375,15 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                "not issued")
 
         message = wa[desired_warning_dex].message.args[0]
+
+        # these are the objects that should be omitted
+        bad_unique_ids = set([34307989098524, 811883374597,
+                              811883374596, 956090392580,
+                              34307989098523])
+
         self.assertIn('Omitted 5 suspicious objects', message)
-        self.assertIn('uniqueId 34307989098524', message)
-        self.assertIn('uniqueId 811883374597', message)
-        self.assertIn('uniqueId 811883374596', message)
-        self.assertIn('uniqueId 956090392580', message)
-        self.assertIn('uniqueId 34307989098523', message)
+        for unq_id in bad_unique_ids:
+            self.assertIn('uniqueId %d' % unq_id, message)
 
 
 if __name__ == '__main__':
