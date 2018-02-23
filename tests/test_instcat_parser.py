@@ -171,6 +171,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             sed.readSED_flambda(full_sed_name)
             fnorm = sed.calcFluxNorm(truth_data['magNorm'][i_obj], imsim_bp)
             sed.multiplyFluxNorm(fnorm)
+            sed.resampleSED(wavelen_match=bp_dict.wavelenMatch)
             a_x, b_x = sed.setupCCMab()
             sed.addCCMDust(a_x, b_x, A_v=truth_data['Av'][i_obj],
                            R_v=truth_data['Rv'][i_obj])
@@ -296,7 +297,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                            R_v=truth_data['internalRv'][i_obj])
 
             sed.redshiftSED(truth_data['redshift'][i_obj], dimming=True)
-
+            sed.resampleSED(wavelen_match=bp_dict.wavelenMatch)
             a_x, b_x = sed.setupCCMab()
             sed.addCCMDust(a_x, b_x, A_v=truth_data['galacticAv'][i_obj],
                            R_v=truth_data['galacticRv'][i_obj])

@@ -310,6 +310,9 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
             message += "\n"
         warnings.warn(message)
 
+    wav_int = None
+    wav_gal = None
+
     gs_object_arr = []
     for i_obj in range(num_objects):
         if not object_is_valid[i_obj]:
@@ -326,7 +329,10 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
         fnorm = getImsimFluxNorm(sed_obj, mag_norm[i_obj])
         sed_obj.multiplyFluxNorm(fnorm)
         if internal_av[i_obj] != 0.0:
-            a_int, b_int= sed_obj.setupCCMab()
+            if wav_int is None or not np.array_equal(sed_obj.wavelen, wav_int):
+                a_int, b_int= sed_obj.setupCCMab()
+                wav_int = copy.deepcopy(sed_obj.wavelen)
+
             sed_obj.addCCMDust(a_int, b_int,
                                A_v = internal_av[i_obj],
                                R_v = internal_rv[i_obj])
@@ -334,8 +340,13 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
         if redshift[i_obj] != 0.0:
             sed_obj.redshiftSED(redshift[i_obj], dimming=True)
 
+        sed_obj.resampleSED(wavelen_match=bp_dict.wavelenMatch)
+
         if galactic_av[i_obj] != 0.0:
-            a_g, b_g = sed_obj.setupCCMab()
+            if wav_gal is None or not np.array_equal(sed_obj.wavelen, wav_gal):
+                a_g, b_g = sed_obj.setupCCMab()
+                wav_gal = copy.deepcopy(sed_obj.wavelen)
+
             sed_obj.addCCMDust(a_g, b_g,
                                A_v = galactic_av[i_obj],
                                R_v = galactic_rv[i_obj])
