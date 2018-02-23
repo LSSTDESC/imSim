@@ -408,7 +408,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                            np.logical_and(xpix>x_min-pix_tol,
                            np.logical_and(xpix<x_max+pix_tol,
                            np.logical_and(ypix>y_min-pix_tol,
-                                          ypix<y_max+pix_tol)))), True, False)
+                                          ypix<y_max+pix_tol)))))
 
         out_obj_dict[chip_name] = gs_object_arr[on_chip]
 
