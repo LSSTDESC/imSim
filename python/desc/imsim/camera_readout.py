@@ -537,7 +537,7 @@ def set_noao_keywords(hdu, slot_name):
     # Define the WCS and Mosaic keywords.
     hdu.header['WCSNAMEA'] = 'AMPLIFIER'
     hdu.header['CTYPE1A'] = 'Seg_X   '
-    hdu.header['CYTPE2A'] = 'Seg_Y   '
+    hdu.header['CTYPE2A'] = 'Seg_Y   '
 
     hdu.header['WCSNAMEC'] = 'CCD     '
     hdu.header['CTYPE1C'] = 'CCD_X   '
