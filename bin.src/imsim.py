@@ -140,11 +140,12 @@ def main():
     gs_interpreter.setPSF(PSF=local_PSF)
 
     if arguments.sensor is not None:
-        for gs_obj in gs_object_dict[arguments.sensor]:
-            gs_interpreter.drawObject(gs_obj)
-    else:
-        for gs_obj in gs_object_arr:
-            gs_interpreter.drawObject(gs_obj)
+        gs_objects_to_draw = gs_object_dict[arguments.sensor]
+    else
+        gs_objects_to_draw = gs_object_arr
+
+    for gs_obj in gs_objects_to_draw
+        gs_interpreter.drawObject(gs_obj)
 
     desc.imsim.add_cosmic_rays(gs_interpreter, phot_params)
 
