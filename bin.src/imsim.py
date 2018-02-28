@@ -112,6 +112,13 @@ def main():
                                        bandpassDict=bp_dict,
                                        noiseWrapper=noise_and_background,
                                        seed=arguments.seed)
+
+    gs_interpreter.checkpoint_file = args.checkpoint_file
+    gs_interpreter.nobj_checkpoint = nobj_checkpoint
+    gs_interpreter.restore_checkpoint(camera_wrapper,
+                                      phot_params,
+                                      obs_md)
+
     # Add a PSF.
     if arguments.psf.lower() == "doublegaussian":
         # This one is taken from equation 30 of
