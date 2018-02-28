@@ -295,19 +295,13 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     if len(invalid_objects[0]) > 0:
         message = "\nOmitted %d suspicious objects from " % len(invalid_objects[0])
         message += "the instance catalog:\n"
-        for i_obj in invalid_objects[0]:
-
-            if object_type[i_obj] == _POINT_SOURCE:
-                gs_type = 'pointSource'
-            elif object_type[i_obj] == _SERSIC_2D:
-                gs_type = 'sersic'
-            message += "    uniqueId %d -- %s " % (unique_id[i_obj], gs_type)
-            message += "mag_norm %.2e " % mag_norm[i_obj]
-            message += "galacticAv %.2e " % galactic_av[i_obj]
-            message += "galacticRv %.2e " % galactic_rv[i_obj]
-            message += "major_axis_arcsec %.2e " % semi_major_arcsec[i_obj]
-            message += "minor_axis_arcsec %.2e " % semi_minor_arcsec[i_obj]
-            message += "\n"
+        n_bad_mag_norm = len(np.where(mag_norm>50.0)[0])
+        message += "    %d had mag_norm > 50.0\n" % n_bad_mag_norm
+        n_bad_av = len(np.where(np.logical_and(galactic_av==0.0, galactic_rv==0.0))[0])
+        message += "    %d had galactic_Av == galactic_Rv == 0\n" % n_bad_av
+        n_bad_axes = len(np.where(np.logical_and(object_type==_SERSIC_2D,
+                                                 semi_major_arcsec<semi_minor_arcsec))[0])
+        message += "    %d had semi_major_axis < semi_minor_axis\n" % n_bad_axes
         warnings.warn(message)
 
     wav_int = None

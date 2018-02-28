@@ -383,8 +383,9 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                               34307989098523])
 
         self.assertIn('Omitted 5 suspicious objects', message)
-        for unq_id in bad_unique_ids:
-            self.assertIn('uniqueId %d' % unq_id, message)
+        self.assertIn('4 had galactic_Av', message)
+        self.assertIn('1 had mag_norm', message)
+        self.assertIn('1 had semi_major_axis', message)
 
         self.assertEqual(len(instcat_contents.sources[0]), 16)
         for obj in instcat_contents.sources[0]:
