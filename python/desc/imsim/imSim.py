@@ -219,9 +219,9 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
             params = line.strip().split()
             if params[0] != 'object':
                 continue
+            i_obj += 1
             if numRows is not None and i_obj>=num_objects:
                 break
-            i_obj += 1
             unique_id[i_obj] = int(params[1])
             ra_phosim[i_obj] = float(params[2])
             dec_phosim[i_obj] = float(params[3])
