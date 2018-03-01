@@ -361,7 +361,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         with warnings.catch_warnings(record=True) as wa:
             instcat_contents = desc.imsim.parsePhoSimInstanceFile(cat_file)
-        self.assertGreater(len(wa), 1)
+        self.assertGreater(len(wa), 0)
 
         # we must detect which warning is the warning we are actually
         # testing, because PALPY keeps raising ERFAWarnings over our
