@@ -64,7 +64,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         with self.assertRaises(desc.imsim.PhosimInstanceCatalogParseError) as ee:
             results = desc.imsim.parsePhoSimInstanceFile(dummy_catalog)
         self.assertIn("Required commands", ee.exception.args[0])
-
+        if os.path.isfile(dummy_catalog):
+            os.remove(dummy_catalog)
 
     def test_metadata_from_file(self):
         """
