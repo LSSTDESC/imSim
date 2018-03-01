@@ -15,11 +15,9 @@ from lsst.sims.GalSimInterface import make_galsim_detector
 from lsst.sims.GalSimInterface import SNRdocumentPSF
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
-from lsst.sims.GalSimInterface import GalSimDetector
 from lsst.sims.GalSimInterface import GalSimInterpreter
 from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
-
 
 def main():
     """
@@ -68,7 +66,6 @@ def main():
         logger.info("Reading all rows from the instance catalog %s.",
                     arguments.file)
 
-    camera = desc.imsim.get_obs_lsstSim_camera()
     camera_wrapper = LSSTCameraWrapper()
 
     catalog_contents = desc.imsim.parsePhoSimInstanceFile(arguments.file,
@@ -113,8 +110,8 @@ def main():
                                        noiseWrapper=noise_and_background,
                                        seed=arguments.seed)
 
-    gs_interpreter.checkpoint_file = args.checkpoint_file
-    gs_interpreter.nobj_checkpoint = nobj_checkpoint
+    gs_interpreter.checkpoint_file = arguments.checkpoint_file
+    gs_interpreter.nobj_checkpoint = arguments.nobj_checkpoint
     gs_interpreter.restore_checkpoint(camera_wrapper,
                                       phot_params,
                                       obs_md)
@@ -148,10 +145,12 @@ def main():
 
     if arguments.sensor is not None:
         gs_objects_to_draw = gs_object_dict[arguments.sensor]
-    else
+    else:
         gs_objects_to_draw = gs_object_arr
 
-    for gs_obj in gs_objects_to_draw
+    for gs_obj in gs_objects_to_draw:
+        if gs_obj.uniqueId in gs_interpreter.drawn_objects:
+            continue
         gs_interpreter.drawObject(gs_obj)
 
     desc.imsim.add_cosmic_rays(gs_interpreter, phot_params)
