@@ -51,9 +51,9 @@ class SkyModelTestCase(unittest.TestCase):
         in the combined image for multiple nsnaps.
         """
         desc.imsim.read_config()
-        instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',
-                                    'tiny_instcat.txt')
-        commands, objects = desc.imsim.parsePhoSimInstanceFile(instcat_file)
+        instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests', 'data',
+                                    'phosim_stars.txt')
+        commands = desc.imsim.metadata_from_file(instcat_file)
         obs_md = desc.imsim.phosim_obs_metadata(commands)
         photPars_2 = desc.imsim.photometricParameters(commands)
         self.assertEqual(photPars_2.nexp, 2)
