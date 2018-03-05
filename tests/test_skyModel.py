@@ -13,15 +13,18 @@ except ImportError:
 import numpy as np
 import galsim
 import desc.imsim
+import lsst.sims.skybrightness as skybrightness
+from lsst.sims.photUtils import BandpassDict
 
 
 class SkyModelTestCase(unittest.TestCase):
     """
     TestCase class for skyModel module code.
     """
+
     def setUp(self):
         self.test_config_file = 'test_config.txt'
-        self.zp_u = 0.282598538804
+        self.zp_u = 0.36626526294988776
         cp = configparser.ConfigParser()
         cp.optionxform = str
         section = 'skyModel_params'
@@ -60,7 +63,7 @@ class SkyModelTestCase(unittest.TestCase):
         desc.imsim.read_config()
         instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',
                                     'tiny_instcat.txt')
-        commands, objects = desc.imsim.parsePhoSimInstanceFile(instcat_file)
+        commands = desc.imsim.metadata_from_file(instcat_file)
         obs_md = desc.imsim.phosim_obs_metadata(commands)
         photPars_2 = desc.imsim.photometricParameters(commands)
         self.assertEqual(photPars_2.nexp, 2)
@@ -111,6 +114,27 @@ class SkyModelTestCase(unittest.TestCase):
         dt_unbundled = time.time() - t0
         self._apply_sky_background_tests(image_1, image_2)
 
+
+    def test_skycounts_function(self):
+        """
+        Test that the SkyCountsPerSec class gives the right result for the previously
+        calculated zero points. (This is defined as the number of counts per second for
+        a 24 magnitude source.)  Here we set magNorm=24 to calculate the zero points
+        but when calculating the sky background from the sky brightness
+        model magNorm=None as above.
+        """
+        desc.imsim.read_config()
+        instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',
+                                    'tiny_instcat.txt')
+        obs_md, photPars, sources = desc.imsim.parsePhoSimInstanceFile(instcat_file)
+        skyModel = skybrightness.SkyModel(mags=False)
+        skyModel.setRaDecMjd(0., 90., 58000, azAlt=True, degrees=True)
+
+        bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u','g','r','i','z','y'])
+        skycounts_persec = desc.imsim.skyModel.SkyCountsPerSec(skyModel, photPars, bandPassdic)
+
+        skycounts_persec_u = skycounts_persec('u', 24)
+        self.assertAlmostEqual(skycounts_persec_u.value, self.zp_u)
 
 if __name__ == '__main__':
     unittest.main()
