@@ -79,7 +79,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
     a sky model based on the ESO model as implemented in
     """
 
-    def __init__(self, obs_metadata, seed=None, bandpassDict=None,
+    def __init__(self, obs_metadata, photParams, seed=None, bandpassDict=None,
                  addNoise=True, addBackground=True, fast_background=False,
                  bundles_per_pix=20):
         """
@@ -89,6 +89,8 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             Visit-specific data such as pointing direction,
             observation time, seeing, bandpass info, etc..  This info
             is extracted from the phosim instance catalog headers.
+        photParams: lsst.sims.photUtils.PhotometricParameters
+            Visit-specific photometric parameters, such as exposure time, gain, bandpass, etc..
         seed: int, optional
             Seed value passed to the random number generator used by
             the noise model. Defaults to None, which causes GalSim to
@@ -111,6 +113,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             If bundles_per_pix <= 1, then use unbundled photons.
         """
         self.obs_metadata = obs_metadata
+        self.photParams = photParams
         if bandpassDict is None:
             self.bandpassDict = BandpassDict.loadBandpassesFromFiles()[0]
 
@@ -168,6 +171,22 @@ class ESOSkyModel(NoiseAndBackgroundBase):
                 = galsim.FRatioAngles(fratio, obscuration, self.randomNumbers)
         return self._angles
 
+    def sky_counts(self):
+        """
+        Returns
+        -------
+        float: sky background counts per pixel.
+        """
+        bandPassName = self.obs_metadata.bandpass
+
+        # Since we are only producing one eimage, account for cases
+        # where nsnap > 1 with an effective exposure time for the
+        # visit as a whole.  TODO: Undo this change when we write
+        # separate images per exposure.
+        exposureTime = self.photParams.nexp*self.photParams.exptime
+        skycounts_persec = SkyCountsPerSec(self.skyModel, self.photParams, self.bandpassDict)
+        return float(skycounts_persec(bandPassName)*exposureTime*u.s)
+
     def addNoiseAndBackground(self, image, bandpass='u', m5=None,
                               FWHMeff=None,
                               photParams=None, detector=None):
@@ -205,16 +224,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             TreeRingInfo = namedtuple('TreeRingInfo', ['center', 'func'])
             detector = DummyDetector(TreeRingInfo(galsim.PositionD(0, 0), None))
 
-        bandPassName = self.obs_metadata.bandpass
-
-        # Since we are only producing one eimage, account for cases
-        # where nsnap > 1 with an effective exposure time for the
-        # visit as a whole.  TODO: Undo this change when we write
-        # separate images per exposure.
-        exposureTime = photParams.nexp * photParams.exptime
-        skycounts_persec = SkyCountsPerSec(self.skyModel, photParams, self.bandpassDict)
-        skyCounts = skycounts_persec(bandPassName) * exposureTime * u.s
-
+        skyCounts = self.sky_counts()
         image = image.copy()
 
         if self.addBackground:
@@ -231,10 +241,10 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             # image brightness.
             skyLevel = 0
         else:
-            skyLevel = skyCounts * photParams.gain
+            skyLevel = skyCounts * self.photParams.gain
 
         if self.addNoise and self.fast_background:
-            noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
+            noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=self.photParams)
             image.addNoise(noiseModel)
 
         return image

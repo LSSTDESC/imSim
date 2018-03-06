@@ -101,7 +101,7 @@ def main():
     # this basic info to use Peter Y's ESO sky model.
     # We must pass obs_metadata, chip information etc...
     noise_and_background \
-        = ESOSkyModel(obs_md, addNoise=True, addBackground=True,
+        = ESOSkyModel(obs_md, phot_params, addNoise=True, addBackground=True,
                       fast_background=True)
 
     bp_dict = BandpassDict.loadTotalBandpassesFromFiles(bandpassNames=obs_md.bandpass)
@@ -112,6 +112,7 @@ def main():
                                        bandpassDict=bp_dict,
                                        noiseWrapper=noise_and_background,
                                        seed=arguments.seed)
+    gs_interpreter.sky_bg_per_pixel = noise_and_background.sky_counts()
 
     gs_interpreter.checkpoint_file = arguments.checkpoint_file
     gs_interpreter.nobj_checkpoint = arguments.nobj_checkpoint
