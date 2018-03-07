@@ -102,13 +102,8 @@ def moc_deviations():
     Returns an array of random mock optical deviations as a (35, 50) array.
 
     For each optical degree of freedom in LSST, deviations are chosen randomly
-    at 35 positions in the focal plane using a uniform distribution. Maximum
-    values for each degree of freedom are chosen and hardcoded based on Angeli
-    et al. 2014. The minimum value is set using the deviation argument as
-    (1 - <deviation>) * <max distortion>.
-
-    @param [in] spread is a float thet defines the range in size of the
-    randomly generated deviations
+    at 35 positions in the focal plane using a normal distribution. Parameters
+    for each distribution are hardcoded based on Angeli et al. 2014.
 
     @param [out] A (35, 50) array representing mock optical distortions
     """
