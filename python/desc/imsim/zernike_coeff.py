@@ -5,6 +5,7 @@ the open loop lookup table.
 """
 
 import os
+from warnings import warn
 
 import numpy as np
 from scipy.interpolate import interp2d
@@ -37,7 +38,7 @@ def _calc_fit_error(p, x_arr, y_arr, z_arr):
     return gen_superposition(p)(x_arr, y_arr) - z_arr
 
 
-def get_cartesian_sampling():
+def cartesian_coords():
     """
     Return 35 cartesian sampling coordinates in the focal plane
 
@@ -65,7 +66,7 @@ def get_cartesian_sampling():
     return np.array(x_list), np.array(y_list)
 
 
-def get_polar_sampling():
+def polar_coords():
     """
     Return 35 polar sampling coordinates in the focal plane
 
@@ -96,7 +97,7 @@ def get_polar_sampling():
     return np.array(r_list), np.array(theta_list)
 
 
-def moc_deviations(spread):
+def moc_deviations():
     """
     Returns an array of random mock optical deviations as a (35, 50) array.
 
@@ -112,33 +113,34 @@ def moc_deviations(spread):
     @param [out] A (35, 50) array representing mock optical distortions
     """
 
-    # Todo: Modify this function to pull from a gaussian distribution
-    max_distortion = np.array([
+    warn('Deviation values are generated using place holder values. \n'
+         'They are not an accurate representation of real, physical values.')
+
+    # [average, standard deviation]
+    deviation_params = np.array([
         # M2: Piston (microns), x/y decenter (microns), x/y tilt (arcsec)
-        15.0, 5.0, 5.0, 0.75, 0.75,
+        [0.0, 15.0], [0.0, 5.0], [0.0, 5.0], [0.0, 0.75], [0.0, 0.75],
 
         # Camera: Piston (microns), x/y decenter (microns), x/y tilt (arcsec)
-        30.0, 2.0, 2.5, 1.5, 1.5,
+        [0.0, 30.0], [0.0, 2.0], [0.0, 2.5], [0.0, 1.5], [0.0, 1.5],
 
         # M1M3: bending modes (microns)
-        0.5, 0.2, 0.1, 0.1, 0.1,
-        0.1, 0.1, 0.1, 0.1, 0.1,
-        0.1, 0.1, 0.1, 0.1, 0.1,
-        0.1, 0.1, 0.1, 0.1, 0.1,
+        [0.0, 0.5], [0.0, 0.2], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
+        [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
+        [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
+        [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
 
         # M2: bending modes (microns)
-        0.4, 0.1, 0.1, 0.1, 0.1,
-        0.1, 0.1, 0.1, 0.1, 0.1,
-        0.1, 0.1, 0.1, 0.1, 0.1,
-        0.1, 0.1, 0.1, 0.1, 0.1,
+        [0.0, 0.4], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
+        [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
+        [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
+        [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1]
     ])
 
-    min_distortion = (1 - spread) * max_distortion
-    random_signs = np.random.choice([-1, 1], size=50)
     distortion = np.zeros((35, 50))
     for i in range(35):
-        rand_distortion = np.random.uniform(min_distortion, max_distortion)
-        distortion[i] = random_signs * rand_distortion
+        distortion[i] = np.random.normal(deviation_params[i][0],
+                                         deviation_params[i][1])
 
     return distortion
 
@@ -152,7 +154,8 @@ class OpticalZernikes:
     """
 
     sensitivity = np.genfromtxt(MATRIX_PATH).reshape((35, 19, 50))
-    polar_coords = get_polar_sampling()
+    polar_coords = polar_coords()
+    _cartesian_cords = None
 
     def __init__(self, deviations=None):
         """
@@ -160,9 +163,8 @@ class OpticalZernikes:
         each of LSST's optical degrees of freedom at 35 sampling coordinates
         """
 
-        self._cartesian_cords = None
         if deviations is None:
-            deviations = moc_deviations(.2)
+            deviations = moc_deviations()
 
         self.sampling_coeff = self._calc_sampling_coeff(deviations)
         self._fit_functions = self._optimize_fits()
@@ -197,7 +199,7 @@ class OpticalZernikes:
         """
 
         if self._cartesian_cords is None:
-            self._cartesian_cords = get_cartesian_sampling()
+            self._cartesian_cords = cartesian_coords()
 
         return self._cartesian_cords
 
@@ -274,10 +276,10 @@ class OpticalZernikes:
 
 # Check run times for OpticalZernikes
 if __name__ == '__main__':
-    n_runs = 1
+    n_runs = 20
     n_coords = 1000
 
-    optical_deviations = moc_deviations(spread=.4)
+    optical_deviations = moc_deviations()
     x_coords = np.random.uniform(-1.5, 1.5, size=(n_coords,))
     y_coords = np.random.uniform(-1.5, 1.5, size=(n_coords,))
 
@@ -287,11 +289,11 @@ if __name__ == '__main__':
                        globals=globals(),
                        number=n_runs)
 
-    print('init time:', init_time / n_runs)
+    print('Averages over {} runs:'.format(n_runs))
+    print('Init time (s):', init_time / n_runs)
 
     closed_loop = OpticalZernikes(optical_deviations)
     runtime = timeit('closed_loop.cartesian_coeff(x_coords, y_coords)',
-                     globals=globals(),
-                     number=n_runs)
+                     globals=globals(), number=n_runs)
 
-    print('run time for', n_coords, 'coords:', runtime / n_runs)
+    print('Run time for (s)', n_coords, 'coords:', runtime / n_runs)
