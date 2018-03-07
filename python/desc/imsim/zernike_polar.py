@@ -321,7 +321,7 @@ def z_22(r, t):
     @param [out] 7^(1/2) * (20r^6 - 30r^4 + 12r^2 - 1)
     """
 
-    return sqrt(7) * (20 * r ** 6 - 30 * r **4 + 12 * r ** 2 - 1)
+    return sqrt(7) * (20 * r ** 6 - 30 * r ** 4 + 12 * r ** 2 - 1)
 
 
 def gen_unoptimized(p):
@@ -340,18 +340,17 @@ def gen_unoptimized(p):
     """
 
     def fit_func(r, t):
-
-        fit = p[0] * z_1(r, t) + p[1] * z_2(r, t) \
-              + p[2] * z_3(r, t) + p[3] * z_4(r, t) \
-              + p[4] * z_5(r, t) + p[5] * z_6(r, t) \
-              + p[6] * z_7(r, t) + p[7] * z_8(r, t) \
-              + p[8] * z_9(r, t) + p[9] * z_10(r, t) \
-              + p[10] * z_11(r, t) + p[11] * z_12(r, t) \
-              + p[12] * z_13(r, t) + p[13] * z_14(r, t) \
-              + p[14] * z_15(r, t) + p[15] * z_16(r, t) \
-              + p[16] * z_17(r, t) + p[17] * z_18(r, t) \
-              + p[18] * z_19(r, t) + p[19] * z_20(r, t) \
-              + p[20] * z_21(r, t) + p[21] * z_22(r, t)
+        fit = (p[0] * z_1(r, t) + p[1] * z_2(r, t)
+               + p[2] * z_3(r, t) + p[3] * z_4(r, t)
+               + p[4] * z_5(r, t) + p[5] * z_6(r, t)
+               + p[6] * z_7(r, t) + p[7] * z_8(r, t)
+               + p[8] * z_9(r, t) + p[9] * z_10(r, t)
+               + p[10] * z_11(r, t) + p[11] * z_12(r, t)
+               + p[12] * z_13(r, t) + p[13] * z_14(r, t)
+               + p[14] * z_15(r, t) + p[15] * z_16(r, t)
+               + p[16] * z_17(r, t) + p[17] * z_18(r, t)
+               + p[18] * z_19(r, t) + p[19] * z_20(r, t)
+               + p[20] * z_21(r, t) + p[21] * z_22(r, t))
 
         return fit
 
@@ -377,7 +376,6 @@ def gen_superposition(p):
     s_12 = sqrt(12)
 
     def out_func(r, t):
-
         # Store in memory any values that are needed more than once
         r_2 = r ** 2
         r_3 = r ** 3
@@ -433,4 +431,5 @@ if __name__ == '__main__':
     import numpy as np
 
     p = np.ones(22)
-    assert np.isclose(gen_superposition(p)(1.5, 0.7), gen_unoptimized(p)(1.5, 0.7))
+    assert np.isclose(gen_superposition(p)(1.5, 0.7),
+                      gen_unoptimized(p)(1.5, 0.7))
