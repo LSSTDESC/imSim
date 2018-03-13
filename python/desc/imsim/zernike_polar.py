@@ -5,7 +5,7 @@
 indexing scheme.
 """
 
-from numpy import sqrt, cos, sin, arctan2
+from numpy import sqrt, cos, sin
 
 
 def z_1(r, t):

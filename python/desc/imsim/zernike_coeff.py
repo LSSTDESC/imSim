@@ -5,7 +5,6 @@ the open loop lookup table.
 """
 
 import os
-from warnings import warn
 
 import numpy as np
 from scipy.interpolate import interp2d
@@ -15,6 +14,7 @@ from zernike_polar import gen_superposition
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 MATRIX_PATH = os.path.join(FILE_DIR, 'sensitivity_matrix.txt')
+AOS_PATH = os.path.join(FILE_DIR, 'aos_sim_results.txt')
 
 
 def _calc_fit_error(p, x_arr, y_arr, z_arr):
@@ -108,34 +108,13 @@ def moc_deviations():
     @param [out] A (35, 50) array representing mock optical distortions
     """
 
-    warn('Deviation values are generated using place holder values. \n'
-         'They are not an accurate representation of real, physical values.')
-
-    # [average, standard deviation]
-    deviation_params = np.array([
-        # M2: Piston (microns), x/y decenter (microns), x/y tilt (arcsec)
-        [0.0, 15.0], [0.0, 5.0], [0.0, 5.0], [0.0, 0.75], [0.0, 0.75],
-
-        # Camera: Piston (microns), x/y decenter (microns), x/y tilt (arcsec)
-        [0.0, 30.0], [0.0, 2.0], [0.0, 2.5], [0.0, 1.5], [0.0, 1.5],
-
-        # M1M3: bending modes (microns)
-        [0.0, 0.5], [0.0, 0.2], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
-        [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
-        [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
-        [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
-
-        # M2: bending modes (microns)
-        [0.0, 0.4], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
-        [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
-        [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1],
-        [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1], [0.0, 0.1]
-    ])
+    aos_sim_results = np.genfromtxt(AOS_PATH)
+    avg = np.average(aos_sim_results, axis=1)
+    std = np.std(aos_sim_results, axis=1)
 
     distortion = np.zeros((35, 50))
     for i in range(35):
-        distortion[i] = np.random.normal(deviation_params[i][0],
-                                         deviation_params[i][1])
+        distortion[i] = np.random.normal(avg, std)
 
     return distortion
 
