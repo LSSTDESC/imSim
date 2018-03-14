@@ -10,14 +10,14 @@ import numpy as np
 from scipy.interpolate import interp2d
 from scipy.optimize import leastsq
 
-from zernike_polar import gen_superposition
+from .polar_zernikes import gen_superposition
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 MATRIX_PATH = os.path.join(FILE_DIR, 'sensitivity_matrix.txt')
 AOS_PATH = os.path.join(FILE_DIR, 'aos_sim_results.txt')
 
 
-def _calc_fit_error(p, x_arr, y_arr, z_arr):
+def _calc_fit_error(p, r_arr, t_arr, z_arr):
     """
     Calculates the residuals of a superposition of zernike polynomials
 
@@ -26,16 +26,16 @@ def _calc_fit_error(p, x_arr, y_arr, z_arr):
 
     @param [in] p is an array of 22 polynomial coefficients for the superposition
 
-    @param [in] x_arr is an array of x coordinates
+    @param [in] r_arr is an array of rho coordinates
 
-    @param [in] y_arr is an array of y coordinates
+    @param [in] t_arr is an array of theta coordinates
 
     @param [in] z_val is an array of expected or measured values
 
     @param [out] An array of the residuals
     """
 
-    return gen_superposition(p)(x_arr, y_arr) - z_arr
+    return gen_superposition(p)(r_arr, t_arr) - z_arr
 
 
 def cartesian_coords():
@@ -53,11 +53,11 @@ def cartesian_coords():
 
     # Loop over points on spines
     radii = [0.379, 0.841, 1.237, 1.535, 1.708]
-    angles = [0, 60, 120, 180, 240, 300]
+    angles = np.deg2rad([0, 60, 120, 180, 240, 300])
     for radius in radii:
         for angle in angles:
-            x_list.append(radius * np.cos(np.deg2rad(angle)))
-            y_list.append(radius * np.sin(np.deg2rad(angle)))
+            x_list.append(radius * np.cos(angle))
+            y_list.append(radius * np.sin(angle))
 
     # Add Corner raft points by hand
     x_list.extend([1.185, -1.185, -1.185, 1.185])
@@ -68,11 +68,13 @@ def cartesian_coords():
 
 def polar_coords():
     """
-    Return 35 polar sampling coordinates in the focal plane
+    Return 35 polar sampling coordinates in the focal plane.
 
-    @param [out] an array of 35 x coordinates
+    Angular values are returned in radians
 
-    @param [out] an array of 35 y coordinates
+    @param [out] an array of 35 r coordinates
+
+    @param [out] an array of 35 theta coordinates
     """
 
     # Initialize with central point
@@ -85,7 +87,7 @@ def polar_coords():
     for radius in radii:
         for angle in angles:
             r_list.append(radius)
-            theta_list.append(angle)
+            theta_list.append(np.deg2rad(angle))
 
     # Add Corner raft points
     x_raft_coords = [1.185, -1.185, -1.185, 1.185]
@@ -109,6 +111,7 @@ def moc_deviations():
     """
 
     aos_sim_results = np.genfromtxt(AOS_PATH)
+    assert aos_sim_results.shape[0] == 50
     avg = np.average(aos_sim_results, axis=1)
     std = np.std(aos_sim_results, axis=1)
 
@@ -185,10 +188,10 @@ class OpticalZernikes:
         """
 
         out = []
-        x, y = self.polar_coords
+        r, t = self.polar_coords
         for coefficient in self.sampling_coeff:
             optimal = leastsq(_calc_fit_error, np.ones((22,)),
-                              args=(x, y, coefficient))
+                              args=(r, t, coefficient))
 
             fit_coeff = optimal[0]
             fit_func = gen_superposition(fit_coeff)
@@ -223,7 +226,7 @@ class OpticalZernikes:
         """
         Determine the zernike coefficients using a fit of zernike polynomials
 
-        @param [in] fp_r is the desired focal plane radial coordinate
+        @param [in] fp_r is the desired focal plane radial coordinate in rads
 
         @param [in] fp_t is the desired focal plane angular coordinate
 
@@ -250,7 +253,7 @@ class OpticalZernikes:
 
 # Check run times for OpticalZernikes
 if __name__ == '__main__':
-    n_runs = 20
+    n_runs = 100
     n_coords = 1000
 
     optical_deviations = moc_deviations()

@@ -324,7 +324,7 @@ def z_22(r, t):
     return sqrt(7) * (20 * r ** 6 - 30 * r ** 4 + 12 * r ** 2 - 1)
 
 
-def gen_unoptimized(p):
+def gen_superposition_unop(p):
     """
     A generator function for a superposition of zernike polynomials
 
@@ -418,18 +418,9 @@ def gen_superposition(p):
                 + r_5 * (p[19] * cos(5 * t) + p[20] * sin(5 * t))
             )
 
-            # n = 6 (only goes as far as n = 0)
+            # n = 6 (only goes as far as m = 0)
             + p[21] * sqrt(7) * (20 * r_6 - 30 * r_4 + 12 * r_2 - 1)
         )
         return fit
 
     return out_func
-
-
-if __name__ == '__main__':
-    # Test for algebraic mistakes that may have occurred in gen_superposition
-    import numpy as np
-
-    p = np.ones(22)
-    assert np.isclose(gen_superposition(p)(1.5, 0.7),
-                      gen_unoptimized(p)(1.5, 0.7))
