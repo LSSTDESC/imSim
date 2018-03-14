@@ -8,6 +8,7 @@ code found in sims_GalSimInterface.
 from __future__ import absolute_import, print_function
 import os
 import argparse
+import warnings
 import numpy as np
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
@@ -169,4 +170,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', 'Automatic n_photons', UserWarning)
+        main()
