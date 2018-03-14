@@ -10,7 +10,7 @@ import numpy as np
 from scipy.interpolate import interp2d
 from scipy.optimize import leastsq
 
-from .polar_zernikes import gen_superposition
+from polar_zernikes import gen_superposition
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 MATRIX_PATH = os.path.join(FILE_DIR, 'sensitivity_matrix.txt')
