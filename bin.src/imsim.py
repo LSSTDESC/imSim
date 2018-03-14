@@ -112,7 +112,8 @@ def main():
                                        detectors=detector_list,
                                        bandpassDict=bp_dict,
                                        noiseWrapper=noise_and_background,
-                                       seed=arguments.seed)
+                                       seed=arguments.seed,
+                                       apply_sensor_model=not arguments.disable_sensor_model)
     gs_interpreter.sky_bg_per_pixel = noise_and_background.sky_counts()
 
     gs_interpreter.checkpoint_file = arguments.checkpoint_file
