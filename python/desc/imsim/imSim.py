@@ -297,14 +297,13 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
 
     object_is_valid = np.array([True]*num_objects)
 
-    invalid_objects = np.where(np.logical_or(
-                               mag_norm>50.0,
-                               np.logical_and(galactic_av==0.0, galactic_rv==0.0),
-                               np.logical_and(object_type==_SERSIC_2D,
-                                              semi_major_arcsec<semi_minor_arcsec),
-                               np.logical_and(object_type==_RANDOM_WALK,
-                                              sersic_index<=0)
-                               ))
+    invalid_objects = np.where(np.logical_or(np.logical_or(
+                                    mag_norm>50.0,
+                                    np.logical_and(galactic_av==0.0, galactic_rv==0.0)),
+                               np.logical_or(
+                                    np.logical_and(object_type==_SERSIC_2D,
+                                                 semi_major_arcsec<semi_minor_arcsec),
+                                    np.logical_and(object_type==_RANDOM_WALK,sersic_index<=0))))
 
     object_is_valid[invalid_objects] = False
 
