@@ -209,6 +209,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     semi_minor_arcsec = np.zeros(num_objects, dtype=float)
     position_angle_degrees = np.zeros(num_objects, dtype=float)
     sersic_index = np.zeros(num_objects, dtype=float)
+    npoints = np.zeros(num_objects, dtype=int)
     redshift = np.zeros(num_objects, dtype=float)
 
     unique_id = np.zeros(num_objects, dtype=int)
@@ -261,7 +262,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                 semi_major_arcsec[i_obj] = float(params[13])
                 semi_minor_arcsec[i_obj] = float(params[14])
                 position_angle_degrees[i_obj] = float(params[15])
-                sersic_index[i_obj] = int(params[16])
+                npoints[i_obj] = int(params[16])
                 i_gal_dust_model = 18
                 if params[17].lower() != 'none':
                     i_gal_dust_model = 20
@@ -303,7 +304,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                                np.logical_or(
                                     np.logical_and(object_type==_SERSIC_2D,
                                                  semi_major_arcsec<semi_minor_arcsec),
-                                    np.logical_and(object_type==_RANDOM_WALK,sersic_index<=0))))
+                                    np.logical_and(object_type==_RANDOM_WALK,npoints<=0))))
 
     object_is_valid[invalid_objects] = False
 
@@ -317,7 +318,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
         n_bad_axes = len(np.where(np.logical_and(object_type==_SERSIC_2D,
                                                  semi_major_arcsec<semi_minor_arcsec))[0])
         message += "    %d had semi_major_axis < semi_minor_axis\n" % n_bad_axes
-        n_bad_knots = len(np.where(np.logical_and(object_type==_RANDOM_WALK,sersic_index<=0))[0])
+        n_bad_knots = len(np.where(np.logical_and(object_type==_RANDOM_WALK,npoints<=0))[0])
         message += "    %d had n_points <= 0 \n" % n_bad_knots
         warnings.warn(message)
 
@@ -375,6 +376,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                                           sed_obj,
                                           bp_dict,
                                           phot_params,
+                                          npoints[i_obj],
                                           gamma1=gamma1[i_obj],
                                           gamma2=gamma2[i_obj],
                                           kappa=kappa[i_obj],
