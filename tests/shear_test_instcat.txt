@@ -1,0 +1,27 @@
+#comment
+rightascension 45.005
+declination 0.005
+mjd 59797.2854090
+altitude 43.6990272
+azimuth 73.7707957
+filter 2
+rotskypos 0.000
+rottelpos 0.000
+dist2moon 145.1095257
+moonalt -11.1383568
+moondec -18.7702120
+moonphase 59.6288830
+moonra 230.9832941
+nsnap 2
+obshistid 161899
+seed 161899
+seeing 0.7613760
+rawSeeing 0.7613760
+FWHMgeom 1.210734
+FWHMeff 1.409653
+sunalt -59.1098785
+vistime 33.0000000
+object 0 45.00 0.00 17. flatSED/sed_flat.txt.gz 0 0.0 0.0 0.0 0 0 sersic2d 0.5 0.5 0 1 CCM 0.100000001 3.0999999 CCM 0.0594432589 3.1
+object 1 45.01 0.00 17. flatSED/sed_flat.txt.gz 0 0.0 0.0 0.5 0 0 sersic2d 0.5 0.5 0 1 CCM 0.100000001 3.0999999 CCM 0.0594432589 3.1
+object 2 45.00 0.01 17. flatSED/sed_flat.txt.gz 0 0.5 0.0 0.0 0 0 sersic2d 0.5 0.5 0 1 CCM 0.100000001 3.0999999 CCM 0.0594432589 3.1
+object 3 45.01 0.01 17. flatSED/sed_flat.txt.gz 0 0.0 0.5 0.0 0 0 sersic2d 0.5 0.5 0 1 CCM 0.100000001 3.0999999 CCM 0.0594432589 3.1

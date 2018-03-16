@@ -15,7 +15,8 @@ electronics readout effects.
 """
 from __future__ import print_function, absolute_import, division
 import os
-from collections import OrderedDict
+import warnings
+from collections import namedtuple, OrderedDict
 import numpy as np
 import astropy.io.fits as fits
 import astropy.time
@@ -23,9 +24,10 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.utils as lsstUtils
 from .focalplane_info import FocalPlaneInfo, cte_matrix
+from .imSim import get_logger
 
 __all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
-           'set_phosim_bboxes']
+           'set_phosim_bboxes', 'set_noao_keywords']
 
 
 class ImageSource(object):
@@ -50,7 +52,8 @@ class ImageSource(object):
         Object containing the readout properties of the sensors in the
         focal plane, extracted from the segmentation.txt file.
     '''
-    def __init__(self, image_array, exptime, sensor_id, seg_file=None):
+    def __init__(self, image_array, exptime, sensor_id, seg_file=None,
+                 logger=None):
         """
         Class constructor.
 
@@ -66,10 +69,13 @@ class ImageSource(object):
             The segmentation.txt file, the PhoSim-formatted file that
             describes the properties of the sensors in the focal
             plane.  If None, then the version in imSim/data will be used.
+        logger: logging.Logger [None]
+            logging.Logger object to use. If None, then a logger with level
+            INFO will be used.
         """
         self.eimage = fits.HDUList()
         self.eimage.append(fits.PrimaryHDU(image_array))
-        self.eimage_data = self.eimage[0].data
+        self.eimage_data = self.eimage[0].data.transpose()
 
         self.exptime = exptime
         self.sensor_id = sensor_id
@@ -77,24 +83,36 @@ class ImageSource(object):
         self._read_seg_file(seg_file)
         self._make_amp_images()
 
+        if logger is None:
+            self.logger = get_logger('INFO')
+        else:
+            self.logger = logger
+
+    def __del__(self):
+        self.eimage.close()
+
     @staticmethod
-    def create_from_eimage(eimage_file, sensor_id=None, seg_file=None):
+    def create_from_eimage(eimage_file, sensor_id=None, seg_file=None,
+                           logger=None):
         """
         Create an ImageSource object from a PhoSim eimage file.
 
         Parameters
         ----------
-        eimage_file : str
+        eimage_file: str
            Filename of the eimage FITS file from which the amplifier
            images will be extracted.
-        sensor_id : str, optional
+        sensor_id: str, optional
             The raft and sensor identifier, e.g., 'R22_S11'.  If None,
             then extract the CHIPID keyword in the primarey HDU.
-        seg_file : str, optional
+        seg_file: str, optional
             Full path of segmentation.txt file, the PhoSim-formatted file
             that describes the properties of the sensors in the focal
             plane.  If None, then the version in obs_lsstSim/description
             will be used.
+        logger: logging.Logger [None]
+            logging.Logger object to use. If None, then a logger with level
+            INFO will be used.
 
         Returns
         -------
@@ -108,7 +126,7 @@ class ImageSource(object):
             sensor_id = eimage[0].header['CHIPID']
 
         image_source = ImageSource(eimage[0].data, exptime, sensor_id,
-                                   seg_file=seg_file)
+                                   seg_file=seg_file, logger=logger)
         image_source.eimage = eimage
         image_source.eimage_data = eimage[0].data
         return image_source
@@ -273,12 +291,19 @@ class ImageSource(object):
             Image HDU with the pixel data and header keywords
             appropriate for the requested sensor segment.
         """
-        hdu = fits.ImageHDU(data=self.amp_images[amp_name].getArray(),
-                            do_not_scale_image_data=True)
+        hdu = fits.ImageHDU(data=self.amp_images[amp_name].getArray().astype(np.int32))
 
         # Copy keywords from eimage primary header.
-        for key in self.eimage[0].header.keys():
-            hdu.header[key] = self.eimage[0].header[key]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for key in self.eimage[0].header.keys():
+                try:
+                    hdu.header[key] = self.eimage[0].header[key]
+                except ValueError as eobj:
+                    # eimages produced by phosim contain non-ASCII or
+                    # non-printable characters resulting in a ValueError.
+                    self.logger.warn("ValueError raised while attempting to "
+                                     "read {} from eimage header".format(key))
 
         # Set NOAO geometry keywords.
         amp_props = self.fp_props.get_amp(amp_name)
@@ -293,24 +318,24 @@ class ImageSource(object):
 
         return hdu
 
-    def write_amplifier_image(self, amp_name, outfile, clobber=True):
+    def write_amplifier_image(self, amp_name, outfile, overwrite=True):
         """
         Write the pixel data for the specified amplifier as FITS image.
 
         Parameters
         ----------
-        amp_name : str
+        amp_name: str
             Amplifier id, e.g., "R22_S11_C00".
-        outfile : str
+        outfile: str
             Filename of the FITS file to be written.
-        clobber : bool, optional
+        overwrite: bool [True]
             Flag whether to overwrite an existing output file.
         """
         output = fits.HDUList(fits.PrimaryHDU())
         output.append(self.get_amplifier_hdu(amp_name))
-        output.writeto(outfile, clobber=clobber)
+        output.writeto(outfile, overwrite=overwrite)
 
-    def write_fits_file(self, outfile, clobber=True, run_number=None,
+    def write_fits_file(self, outfile, overwrite=True, run_number=None,
                         lsst_num='LCA-11021_RTM-000'):
         """
         Write the processed eimage data as a multi-extension FITS file.
@@ -319,7 +344,7 @@ class ImageSource(object):
         ----------
         outfile : str
             Name of the output FITS file.
-        clobber : bool, optional
+        overwrite : bool, optional
             Flag whether to overwrite an existing output file.  Default: True.
         """
         output = fits.HDUList(fits.PrimaryHDU())
@@ -341,7 +366,7 @@ class ImageSource(object):
             amp_name = '_C'.join((self.sensor_id, seg_id))
             output.append(self.get_amplifier_hdu(amp_name))
             output[-1].header['EXTNAME'] = 'Segment%s' % seg_id
-        output.writeto(outfile, clobber=clobber)
+        output.writeto(outfile, overwrite=overwrite)
 
     @staticmethod
     def _noao_section_keyword(bbox, flipx=False, flipy=False):
@@ -448,3 +473,205 @@ def set_phosim_bboxes(amp):
     amp.setRawPrescanBBox(afwGeom.Box2I(afwGeom.Point2I(0, 1),
                                         afwGeom.Extent2I(4, 2000)))
     return amp
+
+PixelParameters = namedtuple('PixelParameters',
+                             ('''dimv dimh ccdax ccday ccdpx ccdpy gap_inx
+                                 gap_iny gap_outx gap_outy preh'''.split()))
+pixel_parameters \
+    = {'E2V': PixelParameters(2002, 512, 4004, 4096, 4197, 4200, 28,
+                              25, 26.5, 25, 10),
+       'ITL': PixelParameters(2000, 509, 4000, 4072, 4198, 4198, 27,
+                              27, 26.0, 26, 3)}
+
+# The image extension headers do not include the CCD vendor so we
+# infer that from the values of the DETSIZE keyword.
+vendors = {'[1:4096,1:4004]': 'E2V',
+           '[1:4072,1:4000]': 'ITL'}
+
+def set_noao_keywords(hdu, slot_name):
+    """
+    Update the image header for one of the readout segments.  Adds raft-level
+    coordinates (one set in Camera coordinates and one set rotated so the CCD
+    orientation has serial direction horizontal).  Adds amplifier and rotated
+    CCD coordinates as well.  See LCA-13501.
+
+    Parameters
+    ----------
+    hdu : fits.ImageHDU
+        FITS image whose header is being updated
+    slot_name : str
+        Name of the slot within the raft
+
+    Returns
+    -------
+    fits.ImageHDU : The modified hdu.
+    """
+    hdu.header['SLOT'] = slot_name
+
+    # Infer the CCD vendor from the DETSIZE keyword.
+    try:
+        vendor = vendors[hdu.header['DETSIZE']]
+    except KeyError:
+        raise RuntimeError("DETSIZE not recognized.")
+
+    # Pixel geometries differ between the two CCD vendors
+    pixel_pars = pixel_parameters[vendor]
+
+    # Get the segment 'coordinates' from the extension name, e.g., 'Segment00'.
+    extname = hdu.header['EXTNAME']
+    sx = int(extname[-2])
+    sy = int(extname[-1])
+
+    # For convenience of notation in LCA-13501 these are also defined
+    # as 'serial' and 'parallel' indices, with Segment = Sp*10 + Ss.
+    sp = sx
+    ss = sy
+
+    # Extract the x and y location indexes in the raft from the slot
+    # name.  Also define the serial and parallel versions.
+    cx = int(slot_name[-2])
+    cy = int(slot_name[-1])
+    cp = cx
+    cs = cy
+
+    # Define the WCS and Mosaic keywords.
+    hdu.header['WCSNAMEA'] = 'AMPLIFIER'
+    hdu.header['CTYPE1A'] = 'Seg_X   '
+    hdu.header['CTYPE2A'] = 'Seg_Y   '
+
+    hdu.header['WCSNAMEC'] = 'CCD     '
+    hdu.header['CTYPE1C'] = 'CCD_X   '
+    hdu.header['CTYPE2C'] = 'CCD_Y   '
+
+    hdu.header['WCSNAMER'] = 'RAFT    '
+    hdu.header['CTYPE1R'] = 'RAFT_X  '
+    hdu.header['CTYPE2R'] = 'RAFT_Y  '
+
+    hdu.header['WCSNAMEF'] = 'FOCAL_PLANE'
+
+    hdu.header['WCSNAMEB'] = 'CCD_SERPAR'
+    hdu.header['CTYPE1B'] = 'CCD_S   '
+    hdu.header['CTYPE2B'] = 'CCD_P   '
+
+    hdu.header['WCSNAMEQ'] = 'RAFT_SERPAR'
+    hdu.header['CTYPE1Q'] = 'RAFT_S  '
+    hdu.header['CTYPE2Q'] = 'RAFT_P  '
+
+    # Keyword values that are common betweem E2V and ITL CCDs.
+    hdu.header['PC1_1A'] = 0
+    hdu.header['PC1_2A'] = 1 - 2*sx
+    hdu.header['PC2_2A'] = 0
+    hdu.header['CDELT1A'] = 1
+    hdu.header['CDELT2A'] = 1
+    hdu.header['CRPIX1A'] = 0
+    hdu.header['CRPIX2A'] = 0
+    hdu.header['CRVAL1A'] = sx*(pixel_pars.dimv + 1)
+
+    hdu.header['PC1_1C'] = 0
+    hdu.header['PC1_2C'] = 1 - 2*sx
+    hdu.header['PC2_2C'] = 0
+    hdu.header['CDELT1C'] = 1
+    hdu.header['CDELT2C'] = 1
+    hdu.header['CRPIX1C'] = 0
+    hdu.header['CRPIX2C'] = 0
+    hdu.header['CRVAL1C'] = sx*(2*pixel_pars.dimv + 1)
+
+    hdu.header['PC1_1R'] = 0
+    hdu.header['PC1_2R'] = 1 - 2*sx
+    hdu.header['PC2_2R'] = 0
+    hdu.header['CDELT1R'] = 1
+    hdu.header['CDELT2R'] = 1
+    hdu.header['CRPIX1R'] = 0
+    hdu.header['CRPIX2R'] = 0
+    hdu.header['CRVAL1R'] = (sx*(2*pixel_pars.dimv + 1) + pixel_pars.gap_outx
+                             + (pixel_pars.ccdpx - pixel_pars.ccdax)/2.
+                             + cx*(2*pixel_pars.dimv + pixel_pars.gap_inx
+                                   + pixel_pars.ccdpx - pixel_pars.ccdax))
+
+    hdu.header['PC1_1B'] = 0
+    hdu.header['PC1_2B'] = 0
+    hdu.header['PC2_2B'] = 1 - 2*sp
+    hdu.header['CDELT1B'] = 1
+    hdu.header['CDELT2B'] = 1
+    hdu.header['CRPIX1B'] = 0
+    hdu.header['CRPIX2B'] = 0
+
+    hdu.header['PC1_1Q'] = 0
+    hdu.header['PC1_2Q'] = 0
+    hdu.header['PC2_2Q'] = 1 - 2*sp
+    hdu.header['CDELT1Q'] = 1
+    hdu.header['CDELT2Q'] = 1
+    hdu.header['CRPIX1Q'] = 0
+    hdu.header['CRPIX2Q'] = 0
+    hdu.header['CRVAL2Q'] = (sp*(2*pixel_pars.dimv + 1) + pixel_pars.gap_outx
+                             + (pixel_pars.ccdpx - pixel_pars.ccdax)/2.
+                             + cp*(2*pixel_pars.dimv + pixel_pars.gap_inx
+                                   + pixel_pars.ccdpx - pixel_pars.ccdax))
+
+    if vendor == 'ITL':
+        hdu.header['PC2_1A'] = -1
+        hdu.header['CRVAL2A'] = pixel_pars.dimh + 1 - pixel_pars.preh
+
+        hdu.header['PC2_1C'] = -1
+        hdu.header['CRVAL2C'] \
+            = pixel_pars.dimh + 1 + sy*pixel_pars.dimh - pixel_pars.preh
+
+        hdu.header['PC2_1R'] = -1
+        hdu.header['CRVAL2R'] = (pixel_pars.dimh + 1 + sy*pixel_pars.dimh
+                                 + pixel_pars.gap_outy
+                                 + (pixel_pars.ccdpy - pixel_pars.ccday)/2.
+                                 + cy*(8*pixel_pars.dimh + pixel_pars.gap_iny
+                                       + pixel_pars.ccdpy - pixel_pars.ccday)
+                                 - pixel_pars.preh)
+
+        hdu.header['PC1_1B'] = -1
+        hdu.header['CRVAL1B'] = (ss + 1)*pixel_pars.dimh + 1 - pixel_pars.preh
+        hdu.header['CRVAL2B'] = sp*(2*pixel_pars.dimv + 1)
+
+        hdu.header['PC1_1Q'] = -1
+        hdu.header['CRVAL1Q'] \
+            = (pixel_pars.gap_outy + (pixel_pars.ccdpy - pixel_pars.ccday)/2.
+               + cs*(8*pixel_pars.dimh + pixel_pars.gap_iny
+                     + pixel_pars.ccdpy - pixel_pars.ccday)
+               + (ss + 1)*pixel_pars.dimh + 1 - pixel_pars.preh)
+
+        hdu.header['DTM1_1'] = -1
+        hdu.header['DTV1'] \
+            = (pixel_pars.dimh + 1) + sy*pixel_pars.dimh + pixel_pars.preh
+        hdu.header['DTV2'] = (2*pixel_pars.dimv + 1)*(1 - sx)
+    else:
+        # vendor == 'E2V'
+        hdu.header['PC2_1A'] = 1 - 2*sx
+        hdu.header['CRVAL2A'] \
+            = sx*(pixel_pars.dimh + 1) + (2*sx - 1)*pixel_pars.preh
+
+        hdu.header['PC2_1C'] = 1 - 2*sx
+        hdu.header['CRVAL2C'] = (sx*(pixel_pars.dimh+1) + sy*pixel_pars.dimh
+                                 + (2*sx - 1)*pixel_pars.preh)
+
+        hdu.header['PC2_1R'] = 1 - 2*sx
+        hdu.header['CRVAL2R'] \
+            = (sx*(pixel_pars.dimh + 1) + sy*pixel_pars.dimh
+               + pixel_pars.gap_outy
+               + (pixel_pars.ccdpy - pixel_pars.ccday)/2.
+               + cy*(8*pixel_pars.dimh + pixel_pars.gap_iny + pixel_pars.ccdpy
+                     - pixel_pars.ccday) + (2*sx - 1)*pixel_pars.preh)
+        hdu.header['PC1_1B'] = 1 - 2*sp
+        hdu.header['CRVAL1B'] = (sp*(pixel_pars.dimh + 1) + ss*pixel_pars.dimh
+                                 + (2*sp - 1)*pixel_pars.preh)
+        hdu.header['CRVAL2B'] = sp*(2*pixel_pars.dimv + 1)
+
+        hdu.header['PC1_1Q'] = 1 - 2*sp
+        hdu.header['CRVAL1Q'] \
+            = (pixel_pars.gap_outy + (pixel_pars.ccdpy - pixel_pars.ccday)/2.
+               + cs*(8*pixel_pars.dimh + pixel_pars.gap_iny
+                     + pixel_pars.ccdpy - pixel_pars.ccday)
+               + sp*(pixel_pars.dimh + 1) + ss*pixel_pars.dimh
+               + (2*sp - 1)*pixel_pars.preh)
+
+        hdu.header['DTM1_1'] = 1 - 2*sx
+        hdu.header['DTV1'] = ((pixel_pars.dimh + 1 + 2*pixel_pars.preh)*sx
+                              + sy*pixel_pars.dimh - pixel_pars.preh)
+        hdu.header['DTV2'] = (2*pixel_pars.dimv + 1)*(1 - sx)
+
+    return hdu

@@ -1,30 +1,29 @@
-language: cpp
+language: python
+python:
+  - "3.6"
 os: linux
 sudo: required
 dist: trusty
 compiler: gcc
 
-install:
-  - travis_wait 30 ./setup/travis_install.sh lsst-sims nose pandas pylint
-  - ln -sf /home/travis/miniconda/lib/libssl.so.1.0.0 /home/travis/miniconda/lib/libssl.so.10
-  - ln -sf /home/travis/miniconda/lib/libcrypto.so.1.0.0 /home/travis/miniconda/lib/libcrypto.so.10
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - source eups-setups.sh
-  - conda install --yes astropy=1.1.2
-  - pip install coveralls
-  - setup lsst_sims
-  - eups declare -r . imsim -t current
-  - setup imsim
-  - scons
+env:
+  - OS_TYPE=centos OS_VERSION=7
 
-cache:
-  directories:
-  - $HOME/miniconda.tarball
-  timeout: 600
+services:
+  - docker
+
+install:
+  - sudo apt-get update
+  - echo 'DOCKER_OPTS="-H tcp://127.0.0.1:2375 -H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /etc/default/docker > /dev/null
+  - sudo service docker restart
+  - sleep 5
+  - sudo docker pull lsstdesc/stack-sims:w_2018_09-sims_2_6_0-v2
+  - pip install coveralls
 
 script:
-  - nosetests -s --with-coverage --cover-package=desc.imsim
-  - pylint --py3k `find . -name \*.py -print`
+  - sudo chown -R 1000:1000 .
+  - echo ${TRAVIS_BUILD_DIR}
+  - docker run -v `pwd`:${TRAVIS_BUILD_DIR} -e TRAVIS_BUILD_DIR lsstdesc/stack-sims:w_2018_09-sims_2_6_0-v2 ${TRAVIS_BUILD_DIR}/travis_test.sh
 
 after_success:
   - coveralls

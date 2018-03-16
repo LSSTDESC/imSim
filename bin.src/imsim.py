@@ -9,17 +9,15 @@ from __future__ import absolute_import, print_function
 import os
 import argparse
 import numpy as np
-from lsst.obs.lsstSim import LsstSimMapper
-from lsst.sims.coordUtils import chipNameFromRaDec
+from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
+from lsst.sims.photUtils import BandpassDict
+from lsst.sims.GalSimInterface import make_galsim_detector
 from lsst.sims.GalSimInterface import SNRdocumentPSF
-try:
-    from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
-except ImportError:
-    # in case we are running with an old version of lsst_sims
-    pass
+from lsst.sims.GalSimInterface import LSSTCameraWrapper
+from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
+from lsst.sims.GalSimInterface import GalSimInterpreter
 from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
-
 
 def main():
     """
@@ -46,6 +44,12 @@ def main():
                         "from LSE=40 (equation 30), or the Kolmogorov convolved "
                         "with a Gaussian proposed by David Kirkby at the "
                         "23 March 2017 SSims telecon")
+    parser.add_argument('--checkpoint_file', type=str, default=None,
+                        help='Checkpoint file name.')
+    parser.add_argument('--nobj_checkpoint', type=int, default=1000,
+                        help='# objects to process between checkpoints')
+    parser.add_argument('--seed', type=int, default=267,
+                        help='integer used to seed random number generator')
     arguments = parser.parse_args()
 
     config = desc.imsim.read_config(arguments.config_file)
@@ -62,51 +66,28 @@ def main():
         logger.info("Reading all rows from the instance catalog %s.",
                     arguments.file)
 
-    # The PhoSim instance file contains both pointing commands and
-    # objects.  The parser will split them and return a both phosim
-    # command dictionary and a dataframe of objects.
-    commands, phosim_objects = \
-        desc.imsim.parsePhoSimInstanceFile(arguments.file, numRows)
+    camera_wrapper = LSSTCameraWrapper()
 
-    phosim_objects = \
-        desc.imsim.validate_phosim_object_list(phosim_objects).accepted
+    catalog_contents = desc.imsim.parsePhoSimInstanceFile(arguments.file,
+                                                          numRows=numRows)
 
-    # Build the ObservationMetaData with values taken from the
-    # PhoSim commands at the top of the instance file.
-    obs_md = desc.imsim.phosim_obs_metadata(commands)
-
-    camera = LsstSimMapper().camera
+    obs_md = catalog_contents.obs_metadata
+    phot_params = catalog_contents.phot_params
+    sources = catalog_contents.sources
+    gs_object_arr = sources[0]
+    gs_object_dict = sources[1]
 
     # Sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
-        # Trim the input catalog to a single chip.
-        phosim_objects['chipName'] = \
-            chipNameFromRaDec(phosim_objects['raICRS'].values,
-                              phosim_objects['decICRS'].values,
-                              parallax=phosim_objects['parallax'].values,
-                              camera=camera, obs_metadata=obs_md,
-                              epoch=2000.0)
-
-        starDataBase = \
-            phosim_objects.query("galSimType=='pointSource' and chipName=='%s'"
-                                 % arguments.sensor)
-        galaxyDataBase = \
-            phosim_objects.query("galSimType=='sersic' and chipName=='%s'"
-                                 % arguments.sensor)
+        detector_list = [make_galsim_detector(camera_wrapper, arguments.sensor,
+                                              phot_params, obs_md)]
     else:
-        starDataBase = \
-            phosim_objects.query("galSimType=='pointSource'")
-        galaxyDataBase = \
-            phosim_objects.query("galSimType=='sersic'")
-
-    # Simulate the objects in the Pandas Dataframes.
-
-    # First simulate stars
-    phoSimStarCatalog = desc.imsim.ImSimStars(starDataBase, obs_md)
-    # Restrict to a single sensor if requested.
-    if arguments.sensor is not None:
-        phoSimStarCatalog.allowed_chips = [arguments.sensor]
-    phoSimStarCatalog.photParams = desc.imsim.photometricParameters(commands)
+        detector_list = []
+        for det in camera_wrapper.camera:
+            det_type = det.getType()
+            if det_type != WAVEFRONT and det_type != GUIDER:
+                detector_list.append(make_galsim_detector(camera_wrapper, det.getName(),
+                                                          phot_params, obs_md))
 
     # Add noise and sky background
     # The simple code using the default lsst-GalSim interface would be:
@@ -117,8 +98,23 @@ def main():
     # But, we need a more realistic sky model and we need to pass more than
     # this basic info to use Peter Y's ESO sky model.
     # We must pass obs_metadata, chip information etc...
-    phoSimStarCatalog.noise_and_background = ESOSkyModel(obs_md, addNoise=True,
-                                                         addBackground=True)
+    noise_and_background \
+        = ESOSkyModel(obs_md, addNoise=True, addBackground=True)
+
+    bp_dict = BandpassDict.loadTotalBandpassesFromFiles(bandpassNames=obs_md.bandpass)
+
+    gs_interpreter = GalSimInterpreter(obs_metadata=obs_md,
+                                       epoch=2000.0,
+                                       detectors=detector_list,
+                                       bandpassDict=bp_dict,
+                                       noiseWrapper=noise_and_background,
+                                       seed=arguments.seed)
+
+    gs_interpreter.checkpoint_file = arguments.checkpoint_file
+    gs_interpreter.nobj_checkpoint = arguments.nobj_checkpoint
+    gs_interpreter.restore_checkpoint(camera_wrapper,
+                                      phot_params,
+                                      obs_md)
 
     # Add a PSF.
     if arguments.psf.lower() == "doublegaussian":
@@ -126,7 +122,7 @@ def main():
         # www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf .
         #
         # Set seeing from self.obs_metadata.
-        phoSimStarCatalog.PSF = \
+        local_PSF = \
             SNRdocumentPSF(obs_md.OpsimMetaData['FWHMgeom'])
     elif arguments.psf.lower() == "kolmogorov":
         # This PSF was presented by David Kirkby at the 23 March 2017
@@ -137,7 +133,7 @@ def main():
         # equation 3 of Krisciunas and Schaefer 1991
         airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-obs_md.OpsimMetaData['altitude']))**2)
 
-        phoSimStarCatalog.PSF = \
+        local_PSF = \
             Kolmogorov_and_Gaussian_PSF(airmass=airmass,
                                         rawSeeing=obs_md.OpsimMetaData['rawSeeing'],
                                         band=obs_md.bandpass)
@@ -145,23 +141,28 @@ def main():
         raise RuntimeError("Do not know what to do with psf model: "
                            "%s" % arguments.psf)
 
-    phoSimStarCatalog.camera = camera
-    phoSimStarCatalog.get_fitsFiles()
+    gs_interpreter.setPSF(PSF=local_PSF)
 
-    # Now galaxies
-    phoSimGalaxyCatalog = desc.imsim.ImSimGalaxies(galaxyDataBase, obs_md)
-    phoSimGalaxyCatalog.copyGalSimInterpreter(phoSimStarCatalog)
-    phoSimGalaxyCatalog.PSF = phoSimStarCatalog.PSF
-    phoSimGalaxyCatalog.noise_and_background = phoSimStarCatalog.noise_and_background
-    phoSimGalaxyCatalog.get_fitsFiles()
+    if arguments.sensor is not None:
+        gs_objects_to_draw = gs_object_dict[arguments.sensor]
+    else:
+        gs_objects_to_draw = gs_object_arr
+
+    for gs_obj in gs_objects_to_draw:
+        if gs_obj.uniqueId in gs_interpreter.drawn_objects:
+            continue
+        gs_interpreter.drawObject(gs_obj)
+
+    desc.imsim.add_cosmic_rays(gs_interpreter, phot_params)
 
     # Write out the fits files
     outdir = arguments.outdir
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
     prefix = config['persistence']['eimage_prefix']
-    phoSimGalaxyCatalog.write_images(nameRoot=os.path.join(outdir, prefix) +
-                                     str(commands['obshistid']))
+    gs_interpreter.writeImages(nameRoot=os.path.join(outdir, prefix) +
+                                        str(obs_md.OpsimMetaData['obshistID']))
+
 
 if __name__ == "__main__":
     main()
