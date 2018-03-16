@@ -9,10 +9,11 @@ try:
 except ImportError:
     # python 2 backwards-compatibility
     import ConfigParser as configparser
+import numpy.random as random
 import galsim
-import desc.imsim
 import lsst.sims.skybrightness as skybrightness
 from lsst.sims.photUtils import BandpassDict
+import desc.imsim
 
 
 class SkyModelTestCase(unittest.TestCase):
@@ -68,7 +69,28 @@ class SkyModelTestCase(unittest.TestCase):
                                                  chipName='R:4,2 S:1,0')
 
         self.assertNotEqual(image_1.array[0, 0], 0)
-        self.assertAlmostEqual(2 * image_1.array[0, 0], image_2.array[0, 0])
+        self.assertAlmostEqual(2*image_1.array[0, 0], image_2.array[0, 0])
+
+    def test_sky_variation(self):
+        """
+        Test that the sky background varies over the focal plane.
+        """
+        instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests', 'data',
+                                    'phosim_stars.txt')
+        obs_md, phot_params, _ \
+            = desc.imsim.parsePhoSimInstanceFile(instcat_file)
+        skymodel = desc.imsim.ESOSkyModel(obs_md, addNoise=False,
+                                          addBackground=True)
+        camera = desc.imsim.get_obs_lsstSim_camera()
+        chip_names = random.choice([chip.getName() for chip in camera],
+                                   size=10, replace=False)
+        sky_bg_values = set()
+        for chip_name in chip_names:
+            image = galsim.Image(1, 1)
+            skymodel.addNoiseAndBackground(image, photParams=phot_params,
+                                           chipName=chip_name)
+            sky_bg_values.add(image.array[0][0])
+        self.assertEqual(len(sky_bg_values), len(chip_names))
 
     def test_skycounts_function(self):
         """
@@ -82,7 +104,7 @@ class SkyModelTestCase(unittest.TestCase):
         desc.imsim.read_config()
         instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',
                                     'tiny_instcat.txt')
-        obs_md, phot_params, sources = desc.imsim.parsePhoSimInstanceFile(instcat_file)
+        _, phot_params, _ = desc.imsim.parsePhoSimInstanceFile(instcat_file)
         skyModel = skybrightness.SkyModel(mags=False)
         skyModel.setRaDecMjd(0., 90., 58000, azAlt=True, degrees=True)
 
