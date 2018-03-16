@@ -148,7 +148,9 @@ def main():
                            "%s" % arguments.psf)
 
     gs_interpreter.setPSF(PSF=local_PSF)
-
+    
+    desc.imsim.add_treering_info(gs_interpreter)
+    
     if arguments.sensor is not None:
         gs_objects_to_draw = gs_object_dict[arguments.sensor]
     else:
