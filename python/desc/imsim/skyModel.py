@@ -9,21 +9,19 @@ from __future__ import absolute_import, division
 import numpy as np
 import astropy.units as u
 
+import galsim
+
+from lsst.obs.lsstSim import LsstSimMapper
 import lsst.sims.skybrightness as skybrightness
 import lsst.sims.coordUtils
-
-import galsim
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
-
 from lsst.sims.photUtils import BandpassDict
 from lsst.sims.photUtils import Sed
 
 from .imSim import get_config
 
-from lsst.obs.lsstSim import LsstSimMapper
-from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
-
 __all__ = ['SkyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
+
 
 class SkyCountsPerSec(object):
     """
@@ -74,14 +72,13 @@ class SkyCountsPerSec(object):
         return sky_counts_persec
 
 
-
 def get_chip_names_centers():
     """Get the names and pixel centers for each sensor on the LSST camera.
 
     Returns
     -------
     name_list: list
-        List specifying raft and labels for each sensor on the camera. For example, 
+        List specifying raft and labels for each sensor on the camera. For example,
         one sensor may be labelled: 'R:4,2 S:1,0'.
     center_x: np.array length name_list
         x-coordinates of pixel centers for each chip
@@ -117,10 +114,10 @@ def get_chip_names_centers():
         chip_name = name_list[ix]
 
         xx = 0.25*(x_pix_list[ix] + x_pix_list[ix+1] +
-                    x_pix_list[ix+2] + x_pix_list[ix+3])
+                   x_pix_list[ix+2] + x_pix_list[ix+3])
 
-        yy = 0.25*(y_pix_list[ix] + y_pix_list[ix+1] + 
-                    y_pix_list[ix+2] + y_pix_list[ix+3])
+        yy = 0.25*(y_pix_list[ix] + y_pix_list[ix+1] +
+                   y_pix_list[ix+2] + y_pix_list[ix+3])
 
         center_x[ix_ct] = xx
         center_y[ix_ct] = yy
@@ -129,7 +126,20 @@ def get_chip_names_centers():
 
 
 def get_chip_center(chip_name, camera):
+    """
+    Get center of the chip in focal plane pixel coordinates
 
+    Parameters
+    ----------
+    chip_name: str
+        The name of the chip, e.g., "R:2,2 S:1,1".
+    camera: lsst.afw.cameraGeom.camera.Camera
+        The camera object, e.g., LsstSimCameraMapper().camera.
+
+    Returns
+    -------
+    (float, float): focal plane pixel coordinates of chip center.
+    """
     corner_list = lsst.sims.coordUtils.getCornerPixels(chip_name, camera)
 
     x_pix_list = []
@@ -140,12 +150,12 @@ def get_chip_center(chip_name, camera):
         y_pix_list.append(corner[1])
 
     center_x = 0.25*(x_pix_list[0] + x_pix_list[1] +
-                    x_pix_list[2] + x_pix_list[3])
+                     x_pix_list[2] + x_pix_list[3])
 
     center_y = 0.25*(y_pix_list[0] + y_pix_list[1] +
-                    y_pix_list[2] + y_pix_list[3])
+                     y_pix_list[2] + y_pix_list[3])
 
-    return(center_x, center_y)
+    return center_x, center_y
 
 
 # Here we are defining our own class derived from NoiseAndBackgroundBase for
@@ -218,7 +228,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
 
         bandPassName = self.obs_metadata.bandpass
-        bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u','g','r','i','z','y'])
+        bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u', 'g', 'r', 'i', 'z', 'y'])
 
         # Since we are only producing one eimage, account for cases
         # where nsnap > 1 with an effective exposure time for the
@@ -259,6 +269,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         """
         return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel,
                                gain=photParams.gain, read_noise=photParams.readnoise)
+
 
 def get_skyModel_params():
     """

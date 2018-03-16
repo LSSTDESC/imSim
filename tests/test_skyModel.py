@@ -93,7 +93,7 @@ class SkyModelTestCase(unittest.TestCase):
         skyModel = skybrightness.SkyModel(mags=False)
         skyModel.setRaDecMjd(0., 90., 58000, azAlt=True, degrees=True)
 
-        bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u','g','r','i','z','y'])
+        bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u', 'g', 'r', 'i', 'z', 'y'])
         skycounts_persec = desc.imsim.skyModel.SkyCountsPerSec(skyModel, phot_params, bandPassdic)
 
         skycounts_persec_u = skycounts_persec('u', 24)
