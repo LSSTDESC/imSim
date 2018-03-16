@@ -38,13 +38,6 @@ class SkyModelTestCase(unittest.TestCase):
         except OSError:
             pass
 
-    def test_get_skyModel_params(self):
-        "Test the get_skyModel_params function."
-        desc.imsim.read_config(self.test_config_file)
-        pars = desc.imsim.get_skyModel_params()
-        self.assertAlmostEqual(pars['B0'], 24.)
-        self.assertAlmostEqual(pars['u'], self.zp_u)
-
     def test_nexp_scaling(self):
         """
         Test that the sky background level is proportional to nexp*exptime
