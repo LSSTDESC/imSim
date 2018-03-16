@@ -9,6 +9,7 @@ import os
 import numpy as np
 from scipy.interpolate import interp2d
 from scipy.optimize import leastsq
+from timeit import timeit
 
 from polar_zernikes import gen_superposition
 
@@ -120,6 +121,41 @@ def moc_deviations():
         distortion[i] = np.random.normal(avg, std)
 
     return distortion
+
+
+def test_runtime(n_runs, n_coords, verbose=False):
+    """
+    Determines average runtimes to both instantiate the OpticalZernikes class
+    and to evaluate the cartesian_coeff method.
+
+    @param [in] n_runs is the total number of runs to average runtimes over
+
+    @param [in] n_coords is the total number of cartesian coordinates
+        to average runtimes over
+
+    @param [in] verbose is a boolean specifying whether to print results
+        (default = false)
+
+    @param [out] The average initialization time in seconds
+
+    @param [out] The average evaluation time of cartesian_coeff in seconds
+    """
+
+    init_time = timeit('OpticalZernikes()', globals=globals(), number=n_runs)
+
+    optical_state = OpticalZernikes()
+    x_coords = np.random.uniform(-1.5, 1.5, size=(n_coords,))
+    y_coords = np.random.uniform(-1.5, 1.5, size=(n_coords,))
+    runtime = timeit('optical_state.cartesian_coeff(x_coords, y_coords)',
+                     globals=locals(), number=n_runs)
+
+    if verbose:
+        print('Averages over {} runs:'.format(n_runs))
+        print('Init time (s):', init_time / n_runs)
+        print('Run time for (s)', n_coords, 'cartesian coords:',
+              runtime / n_runs)
+
+    return
 
 
 class OpticalZernikes:
@@ -251,26 +287,6 @@ class OpticalZernikes:
         return self.polar_coeff(fp_r, fp_t)
 
 
-# Check run times for OpticalZernikes
 if __name__ == '__main__':
-    n_runs = 100
-    n_coords = 1000
-
-    optical_deviations = moc_deviations()
-    x_coords = np.random.uniform(-1.5, 1.5, size=(n_coords,))
-    y_coords = np.random.uniform(-1.5, 1.5, size=(n_coords,))
-
-    from timeit import timeit
-
-    init_time = timeit('OpticalZernikes(optical_deviations)',
-                       globals=globals(),
-                       number=n_runs)
-
-    print('Averages over {} runs:'.format(n_runs))
-    print('Init time (s):', init_time / n_runs)
-
-    closed_loop = OpticalZernikes(optical_deviations)
-    runtime = timeit('closed_loop.cartesian_coeff(x_coords, y_coords)',
-                     globals=globals(), number=n_runs)
-
-    print('Run time for (s)', n_coords, 'coords:', runtime / n_runs)
+    # Check run times for OpticalZernikes
+    test_runtime(100, 1000, verbose=True)
