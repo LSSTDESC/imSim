@@ -49,7 +49,8 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'get_obs_lsstSim_camera',
            'add_cosmic_rays',
            '_POINT_SOURCE', '_SERSIC_2D',
-           'parsePhoSimInstanceFile']
+           'parsePhoSimInstanceFile',
+           'add_treering_info']
 
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
@@ -683,44 +684,52 @@ def add_treering_info(gs_interpreter):
         Will act on gs_interpreter, adding tree ring information to the detectors.
     """
 
-    for detector in gs_interpreter.detectors:
-        (tr_center, tr_function) = LSST_DC2_Tree_Ring_Model()
-        new_center = galsim.PositionD(tr_center.x + detector._xCenterPix, tr_center.y + detector._yCenterPix)
-        detector.tree_rings = (new_center, tr_function)
-
-    def LSST_DC2_Tree_Ring_Model():
+    ### SUBROUTINES ###
+    def Read_DC2_Tree_Ring_Model(tr_filename, Rx, Ry, Sx, Sy):
         """
-        Craig Lage UC Davis 16-Mar-18; cslage@ucdavis.edu
-        This function returns a tree ring model drawn from an anlytical function that was
-        derived based on tree ring data collected by Hye-Yun Park at BNL.  The data
-        used is in imSim/data/tree_ring_data, and a description of the method is in
-        imSim/data/tree_ring_data/Tree_Rings_13Feb18.pdf
-        Based on the data, 40% of the sensors are assumed to have 'bad' tree rings, with an
-        amplitude 10X greater that the 60% of the sensors that have 'good' tree rings.
+        Craig Lage UC Davis 19-Mar-18; cslage@ucdavis.edu
+        This function reads in a file with tree ring parameters from imSim/data/tree_ring_data 
+        and assigns a tree ring model to each sensor.
+        The file is built with the code imSim/data/tree_ring_data/build_tree_ring_file_19mar18.py,
+        and a description of the method is in imSim/data/tree_ring_data/Tree_Rings_13Feb18.pdf
         """
+        try:
+            numfreqs = 20
+            cfreqs = np.zeros([numfreqs])
+            cphases = np.zeros([numfreqs])
+            sfreqs = np.zeros([numfreqs])
+            sphases = np.zeros([numfreqs])        
 
-        bad_tree_ring_fraction = 0.40 # Fraction of sensors that have 'bad' tree rings.
-        A = 2E-3 # Baseline level of pixel deviation
-        numfreqs1 = 15 # Number of spatial frequencies
-        meank1 = 60.0 # Mean spatial freqency in pixels
-        sigmak1 = 10.0 # Standard deviation of spatial freqency in pixels
-        numfreqs2 = 5 # Number of spatial frequencies
-        meank2 = 35.0 # Mean spatial freqency in pixels
-        sigmak2 = 10.0 # Standard deviation of spatial freqency in pixels
+            file = open(tr_filename, 'r')
+            lines = file.readlines()
+            for i, line in enumerate(lines):
+                if line.split()[0] == 'Rx':
+                    items = lines[i+1].split()
+                    if int(items[0]) == Rx and int(items[1]) == Ry and int(items[2]) == Sx and int(items[3]) == Sy:
+                        Cx = float(items[4])
+                        Cy = float(items[5])
+                        A = float(items[6])
+                        B = float(items[7])                    
+                        for j in range(numfreqs):
+                            freqitems = lines[i + 3 + j].split()
+                            cfreqs[j] = float(freqitems[0])
+                            cphases[j] = float(freqitems[1])                        
+                            sfreqs[j] = float(freqitems[2])
+                            sphases[j] = float(freqitems[3])                        
+                        #print("Successfully read tree ring parameter file %s for R:%d,%d S:%d,%d"%(tr_filename,Rx,Ry,Sx,Sy))
+                        break
+                    else:
+                        continue
+                else:
+                    continue
+
+        except Exception as exc:
+            print("Failed to read tree ring parameter file %s"%tr_filename, exc)
+
         r_max = 8000.0 # Maximum extent of tree ring function in pixels
         dr = 3.0 # Step size of tree ring function in pixels
         npoints = int(r_max / dr) + 1 # Number of points in tree ring function
 
-        # This generates the radial tree ring function.
-        # Tree ring amplitude in pixels is given by A + B * r^4
-        if np.random.rand() < bad_tree_ring_fraction:
-            B = np.random.uniform(4.0E-17, 8.0E-17, 1)[0] # Amplitude factor in pixels^-3 
-        else:
-            B = np.random.uniform(4.0E-18, 8.0E-18, 1)[0] # Amplitude factor in pixels^-3 
-        cfreqs = np.concatenate((np.random.normal(meank1, sigmak1, numfreqs1), np.random.normal(meank2, sigmak2, numfreqs2)))
-        cphases = np.random.uniform(0.0, 2*np.pi, numfreqs1+numfreqs2)
-        sfreqs = np.concatenate((np.random.normal(meank1, sigmak1, numfreqs1), np.random.normal(meank2, sigmak2, numfreqs2)))
-        sphases = np.random.uniform(0.0, 2*np.pi, numfreqs1+numfreqs2)
         def tree_ring_radial_function(r):
             # This function is the integral of the data deviation function
             centroid_shift = 0.0
@@ -730,19 +739,20 @@ def add_treering_info(gs_interpreter):
                 centroid_shift += -np.cos(2*np.pi*(r/fval)+sphases[j]) * fval / (2.0*np.pi)
             centroid_shift *= (A + B * r**4) * .01 # 0.01 factor is because data is in percent
             return centroid_shift
+
         tr_function = galsim.LookupTable.from_func(tree_ring_radial_function, x_min=0.0, x_max=r_max, npoints=npoints)
-
-        # This part generates the tree ring origin.  Since the CCD can come from either of four positions,
-        # the center is placed 1000 pixels away from one of the four corners, with a 'dither'
-        # radius of 100 pixels.  The origin is assumed in the center of the detector, and it is
-        # re-centered after being called.
-        xy_dist_to_center = 3000.0 # Distance from center of detector to tree ring center in pixels
-        dither_radius = 100.0
-        corner = [np.random.choice([-1.0,1.0]), np.random.choice([-1.0,1.0])]
-        origin = np.random.uniform(xy_dist_to_center - dither_radius, xy_dist_to_center + dither_radius, 2)
-        center = np.array(corner) * np.array(origin)
-        tr_center = galsim.PositionD(center[0], center[1])
-
+        tr_center = galsim.PositionD(Cx, Cy)
         return (tr_center, tr_function)
 
+    ### MAIN FUNCTION ###    
+    tr_filename = os.path.join(lsstUtils.getPackageDir('imsim'),
+                               'data', 'tree_ring_data', 'tree_ring_parameters_19mar18.txt')
+    for detector in gs_interpreter.detectors:
+        Rx = int(list(detector.name)[2])
+        Ry = int(list(detector.name)[4])        
+        Sx = int(list(detector.name)[8])
+        Sy = int(list(detector.name)[10])        
+        (tr_center, tr_function) = Read_DC2_Tree_Ring_Model(tr_filename, Rx, Ry, Sx, Sy)
+        new_center = galsim.PositionD(tr_center.x + detector._xCenterPix, tr_center.y + detector._yCenterPix)
+        detector.tree_rings = (new_center, tr_function)
     return None
