@@ -9,10 +9,11 @@ try:
 except ImportError:
     # python 2 backwards-compatibility
     import ConfigParser as configparser
+import numpy.random as random
 import galsim
-import desc.imsim
 import lsst.sims.skybrightness as skybrightness
 from lsst.sims.photUtils import BandpassDict
+import desc.imsim
 
 
 class SkyModelTestCase(unittest.TestCase):
@@ -38,13 +39,6 @@ class SkyModelTestCase(unittest.TestCase):
         except OSError:
             pass
 
-    def test_get_skyModel_params(self):
-        "Test the get_skyModel_params function."
-        desc.imsim.read_config(self.test_config_file)
-        pars = desc.imsim.get_skyModel_params()
-        self.assertAlmostEqual(pars['B0'], 24.)
-        self.assertAlmostEqual(pars['u'], self.zp_u)
-
     def test_nexp_scaling(self):
         """
         Test that the sky background level is proportional to nexp*exptime
@@ -68,15 +62,35 @@ class SkyModelTestCase(unittest.TestCase):
         skymodel = desc.imsim.ESOSkyModel(obs_md, addNoise=False,
                                           addBackground=True)
         image_2 = galsim.Image(100, 100)
-        image_2 = skymodel.addNoiseAndBackground(
-            image_2, photParams=photPars_2)
-
+        image_2 = skymodel.addNoiseAndBackground(image_2, photParams=photPars_2,
+                                                 chipName='R:4,2 S:1,0')
         image_1 = galsim.Image(100, 100)
-        image_1 = skymodel.addNoiseAndBackground(
-            image_1, photParams=photPars_1)
+        image_1 = skymodel.addNoiseAndBackground(image_1, photParams=photPars_1,
+                                                 chipName='R:4,2 S:1,0')
 
         self.assertNotEqual(image_1.array[0, 0], 0)
-        self.assertAlmostEqual(2 * image_1.array[0, 0], image_2.array[0, 0])
+        self.assertAlmostEqual(2*image_1.array[0, 0], image_2.array[0, 0])
+
+    def test_sky_variation(self):
+        """
+        Test that the sky background varies over the focal plane.
+        """
+        instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests', 'data',
+                                    'phosim_stars.txt')
+        obs_md, phot_params, _ \
+            = desc.imsim.parsePhoSimInstanceFile(instcat_file)
+        skymodel = desc.imsim.ESOSkyModel(obs_md, addNoise=False,
+                                          addBackground=True)
+        camera = desc.imsim.get_obs_lsstSim_camera()
+        chip_names = random.choice([chip.getName() for chip in camera],
+                                   size=10, replace=False)
+        sky_bg_values = set()
+        for chip_name in chip_names:
+            image = galsim.Image(1, 1)
+            skymodel.addNoiseAndBackground(image, photParams=phot_params,
+                                           chipName=chip_name)
+            sky_bg_values.add(image.array[0][0])
+        self.assertEqual(len(sky_bg_values), len(chip_names))
 
     def test_skycounts_function(self):
         """
@@ -90,14 +104,12 @@ class SkyModelTestCase(unittest.TestCase):
         desc.imsim.read_config()
         instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',
                                     'tiny_instcat.txt')
-        commands, objects = desc.imsim.parsePhoSimInstanceFile(instcat_file)
-        obs_md = desc.imsim.phosim_obs_metadata(commands)
-        photPars_2 = desc.imsim.photometricParameters(commands)
+        _, phot_params, _ = desc.imsim.parsePhoSimInstanceFile(instcat_file)
         skyModel = skybrightness.SkyModel(mags=False)
         skyModel.setRaDecMjd(0., 90., 58000, azAlt=True, degrees=True)
 
-        bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u','g','r','i','z','y'])
-        skycounts_persec = desc.imsim.skyModel.SkyCountsPerSec(skyModel, photPars_2, bandPassdic)
+        bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u', 'g', 'r', 'i', 'z', 'y'])
+        skycounts_persec = desc.imsim.skyModel.SkyCountsPerSec(skyModel, phot_params, bandPassdic)
 
         skycounts_persec_u = skycounts_persec('u', 24)
         self.assertAlmostEqual(skycounts_persec_u.value, self.zp_u)
