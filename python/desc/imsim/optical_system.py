@@ -213,7 +213,7 @@ def test_runtime(n_runs, n_coords, verbose=False):
     if verbose:
         print('Averages over {} runs:'.format(n_runs))
         print('Init time (s):', init_time / n_runs)
-        print('Run time for (s)', n_coords, 'cartesian coords:',
+        print('Run time for', n_coords, 'cartesian coords (s):',
               runtime / n_runs)
 
     return
@@ -241,8 +241,8 @@ class OpticalZernikes:
         if deviations is None:
             deviations = moc_deviations()
 
-        self.deviations = self._calc_sampling_coeff(deviations)
-        self.sampling_coeff = np.add(self.deviations, self.nominal_coeff)
+        self.deviation_coeff = self._calc_sampling_coeff(deviations)
+        self.sampling_coeff = np.add(self.deviation_coeff, self.nominal_coeff)
         self._fit_functions = self._optimize_fits()
 
     def _calc_sampling_coeff(self, deviations):
