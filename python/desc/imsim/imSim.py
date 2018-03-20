@@ -36,7 +36,7 @@ from lsst.sims.utils import radiansFromArcsec
 from lsst.sims.GalSimInterface import GalSimCelestialObject
 from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
 from lsst.sims.utils import defaultSpecMap
-from desc.imsim import CosmicRays
+from desc.imsim import CosmicRays, TreeRings
 
 _POINT_SOURCE = 1
 _SERSIC_2D = 2
@@ -683,76 +683,12 @@ def add_treering_info(gs_interpreter):
     None
         Will act on gs_interpreter, adding tree ring information to the detectors.
     """
-
-    ### SUBROUTINES ###
-    def Read_DC2_Tree_Ring_Model(tr_filename, Rx, Ry, Sx, Sy):
-        """
-        Craig Lage UC Davis 19-Mar-18; cslage@ucdavis.edu
-        This function reads in a file with tree ring parameters from imSim/data/tree_ring_data 
-        and assigns a tree ring model to each sensor.
-        The file is built with the code imSim/data/tree_ring_data/build_tree_ring_file_19mar18.py,
-        and a description of the method is in imSim/data/tree_ring_data/Tree_Rings_13Feb18.pdf
-        """
-        try:
-            numfreqs = 20
-            cfreqs = np.zeros([numfreqs])
-            cphases = np.zeros([numfreqs])
-            sfreqs = np.zeros([numfreqs])
-            sphases = np.zeros([numfreqs])        
-
-            file = open(tr_filename, 'r')
-            lines = file.readlines()
-            for i, line in enumerate(lines):
-                if line.split()[0] == 'Rx':
-                    items = lines[i+1].split()
-                    if int(items[0]) == Rx and int(items[1]) == Ry and int(items[2]) == Sx and int(items[3]) == Sy:
-                        Cx = float(items[4])
-                        Cy = float(items[5])
-                        A = float(items[6])
-                        B = float(items[7])                    
-                        for j in range(numfreqs):
-                            freqitems = lines[i + 3 + j].split()
-                            cfreqs[j] = float(freqitems[0])
-                            cphases[j] = float(freqitems[1])                        
-                            sfreqs[j] = float(freqitems[2])
-                            sphases[j] = float(freqitems[3])                        
-                        #print("Successfully read tree ring parameter file %s for R:%d,%d S:%d,%d"%(tr_filename,Rx,Ry,Sx,Sy))
-                        break
-                    else:
-                        continue
-                else:
-                    continue
-
-        except Exception as exc:
-            print("Failed to read tree ring parameter file %s"%tr_filename, exc)
-
-        r_max = 8000.0 # Maximum extent of tree ring function in pixels
-        dr = 3.0 # Step size of tree ring function in pixels
-        npoints = int(r_max / dr) + 1 # Number of points in tree ring function
-
-        def tree_ring_radial_function(r):
-            # This function is the integral of the data deviation function
-            centroid_shift = 0.0
-            for j, fval in enumerate(cfreqs):
-                centroid_shift += np.sin(2*np.pi*(r/fval)+cphases[j]) * fval / (2.0*np.pi)
-            for j, fval in enumerate(sfreqs):
-                centroid_shift += -np.cos(2*np.pi*(r/fval)+sphases[j]) * fval / (2.0*np.pi)
-            centroid_shift *= (A + B * r**4) * .01 # 0.01 factor is because data is in percent
-            return centroid_shift
-
-        tr_function = galsim.LookupTable.from_func(tree_ring_radial_function, x_min=0.0, x_max=r_max, npoints=npoints)
-        tr_center = galsim.PositionD(Cx, Cy)
-        return (tr_center, tr_function)
-
-    ### MAIN FUNCTION ###    
     tr_filename = os.path.join(lsstUtils.getPackageDir('imsim'),
                                'data', 'tree_ring_data', 'tree_ring_parameters_19mar18.txt')
+    TR = TreeRings(tr_filename)
     for detector in gs_interpreter.detectors:
-        Rx = int(list(detector.name)[2])
-        Ry = int(list(detector.name)[4])        
-        Sx = int(list(detector.name)[8])
-        Sy = int(list(detector.name)[10])        
-        (tr_center, tr_function) = Read_DC2_Tree_Ring_Model(tr_filename, Rx, Ry, Sx, Sy)
+        [Rx, Ry, Sx, Sy] = [int(s) for s in list(detector.name) if s.isdigit()]
+        (tr_center, tr_function) = TR.Read_DC2_Tree_Ring_Model(Rx, Ry, Sx, Sy)
         new_center = galsim.PositionD(tr_center.x + detector._xCenterPix, tr_center.y + detector._yCenterPix)
         detector.tree_rings = (new_center, tr_function)
     return None
