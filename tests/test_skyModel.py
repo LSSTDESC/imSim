@@ -79,38 +79,46 @@ class SkyModelTestCase(unittest.TestCase):
         nx, ny = 30, 30
         # Making an ESOSkyModel is expensive, so do it once and set
         # the .fast_background attribute by hand.
-        skymodel = desc.imsim.ESOSkyModel(obs_md, seed=seed, addNoise=False,
-                                          addBackground=True, fast_background=True)
+        skymodel1 = desc.imsim.ESOSkyModel(obs_md, photPars_1, seed=seed,
+                                           addNoise=False, addBackground=True,
+                                           fast_background=True)
+        skymodel2 = desc.imsim.ESOSkyModel(obs_md, photPars_2, seed=seed,
+                                           addNoise=False, addBackground=True,
+                                           fast_background=True)
 
         # Check fast background model, i.e., with sensor effects turned off.
         t0 = time.time()
         image_2 = galsim.Image(nx, ny)
-        image_2 = skymodel.addNoiseAndBackground(image_2, photParams=photPars_2)
+        image_2 = skymodel2.addNoiseAndBackground(image_2)
         image_1 = galsim.Image(nx, ny)
-        image_1 = skymodel.addNoiseAndBackground(image_1, photParams=photPars_1)
+        image_1 = skymodel1.addNoiseAndBackground(image_1)
         dt_fast = time.time() - t0
         self._apply_sky_background_tests(image_1, image_2)
 
         # Test with default background including sensor model and
         # bundled photons.
-        skymodel.fast_background = False
+        skymodel1.fast_background = False
+        skymodel2.fast_background = False
         t0 = time.time()
         image_2 = galsim.Image(nx, ny)
-        image_2 = skymodel.addNoiseAndBackground(image_2, photParams=photPars_2)
+        image_2 = skymodel2.addNoiseAndBackground(image_2)
         image_1 = galsim.Image(nx, ny)
-        image_1 = skymodel.addNoiseAndBackground(image_1, photParams=photPars_1)
+        image_1 = skymodel1.addNoiseAndBackground(image_1)
         dt_bundled = time.time() - t0
         self._apply_sky_background_tests(image_1, image_2)
 
         # Test with unbundled photons.
-        skymodel_unbundled \
-            = desc.imsim.ESOSkyModel(obs_md, seed=seed, addNoise=False,
+        skymodel_unbundled1 \
+            = desc.imsim.ESOSkyModel(obs_md, photPars_1, seed=seed, addNoise=False,
+                                     addBackground=True, bundles_per_pix=1)
+        skymodel_unbundled2 \
+            = desc.imsim.ESOSkyModel(obs_md, photPars_2, seed=seed, addNoise=False,
                                      addBackground=True, bundles_per_pix=1)
         t0 = time.time()
         image_2 = galsim.Image(nx, ny)
-        image_2 = skymodel.addNoiseAndBackground(image_2, photParams=photPars_2)
+        image_2 = skymodel_unbundled2.addNoiseAndBackground(image_2)
         image_1 = galsim.Image(nx, ny)
-        image_1 = skymodel.addNoiseAndBackground(image_1, photParams=photPars_1)
+        image_1 = skymodel_unbundled1.addNoiseAndBackground(image_1)
         dt_unbundled = time.time() - t0
         self._apply_sky_background_tests(image_1, image_2)
 
