@@ -39,9 +39,9 @@ class TreeRingsTestCase(unittest.TestCase):
         for i, detector in enumerate(gs_interpreter.detectors):
             center = detector.tree_rings.center
             shifted_center = (center.x - detector._xCenterPix, center.y - detector._yCenterPix)            
-            self.assertAlmostEqual(shifted_center, self.centers[i], 6)
+            self.assertAlmostEqual(shifted_center, self.centers[i], 1)
             r_value_test = detector.tree_rings.func(self.rtest)
-            self.assertAlmostEqual(r_value_test, self.rvalues[i], 1)                        
+            self.assertAlmostEqual(r_value_test, self.rvalues[i], 6)                        
 
 if __name__ == '__main__':
     unittest.main()
