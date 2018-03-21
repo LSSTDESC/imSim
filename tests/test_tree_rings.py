@@ -1,10 +1,8 @@
 """
-Rudimentary test for tree ring code
-Craig Lage 19-Mar-18
+Unit tests for tree rings code.  Just tests that the tree ring data was found and could be read.
 """
-
-from __future__ import absolute_import, print_function
 import os
+import unittest
 import numpy as np
 import lsst.utils as lsstUtils
 from lsst.sims.GalSimInterface import make_galsim_detector
@@ -12,32 +10,40 @@ from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from lsst.sims.GalSimInterface import GalSimInterpreter
 import desc.imsim
 
-sensors = ['R:2,2 S:1,1', 'R:3,4 S:2,2']
 
-camera_wrapper = LSSTCameraWrapper()
-
-desc.imsim.read_config()
-instcat_file = os.path.join(lsstUtils.getPackageDir('imsim'),
+class TreeRingsTestCase(unittest.TestCase):
+    "TestCase class for the tree rings code."
+    def setUp(self):
+        self.sensors = ['R:2,2 S:1,1', 'R:3,4 S:2,2']
+        self.instcat_file = os.path.join(lsstUtils.getPackageDir('imsim'),
                                'tests', 'tiny_instcat.txt')
+        self.rtest = 5280.0 # Just a value to test the radial function at
+        self.rvalues = [.0030205, -.0034135] # Expected results
+        self.centers = [(-3026.3, -3001.0), (3095.5, -2971.3)] # Input center values
 
-stuff = desc.imsim.parsePhoSimInstanceFile(instcat_file)
+    def test_read_tree_rings(self):
+        "Check reading of tree_ring_parameters file"
+        camera_wrapper = LSSTCameraWrapper()
+        desc.imsim.read_config()
+        needed_stuff = desc.imsim.parsePhoSimInstanceFile(self.instcat_file)
+        obs_md = needed_stuff.obs_metadata
+        phot_params = needed_stuff.phot_params
 
-obs_md = stuff.obs_metadata
-phot_params = stuff.phot_params
+        detector_list = []
+        for sensor in self.sensors:
+            detector_list.append(make_galsim_detector(camera_wrapper, sensor, phot_params, obs_md))
 
-detector_list = []
-for sensor in sensors:
-    detector_list.append(make_galsim_detector(camera_wrapper, sensor, phot_params, obs_md))
+        gs_interpreter = GalSimInterpreter(detectors=detector_list)
+        desc.imsim.add_treering_info(gs_interpreter)
 
-gs_interpreter = GalSimInterpreter(detectors=detector_list)
+        for i, detector in enumerate(gs_interpreter.detectors):
+            center = detector.tree_rings.center
+            shifted_center = (center.x - detector._xCenterPix, center.y - detector._yCenterPix)            
+            self.assertAlmostEqual(shifted_center, self.centers[i], 6)
+            r_value_test = detector.tree_rings.func(self.rtest)
+            self.assertAlmostEqual(r_value_test, self.rvalues[i], 1)                        
 
-desc.imsim.add_treering_info(gs_interpreter)
-
-r_value = 5280.0
-
-for detector in gs_interpreter.detectors:
-    print("Detector = ", detector.name)
-    print("Detector center = ",detector.tree_rings.center)
-    print("At a value of %f, Detector radial function = "%r_value, detector.tree_rings.func(r_value))
+if __name__ == '__main__':
+    unittest.main()
 
 

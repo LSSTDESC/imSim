@@ -6,6 +6,9 @@ import galsim
 
 __all__ = ['TreeRings']
 
+class TreeRingsError(Exception):
+    pass
+
 class TreeRings():
     """
     # Craig Lage UC Davis 16-Mar-18; cslage@ucdavis.edu
@@ -34,12 +37,10 @@ class TreeRings():
         self.r_max = 8000.0 # Maximum extent of tree ring function in pixels
         dr = 3.0 # Step size of tree ring function in pixels
         self.npoints = int(self.r_max / dr) + 1 # Number of points in tree ring function
-        try:
-            file = open(tr_filename, 'r')
-            self.lines = file.readlines()
-            file.close()
-        except Exception as exc:
-            print("Failed to read tree ring parameter file %s"%tr_filename, exc)
+
+        with open(tr_filename, 'r') as input_:
+            self.lines = input_.readlines() # Contents of tree_ring_parameters file
+
         return
     
     def Read_DC2_Tree_Ring_Model(self, Rx, Ry, Sx, Sy):
@@ -62,18 +63,19 @@ class TreeRings():
                             self.cphases[j] = float(freqitems[1])                        
                             self.sfreqs[j] = float(freqitems[2])
                             self.sphases[j] = float(freqitems[3])                        
-                        break
+                        tr_function = galsim.LookupTable.from_func(self.tree_ring_radial_function, x_min=0.0,\
+                                                                   x_max=self.r_max, npoints=self.npoints)
+                        tr_center = galsim.PositionD(Cx, Cy)
+                        return (tr_center, tr_function)
                     else:
                         continue
                 else:
                     continue
-
-        except Exception as exc:
-            print("Failed to read tree ring parameters for Rx=%d, Ry=%d, Sx=%d, Sy=%d"%(Rx, Ry, Sx, Sy), exc)
-
-        tr_function = galsim.LookupTable.from_func(self.tree_ring_radial_function, x_min=0.0, x_max=self.r_max, npoints=self.npoints)
-        tr_center = galsim.PositionD(Cx, Cy)
-        return (tr_center, tr_function)
+            # If we reach here, the (Rx, Ry, Sx, Sy) combination was not found.
+            raise TreeRingsError("Failed to read tree ring parameters for Rx=%d, Ry=%d, Sx=%d, Sy=%d"%(Rx, Ry, Sx, Sy))
+        except:
+            raise TreeRingsError("Failed to read tree ring parameters for Rx=%d, Ry=%d, Sx=%d, Sy=%d"%(Rx, Ry, Sx, Sy))
+        return ()
 
     def tree_ring_radial_function(self, r):
         # This function defines the tree ring radial function
