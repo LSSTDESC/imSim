@@ -1,6 +1,6 @@
 """
-Code to manage the parallel simulation of multiple sensors
-using the multiprocessing module.
+Code to manage the parallel simulation of sensors using the
+multiprocessing module.
 """
 import os
 import multiprocessing
@@ -17,18 +17,18 @@ import desc.imsim
 __all__ = ['ImageSimulator']
 
 # This is global variable is needed since instances of ImageSimulator
-# contain references to unpickleable objectsin the LSST Stack (e.g.,
+# contain references to unpickleable objects in the LSST Stack (e.g.,
 # various cameraGeom objects), and the multiprocessing module can only
 # execute pickleable callback functions. The SimulateSensor functor
-# class below uses the global image_simulator to access the
+# class below uses the global image_simulator variable to access its
 # gs_interpreter objects, and the ImageSimulator.run method sets
-# image_simulator to self.
+# image_simulator to self so that it is available in the callbacks.
 image_simulator = None
 
 class ImageSimulator:
     """
-    Class to manage the parallel simulation of multiple sensors
-    using the multiprocessing module.
+    Class to manage the parallel simulation of sensors using the
+    multiprocessing module.
     """
     def __init__(self, instcat, psf, numRows=None, config=None, seed=267,
                  outdir='fits'):
@@ -37,10 +37,10 @@ class ImageSimulator:
         ----------
         instcat: str
             The instance catalog for the desired visit.
-        psf: lsst.sims.GalSimInterface.PSFbase subclass PSF to use for
-            drawing objects.  A single instance is used by all of the
-            GalSimInterpreters so that memory for any atmospheric
-            screen data can be shared among the processes.
+        psf: lsst.sims.GalSimInterface.PSFbase subclass
+            PSF to use for drawing objects.  A single instance is used
+            by all of the GalSimInterpreters so that memory for any
+            atmospheric screen data can be shared among the processes.
         numRows: int [None]
             The number of rows to read in from the instance catalog.
             If None, then all rows will be read in.
@@ -64,8 +64,8 @@ class ImageSimulator:
 
     def _make_gs_interpreters(self, seed):
         """
-        Create a separate GalSimInterpreter for each chip so that they
-        can be run in parallel.
+        Create a separate GalSimInterpreter for each sensor so that they
+        can be run in parallel and maintain separate checkpoint files.
 
         TODO: Find a good way to pass a different seed to each
         gs_interpreter or have them share the random number generator.
@@ -101,16 +101,16 @@ class ImageSimulator:
         if image_simulator is None:
             image_simulator = self
         elif id(image_simulator) != id(self):
-            raise RuntimeError("Attempt to use a more than one instance of "
+            raise RuntimeError("Attempt to use more than one instance of "
                                "ImageSimulator in the same python interpreter")
 
         if processes == 1:
-            # Don't need multiprocessing so just run serially.
+            # Don't need multiprocessing, so just run serially.
             for det_name in self.gs_interpreters:
                 simulate_sensor = SimulateSensor(det_name)
                 simulate_sensor(self.gs_obj_dict[det_name])
         else:
-            # Use multiprocessing
+            # Use multiprocessing.
             pool = multiprocessing.Pool(processes=processes)
             results = []
             for det_name in self.gs_interpreters:
@@ -122,20 +122,21 @@ class ImageSimulator:
             for res in results:
                 res.get()
 
+
 class SimulateSensor:
     """
     Functor class to serve as the callback for simulating sensors in
-    parallel using the multiprocessing module.  Note that
+    parallel using the multiprocessing module.  Note that the
     image_simulator variable is defined in the global scope.
     """
-    def __init__(self, chip_name):
+    def __init__(self, sensor_name):
         """
         Parameters
         ----------
-        chip_name: str
+        sensor_name: str
             The name of the sensor to be simulated, e.g., "R:2,2 S:1,1"
         """
-        self.chip_name = chip_name
+        self.sensor_name = sensor_name
 
     def __call__(self, gs_objects):
         """
@@ -144,20 +145,24 @@ class SimulateSensor:
         Parameters
         ----------
         gs_objects: list of GalSimCelestialObjects
-            This list should be restricted to the objects for the
-            corresponding sensor.
+            The list of objects to draw.  This should be restricted to
+            the objects for the corresponding sensor.
         """
         if len(gs_objects) == 0:
             return
-        print("drawing %i objects on %s" % (len(gs_objects), self.chip_name))
+
+        print("drawing %i objects on %s" % (len(gs_objects), self.sensor_name))
+
         # image_simulator must be a variable declared in the
         # outer scope and set to an ImageSimulator instance.
-        gs_interpreter = image_simulator.gs_interpreters[self.chip_name]
+        gs_interpreter = image_simulator.gs_interpreters[self.sensor_name]
         for gs_obj in gs_objects:
             if gs_obj.uniqueId in gs_interpreter.drawn_objects:
                 continue
             gs_interpreter.drawObject(gs_obj)
+
         desc.imsim.add_cosmic_rays(gs_interpreter, image_simulator.phot_params)
+
         outdir = image_simulator.outdir
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
