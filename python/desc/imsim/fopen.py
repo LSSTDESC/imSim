@@ -52,8 +52,3 @@ def fopen_generator(fd, abspath, **kwds):
                 with fopen(filename, **kwds) as my_input:
                     for line in my_input:
                         yield line
-
-if __name__ == '__main__':
-    with fopen('foo.txt', mode='rt') as input_:
-        for line in input_:
-            print(line.strip())
