@@ -8,3 +8,4 @@ from .imSim import *
 from .camera_readout import *
 from .focalplane_info import *
 from .skyModel import *
+from .fopen import *
