@@ -30,7 +30,7 @@ def fopen(filename, **kwds):
             fd = gzip.open(filename, **kwds)
         else:
             fd = open(filename, **kwds)
-        yield(fopen_generator(fd, **kwds))
+        yield fopen_generator(fd, **kwds)
     finally:
         fd.close()
 
@@ -43,14 +43,13 @@ def fopen_generator(fd, **kwds):
     """
     with fd as input_:
         for line in input_:
-            my_line = str(line)
             if not line.startswith('includeobj'):
-                yield(line)
+                yield line
             else:
                 filename = line.strip().split()[-1]
                 with fopen(filename, **kwds) as my_input:
                     for line in my_input:
-                        yield(line)
+                        yield line
 
 if __name__ == '__main__':
     with fopen('foo.txt', mode='rt') as input_:
