@@ -6,6 +6,7 @@ import gzip
 import desc.imsim
 
 class FopenTestCase(unittest.TestCase):
+    "TestCase class for fopen unit tests."
     def setUp(self):
         self.test_dir = 'fopen_dir'
         os.makedirs(self.test_dir, exist_ok=True)
