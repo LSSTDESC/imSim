@@ -1,6 +1,7 @@
 """
 Utilities to read in gzipped instance catalogs with includeobj directives.
 """
+import os
 import contextlib
 import gzip
 
@@ -25,17 +26,18 @@ def fopen(filename, **kwds):
     generator: file descriptor-like generator object that can be iterated
         over to return the lines in a file.
     """
+    abspath = os.path.split(os.path.abspath(filename))[0]
     try:
         if filename.endswith('.gz'):
             fd = gzip.open(filename, **kwds)
         else:
             fd = open(filename, **kwds)
-        yield fopen_generator(fd, **kwds)
+        yield fopen_generator(fd, abspath, **kwds)
     finally:
         fd.close()
 
 
-def fopen_generator(fd, **kwds):
+def fopen_generator(fd, abspath, **kwds):
     """
     Return a generator for the provided file descriptor that knows how
     to recursively read in instance catalogs specified by the
@@ -46,7 +48,7 @@ def fopen_generator(fd, **kwds):
             if not line.startswith('includeobj'):
                 yield line
             else:
-                filename = line.strip().split()[-1]
+                filename = os.path.join(abspath, line.strip().split()[-1])
                 with fopen(filename, **kwds) as my_input:
                     for line in my_input:
                         yield line
