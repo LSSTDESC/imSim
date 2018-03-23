@@ -45,7 +45,10 @@ class FopenTestCase(unittest.TestCase):
         "Test the fopen function."
         with desc.imsim.fopen(self.fopen_test_file, mode='rt') as input_:
             for i, line in enumerate(input_):
-                self.assertEqual(line.strip(), self.lines[i])
+                expected = self.lines[i]
+                self.assertEqual(line.strip(), expected)
+            # Make sure all of the expected lines have been processed.
+            self.assertEqual(self.lines[-1], expected)
 
 if __name__ == '__main__':
     unittest.main()
