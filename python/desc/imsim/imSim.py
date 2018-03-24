@@ -36,7 +36,8 @@ from lsst.sims.utils import radiansFromArcsec
 from lsst.sims.GalSimInterface import GalSimCelestialObject
 from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
 from lsst.sims.utils import defaultSpecMap
-from desc.imsim import CosmicRays
+from .cosmic_rays import CosmicRays
+from .fopen import fopen
 
 _POINT_SOURCE = 1
 _SERSIC_2D = 2
@@ -103,7 +104,7 @@ def metadata_from_file(file_name):
     InstanceCatalog.
     """
     input_params = {}
-    with open(file_name, 'r') as in_file:
+    with fopen(file_name, mode='rt') as in_file:
         for line in in_file:
             if line[0] == '#':
                 continue
@@ -181,7 +182,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
 
     num_objects = 0
     ct_rows = 0
-    with open(file_name, 'r') as input_file:
+    with fopen(file_name, mode='rt') as input_file:
         for line in input_file:
             ct_rows += 1
             params = line.strip().split()
@@ -214,7 +215,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     object_type = np.zeros(num_objects, dtype=int)
 
     i_obj = -1
-    with open(file_name, 'r') as input_file:
+    with fopen(file_name, mode='rt') as input_file:
         for line in input_file:
             params = line.strip().split()
             if params[0] != 'object':
