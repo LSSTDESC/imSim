@@ -4,6 +4,7 @@ multiprocessing module.
 """
 import os
 import sys
+import re
 import multiprocessing
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
@@ -94,7 +95,16 @@ class ImageSimulator:
                                     noiseWrapper=noise_and_background,
                                     seed=seed)
             self.gs_interpreters[det_name].setPSF(PSF=self.psf)
-            self.gs_interpreters[det_name].checkpoint_file="checkpoint-" + str(runNumber) + "-" + str(visitNumber) + "-" + det_name.replace(":","_").replace(",","_").replace(" ","_") + ".ckpt"
+            self.gs_interpreters[det_name].checkpoint_file \
+                = self.checkpoint_file(runNumber, visitNumber, det_name)
+            self.gs_interpreters[det_name].restore_checkpoint(self.camera_wrapper,
+                                                              self.phot_params,
+                                                              self.obs_md)
+
+    @staticmethod
+    def checkpoint_file(runNumber, visitNumber, det_name):
+        return '-'.join(('checkpoint', str(runNumber), str(visitNumber),
+                         re.sub('[:, ]', '_', det_name))) + '.ckpt'
 
     def run(self, processes=1):
         """
@@ -169,6 +179,10 @@ class SimulateSensor:
             if gs_obj.uniqueId in gs_interpreter.drawn_objects:
                 continue
             gs_interpreter.drawObject(gs_obj)
+            gs_obj.sed.delete_sed_obj()
+
+        # Recover the memory devoted to the GalSimCelestialObject instances.
+        gs_objects.reset()
 
         add_cosmic_rays(gs_interpreter, image_simulator.phot_params)
 
@@ -179,3 +193,10 @@ class SimulateSensor:
         obsHistID = str(image_simulator.obs_md.OpsimMetaData['obshistID'])
         gs_interpreter.writeImages(nameRoot=os.path.join(outdir, prefix)
                                    + obsHistID)
+
+        #os.remove(gs_interpreter.checkpoint_file)
+
+        # Explicitly delete gs_interpreter to recover the memory
+        # associated with that object.
+        image_simulator.gs_interpreters[self.sensor_name] = None
+        del gs_interpreter

@@ -39,6 +39,7 @@ from lsst.sims.utils import defaultSpecMap
 from .cosmic_rays import CosmicRays
 from .fopen import fopen
 from .trim import InstCatTrimmer
+from .sed_wrapper import SedWrapper
 
 _POINT_SOURCE = 1
 _SERSIC_2D = 2
@@ -294,33 +295,11 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
         elif object_type[i_obj] == _RANDOM_WALK:
             gs_type = 'RandomWalk'
 
-        # load the SED
-        sed_obj = Sed()
-        sed_obj.readSED_flambda(sed_file(sed_name[i_obj], my_sed_dirs))
-        fnorm = getImsimFluxNorm(sed_obj, mag_norm[i_obj])
-        sed_obj.multiplyFluxNorm(fnorm)
-        if internal_av[i_obj] != 0.0:
-            if wav_int is None or not np.array_equal(sed_obj.wavelen, wav_int):
-                a_int, b_int= sed_obj.setupCCMab()
-                wav_int = copy.deepcopy(sed_obj.wavelen)
-
-            sed_obj.addCCMDust(a_int, b_int,
-                               A_v = internal_av[i_obj],
-                               R_v = internal_rv[i_obj])
-
-        if redshift[i_obj] != 0.0:
-            sed_obj.redshiftSED(redshift[i_obj], dimming=True)
-
-        sed_obj.resampleSED(wavelen_match=bp_dict.wavelenMatch)
-
-        if galactic_av[i_obj] != 0.0:
-            if wav_gal is None or not np.array_equal(sed_obj.wavelen, wav_gal):
-                a_g, b_g = sed_obj.setupCCMab()
-                wav_gal = copy.deepcopy(sed_obj.wavelen)
-
-            sed_obj.addCCMDust(a_g, b_g,
-                               A_v = galactic_av[i_obj],
-                               R_v = galactic_rv[i_obj])
+        sed_obj = SedWrapper(sed_file(sed_name[i_obj], my_sed_dirs),
+                             mag_norm[i_obj], redshift[i_obj],
+                             internal_av[i_obj], internal_rv[i_obj],
+                             galactic_av[i_obj], galactic_rv[i_obj],
+                             bp_dict)
 
         gs_object = GalSimCelestialObject(gs_type,
                                           x_pupil[i_obj],
@@ -581,6 +560,13 @@ class GsObjectList:
             else:
                 self._gs_objects = obj_arr
         return self._gs_objects
+
+    def reset(self):
+        """
+        Reset the ._gs_objects attribute to None in order to recover
+        memory devoted to the GalSimCelestialObject instances.
+        """
+        self._gs_objects = None
 
     def __len__(self):
         try:

@@ -155,6 +155,8 @@ def main():
             if gs_obj.uniqueId in gs_interpreter.drawn_objects:
                 continue
             gs_interpreter.drawObject(gs_obj)
+            # Delete underlying .sed.sed_obj to release associated memory.
+            gs_obj.sed.delete_sed_obj()
 
     desc.imsim.add_cosmic_rays(gs_interpreter, phot_params)
 
