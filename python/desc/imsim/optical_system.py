@@ -161,7 +161,7 @@ def gen_nominal_coeff(zemax_path):
     np.savetxt(NOMINAL_PATH, out_array_t)
 
 
-def moc_deviations():
+def mock_deviations(seed=None):
     """
     Returns an array of random mock optical deviations as a (35, 50) array.
 
@@ -177,6 +177,7 @@ def moc_deviations():
     avg = np.average(aos_sim_results, axis=1)
     std = np.std(aos_sim_results, axis=1)
 
+    np.random.seed(seed)
     distortion = np.zeros((35, 50))
     for i in range(35):
         distortion[i] = np.random.normal(avg, std)

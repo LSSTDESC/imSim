@@ -9,7 +9,7 @@ from desc.imsim.cartesian_zernikes import gen_superposition as gen_cart_op
 from desc.imsim.cartesian_zernikes import gen_superposition_unop as gen_cart_unop
 from desc.imsim.polar_zernikes import gen_superposition as gen_pol_op
 from desc.imsim.polar_zernikes import gen_superposition_unop as gen_pol_unop
-from desc.imsim import OpticalZernikes
+from desc.imsim.optical_system import OpticalZernikes, mock_deviations
 
 
 class ZernikePolynomial(unittest.TestCase):
@@ -48,9 +48,31 @@ class ZernikePolynomial(unittest.TestCase):
 
         polar = gen_pol_op(self.coeff)(self.r, self.theta)
         cartesian = gen_cart_op(self.coeff)(self.x, self.y)
-        values_close = np.isclose(polar, cartesian)
+        values_close = np.isclose(polar, cartesian, .005)
         err_msg = 'Values not close: {},  {}'
         self.assertTrue(values_close, err_msg.format(polar, cartesian))
+
+
+class OpticalDeviations(unittest.TestCase):
+    """Tests the generation of mock optical deviations"""
+
+    def test_seed_handeling(self):
+        """Tests that random deviations are seed dependant"""
+
+        # Checks that seed is set explicitly and not time dependant
+        fixed_seed_equal = np.array_equal(mock_deviations(0), mock_deviations(0))
+        self.assertTrue(fixed_seed_equal)
+
+        # checks that default seeds are time dependant and not persistant
+        time_seed_equal = np.array_equal(mock_deviations(), mock_deviations())
+        self.assertFalse(time_seed_equal)
+
+    def test_shape(self):
+        """Tests that mock optical deviations are the correct shape"""
+
+        shape = mock_deviations().shape
+        err_msg = 'Expected shape (35, 50) but received {} instead.'
+        self.assertEqual(shape, (35, 50), err_msg.format(shape))
 
 
 class FocalPlaneModeling(unittest.TestCase):
@@ -59,17 +81,24 @@ class FocalPlaneModeling(unittest.TestCase):
     def setUpClass(cls):
         """Instantiate a model fo the focal plane"""
 
-        cls.focal_model = OpticalZernikes()
+        cls.opt_state = OpticalZernikes()
 
     def test_compare_coord_systems(self):
+        """Tests that polar and cartesian sampling coordinates agree"""
 
-        samp_x, samp_y = self.focal_model.cartesian_coords
-        samp_r, samp_theta = self.focal_model.polar_coords
+        samp_x, samp_y = self.opt_state.cartesian_coords
+        samp_r, samp_theta = self.opt_state.polar_coords
+
         polar_x = np.multiply(samp_r, np.cos(samp_theta))
         polar_y = np.multiply(samp_r, np.sin(samp_theta))
-        polar_cart = np.rec.fromarrays([polar_x, polar_y])
-        polar_cart.sort()
 
         err_msg = 'Polar and cartesian sampling coordinates do not match'
         self.assertTrue(all(np.isclose(samp_x, polar_x)), err_msg)
         self.assertTrue(all(np.isclose(samp_y, polar_y)), err_msg)
+
+    def test_coeff_shape(self):
+        """Tests that the expected number of coefficients is returned"""
+
+        num_coeff = len(self.opt_state.polar_coeff(1, 3.14))
+        err_msg = 'Expected 19 coefficients, found {}.'
+        self.assertEqual(num_coeff, 19, err_msg.format(num_coeff))
