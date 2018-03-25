@@ -148,9 +148,9 @@ def main():
                            "%s" % arguments.psf)
 
     gs_interpreter.setPSF(PSF=local_PSF)
-    
+
     desc.imsim.add_treering_info(gs_interpreter)
-    
+
     if arguments.sensor is not None:
         gs_objects_to_draw = gs_object_dict[arguments.sensor]
     else:
@@ -160,6 +160,8 @@ def main():
         if gs_obj.uniqueId in gs_interpreter.drawn_objects:
             continue
         gs_interpreter.drawObject(gs_obj)
+        # Delete underlying .sed.sed_obj to release associated memory.
+        gs_obj.sed.delete_sed_obj()
 
     desc.imsim.add_cosmic_rays(gs_interpreter, phot_params)
 

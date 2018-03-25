@@ -37,6 +37,7 @@ from lsst.sims.GalSimInterface import GalSimCelestialObject
 from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
 from lsst.sims.utils import defaultSpecMap
 from desc.imsim import CosmicRays, TreeRings
+from .sed_wrapper import SedWrapper
 
 _POINT_SOURCE = 1
 _SERSIC_2D = 2
@@ -318,33 +319,11 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
         elif object_type[i_obj] == _SERSIC_2D:
             gs_type = 'sersic'
 
-        # load the SED
-        sed_obj = Sed()
-        sed_obj.readSED_flambda(os.path.join(sed_dir, sed_name[i_obj]))
-        fnorm = getImsimFluxNorm(sed_obj, mag_norm[i_obj])
-        sed_obj.multiplyFluxNorm(fnorm)
-        if internal_av[i_obj] != 0.0:
-            if wav_int is None or not np.array_equal(sed_obj.wavelen, wav_int):
-                a_int, b_int= sed_obj.setupCCMab()
-                wav_int = copy.deepcopy(sed_obj.wavelen)
-
-            sed_obj.addCCMDust(a_int, b_int,
-                               A_v = internal_av[i_obj],
-                               R_v = internal_rv[i_obj])
-
-        if redshift[i_obj] != 0.0:
-            sed_obj.redshiftSED(redshift[i_obj], dimming=True)
-
-        sed_obj.resampleSED(wavelen_match=bp_dict.wavelenMatch)
-
-        if galactic_av[i_obj] != 0.0:
-            if wav_gal is None or not np.array_equal(sed_obj.wavelen, wav_gal):
-                a_g, b_g = sed_obj.setupCCMab()
-                wav_gal = copy.deepcopy(sed_obj.wavelen)
-
-            sed_obj.addCCMDust(a_g, b_g,
-                               A_v = galactic_av[i_obj],
-                               R_v = galactic_rv[i_obj])
+        sed_obj = SedWrapper(os.path.join(sed_dir, sed_name[i_obj]),
+                             mag_norm[i_obj], redshift[i_obj],
+                             internal_av[i_obj], internal_rv[i_obj],
+                             galactic_av[i_obj], galactic_rv[i_obj],
+                             bp_dict)
 
         gs_object = GalSimCelestialObject(gs_type,
                                           x_pupil[i_obj],
