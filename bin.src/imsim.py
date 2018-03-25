@@ -37,7 +37,7 @@ def main():
                         choices=['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'],
                         default='INFO', help='Logging level. Default: "INFO"')
     parser.add_argument('--psf', type=str, default='Kolmogorov',
-                        choices=['DoubleGaussian', 'Kolmogorov'],
+                        choices=['DoubleGaussian', 'Kolmogorov', 'Atmospheric'],
                         help="PSF model to use; either the double Gaussian "
                         "from LSE=40 (equation 30), or the Kolmogorov convolved "
                         "with a Gaussian proposed by David Kirkby at the "
@@ -120,6 +120,9 @@ def main():
     phoSimStarCatalog.noise_and_background \
         = ESOSkyModel(obs_md, addNoise=True, addBackground=True)
 
+    # equation 3 of Krisciunas and Schaefer 1991
+    airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-obs_md.OpsimMetaData['altitude']))**2)
+
     # Add a PSF.
     if arguments.psf.lower() == "doublegaussian":
         # This one is taken from equation 30 of
@@ -134,13 +137,19 @@ def main():
         #
         # https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
 
-        # equation 3 of Krisciunas and Schaefer 1991
-        airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-obs_md.OpsimMetaData['altitude']))**2)
-
         phoSimStarCatalog.PSF = \
             Kolmogorov_and_Gaussian_PSF(airmass=airmass,
                                         rawSeeing=obs_md.OpsimMetaData['rawSeeing'],
                                         band=obs_md.bandpass)
+    elif arguments.psf.lower() == "atmospheric":
+        # This PSF uses the galsim atmospheric turbulent phases machinery
+
+        phoSimStarCatalog.PSF = \
+            desc.imsim.AtmosphericPSF(airmass=airmass,
+                                      rawSeeing=obs_md.OpsimMetaData['rawSeeing'],
+                                      band=obs_md.bandpass,
+                                      seed=commands['seed'],
+                                      logger=logger)
     else:
         raise RuntimeError("Do not know what to do with psf model: "
                            "%s" % arguments.psf)
