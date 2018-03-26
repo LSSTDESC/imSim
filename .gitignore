@@ -90,3 +90,7 @@ ENV/
 
 # backup files
 *~
+
+bin/
+.sconf_temp
+.sconsign.dblite
