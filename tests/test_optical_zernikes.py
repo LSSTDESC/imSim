@@ -100,5 +100,13 @@ class FocalPlaneModeling(unittest.TestCase):
         """Tests that the expected number of coefficients is returned"""
 
         num_coeff = len(self.opt_state.polar_coeff(1, 3.14))
-        err_msg = 'Expected 19 coefficients, found {}.'
+        err_msg = 'Expected 19 coefficients, received {}.'
         self.assertEqual(num_coeff, 19, err_msg.format(num_coeff))
+
+    def test_zero_deviations(self):
+        """Tests that zernike deviations are zero for zero optical deviations"""
+
+        moc_deviation = np.zeros((35, 50))
+        zern_deviations = OpticalZernikes(moc_deviation).deviation_coeff
+        is_zeros = not np.count_nonzero(zern_deviations)
+        self.assertTrue(is_zeros, "Received nonzero zernike coefficients")

@@ -349,8 +349,3 @@ class OpticalZernikes:
         fp_r = np.sqrt(fp_x ** 2 + fp_y ** 2)
         fp_t = np.arctan2(fp_y, fp_x)
         return self.polar_coeff(fp_r, fp_t)
-
-
-if __name__ == '__main__':
-    # Check run times for OpticalZernikes
-    test_runtime(100, 1000, verbose=True)
