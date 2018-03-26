@@ -41,6 +41,7 @@ from .fopen import fopen
 
 _POINT_SOURCE = 1
 _SERSIC_2D = 2
+_RANDOM_WALK = 3
 
 __all__ = ['PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
@@ -49,7 +50,7 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'read_config', 'get_config', 'get_logger',
            'get_obs_lsstSim_camera',
            'add_cosmic_rays',
-           '_POINT_SOURCE', '_SERSIC_2D',
+           '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK',
            'parsePhoSimInstanceFile']
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -209,6 +210,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     semi_minor_arcsec = np.zeros(num_objects, dtype=float)
     position_angle_degrees = np.zeros(num_objects, dtype=float)
     sersic_index = np.zeros(num_objects, dtype=float)
+    npoints = np.zeros(num_objects, dtype=int)
     redshift = np.zeros(num_objects, dtype=float)
 
     unique_id = np.zeros(num_objects, dtype=int)
@@ -256,7 +258,20 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                 if params[i_gal_dust_model].lower() != 'none':
                     galactic_av[i_obj] = float(params[i_gal_dust_model+1])
                     galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
-
+            elif params[12].lower() == 'knots':
+                object_type[i_obj] = _RANDOM_WALK
+                semi_major_arcsec[i_obj] = float(params[13])
+                semi_minor_arcsec[i_obj] = float(params[14])
+                position_angle_degrees[i_obj] = float(params[15])
+                npoints[i_obj] = int(params[16])
+                i_gal_dust_model = 18
+                if params[17].lower() != 'none':
+                    i_gal_dust_model = 20
+                    internal_av[i_obj] = float(params[18])
+                    internal_rv[i_obj] = float(params[19])
+                if params[i_gal_dust_model].lower() != 'none':
+                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
+                    galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
             else:
                 raise RuntimeError("Do not know how to handle "
                                    "object type: %s" % params[12])
@@ -284,12 +299,13 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
 
     object_is_valid = np.array([True]*num_objects)
 
-    invalid_objects = np.where(np.logical_or(
-                               mag_norm>50.0,
-                               np.logical_and(galactic_av==0.0, galactic_rv==0.0),
-                               np.logical_and(object_type==_SERSIC_2D,
-                                              semi_major_arcsec<semi_minor_arcsec)
-                               ))
+    invalid_objects = np.where(np.logical_or(np.logical_or(
+                                    mag_norm>50.0,
+                                    np.logical_and(galactic_av==0.0, galactic_rv==0.0)),
+                               np.logical_or(
+                                    np.logical_and(object_type==_SERSIC_2D,
+                                                 semi_major_arcsec<semi_minor_arcsec),
+                                    np.logical_and(object_type==_RANDOM_WALK,npoints<=0))))
 
     object_is_valid[invalid_objects] = False
 
@@ -303,6 +319,8 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
         n_bad_axes = len(np.where(np.logical_and(object_type==_SERSIC_2D,
                                                  semi_major_arcsec<semi_minor_arcsec))[0])
         message += "    %d had semi_major_axis < semi_minor_axis\n" % n_bad_axes
+        n_bad_knots = len(np.where(np.logical_and(object_type==_RANDOM_WALK,npoints<=0))[0])
+        message += "    %d had n_points <= 0 \n" % n_bad_knots
         warnings.warn(message)
 
     wav_int = None
@@ -317,6 +335,8 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
             gs_type = 'pointSource'
         elif object_type[i_obj] == _SERSIC_2D:
             gs_type = 'sersic'
+        elif object_type[i_obj] == _RANDOM_WALK:
+            gs_type = 'RandomWalk'
 
         # load the SED
         sed_obj = Sed()
@@ -357,6 +377,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                                           sed_obj,
                                           bp_dict,
                                           phot_params,
+                                          npoints[i_obj],
                                           gamma1=gamma1[i_obj],
                                           gamma2=gamma2[i_obj],
                                           kappa=kappa[i_obj],
