@@ -240,7 +240,7 @@ class OpticalZernikes:
         """
 
         if deviations is None:
-            deviations = moc_deviations()
+            deviations = mock_deviations()
 
         self.deviation_coeff = self._calc_sampling_coeff(deviations)
         self.sampling_coeff = np.add(self.deviation_coeff, self.nominal_coeff)
