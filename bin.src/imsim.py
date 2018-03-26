@@ -116,6 +116,10 @@ def main():
                                       phot_params,
                                       obs_md)
 
+    # equation 3 of Krisciunas and Schaefer 1991
+    altRad = np.radians(obs_md.OpsimMetaData['altitude'])
+    airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-altRad))**2)
+
     # Add a PSF.
     if arguments.psf.lower() == "doublegaussian":
         # This one is taken from equation 30 of
@@ -129,9 +133,6 @@ def main():
         # Survey Simulations Working Group telecon
         #
         # https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
-
-        # equation 3 of Krisciunas and Schaefer 1991
-        airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-obs_md.OpsimMetaData['altitude']))**2)
 
         local_PSF = \
             Kolmogorov_and_Gaussian_PSF(airmass=airmass,
