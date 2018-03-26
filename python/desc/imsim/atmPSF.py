@@ -21,9 +21,12 @@ class AtmosphericPSF(PSFbase):
     @param rng          galsim.BaseDeviate
     @param t0           Exposure time start in seconds.  default: 0.
     @param exptime      Exposure time in seconds.  default: 30.
+    @param kcrit        Critical Fourier mode at which to split first and second kicks
+                        in units of (1/r0).  default: 0.2
     @param logger       Optional logger.  default: None
     """
-    def __init__(self, airmass, rawSeeing, band, rng, t0=0.0, exptime=30.0, logger=None):
+    def __init__(self, airmass, rawSeeing, band, rng, t0=0.0, exptime=30.0, kcrit=0.2,
+                 logger=None):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
 
@@ -40,6 +43,13 @@ class AtmosphericPSF(PSFbase):
         self.atm = galsim.Atmosphere(**self._getAtmKwargs())
         self.aper = galsim.Aperture(diam=8.36, obscuration=0.61,
                                     lam=self.wlen_eff, screen_list=self.atm)
+
+        # Instantiate screens now instead of delaying until after multiprocessing
+        # has started.
+        r0_500 = self.atm.r0_500_effective
+        r0 = r0_500 * (self.wlen_eff/500.0)**(6./5)
+        kmax = kcrit / r0
+        self.atm.instantiate(kmax=kmax, check='phot')
 
     @staticmethod
     def _seeing_resid(r0_500, wavelength, L0, target):
@@ -102,7 +112,7 @@ class AtmosphericPSF(PSFbase):
 
         return dict(r0_500=r0_500, L0=L0, speed=speeds, direction=directions,
                     altitude=altitudes, r0_weights=weights, rng=self.rng,
-                    screen_size=204.8, screen_scale=0.1)
+                    screen_size=819.2, screen_scale=0.1)
 
     def _getPSF(self, xPupil=None, yPupil=None):
         """
