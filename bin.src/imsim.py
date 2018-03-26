@@ -141,11 +141,13 @@ def main():
     elif arguments.psf.lower() == "atmospheric":
         # This PSF uses the galsim atmospheric turbulent phases machinery
 
+        # Duplicate the rng so we don't change the seed for anything subsequent.
+        atm_rng = gs_interpreter._rng.duplicate()
         local_PSF = \
             desc.imsim.AtmosphericPSF(airmass=airmass,
                                       rawSeeing=obs_md.OpsimMetaData['rawSeeing'],
                                       band=obs_md.bandpass,
-                                      seed=commands['seed'],
+                                      rng=atm_rng,
                                       logger=logger)
     else:
         raise RuntimeError("Do not know what to do with psf model: "

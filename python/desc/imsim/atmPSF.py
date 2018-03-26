@@ -18,12 +18,12 @@ class AtmosphericPSF(PSFbase):
     @param airmass      Airmass of observation
     @param rawSeeing    The wavelength=500nm, zenith FWHM of the seeing
     @param band         One of ['u','g','r','i','z','y']
-    @param seed         Random number seed for creating atmosphere
+    @param rng          galsim.BaseDeviate
     @param t0           Exposure time start in seconds.  default: 0.
     @param exptime      Exposure time in seconds.  default: 30.
     @param logger       Optional logger.  default: None
     """
-    def __init__(self, airmass, rawSeeing, band, seed, t0=0.0, exptime=30.0, logger=None):
+    def __init__(self, airmass, rawSeeing, band, rng, t0=0.0, exptime=30.0, logger=None):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
 
@@ -32,7 +32,7 @@ class AtmosphericPSF(PSFbase):
 
         self.seeing500 = rawSeeing * airmass ** 0.6
 
-        self.seed = seed
+        self.rng = rng
         self.t0 = t0
         self.exptime = exptime
         self.logger = logger
@@ -58,7 +58,9 @@ class AtmosphericPSF(PSFbase):
         return result[0]
 
     def _getAtmKwargs(self):
-        randomState = np.random.RandomState(self.seed)
+        ud = galsim.UniformDeviate(self.rng)
+        gd = galsim.GaussianDeviate(self.rng)
+
         # Use values measured from Ellerbroek 2008.
         altitudes = [0.0, 2.58, 5.16, 7.73, 12.89, 15.46]
         # Elevate the ground layer though.  Otherwise, PSFs come out too correlated
@@ -67,20 +69,21 @@ class AtmosphericPSF(PSFbase):
 
         # Use weights from Ellerbroek too, but add some random perturbations.
         weights = [0.652, 0.172, 0.055, 0.025, 0.074, 0.022]
-        weights = [np.abs(w*randomState.normal(1, 0.1)) for w in weights]
+        weights = [np.abs(w*(1.0 + 0.1*gd())) for w in weights]
         weights = np.clip(weights, 0.01, 0.8)  # keep weights from straying too far.
         weights /= np.sum(weights)  # renormalize
 
         # Draw a single common outer scale for all layers from a log normal
         L0 = 0
         while L0 < 10.0 or L0 > 100:
-            L0 = randomState.lognormal(mean=np.log(25.0), sigma=0.6)
+            L0 = np.exp(gd() * 0.6 + np.log(25.0))
+        L0 = [L0 for _ in range(6)]
 
         # Uniformly draw layer speeds between 0 and max_speed.
         maxSpeed = 20.0
-        speeds = [randomState.uniform()*maxSpeed for _ in range(6)]
+        speeds = [ud()*maxSpeed for _ in range(6)]
         # Isotropically draw directions.
-        directions = [randomState.uniform()*360.0*galsim.degrees for _ in range(6)]
+        directions = [ud()*360.0*galsim.degrees for _ in range(6)]
 
         # Given the desired seeing500 and randomly selected L0, determine appropriate
         # r0_500
@@ -91,14 +94,14 @@ class AtmosphericPSF(PSFbase):
             self.logger.debug("seeing500 = {}".format(self.seeing500))
             self.logger.debug("wlen_eff = {}".format(self.wlen_eff))
             self.logger.debug("r0_500 = {}".format(r0_500))
+            self.logger.debug("L0 = {}".format(L0))
             self.logger.debug("speeds = {}".format(speeds))
             self.logger.debug("directions = {}".format(directions))
             self.logger.debug("altitudes = {}".format(altitudes))
             self.logger.debug("weights = {}".format(weights))
-            self.logger.debug("L0 = {}".format(L0))
 
         return dict(r0_500=r0_500, L0=L0, speed=speeds, direction=directions,
-                    altitude=altitudes, rng=galsim.BaseDeviate(self.seed),
+                    altitude=altitudes, r0_weights=weights, rng=self.rng,
                     screen_size=204.8, screen_scale=0.1)
 
     def _getPSF(self, xPupil=None, yPupil=None):
