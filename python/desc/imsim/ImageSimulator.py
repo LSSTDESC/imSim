@@ -7,12 +7,10 @@ import multiprocessing
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
 from lsst.sims.GalSimInterface import make_galsim_detector
-from lsst.sims.GalSimInterface import SNRdocumentPSF
-from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from lsst.sims.GalSimInterface import GalSimInterpreter
-from desc.imsim.skyModel import ESOSkyModel
-import desc.imsim
+from .imSim import read_config, parsePhoSimInstanceFile, add_cosmic_rays
+from .skyModel import ESOSkyModel
 
 __all__ = ['ImageSimulator']
 
@@ -31,7 +29,7 @@ class ImageSimulator:
     multiprocessing module.
     """
     def __init__(self, instcat, psf, numRows=None, config=None, seed=267,
-                 outdir='fits'):
+                 outdir='fits', sensor_list=None):
         """
         Parameters
         ----------
@@ -51,18 +49,22 @@ class ImageSimulator:
             Random number seed to pass to the GalSimInterpreter objects.
         outdir: str ['fits']
             Output directory to write the FITS images.
+        sensor_list: tuple or other container [None]
+            The names of sensors (e.g., "R:2,2 S:1,1") to simulate.
+            If None, then all sensors in the camera will be
+            considered.
         """
-        self.config = desc.imsim.read_config(config)
+        self.config = read_config(config)
         self.psf = psf
         self.outdir = outdir
         self.obs_md, self.phot_params, sources \
-            = desc.imsim.parsePhoSimInstanceFile(instcat, numRows=numRows)
+            = parsePhoSimInstanceFile(instcat, numRows=numRows)
         self.gs_obj_arr = sources[0]
         self.gs_obj_dict = sources[1]
         self.camera_wrapper = LSSTCameraWrapper()
-        self._make_gs_interpreters(seed)
+        self._make_gs_interpreters(seed, sensor_list)
 
-    def _make_gs_interpreters(self, seed):
+    def _make_gs_interpreters(self, seed, sensor_list):
         """
         Create a separate GalSimInterpreter for each sensor so that they
         can be run in parallel and maintain separate checkpoint files.
@@ -77,6 +79,8 @@ class ImageSimulator:
         for det in self.camera_wrapper.camera:
             det_type = det.getType()
             det_name = det.getName()
+            if sensor_list is not None and det_name not in sensor_list:
+                continue
             if det_type == WAVEFRONT or det_type == GUIDER:
                 continue
             gs_det = make_galsim_detector(self.camera_wrapper, det_name,
@@ -161,7 +165,7 @@ class SimulateSensor:
                 continue
             gs_interpreter.drawObject(gs_obj)
 
-        desc.imsim.add_cosmic_rays(gs_interpreter, image_simulator.phot_params)
+        add_cosmic_rays(gs_interpreter, image_simulator.phot_params)
 
         outdir = image_simulator.outdir
         if not os.path.isdir(outdir):

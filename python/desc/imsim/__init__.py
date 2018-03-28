@@ -9,3 +9,4 @@ from .camera_readout import *
 from .focalplane_info import *
 from .skyModel import *
 from .ImageSimulator import *
+from .fopen import *

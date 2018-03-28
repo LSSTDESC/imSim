@@ -1,3 +1,4 @@
+import warnings
 from lsst.sims.GalSimInterface import SNRdocumentPSF
 import desc.imsim
 
@@ -9,6 +10,10 @@ obs_md = desc.imsim.phosim_obs_metadata(phosim_commands)
 
 psf = SNRdocumentPSF(obs_md.OpsimMetaData['FWHMgeom'])
 
-image_simulator = desc.imsim.ImageSimulator(instcat, psf, numRows=30)
+#numRows = None
+numRows = 1000
+image_simulator = desc.imsim.ImageSimulator(instcat, psf, numRows=numRows)
 
-image_simulator.run(processes=3)
+with warnings.catch_warnings():
+    warnings.filterwarnings('ignore', 'Automatic n_photons', UserWarning)
+    image_simulator.run(processes=3)

@@ -368,7 +368,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         # request for dates in the future
         desired_warning_dex = -1
         for i_ww, ww in enumerate(wa):
-            if 'Omitted 5 suspicious objects' in ww.message.args[0]:
+            if 'Omitted 6 suspicious objects' in ww.message.args[0]:
                 desired_warning_dex = i_ww
                 break
 
@@ -381,14 +381,15 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         # these are the objects that should be omitted
         bad_unique_ids = set([34307989098524, 811883374597,
                               811883374596, 956090392580,
-                              34307989098523])
+                              34307989098523, 34304522113056])
 
-        self.assertIn('Omitted 5 suspicious objects', message)
+        self.assertIn('Omitted 6 suspicious objects', message)
         self.assertIn('4 had galactic_Av', message)
         self.assertIn('1 had mag_norm', message)
         self.assertIn('1 had semi_major_axis', message)
+        self.assertIn('1 had n_points', message)
 
-        self.assertEqual(len(instcat_contents.sources[0]), 16)
+        self.assertEqual(len(instcat_contents.sources[0]), 17)
         for obj in instcat_contents.sources[0]:
             self.assertNotIn(obj.uniqueId, bad_unique_ids)
 
