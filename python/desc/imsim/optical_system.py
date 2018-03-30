@@ -163,26 +163,23 @@ def gen_nominal_coeff(zemax_path):
 
 def mock_deviations(seed=None):
     """
-    Returns an array of random mock optical deviations as a (35, 50) array.
+    Returns an array of random mock optical deviations as a shape (50,) array.
 
-    For each optical degree of freedom in LSST, deviations are chosen randomly
-    at 35 positions in the exit pupil using a normal distribution. Parameters
-    for each distribution are hardcoded based on Angeli et al. 2014.
+    Generates a set of random deviations in each optical degree of freedom for
+    LSST. Ech degree of freedom has a seperate, normal distribution. Parameters
+    used to create each distribution calculated based simulations of the
+    adaptive optics system found in AOS_PATH.
 
-    @param [out] A (35, 50) array representing mock optical distortions
+    @param [out] A shape (50,) array representing mock optical distortions
     """
 
     aos_sim_results = np.genfromtxt(AOS_PATH)
     assert aos_sim_results.shape[0] == 50
-    avg = np.average(aos_sim_results, axis=1)
-    std = np.std(aos_sim_results, axis=1)
 
     np.random.seed(seed)
-    distortion = np.zeros((35, 50))
-    for i in range(35):
-        distortion[i] = np.random.normal(avg, std)
-
-    return distortion
+    avg = np.average(aos_sim_results, axis=1)
+    std = np.std(aos_sim_results, axis=1)
+    return np.random.normal(avg, std)
 
 
 def test_runtime(n_runs, n_coords, verbose=False):
@@ -261,7 +258,7 @@ class OpticalZernikes:
 
         coefficients = np.zeros((num_sampling_coords, num_zernike_coeff))
         for i in range(num_sampling_coords):
-            coefficients[i] = self.sensitivity[i].dot(deviations[i])
+            coefficients[i] = self.sensitivity[i].dot(deviations)
 
         return coefficients.transpose()
 

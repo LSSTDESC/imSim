@@ -71,8 +71,8 @@ class OpticalDeviations(unittest.TestCase):
         """Tests that mock optical deviations are the correct shape"""
 
         shape = mock_deviations().shape
-        err_msg = 'Expected shape (35, 50) but received {} instead.'
-        self.assertEqual(shape, (35, 50), err_msg.format(shape))
+        err_msg = 'Expected shape (50,) but received {} instead.'
+        self.assertEqual(shape, (50,), err_msg.format(shape))
 
 
 class FocalPlaneModeling(unittest.TestCase):
