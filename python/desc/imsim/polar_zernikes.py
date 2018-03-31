@@ -17,10 +17,10 @@ def z_1(r, t):
 
     @param [in] t is the angular coordinate to evaluate the polynomial for
 
-    @param [out] 2^(1/2)
+    @param [out] 1
     """
 
-    return sqrt(2)
+    return 1
 
 
 def z_2(r, t):
