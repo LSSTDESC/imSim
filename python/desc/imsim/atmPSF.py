@@ -8,6 +8,21 @@ from scipy.optimize import fsolve
 import galsim
 from lsst.sims.GalSimInterface import PSFbase
 
+from .optical_system import OpticalZernikes, mock_deviations
+
+class OptWF(object):
+    def __init__(self, rng):
+        u = galsim.UniformDeviate(rng)
+        self.deviations = mock_deviations(seed=int(u()*2**31))
+        self.oz = OpticalZernikes(self.deviations)
+        self.dynamic = False
+        self.reversible = True
+
+    def _wavefront_gradient(self, u, v, t, theta):
+        z = self.oz.cartesian_coeff(theta[0].rad, theta[1].rad)
+        Z = galsim.OpticalScreen(diam=8.36, obscuration=0.61, aberrations=[0]*4+list(z))
+        return Z._wavefront_gradient(u, v, t, theta)
+
 
 class AtmosphericPSF(PSFbase):
     """Class representing an Atmospheric PSF.
@@ -23,10 +38,11 @@ class AtmosphericPSF(PSFbase):
     @param exptime      Exposure time in seconds.  default: 30.
     @param kcrit        Critical Fourier mode at which to split first and second kicks
                         in units of (1/r0).  default: 0.2
+    @param doOpt        Add in optical phase screens?  default: True
     @param logger       Optional logger.  default: None
     """
     def __init__(self, airmass, rawSeeing, band, rng, t0=0.0, exptime=30.0, kcrit=0.2,
-                 logger=None):
+                 doOpt=True, logger=None):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
 
@@ -50,6 +66,9 @@ class AtmosphericPSF(PSFbase):
         r0 = r0_500 * (self.wlen_eff/500.0)**(6./5)
         kmax = kcrit / r0
         self.atm.instantiate(kmax=kmax, check='phot')
+
+        if doOpt:
+            self.atm.append(OptWF(rng))
 
     @staticmethod
     def _seeing_resid(r0_500, wavelength, L0, target):
