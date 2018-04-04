@@ -147,7 +147,7 @@ class CosmicRays(list):
         Parameters
         ----------
         seed: int
-            The seed be between 0 and 2**32 - 1
+            The seed must be between 0 and 2**32 - 1
         """
         self.rng = np.random.RandomState(seed)
 

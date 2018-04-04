@@ -52,6 +52,8 @@ class CosmicRaysTestCase(unittest.TestCase):
         seed = CosmicRays.get_seed(visit, sensor)
         self.assertIsInstance(seed, int)
 
+        # Check that CRs are the same for two different CosmicRays
+        # objects with the same seed.
         crs1 = CosmicRays.read_catalog(self.test_catalog)
         crs1.set_seed(seed)
         imarr1 = np.zeros((nxy, nxy))
@@ -63,6 +65,14 @@ class CosmicRaysTestCase(unittest.TestCase):
         imarr2 = crs2.paint(imarr2, num_crs=num_crs)
 
         np.testing.assert_array_equal(imarr1, imarr2)
+
+        # Check that CRs differ for different sensors.
+        crs3 = CosmicRays.read_catalog(self.test_catalog)
+        crs3.set_seed(CosmicRays.get_seed(visit, "R:2,4 S:1,2"))
+        imarr3 = np.zeros((nxy, nxy))
+        imarr3 = crs2.paint(imarr3, num_crs=num_crs)
+        np.testing.assert_raises(AssertionError, np.testing.assert_array_equal,
+                                 imarr1, imarr3)
 
 if __name__ == '__main__':
     unittest.main()
