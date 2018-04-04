@@ -217,9 +217,12 @@ class OpticalZernikes:
         """
 
         if deviations is None:
-            deviations = mock_deviations()
+            self.deviations = mock_deviations()
 
-        self.deviation_coeff = self._calc_sampling_coeff(deviations)
+        else:
+            self.deviations = deviations
+
+        self.deviation_coeff = self._calc_sampling_coeff(self.deviations)
         self.sampling_coeff = np.add(self.deviation_coeff, self.nominal_coeff)
         self._fit_functions = self._optimize_fits()
 
