@@ -7,7 +7,6 @@ from __future__ import print_function
 from collections import namedtuple, defaultdict
 import hashlib
 import numpy as np
-import numpy.random as random
 import astropy.io.fits as fits
 
 __all__ = ['CosmicRays', 'write_cosmic_ray_catalog']
@@ -38,7 +37,7 @@ class CosmicRays(list):
         self.num_pix = 0
         self.exptime = 0
         self.ccd_rate = 0
-        self.rng = random     # Use numpy.random module by default.
+        self.rng = np.random     # Use numpy.random module by default.
 
     def paint(self, image_array, exptime=30., num_crs=None):
         """
@@ -228,7 +227,7 @@ if __name__ == '__main__':
                            'data', 'cosmic_ray_catalog.fits.gz')
     crs.read_catalog(catalog)
 
-    image = galsim.ImageF(random.normal(1000., 7., (2000, 509)))
+    image = galsim.ImageF(np.random.normal(1000., 7., (2000, 509)))
     imarray = copy.deepcopy(image.array)
     imarray = crs.paint(imarray, exptime=500)
     image = galsim.ImageF(imarray)
