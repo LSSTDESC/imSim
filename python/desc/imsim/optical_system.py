@@ -14,9 +14,10 @@ from timeit import timeit
 from galsim.zernike import Zernike, zernikeBasis
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
-MATRIX_PATH = os.path.join(FILE_DIR, 'sim_data/sensitivity_matrix.txt')
 AOS_PATH = os.path.join(FILE_DIR, 'sim_data/aos_sim_results.txt')
+MATRIX_PATH = os.path.join(FILE_DIR, 'sim_data/sensitivity_matrix.txt')
 NOMINAL_PATH = os.path.join(FILE_DIR, 'sim_data/annular_nominal_coeff.txt')
+ZEMAX_PATH = os.path.join(FILE_DIR, 'sim_data/annular_zemax_estimates.fits')
 
 
 def cartesian_coords():
@@ -113,11 +114,12 @@ def _interp_nominal_coeff(zemax_est, fp_x, fp_y):
     return out_arr[3:] # Remove first four Zernike coefficients
 
 
-def _gen_nominal_coeff(zemax_path):
+def _gen_nominal_coeff(zemax_path=ZEMAX_PATH):
     """
     Use zemax estimates to determine the nominal coeff at 35 sampling coordinates
 
-    Results are written to NOMINAL_PATH
+    Results are written to NOMINAL_PATH. By default we use tabulated zemax
+    estimates found at ZEMAX_PATH.
 
     @param [in] zemax_path is the path of a fits files containing zemax
         estimates for the nominal Zernike coefficients
