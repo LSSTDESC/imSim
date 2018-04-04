@@ -222,28 +222,9 @@ class OpticalZernikes:
         else:
             self.deviations = deviations
 
-        self.deviation_coeff = self._calc_sampling_coeff(self.deviations)
+        self.deviation_coeff = np.dot(self.sensitivity, self.deviations).transpose()
         self.sampling_coeff = np.add(self.deviation_coeff, self.nominal_coeff)
         self._fit_functions = self._optimize_fits()
-
-    def _calc_sampling_coeff(self, deviations):
-        """
-        Calculates 19 zernike coefficients at 35 positions in the field of view
-
-        @param [in] deviations is a (35, 50) array representing deviations in
-        each optical degree of freedom at the 35 sampling coordinates
-
-        @param [out] a (19, 35) array of zernike coefficients
-        """
-
-        num_sampling_coords = self.sensitivity.shape[0]
-        num_zernike_coeff = self.sensitivity.shape[1]
-
-        coefficients = np.zeros((num_sampling_coords, num_zernike_coeff))
-        for i in range(num_sampling_coords):
-            coefficients[i] = self.sensitivity[i].dot(deviations)
-
-        return coefficients.transpose()
 
     def _optimize_fits(self):
         """
