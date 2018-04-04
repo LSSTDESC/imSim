@@ -43,6 +43,26 @@ class CosmicRaysTestCase(unittest.TestCase):
         imarr = crs.paint_cr(imarr, index=0, pixel=(0, 0))
         np.testing.assert_array_equal(self.test_image, imarr)
 
+    def test_cr_rng_seed(self):
+        "Test that the CRs are reproducible for a given seed."
+        nxy = 100
+        num_crs = 10
+        visit = 141134
+        sensor = "R:2,2 S:1,1"
+        seed = CosmicRays.get_seed(visit, sensor)
+        self.assertIsInstance(seed, int)
+
+        crs1 = CosmicRays.read_catalog(self.test_catalog)
+        crs1.set_seed(seed)
+        imarr1 = np.zeros((nxy, nxy))
+        imarr1 = crs1.paint(imarr1, num_crs=num_crs)
+
+        crs2 = CosmicRays.read_catalog(self.test_catalog)
+        crs2.set_seed(seed)
+        imarr2 = np.zeros((nxy, nxy))
+        imarr2 = crs2.paint(imarr2, num_crs=num_crs)
+
+        np.testing.assert_array_equal(imarr1, imarr2)
 
 if __name__ == '__main__':
     unittest.main()
