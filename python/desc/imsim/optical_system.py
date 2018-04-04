@@ -21,7 +21,7 @@ NOMINAL_PATH = os.path.join(FILE_DIR, 'sim_data/annular_nominal_coeff.txt')
 
 def cartesian_coords():
     """
-    Return 35 cartesian sampling coordinates in the exit pupil
+    Return 35 cartesian sampling coordinates in the LSST field of view
 
     @param [out] an array of 35 x coordinates
 
@@ -49,7 +49,7 @@ def cartesian_coords():
 
 def polar_coords():
     """
-    Return 35 polar sampling coordinates in the exit pupil.
+    Return 35 polar sampling coordinates in the LSST field of view.
 
     Angular values are returned in radians
 
@@ -82,11 +82,11 @@ def polar_coords():
 
 def _interp_nominal_coeff(zemax_est, fp_x, fp_y):
     """
-    Interpolates the nominal annular Zernike coefficients in the exit pupil
+    Interpolates the nominal annular Zernike coefficients for given coordinates
 
-    @param [in] fp_x is an x coordinate in the LSST exit pupil
+    @param [in] fp_x is an x coordinate in the LSST field of view
 
-    @param [in] fp_y is an x coordinate in the LSST exit pupil
+    @param [in] fp_y is an x coordinate in the LSST field of view
 
     @param [out] An array of 19 zernike coefficients for z=4 through z=22
     """
@@ -115,7 +115,7 @@ def _interp_nominal_coeff(zemax_est, fp_x, fp_y):
 
 def _gen_nominal_coeff(zemax_path):
     """
-    Use zemax estimates to determine the nominal coeff at the sampling coords
+    Use zemax estimates to determine the nominal coeff at 35 sampling coordinates
 
     Results are written to NOMINAL_PATH
 
@@ -162,7 +162,7 @@ def mock_deviations(seed=None):
 
 def test_runtime(n_runs, n_coords, verbose=False):
     """
-    Determines average runtimes to both instantiate the OpticalZernikes class
+    Determines average run times to both instantiate the OpticalZernikes class
     and to evaluate the cartesian_coeff method.
 
     @param [in] n_runs is the total number of runs to average runtimes over
@@ -197,10 +197,12 @@ def test_runtime(n_runs, n_coords, verbose=False):
 
 class OpticalZernikes:
     """
-    This class provides fit functions for the zernike coefficients returned by
-    the LSST AOS closed loop control system. It includes 19 functions that map
-    a cartesian position in the exit pupil to the coefficient of zernike 4
-    through zernike 22 (in the NOLL indexing scheme)
+    Instances of this class can be thought of as fixed, independent states of
+    the LSST optics system. This class provides functions for estimating the
+    residual zernike coefficients left uncorrected by the LSST AOS closed loop
+    control system. For a given location in the focal plane, this class provides
+    coefficients for 19 zernike polynomials ranging from zernike 4 through
+    zernike 22 (in the NOLL indexing scheme)
     """
 
     sensitivity = np.genfromtxt(MATRIX_PATH).reshape((35, 19, 50))
@@ -223,7 +225,7 @@ class OpticalZernikes:
 
     def _calc_sampling_coeff(self, deviations):
         """
-        Calculates 19 zernike coefficients at 35 positions in the exit pupil
+        Calculates 19 zernike coefficients at 35 positions in the field of view
 
         @param [in] deviations is a (35, 50) array representing deviations in
         each optical degree of freedom at the 35 sampling coordinates
@@ -262,9 +264,9 @@ class OpticalZernikes:
         """
         Determine the zernike coefficients at given coordinates by interpolating
 
-        @param [in] fp_x is the desired exit pupil x coordinate
+        @param [in] fp_x is the desired x coordinate
 
-        @param [in] fp_y is the desired exit pupil y coordinate
+        @param [in] fp_y is the desired y coordinate
 
         @param [in] kind is the type of interpolation to perform. (eg. "linear")
 
@@ -284,7 +286,7 @@ class OpticalZernikes:
     @property
     def polar_coords(self):
         """
-        Lazy loads 35 polar sampling coordinates in the exit pupil
+        Lazy loads 35 polar sampling coordinates in the LSST field of view
 
         @param [out] an array of 35 r coordinates
 
@@ -298,11 +300,11 @@ class OpticalZernikes:
 
     def polar_coeff(self, fp_r, fp_t):
         """
-        Determine the zernike coefficients using a fit of zernike polynomials
+        Returns the zernike coefficients at a given location in the field of view
 
-        @param [in] fp_r is the desired exit pupil radial coordinate in rads
+        @param [in] fp_r is a radial coordinate or an array of radial coordinates
 
-        @param [in] fp_t is the desired exit pupil angular coordinate
+        @param [in] fp_t is an angular coordinate or an array of angular coordinates
 
         @param [out] An array of 19 zernike coefficients for z=4 through z=22
         """
@@ -313,11 +315,11 @@ class OpticalZernikes:
 
     def cartesian_coeff(self, fp_x, fp_y):
         """
-        Determine the zernike coefficients using a fit of zernike polynomials
+        Returns the zernike coefficients at a given location in the field of view
 
-        @param [in] fp_x is the desired exit pupil x coordinate
+        @param [in] fp_x is an x coordinate an array of x coordinates
 
-        @param [in] fp_y is the desired exit pupil y coordinate
+        @param [in] fp_y is a y coordinate an array of y coordinates
 
         @param [out] An array of 19 zernike coefficients for z=4 through z=22
         """
