@@ -9,36 +9,14 @@ import os
 from astropy.io import fits
 import numpy as np
 from scipy.interpolate import interp2d
-from scipy.optimize import leastsq
 from timeit import timeit
 
-from polar_zernikes import gen_superposition
+from galsim.zernike import Zernike, zernikeBasis
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 MATRIX_PATH = os.path.join(FILE_DIR, 'sim_data/sensitivity_matrix.txt')
 AOS_PATH = os.path.join(FILE_DIR, 'sim_data/aos_sim_results.txt')
 NOMINAL_PATH = os.path.join(FILE_DIR, 'sim_data/annular_nominal_coeff.txt')
-
-
-def _calc_fit_error(p, r_arr, t_arr, z_arr):
-    """
-    Calculates the residuals of a superposition of zernike polynomials
-
-    Generates a function representing a superposition of 22 zernike polynomials
-    using given coefficients and returns the residuals.
-
-    @param [in] p is an array of 22 polynomial coefficients for the superposition
-
-    @param [in] r_arr is an array of rho coordinates
-
-    @param [in] t_arr is an array of theta coordinates
-
-    @param [in] z_val is an array of expected or measured values
-
-    @param [out] An array of the residuals
-    """
-
-    return gen_superposition(p)(r_arr, t_arr) - z_arr
 
 
 def cartesian_coords():
@@ -135,7 +113,7 @@ def _interp_nominal_coeff(zemax_est, fp_x, fp_y):
     return out_arr[3:] # Remove first four Zernike coefficients
 
 
-def gen_nominal_coeff(zemax_path):
+def _gen_nominal_coeff(zemax_path):
     """
     Use zemax estimates to determine the nominal coeff at the sampling coords
 
@@ -227,8 +205,8 @@ class OpticalZernikes:
 
     sensitivity = np.genfromtxt(MATRIX_PATH).reshape((35, 19, 50))
     nominal_coeff = np.genfromtxt(NOMINAL_PATH)
-    polar_coords = polar_coords()
-    _cartesian_cords = None
+    cartesian_coords = cartesian_coords()
+    _polar_coords = None
 
     def __init__(self, deviations=None):
         """
@@ -262,21 +240,6 @@ class OpticalZernikes:
 
         return coefficients.transpose()
 
-    @property
-    def cartesian_coords(self):
-        """
-        Lazy loads 35 cartesian sampling coordinates in the exit pupil
-
-        @param [out] an array of 35 x coordinates
-
-        @param [out] an array of 35 y coordinates
-        """
-
-        if self._cartesian_cords is None:
-            self._cartesian_cords = cartesian_coords()
-
-        return self._cartesian_cords
-
     def _optimize_fits(self):
         """
         Generate a separate fit function for each zernike coefficient
@@ -284,15 +247,14 @@ class OpticalZernikes:
         @param [out] A list of 19 functions
         """
 
-        out = []
-        r, t = self.polar_coords
-        for coefficient in self.sampling_coeff:
-            optimal = leastsq(_calc_fit_error, np.ones((22,)),
-                              args=(r, t, coefficient))
+        x, y = self.cartesian_coords
+        basis = zernikeBasis(22, x, y)
 
-            fit_coeff = optimal[0]
-            fit_func = gen_superposition(fit_coeff)
-            out.append(fit_func)
+        out = []
+        for coefficient in self.sampling_coeff:
+            coefs, _, _, _ = np.linalg.lstsq(basis.T, coefficient, rcond=None)
+            optimized_func = Zernike(coefs).evalCartesian
+            out.append(optimized_func)
 
         return out
 
@@ -319,6 +281,21 @@ class OpticalZernikes:
 
         return out_arr
 
+    @property
+    def polar_coords(self):
+        """
+        Lazy loads 35 polar sampling coordinates in the exit pupil
+
+        @param [out] an array of 35 r coordinates
+
+        @param [out] an array of 35 theta coordinates
+        """
+
+        if self._polar_coords is None:
+            self._polar_coords = polar_coords()
+
+        return self._polar_coords
+
     def polar_coeff(self, fp_r, fp_t):
         """
         Determine the zernike coefficients using a fit of zernike polynomials
@@ -330,7 +307,9 @@ class OpticalZernikes:
         @param [out] An array of 19 zernike coefficients for z=4 through z=22
         """
 
-        return np.array([f(fp_r, fp_t) for f in self._fit_functions])
+        x = fp_r * np.cos(fp_t)
+        y = fp_r * np.sin(fp_t)
+        return np.array([func(x, y) for func in self._fit_functions])
 
     def cartesian_coeff(self, fp_x, fp_y):
         """
@@ -343,6 +322,4 @@ class OpticalZernikes:
         @param [out] An array of 19 zernike coefficients for z=4 through z=22
         """
 
-        fp_r = np.sqrt(fp_x ** 2 + fp_y ** 2)
-        fp_t = np.arctan2(fp_y, fp_x)
-        return self.polar_coeff(fp_r, fp_t)
+        return np.array([func(fp_x, fp_y) for func in self._fit_functions])

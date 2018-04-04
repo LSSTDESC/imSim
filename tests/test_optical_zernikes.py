@@ -5,52 +5,7 @@ import unittest
 
 import numpy as np
 
-from desc.imsim.cartesian_zernikes import gen_superposition as gen_cart_op
-from desc.imsim.cartesian_zernikes import gen_superposition_unop as gen_cart_unop
-from desc.imsim.polar_zernikes import gen_superposition as gen_pol_op
-from desc.imsim.polar_zernikes import gen_superposition_unop as gen_pol_unop
 from desc.imsim.optical_system import OpticalZernikes, mock_deviations
-
-
-class ZernikePolynomial(unittest.TestCase):
-    """Tests generator functions in zernike_cartesian.py / zernike_polar.py"""
-
-    @classmethod
-    def setUpClass(cls):
-        """Defines a set of test superposition weights and coordinates"""
-
-        cls.coeff = np.ones(22)
-        cls.r = 1.5
-        cls.theta = 2.2  # radians
-        cls.x = cls.r * np.cos(cls.r)
-        cls.y = cls.r * np.sin(cls.r)
-
-    def test_polar_algebra(self):
-        """Test optimized and unoptimized superpositions agree in polar"""
-
-        optim = gen_pol_op(self.coeff)(self.r, self.theta)
-        un_optim = gen_pol_unop(self.coeff)(self.r, self.theta)
-        values_close = np.isclose(optim, un_optim)
-        err_msg = 'Values not close: {},  {}'
-        self.assertTrue(values_close, err_msg.format(optim, un_optim))
-
-    def test_cartesian_algebra(self):
-        """Test optimized and unoptimized superpositions agree in cartesian"""
-
-        optim = gen_cart_op(self.coeff)(self.x, self.y)
-        un_optim = gen_cart_unop(self.coeff)(self.x, self.y)
-        values_close = np.isclose(optim, un_optim)
-        err_msg = 'Values not close: {},  {}'
-        self.assertTrue(values_close, err_msg.format(optim, un_optim))
-
-    def test_compare_coord_systems(self):
-        """Test optimized cartesian and polar superpositions agree"""
-
-        polar = gen_pol_op(self.coeff)(self.r, self.theta)
-        cartesian = gen_cart_op(self.coeff)(self.x, self.y)
-        values_close = np.isclose(polar, cartesian, .005)
-        err_msg = 'Values not close: {},  {}'
-        self.assertTrue(values_close, err_msg.format(polar, cartesian))
 
 
 class OpticalDeviations(unittest.TestCase):
@@ -106,7 +61,7 @@ class FocalPlaneModeling(unittest.TestCase):
     def test_zero_deviations(self):
         """Tests that zernike deviations are zero for zero optical deviations"""
 
-        moc_deviation = np.zeros((35, 50))
+        moc_deviation = np.zeros((50, ))
         zern_deviations = OpticalZernikes(moc_deviation).deviation_coeff
         is_zeros = not np.count_nonzero(zern_deviations)
         self.assertTrue(is_zeros, "Received nonzero zernike coefficients")
