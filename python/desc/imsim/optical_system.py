@@ -12,12 +12,14 @@ from scipy.interpolate import interp2d
 from timeit import timeit
 
 from galsim.zernike import Zernike, zernikeBasis
+import lsst.utils
 
-FILE_DIR = os.path.dirname(os.path.realpath(__file__))
-AOS_PATH = os.path.join(FILE_DIR, 'sim_data/aos_sim_results.txt')
-MATRIX_PATH = os.path.join(FILE_DIR, 'sim_data/sensitivity_matrix.txt')
-NOMINAL_PATH = os.path.join(FILE_DIR, 'sim_data/annular_nominal_coeff.txt')
-ZEMAX_PATH = os.path.join(FILE_DIR, 'sim_data/annular_zemax_estimates.fits')
+FILE_DIR = lsst.utils.getPackageDir('imsim')
+
+AOS_PATH = os.path.join(FILE_DIR, 'data', 'optics_data', 'aos_sim_results.txt')
+MATRIX_PATH = os.path.join(FILE_DIR, 'data', 'optics_data', 'sensitivity_matrix.txt')
+NOMINAL_PATH = os.path.join(FILE_DIR, 'data', 'optics_data', 'annular_nominal_coeff.txt')
+ZEMAX_PATH = os.path.join(FILE_DIR, 'data', 'optics_data', 'annular_zemax_estimates.fits')
 
 
 def cartesian_coords():
