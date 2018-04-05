@@ -15,12 +15,11 @@ CR_Span = namedtuple('CR_Span', 'x0 y0 pixel_values'.split())
 
 class CosmicRays(list):
     """
-    This class is a subclass of the Python list data type.  Each
-    element of the list represents a cosmic ray (CR) that was
-    extracted from a CCD dark exposure.  Each CR is in turn a list of
-    CR_Span tuples derived from lsst.detection.Footprint spans,
-    including starting pixel indices and pixel values in the serial
-    direction.
+    This is a subclass of the Python list data type.  Each element of
+    the list represents a cosmic ray (CR) that was extracted from a
+    CCD dark exposure.  Each CR is in turn a list of CR_Span tuples
+    derived from lsst.detection.Footprint spans, including starting
+    pixel indices and pixel values in the serial direction.
 
     Attributes
     ----------
@@ -31,6 +30,9 @@ class CosmicRays(list):
         Sum of exposure times (seconds) of the input darks.
     ccd_rate: float
         Cosmic rays per second per CCD.
+    rng: numpy.random.RandomState
+        Random number generator.  If the seed is not set with
+        .set_seed(...), this is just set to numpy.random.
     """
     def __init__(self):
         """
