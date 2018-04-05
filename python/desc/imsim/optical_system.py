@@ -24,9 +24,12 @@ def cartesian_coords():
     """
     Return 35 cartesian sampling coordinates in the LSST field of view
 
-    @param [out] an array of 35 x coordinates
+    These sampling coordinates correspond to the position sampling of the
+    sensitivity matrix found in MATRIX_PATH
 
-    @param [out] an array of 35 y coordinates
+    @param [out] an array of 35 x coordinates in degrees
+
+    @param [out] an array of 35 y coordinates in degrees
     """
 
     # Initialize with central point
@@ -52,11 +55,12 @@ def polar_coords():
     """
     Return 35 polar sampling coordinates in the LSST field of view.
 
-    Angular values are returned in radians
+    These sampling coordinates correspond to the position sampling of the
+    sensitivity matrix found in MATRIX_PATH
 
-    @param [out] an array of 35 r coordinates
+    @param [out] an array of 35 r coordinates in degrees
 
-    @param [out] an array of 35 theta coordinates
+    @param [out] an array of 35 theta coordinates in radians
     """
 
     # Initialize with central point
