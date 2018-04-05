@@ -688,7 +688,7 @@ def add_cosmic_rays(gs_interpreter, phot_params):
     for name, image in gs_interpreter.detectorImages.items():
         imarr = copy.deepcopy(image.array)
         # Set the random number seed for painting the CRs.
-        crs.set_seed(CosmicRays.get_seed(visit, name))
+        crs.set_seed(CosmicRays.generate_seed(visit, name))
         gs_interpreter.detectorImages[name] = \
             galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
 

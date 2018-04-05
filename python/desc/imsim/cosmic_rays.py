@@ -151,7 +151,7 @@ class CosmicRays(list):
         self.rng = np.random.RandomState(seed)
 
     @staticmethod
-    def get_seed(visit, det_name):
+    def generate_seed(visit, det_name):
 
         """
         Deterministically construct an integer, appropriate for a random
