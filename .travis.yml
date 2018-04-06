@@ -8,6 +8,7 @@ compiler: gcc
 
 env:
   - OS_TYPE=centos OS_VERSION=7
+  - DOCKER_IMAGE=lsstdesc/stack-sims:w_2018_13-sims_2_7_0
 
 services:
   - docker
@@ -17,13 +18,13 @@ install:
   - echo 'DOCKER_OPTS="-H tcp://127.0.0.1:2375 -H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /etc/default/docker > /dev/null
   - sudo service docker restart
   - sleep 5
-  - sudo docker pull lsstdesc/stack-sims:w_2018_09-sims_2_6_0-v2
+  - sudo docker pull ${DOCKER_IMAGE}
   - pip install coveralls
 
 script:
   - sudo chown -R 1000:1000 .
   - echo ${TRAVIS_BUILD_DIR}
-  - docker run -v `pwd`:${TRAVIS_BUILD_DIR} -e TRAVIS_BUILD_DIR lsstdesc/stack-sims:w_2018_09-sims_2_6_0-v2 ${TRAVIS_BUILD_DIR}/travis_test.sh
+  - docker run -v `pwd`:${TRAVIS_BUILD_DIR} -e TRAVIS_BUILD_DIR ${DOCKER_IMAGE} ${TRAVIS_BUILD_DIR}/travis_test.sh
 
 after_success:
   - coveralls
