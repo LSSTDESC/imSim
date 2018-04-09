@@ -10,6 +10,9 @@ import shutil
 import numpy as np
 import desc.imsim
 from lsst.sims.utils import _pupilCoordsFromRaDec
+from lsst.sims.utils import altAzPaFromRaDec
+from lsst.sims.utils import angularSeparation
+from lsst.sims.utils import ObservationMetaData
 from lsst.sims.utils import arcsecFromRadians
 from lsst.sims.photUtils import Sed, BandpassDict
 from lsst.sims.photUtils import Bandpass, PhotometricParameters
@@ -110,6 +113,22 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertAlmostEqual(obs.rotSkyPos, metadata['rotskypos'], 7)
         self.assertAlmostEqual(obs.mjd.TAI, metadata['mjd'], 7)
         self.assertEqual(obs.bandpass, 'r')
+
+        # make sure that the relationship between Alt, Az and RA, Dec
+        # is correct
+
+        mjd = metadata['mjd'] - 16.5/86400.0
+        # the adjustment to mjd is because altitude is reckoned at the start of
+        # the observation, but mjd is reported at the middle of the observation
+
+        alt, az, pa = altAzPaFromRaDec(metadata['rightascension'],
+                                       metadata['declination'],
+                                       ObservationMetaData(mjd=mjd),
+                                       includeRefraction=False)
+        dd = angularSeparation(metadata['azimuth'], metadata['altitude'],
+                               az, alt)
+
+        self.assertLess(3600.0*dd, 1.0e-7)
 
     def test_object_extraction_stars(self):
         """
