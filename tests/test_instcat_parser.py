@@ -73,11 +73,11 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         from InstanceCatalogs.
         """
         metadata = desc.imsim.metadata_from_file(self.phosim_file)
-        self.assertAlmostEqual(metadata['rightascension'], 53.0091385, 7)
-        self.assertAlmostEqual(metadata['declination'], -27.4389488, 7)
-        self.assertAlmostEqual(metadata['mjd'], 59580.1397460, 7)
-        self.assertAlmostEqual(metadata['altitude'], 66.3464409, 7)
-        self.assertAlmostEqual(metadata['azimuth'], 270.2764762, 7)
+        self.assertAlmostEqual(metadata['rightascension'], 53.00913847303155535, 16)
+        self.assertAlmostEqual(metadata['declination'], -27.43894880881512321, 16)
+        self.assertAlmostEqual(metadata['mjd'], 59580.13974597222113516, 16)
+        self.assertAlmostEqual(metadata['altitude'], 66.34657337061349835, 16)
+        self.assertAlmostEqual(metadata['azimuth'], 270.27655488919378968, 16)
         self.assertEqual(metadata['filter'], 2)
         self.assertIsInstance(metadata['filter'], int)
         self.assertEqual(metadata['bandpass'], 'r')
