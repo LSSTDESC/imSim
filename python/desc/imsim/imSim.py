@@ -681,9 +681,14 @@ def add_cosmic_rays(gs_interpreter, phot_params):
                                'data', 'cosmic_ray_catalog.fits.gz')
     crs = CosmicRays.read_catalog(catalog, ccd_rate=ccd_rate)
 
+    # Retrieve the visit number for the random seeds.
+    visit = gs_interpreter.obs_metadata.OpsimMetaData['obshistID']
+
     exptime = phot_params.nexp*phot_params.exptime
     for name, image in gs_interpreter.detectorImages.items():
         imarr = copy.deepcopy(image.array)
+        # Set the random number seed for painting the CRs.
+        crs.set_seed(CosmicRays.generate_seed(visit, name))
         gs_interpreter.detectorImages[name] = \
             galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
 
