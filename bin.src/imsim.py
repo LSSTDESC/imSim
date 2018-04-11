@@ -17,7 +17,7 @@ from lsst.sims.GalSimInterface import SNRdocumentPSF
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
 from lsst.sims.GalSimInterface import make_gs_interpreter
-from desc.imsim.skyModel import ESOSkyModel
+from desc.imsim.skyModel import make_sky_model
 import desc.imsim
 
 def main():
@@ -93,18 +93,9 @@ def main():
                 detector_list.append(make_galsim_detector(camera_wrapper, det.getName(),
                                                           phot_params, obs_md))
 
-    # Add noise and sky background
-    # The simple code using the default lsst-GalSim interface would be:
-    #
-    #    PhoSimStarCatalog.noise_and_background = ExampleCCDNoise(addNoise=True,
-    #                                                             addBackground=True)
-    #
-    # But, we need a more realistic sky model and we need to pass more than
-    # this basic info to use Peter Y's ESO sky model.
-    # We must pass obs_metadata, chip information etc...
     noise_and_background \
-        = ESOSkyModel(obs_md, phot_params, addNoise=True, addBackground=True,
-                      fast_background=True)
+        = make_sky_model(obs_md, phot_params, addNoise=True, addBackground=True,
+                         apply_sensor_model=False)
 
     bp_dict = BandpassDict.loadTotalBandpassesFromFiles(bandpassNames=obs_md.bandpass)
 
