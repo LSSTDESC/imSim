@@ -16,7 +16,7 @@ from lsst.sims.GalSimInterface import make_galsim_detector
 from lsst.sims.GalSimInterface import SNRdocumentPSF
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
-from lsst.sims.GalSimInterface import GalSimInterpreter
+from lsst.sims.GalSimInterface import make_gs_interpreter
 from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
 
@@ -45,7 +45,8 @@ def main():
                         "from LSE-40 (equation 30) or the Kolmogorov convolved "
                         "with a Gaussian proposed by David Kirkby at the "
                         "23 March 2017 SSims telecon")
-    parser.add_argument('--disable_sensor_model', default=False, action='store_true',
+    parser.add_argument('--disable_sensor_model', default=False,
+                        action='store_true',
                         help='disable sensor effects')
     parser.add_argument('--checkpoint_file', type=str, default=None,
                         help='Checkpoint file name.')
@@ -107,13 +108,11 @@ def main():
 
     bp_dict = BandpassDict.loadTotalBandpassesFromFiles(bandpassNames=obs_md.bandpass)
 
-    gs_interpreter = GalSimInterpreter(obs_metadata=obs_md,
-                                       epoch=2000.0,
-                                       detectors=detector_list,
-                                       bandpassDict=bp_dict,
-                                       noiseWrapper=noise_and_background,
-                                       seed=arguments.seed,
-                                       apply_sensor_model=not arguments.disable_sensor_model)
+    gs_interpreter = make_gs_interpreter(obs_md, detector_list, bp_dict,
+                                         noise_and_background,
+                                         epoch=2000.0,
+                                         seed=arguments.seed,
+                                         apply_sensor_model=not arguments.disable_sensor_model)
     gs_interpreter.sky_bg_per_pixel = noise_and_background.sky_counts()
 
     gs_interpreter.checkpoint_file = arguments.checkpoint_file
