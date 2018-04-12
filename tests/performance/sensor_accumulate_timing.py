@@ -26,14 +26,15 @@ args = parser.parse_args()
 desc.imsim.read_config()
 instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',
                             'tiny_instcat.txt')
-commands, objects = desc.imsim.parsePhoSimInstanceFile(instcat_file)
-obs_md = desc.imsim.phosim_obs_metadata(commands)
+instcat = desc.imsim.parsePhoSimInstanceFile(instcat_file)
 
 pixel_scale = 0.2
 
-skymodel = desc.imsim.ESOSkyModel(obs_md, seed=args.seed, addNoise=False,
-                                  addBackground=True, fast_background=False,
-                                  bundles_per_pix=args.bundles_per_pix)
+skymodel = desc.imsim.ESOSiliconSkyModel(instcat.obs_metadata,
+                                         instcat.phot_params,
+                                         seed=args.seed, addNoise=False,
+                                         addBackground=True,
+                                         bundles_per_pix=args.bundles_per_pix)
 waves = skymodel.waves
 angles = skymodel.angles
 

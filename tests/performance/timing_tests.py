@@ -14,9 +14,7 @@ import desc.imsim
 desc.imsim.read_config()
 instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',
                             'tiny_instcat.txt')
-commands, objects = desc.imsim.parsePhoSimInstanceFile(instcat_file)
-obs_md = desc.imsim.phosim_obs_metadata(commands)
-photParams = desc.imsim.photometricParameters(commands)
+instcat = desc.imsim.parsePhoSimInstanceFile(instcat_file)
 
 class GalSimBandpasses(object):
     def __init__(self):
@@ -43,7 +41,7 @@ def sky_bg_timing(skymodel, nxy_min=10, nxy_max=300, npts=8, pixel_scale=0.2):
                                             np.log10(nxy_max), npts)]:
         image = galsim.Image(nxy, nxy, scale=pixel_scale)
         t0 = time.clock()
-        skymodel.addNoiseAndBackground(image, photParams=photParams)
+        skymodel.addNoiseAndBackground(image, photParams=skymodel.photParams)
         timing[nxy] = time.clock() - t0
         try:
             nphot[nxy] = skymodel.photon_array.size()
@@ -106,10 +104,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.test_type == 'sky_bg':
-        skymodel = desc.imsim.ESOSkyModel(obs_md, seed=args.seed,
-                                          addNoise=False,
-                                          addBackground=True,
-                                          fast_background=args.fast_sky_bg)
+        skymodel = desc.imsim.make_sky_model(instcat.obs_metadata,
+                                             instcat.phot_params,
+                                             seed=args.seed,
+                                             addNoise=False,
+                                             addBackground=True,
+                                             apply_sensor_model=args.apply_sensor_model)
         print(sky_bg_timing(skymodel))
     else:
         star_timer = StarTimer(obs_md, args.seed)
