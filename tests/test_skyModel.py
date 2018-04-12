@@ -53,7 +53,7 @@ class SkyModelTestCase(unittest.TestCase):
         nphot_1 = np.mean(image_1.array.ravel())
         nphot_2 = np.mean(image_2.array.ravel())
         self.assertLess(abs(2.*nphot_1 - nphot_2), 5)
-        self.assertLess(abs(nphot_2 - 760), 20)
+        self.assertLess(abs(nphot_2 - 850), 20)
 
     def test_nexp_scaling(self):
         """

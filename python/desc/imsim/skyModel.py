@@ -30,7 +30,8 @@ def make_sky_model(obs_metadata, photParams, seed=None, bandpassDict=None,
                                   bandpassDict=bandpassDict, addNoise=addNoise,
                                   addBackground=addBackground,
                                   bundles_per_pix=bundles_per_pix)
-    return ESOSkyModel(obs_metadata, seed=seed, addNoise=addNoise,
+    return ESOSkyModel(obs_metadata, photParams, seed=seed,
+                       bandpassDict=bandpassDict, addNoise=addNoise,
                        addBackground=addBackground)
 
 
@@ -91,7 +92,8 @@ class ESOSkyModel(NoiseAndBackgroundBase):
     a sky model based on the ESO model as implemented in
     """
 
-    def __init__(self, obs_metadata, seed=None, addNoise=True, addBackground=True):
+    def __init__(self, obs_metadata, photParams, seed=None, bandpassDict=None,
+                 addNoise=True, addBackground=True):
         """
         @param [in] addNoise is a boolean telling the wrapper whether or not
         to add noise to the image
@@ -105,6 +107,18 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         """
 
         self.obs_metadata = obs_metadata
+        self.photParams = photParams
+
+        if bandpassDict is None:
+            self.bandpassDict = BandpassDict.loadBandpassesFromFiles()[0]
+
+        # Computing the skybrightness.SkyModel object is expensive, so
+        # do it only once in the constructor.
+        self.skyModel = skybrightness.SkyModel(mags=False)
+        ra = np.array([self.obs_metadata.pointingRA])
+        dec = np.array([self.obs_metadata.pointingDec])
+        mjd = self.obs_metadata.mjd.TAI
+        self.skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
 
         self.addNoise = addNoise
         self.addBackground = addBackground
@@ -139,28 +153,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         @param [out] the input image with the background and noise model added to it.
         """
 
-        # calculate the sky background to be added to each pixel
-        skyModel = skybrightness.SkyModel(mags=False)
-        ra = np.array([self.obs_metadata.pointingRA])
-        dec = np.array([self.obs_metadata.pointingDec])
-        mjd = self.obs_metadata.mjd.TAI
-        skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
-
-        bandPassName = self.obs_metadata.bandpass
-        bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u','g','r','i','z','y'])
-
-        # Since we are only producing one eimage, account for cases
-        # where nsnap > 1 with an effective exposure time for the
-        # visit as a whole.  TODO: Undo this change when we write
-        # separate images per exposure.
-
-        exposureTime = photParams.nexp * photParams.exptime
-
-        skycounts_persec = SkyCountsPerSec(skyModel, photParams, bandPassdic)
-        skyCounts = skycounts_persec(bandPassName) * exposureTime * u.s
-
-        # print "Magnitude:", skyMagnitude
-        # print "Brightness:", skyMagnitude, skyCounts
+        skyCounts = self.sky_counts()
 
         image = image.copy()
 
@@ -202,10 +195,19 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
     def sky_counts(self):
         """
-        Default implementation.  This returns None and should cause an
-        exception if used in the wrong context.
+        Returns
+        -------
+        float: sky background counts per pixel.
         """
-        return None
+        bandPassName = self.obs_metadata.bandpass
+
+        # Since we are only producing one eimage, account for cases
+        # where nsnap > 1 with an effective exposure time for the
+        # visit as a whole.  TODO: Undo this change when we write
+        # separate images per exposure.
+        exposureTime = self.photParams.nexp*self.photParams.exptime
+        skycounts_persec = SkyCountsPerSec(self.skyModel, self.photParams, self.bandpassDict)
+        return float(skycounts_persec(bandPassName)*exposureTime*u.s)
 
 
 class ESOSiliconSkyModel(ESOSkyModel):
@@ -243,24 +245,11 @@ class ESOSiliconSkyModel(ESOSkyModel):
             Number of photon bundles per pixel for use with SiliconSensor.
             If bundles_per_pix <= 1, then use unbundled photons.
         """
-        super(ESOSiliconSkyModel, self).__init__(obs_metadata, seed=seed,
+        super(ESOSiliconSkyModel, self).__init__(obs_metadata, photParams, seed=seed,
+                                                 bandpassDict=bandpassDict,
                                                  addNoise=addNoise,
                                                  addBackground=addBackground)
-        self.photParams = photParams
-        if bandpassDict is None:
-            self.bandpassDict = BandpassDict.loadBandpassesFromFiles()[0]
-
         self.bundles_per_pix = bundles_per_pix
-
-        # Computing the skybrightness.SkyModel object is expensive, so
-        # do it only once in the constructor.
-        self.skyModel = skybrightness.SkyModel(mags=False)
-
-        # Calculate the sky background to be added to each pixel
-        ra = np.array([self.obs_metadata.pointingRA])
-        dec = np.array([self.obs_metadata.pointingDec])
-        mjd = self.obs_metadata.mjd.TAI
-        self.skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
 
         # Wavelength and angle samplers need only be constructed at
         # most once per SED and bandpass, so build them lazily as
@@ -294,22 +283,6 @@ class ESOSiliconSkyModel(ESOSkyModel):
             self._angles \
                 = galsim.FRatioAngles(fratio, obscuration, self.randomNumbers)
         return self._angles
-
-    def sky_counts(self):
-        """
-        Returns
-        -------
-        float: sky background counts per pixel.
-        """
-        bandPassName = self.obs_metadata.bandpass
-
-        # Since we are only producing one eimage, account for cases
-        # where nsnap > 1 with an effective exposure time for the
-        # visit as a whole.  TODO: Undo this change when we write
-        # separate images per exposure.
-        exposureTime = self.photParams.nexp*self.photParams.exptime
-        skycounts_persec = SkyCountsPerSec(self.skyModel, self.photParams, self.bandpassDict)
-        return float(skycounts_persec(bandPassName)*exposureTime*u.s)
 
     def addNoiseAndBackground(self, image, bandpass='u', m5=None,
                               FWHMeff=None,
