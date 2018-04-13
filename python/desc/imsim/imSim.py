@@ -12,7 +12,7 @@ import copy
 import galsim
 
 # python_future no longer handles configparser as of 0.16.
-# This is needed for PY2/3 compatabiloty.
+# This is needed for PY2/3 compatibility.
 try:
     import configparser
 except ImportError:
@@ -295,8 +295,6 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
 
     bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
 
-    sed_dir = lsstUtils.getPackageDir('sims_sed_library')
-
     object_is_valid = np.array([True]*num_objects)
 
     invalid_objects = np.where(np.logical_or(np.logical_or(
@@ -326,6 +324,8 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     wav_int = None
     wav_gal = None
 
+    my_sed_dirs = sed_dirs(file_name)
+
     gs_object_arr = []
     for i_obj in range(num_objects):
         if not object_is_valid[i_obj]:
@@ -340,7 +340,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
 
         # load the SED
         sed_obj = Sed()
-        sed_obj.readSED_flambda(os.path.join(sed_dir, sed_name[i_obj]))
+        sed_obj.readSED_flambda(sed_file(sed_name[i_obj], my_sed_dirs))
         fnorm = getImsimFluxNorm(sed_obj, mag_norm[i_obj])
         sed_obj.multiplyFluxNorm(fnorm)
         if internal_av[i_obj] != 0.0:
@@ -430,6 +430,25 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
 
     return gs_object_arr, out_obj_dict
 
+def sed_dirs(instcat_file):
+    """
+    Return a list of SED directories to check for SED folders. This
+    includes $SIMS_SED_LIBRARY_DIR and the directory containing
+    the instance catalog.
+    """
+    return [lsstUtils.getPackageDir('sims_sed_library'),
+            os.path.dirname(os.path.abspath(instcat_file))]
+
+def sed_file(sed_name, sed_directories):
+    """
+    Search the sed_directories for the specific sed_name filename
+    and return the first file found.
+    """
+    for sed_dir in sed_directories:
+        my_path = os.path.join(sed_dir, sed_name)
+        if os.path.isfile(my_path):
+            return my_path
+    return sed_name
 
 def photometricParameters(phosim_commands):
     """
