@@ -29,7 +29,7 @@ class ImageSimulator:
     multiprocessing module.
     """
     def __init__(self, instcat, psf, numRows=None, config=None, seed=267,
-                 outdir='fits', sensor_list=None):
+                 outdir='fits', sensor_list=None, runNumber=0, visitNumber=0):
         """
         Parameters
         ----------
@@ -62,9 +62,9 @@ class ImageSimulator:
         self.gs_obj_arr = sources[0]
         self.gs_obj_dict = sources[1]
         self.camera_wrapper = LSSTCameraWrapper()
-        self._make_gs_interpreters(seed, sensor_list)
+        self._make_gs_interpreters(seed, sensor_list, runNumber, visitNumber)
 
-    def _make_gs_interpreters(self, seed, sensor_list):
+    def _make_gs_interpreters(self, seed, sensor_list, runNumber, visitNumber):
         """
         Create a separate GalSimInterpreter for each sensor so that they
         can be run in parallel and maintain separate checkpoint files.
@@ -93,6 +93,7 @@ class ImageSimulator:
                                     noiseWrapper=noise_and_background,
                                     seed=seed)
             self.gs_interpreters[det_name].setPSF(PSF=self.psf)
+            self.gs_interpreters[det_name].checkpoint_file="checkpoint-" + str(runNumber) + "-" + str(visitNumber) + "-" + det_name.replace(":","_").replace(",","_").replace(" ","_") + ".ckpt"
 
     def run(self, processes=1):
         """
