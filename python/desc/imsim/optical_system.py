@@ -159,7 +159,7 @@ def mock_deviations(seed=None):
     @param [out] A shape (50,) array representing mock optical distortions
     """
 
-    aos_sim_results = np.genfromtxt(AOS_PATH)
+    aos_sim_results = np.genfromtxt(AOS_PATH, skip_header=1)
     assert aos_sim_results.shape[0] == 50
 
     np.random.seed(seed)
