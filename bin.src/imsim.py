@@ -93,9 +93,11 @@ def main():
                 detector_list.append(make_galsim_detector(camera_wrapper, det.getName(),
                                                           phot_params, obs_md))
 
+    apply_sensor_model = not arguments.disable_sensor_model
     noise_and_background \
         = make_sky_model(obs_md, phot_params, addNoise=True, addBackground=True,
-                         apply_sensor_model=False)
+                         apply_sensor_model=apply_sensor_model,
+                         logger=logger)
 
     bp_dict = BandpassDict.loadTotalBandpassesFromFiles(bandpassNames=obs_md.bandpass)
 
@@ -103,7 +105,7 @@ def main():
                                          noise_and_background,
                                          epoch=2000.0,
                                          seed=arguments.seed,
-                                         apply_sensor_model=not arguments.disable_sensor_model)
+                                         apply_sensor_model=apply_sensor_model)
     gs_interpreter.sky_bg_per_pixel = noise_and_background.sky_counts()
 
     gs_interpreter.checkpoint_file = arguments.checkpoint_file

@@ -15,7 +15,7 @@ from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroun
 
 from lsst.sims.photUtils import Sed
 
-from .imSim import get_config
+from .imSim import get_config, get_logger
 
 __all__ = ['make_sky_model', 'SkyCountsPerSec', 'ESOSkyModel',
            'ESOSiliconSkyModel', 'get_skyModel_params']
@@ -23,16 +23,17 @@ __all__ = ['make_sky_model', 'SkyCountsPerSec', 'ESOSkyModel',
 
 def make_sky_model(obs_metadata, photParams, seed=None, bandpassDict=None,
                    addNoise=True, addBackground=True, bundles_per_pix=20,
-                   apply_sensor_model=False):
+                   apply_sensor_model=False, logger=None):
     "Function to provide ESOSkyModel object."
     if apply_sensor_model:
         return ESOSiliconSkyModel(obs_metadata, photParams, seed=seed,
                                   bandpassDict=bandpassDict, addNoise=addNoise,
                                   addBackground=addBackground,
-                                  bundles_per_pix=bundles_per_pix)
+                                  bundles_per_pix=bundles_per_pix,
+                                  logger=logger)
     return ESOSkyModel(obs_metadata, photParams, seed=seed,
                        bandpassDict=bandpassDict, addNoise=addNoise,
-                       addBackground=addBackground)
+                       addBackground=addBackground, logger=logger)
 
 
 class SkyCountsPerSec(object):
@@ -93,7 +94,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
     """
 
     def __init__(self, obs_metadata, photParams, seed=None, bandpassDict=None,
-                 addNoise=True, addBackground=True):
+                 addNoise=True, addBackground=True, logger=None):
         """
         @param [in] addNoise is a boolean telling the wrapper whether or not
         to add noise to the image
@@ -122,6 +123,10 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
         self.addNoise = addNoise
         self.addBackground = addBackground
+        if logger is not None:
+            self.logger = logger
+        else:
+            self.logger = get_logger('INFO')
 
         if seed is None:
             self.randomNumbers = galsim.UniformDeviate()
@@ -217,7 +222,8 @@ class ESOSiliconSkyModel(ESOSkyModel):
     sky brightness model.
     """
     def __init__(self, obs_metadata, photParams, seed=None, bandpassDict=None,
-                 addNoise=True, addBackground=True, bundles_per_pix=20):
+                 addNoise=True, addBackground=True, bundles_per_pix=20,
+                 logger=None):
         """
         Parameters
         ----------
@@ -248,7 +254,8 @@ class ESOSiliconSkyModel(ESOSkyModel):
         super(ESOSiliconSkyModel, self).__init__(obs_metadata, photParams, seed=seed,
                                                  bandpassDict=bandpassDict,
                                                  addNoise=addNoise,
-                                                 addBackground=addBackground)
+                                                 addBackground=addBackground,
+                                                 logger=logger)
         self.bundles_per_pix = bundles_per_pix
 
         # Wavelength and angle samplers need only be constructed at
@@ -284,23 +291,24 @@ class ESOSiliconSkyModel(ESOSkyModel):
                 = galsim.FRatioAngles(fratio, obscuration, self.randomNumbers)
         return self._angles
 
-    def addNoiseAndBackground(self, image, bandpass='u', m5=None,
+    def addNoiseAndBackground(self, image, bandpass=None, m5=None,
                               FWHMeff=None,
                               photParams=None, detector=None, chipName=None):
-        """This method adds the sky background and noise to an image.
+        """
+        This method adds the sky background and noise to an image.
 
         Parameters
         ----------
         image: galsim.Image
             The GalSim image object to which the background and noise
             are being added.
-        bandpass: lsst.sims.photUtils.Bandpass, optional
-            Bandpass object characterizing the filter through which
-            the image is being taken. This seems to be ignored in this code.
-        m5:
-             Default: None
-        FWHMeff: float, optional
-            Effective FWHM (of the psf???).  Not used in this code.
+        bandpass: lsst.sims.photUtils.Bandpass [None]
+            This is here just for interface compatibility with the
+            base class.
+        m5: float [None]
+            Not used in this function.
+        FWHMeff: float [None]
+            Not used in this function.
         photParams: lsst.sims.photUtils.PhotometricParameters, optional
             Object that carries details about the photometric response
             of the telescope.  Default: None
@@ -312,7 +320,6 @@ class ESOSiliconSkyModel(ESOSkyModel):
         Returns
         -------
         galsim.Image: The image with the sky background and noise added.
-
         """
         if detector is None:
             # Make a dummy detector object with default tree ring
@@ -321,56 +328,83 @@ class ESOSiliconSkyModel(ESOSkyModel):
             TreeRingInfo = namedtuple('TreeRingInfo', ['center', 'func'])
             detector = DummyDetector(TreeRingInfo(galsim.PositionD(0, 0), None))
 
-        skyCounts = self.sky_counts()
-        image = image.copy()
-
-        if self.addBackground:
-            self.process_photons(image, skyCounts, detector)
-
-        return image
+        return self.process_photons(image.copy(), self.sky_counts(), detector)
 
     def process_photons(self, image, skyCounts, detector, chunk_size=10000000):
-        # The main slow bit in the Silicon sensor is when
-        # recalculating the pixel boundaries.  We do this after every
-        # nrecalc electrons.  It's only really important to do when
-        # the flux per pixel is around 1000.  So in this case, that's
-        # npix * 1000 electrons.
-        nrecalc = np.prod(image.array.shape) * 1000
-        sensor = galsim.SiliconSensor(rng=self.randomNumbers, nrecalc=nrecalc,
-                                      treering_center=detector.tree_rings.center,
-                                      treering_func=detector.tree_rings.func)
+        # Add photons by amplifier since a full 4k x 4k sensor uses too much
+        # memory to represent all of the pixel vertices.
 
-        nphotons = self.get_nphotons(image, skyCounts)
-        chunks = [chunk_size]*int(nphotons/chunk_size)
-        if nphotons % chunk_size > 0:
-            chunks += [nphotons % chunk_size]
-        for nphot in chunks:
-            if self.bundles_per_pix > 1:
-                photon_array = self.get_bundled_photon_array(image, nphot, skyCounts)
-            else:
-                photon_array = self.get_photon_array(image, nphot)
-            self.waves.applyTo(photon_array)
-            self.angles.applyTo(photon_array)
+        # imSim images use the Camera Coordinate System where the
+        # parallel transfer direction is along the x-axis:
+        nx, ny = 2, 8
+        nrow, ncol = image.array.shape
+        dx = ncol//nx   # number of pixels in x for an amp
+        dy = nrow//ny   # number of pixels in y
+        for i in range(nx):
+            # galsim boundaries start at 1 and include pixels at both ends.
+            xmin = i*dx + 1
+            xmax = (i + 1)*dx
+            for j in range(ny):
+                self.logger.info("ESOSiliconSkyModel: processing amp %d" %
+                                 (i*ny + j + 1))
+                ymin = j*dy + 1
+                ymax = (j + 1)*dy
+                # Actual bounds of the amplifier region.
+                amp_bounds = galsim.BoundsI(xmin, xmax, ymin, ymax)
 
-            # Accumulate the photons on the image.
-            sensor.accumulate(photon_array, image)
+                # Create a temporary image to contain the single amp data
+                # with a 1-pixel buffer around the perimeter.
+                temp_image = galsim.ImageF(ncol, nrow)
+                bounds = (galsim.BoundsI(xmin-1, xmax+1, ymin-1, ymax+1)
+                          & temp_image.bounds)
+                temp_amp = temp_image[bounds]
+                nphotons = self.get_nphotons(temp_amp, skyCounts)
+                # Disable the updating of the pixel boundaries by
+                # setting nrecalc to twice the number of photons to
+                # draw on the sensor.
+                nrecalc = 2*nphotons
+                sensor = galsim.SiliconSensor(rng=self.randomNumbers,
+                                              nrecalc=nrecalc,
+                                              treering_center=detector.tree_rings.center,
+                                              treering_func=detector.tree_rings.func)
+                chunks = [chunk_size]*(nphotons//chunk_size)
+                if nphotons % chunk_size > 0:
+                    chunks.append(nphotons % chunk_size)
+                for ichunk, nphot in enumerate(chunks):
+                    if self.bundles_per_pix > 1:
+                        photon_array \
+                            = self.get_bundled_photon_array(temp_amp, nphot,
+                                                            skyCounts)
+                    else:
+                        photon_array = self.get_photon_array(temp_amp, nphot)
+                    self.waves.applyTo(photon_array)
+                    self.angles.applyTo(photon_array)
+
+                    # Accumulate the photons on the temporary amp image.
+                    sensor.accumulate(photon_array, temp_amp)
+                # Add the temp_amp image to the final image, excluding
+                # the 1-pixel buffer.
+                image[amp_bounds] += temp_image[amp_bounds]
         return image
 
     def get_bundled_photon_array(self, image, nphotons, skyCounts):
-        # Saving this option in case we need it for speed, but for now, we'll do the
-        # simple thing of having all the photons with flux=1 and get the Poisson variation
-        # naturally by randomizing the position across the whole image.
-
-        # skyCounts is the expectation value of the counts in each pixel.
-        # We want these values to vary according to Poisson statistics.
-        # One way to do that would be to make nphotons = npix * skyCounts and give them all
-        # random positions within the image.  Then each pixel would have a Poisson variation
-        # in its count of how many photons fall in it.
-        # However, we would like to speed up the calculation (and reduce the memory demands)
-        # by dropping in photon bundles that effectively do many photons at once.
-        # Unfortunately, if we still just did random positions, this would increase the
-        # variance in each pixel, so the values would have the wrong statistics.  Instead,
-        # we fix the number of bundles per pixel and put all the variance in the flux.
+        """
+        Use bundled photons for speed.
+        """
+        # skyCounts is the expectation value of the counts in each
+        # pixel.  We want these values to vary according to Poisson
+        # statistics.  One way to do that would be to make
+        #     nphotons = npix * skyCounts
+        # and give them all random positions within the image.  Then
+        # each pixel would have a Poisson variation in its count of
+        # how many photons fall in it.  However, we would like to
+        # speed up the calculation (and reduce the memory demands) by
+        # dropping in photon bundles that effectively do many photons
+        # at once.  Unfortunately, if we still just did random
+        # positions, this would increase the variance in each pixel,
+        # so the values would have the wrong statistics.  Instead, we
+        # fix the number of bundles per pixel and put all the variance
+        # in the flux.
         #
         # To get the right expected flux and variance in each pixel, we need:
         #
@@ -381,8 +415,9 @@ class ESOSiliconSkyModel(ESOSkyModel):
         #
         #     mean(flux_per_bundle) = var(flux_per_bundle).
         #
-        # A convenient way to do that is to have the fluxes of the bundles be generated from
-        # a Poisson distribution.
+
+        # A convenient way to do that is to have the fluxes of the
+        # bundles be generated from a Poisson distribution.
 
         # Make a PhotonArray to hold the sky photons
         npix = np.prod(image.array.shape)
