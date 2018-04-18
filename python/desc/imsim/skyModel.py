@@ -12,9 +12,7 @@ import galsim
 from lsst.sims.photUtils import BandpassDict
 import lsst.sims.skybrightness as skybrightness
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
-
 from lsst.sims.photUtils import Sed
-
 from .imSim import get_config, get_logger
 
 __all__ = ['make_sky_model', 'SkyCountsPerSec', 'ESOSkyModel',
@@ -302,6 +300,7 @@ class FastSiliconSkyModel(ESOSkyModel):
                 image[amp_bounds] += temp_image[amp_bounds]
         return image
 
+
 class ESOSiliconSkyModel(ESOSkyModel):
 
     """
@@ -412,7 +411,9 @@ class ESOSiliconSkyModel(ESOSkyModel):
 
         return self.process_photons(image.copy(), self.sky_counts(), detector)
 
-    def process_photons(self, image, skyCounts, detector, chunk_size=10000000):
+    def process_photons(self, image, skyCounts, detector, chunk_size=int(5e6)):
+        tree_rings = detector.tree_rings
+
         # Add photons by amplifier since a full 4k x 4k sensor uses too much
         # memory to represent all of the pixel vertices.
 
@@ -422,6 +423,13 @@ class ESOSiliconSkyModel(ESOSkyModel):
         nrow, ncol = image.array.shape
         dx = ncol//nx   # number of pixels in x for an amp
         dy = nrow//ny   # number of pixels in y
+        # Disable the updating of the pixel boundaries by
+        # setting nrecalc to 1e300
+        nrecalc = 1e300
+        sensor = galsim.SiliconSensor(rng=self.randomNumbers,
+                                      nrecalc=nrecalc,
+                                      treering_center=tree_rings.center,
+                                      treering_func=tree_rings.func)
         for i in range(nx):
             # galsim boundaries start at 1 and include pixels at both ends.
             xmin = i*dx + 1
@@ -441,14 +449,6 @@ class ESOSiliconSkyModel(ESOSkyModel):
                           & temp_image.bounds)
                 temp_amp = temp_image[bounds]
                 nphotons = self.get_nphotons(temp_amp, skyCounts)
-                # Disable the updating of the pixel boundaries by
-                # setting nrecalc to twice the number of photons to
-                # draw on the sensor.
-                nrecalc = 2*nphotons
-                sensor = galsim.SiliconSensor(rng=self.randomNumbers,
-                                              nrecalc=nrecalc,
-                                              treering_center=detector.tree_rings.center,
-                                              treering_func=detector.tree_rings.func)
                 chunks = [chunk_size]*(nphotons//chunk_size)
                 if nphotons % chunk_size > 0:
                     chunks.append(nphotons % chunk_size)
@@ -459,11 +459,13 @@ class ESOSiliconSkyModel(ESOSkyModel):
                                                             skyCounts)
                     else:
                         photon_array = self.get_photon_array(temp_amp, nphot)
+                        self.logger.info("chunk %d of %d", ichunk + 1,
+                                         len(chunks))
                     self.waves.applyTo(photon_array)
                     self.angles.applyTo(photon_array)
 
                     # Accumulate the photons on the temporary amp image.
-                    sensor.accumulate(photon_array, temp_amp)
+                    sensor.accumulate(photon_array, temp_amp, resume=(ichunk>0))
                 # Add the temp_amp image to the final image, excluding
                 # the 1-pixel buffer.
                 image[amp_bounds] += temp_image[amp_bounds]
