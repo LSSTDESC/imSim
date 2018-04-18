@@ -232,6 +232,8 @@ class FastSiliconSkyModel(ESOSkyModel):
                               FWHMeff=None, photParams=None, detector=None,
                               chipName=None):
         """
+        Add the sky level counts to the image, rescale by the distorted
+        pixel areas to account for tree rings, etc., then add Poisson noise.
         This implementation is based on GalSim/devel/lsst/treering_skybg2.py.
         """
         if detector is None:
@@ -465,8 +467,10 @@ class ESOSiliconSkyModel(ESOSkyModel):
         return image
 
     def get_photon_array(self, image, nphotons):
-        # Simpler method that has all the pixels with flux=1.
-        # Might be too slow, in which case consider switching to the above code.
+        """
+        Generate an array of photons randomly distributed over the
+        surface of the sensor.
+        """
         photon_array = galsim.PhotonArray(int(nphotons))
 
         # Generate the x,y values.
@@ -476,8 +480,6 @@ class ESOSiliconSkyModel(ESOSkyModel):
         self.randomNumbers.generate(photon_array.y)
         photon_array.y *= (image.ymax - image.ymin + 1)
         photon_array.y += image.ymin - 0.5
-
-        # Flux in this case is simple.  All flux = 1.
         photon_array.flux = 1
 
         return photon_array
