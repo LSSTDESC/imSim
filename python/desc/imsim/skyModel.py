@@ -18,19 +18,23 @@ from lsst.sims.photUtils import Sed
 from .imSim import get_config, get_logger
 
 __all__ = ['make_sky_model', 'SkyCountsPerSec', 'ESOSkyModel',
-           'ESOSiliconSkyModel', 'get_skyModel_params']
-
+           'ESOSiliconSkyModel', 'FastSiliconSkyModel']
 
 def make_sky_model(obs_metadata, photParams, seed=None, bandpassDict=None,
                    addNoise=True, addBackground=True, bundles_per_pix=20,
-                   apply_sensor_model=False, logger=None):
+                   apply_sensor_model=False, logger=None, fast_silicon=True):
     "Function to provide ESOSkyModel object."
     if apply_sensor_model:
-        return ESOSiliconSkyModel(obs_metadata, photParams, seed=seed,
-                                  bandpassDict=bandpassDict, addNoise=addNoise,
-                                  addBackground=addBackground,
-                                  bundles_per_pix=bundles_per_pix,
-                                  logger=logger)
+        if fast_silicon:
+            return FastSiliconSkyModel(obs_metadata, photParams,
+                                       seed=seed,
+                                       bandpassDict=bandpassDict,
+                                       logger=logger)
+        else:
+            return ESOSiliconSkyModel(obs_metadata, photParams, seed=seed,
+                                      bandpassDict=bandpassDict,
+                                      bundles_per_pix=bundles_per_pix,
+                                      logger=logger)
     return ESOSkyModel(obs_metadata, photParams, seed=seed,
                        bandpassDict=bandpassDict, addNoise=addNoise,
                        addBackground=addBackground, logger=logger)
@@ -92,7 +96,6 @@ class ESOSkyModel(NoiseAndBackgroundBase):
     This class wraps the GalSim class CCDNoise.  This derived class returns
     a sky model based on the ESO model as implemented in
     """
-
     def __init__(self, obs_metadata, photParams, seed=None, bandpassDict=None,
                  addNoise=True, addBackground=True, logger=None):
         """
@@ -214,16 +217,100 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         skycounts_persec = SkyCountsPerSec(self.skyModel, self.photParams, self.bandpassDict)
         return float(skycounts_persec(bandPassName)*exposureTime*u.s)
 
+class FastSiliconSkyModel(ESOSkyModel):
+    """
+    This version produces a sky background image by scaling the counts
+    in each pixel by the areas of distorted pixel geometries in the
+    galsim.Silicon model to account for electrostatic effects such as
+    tree rings.
+    """
+    def __init__(self, obs_metadata, photParams, seed=None,
+                 bandpassDict=None, logger=None):
+        super(FastSiliconSkyModel, self).__init__(obs_metadata, photParams,
+                                                  seed=seed,
+                                                  bandpassDict=bandpassDict,
+                                                  logger=logger)
+    def addNoiseAndBackground(self, image, bandpass=None, m5=None,
+                              FWHMeff=None, photParams=None, detector=None,
+                              chipName=None):
+        """
+        This implementation is based on GalSim/devel/lsst/treering_skybg2.py.
+        """
+        if detector is None:
+            raise RuntimeError("A GalSimDetector object must be provided.")
+
+        # Create an image with the detector wcs onto which to draw the
+        # sky background.
+        nrow, ncol = image.array.shape
+        nrecalc = 1e300 # disable pixel boundary updating.
+        sensor = galsim.SiliconSensor(rng=self.randomNumbers,
+                                      nrecalc=nrecalc,
+                                      treering_func=detector.tree_rings.func,
+                                      treering_center=detector.tree_rings.center)
+        # Loop over amplifiers to save memory when storing the 36
+        # pixel vertices per pixel.
+        nx, ny = 2, 8
+        dx = ncol//nx
+        dy = nrow//ny
+
+        for i in range(nx):
+            xmin = i*dx + 1
+            xmax = (i + 1)*dx
+            for j in range(ny):
+                self.logger.info("FastSiliconSkyModel: processing amp %d" %
+                                 (i*ny + j + 1))
+                ymin = j*dy + 1
+                ymax = (j + 1)*dy
+
+                # Create a temporary image with the detector wcs to
+                # contain the single amp data.
+                temp_image = galsim.ImageF(ncol, nrow, wcs=detector.wcs)
+
+                # Include a 2-pixel buffer around the perimeter of the
+                # amp region to account for charge redistribution
+                # across pixel boundaries into and out of neighboring
+                # segments.
+                buf = 2
+                bounds = (galsim.BoundsI(xmin-buf, xmax+buf, ymin-buf, ymax+buf)
+                          & temp_image.bounds)
+                temp_amp = temp_image[bounds]
+
+                # Compute the pixel areas as distorted by tree rings, etc..
+                sensor_area = sensor.calculate_pixel_areas(temp_amp)
+
+                # Apply distortion from wcs.
+                temp_amp.wcs.makeSkyImage(temp_amp, sky_level=1.)
+
+                # Since sky_level was 1, the temp_amp array at this
+                # point contains the pixel areas.
+                mean_pixel_area = temp_amp.array.mean()
+
+                # Scale by the sky counts.
+                temp_amp *= self.sky_counts()/mean_pixel_area
+
+                # Include pixel area scaling from electrostatic distortions.
+                temp_amp *= sensor_area
+
+                # Add Poisson noise.
+                noise = galsim.PoissonNoise(self.randomNumbers)
+                temp_amp.addNoise(noise)
+
+                # Actual bounds of the amplifier segment to be filled.
+                amp_bounds = galsim.BoundsI(xmin, xmax, ymin, ymax)
+
+                # Add the single amp image to the final full CCD image.
+                image[amp_bounds] += temp_image[amp_bounds]
+        return image
 
 class ESOSiliconSkyModel(ESOSkyModel):
+
     """
     This is a subclass of ESOSkyModel and applies the galsim.Silicon
     sensor model to the sky background photons derived from the ESO
     sky brightness model.
     """
     def __init__(self, obs_metadata, photParams, seed=None, bandpassDict=None,
-                 addNoise=True, addBackground=True, bundles_per_pix=20,
-                 logger=None):
+                 bundles_per_pix=20, logger=None):
         """
         Parameters
         ----------
@@ -242,11 +329,6 @@ class ESOSiliconSkyModel(ESOSkyModel):
             Bandpass dictionary used by the sims code.  If None (default),
             the BandpassDict.loadBandpassesFromFiles function is called
             which reads in the standard LSST bandpasses.
-        addNoise: bool, optional [True]
-            Flag to add Poisson noise in the case where a constant sky
-            level is added to the image.
-        addBackground: bool, optional [True]
-            Add sky background.
         bundles_per_pix: int, optional [20]
             Number of photon bundles per pixel for use with SiliconSensor.
             If bundles_per_pix <= 1, then use unbundled photons.
