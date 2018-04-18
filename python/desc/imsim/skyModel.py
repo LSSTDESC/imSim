@@ -18,7 +18,7 @@ from lsst.sims.photUtils import Sed
 
 from . import get_obs_lsstSim_camera
 
-__all__ = ['SkyCountsPerSec', 'ESOSkyModel']
+__all__ = ['SkyCountsPerSec', 'ESOSkyModel', 'get_chip_center']
 
 
 class SkyCountsPerSec(object):
