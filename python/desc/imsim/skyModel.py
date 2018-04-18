@@ -19,8 +19,8 @@ __all__ = ['make_sky_model', 'SkyCountsPerSec', 'ESOSkyModel',
            'ESOSiliconSkyModel', 'FastSiliconSkyModel']
 
 def make_sky_model(obs_metadata, photParams, seed=None, bandpassDict=None,
-                   addNoise=True, addBackground=True, bundles_per_pix=20,
-                   apply_sensor_model=False, logger=None, fast_silicon=True):
+                   addNoise=True, addBackground=True, apply_sensor_model=False,
+                   logger=None, fast_silicon=True):
     "Function to provide ESOSkyModel object."
     if apply_sensor_model:
         if fast_silicon:
@@ -31,7 +31,6 @@ def make_sky_model(obs_metadata, photParams, seed=None, bandpassDict=None,
         else:
             return ESOSiliconSkyModel(obs_metadata, photParams, seed=seed,
                                       bandpassDict=bandpassDict,
-                                      bundles_per_pix=bundles_per_pix,
                                       logger=logger)
     return ESOSkyModel(obs_metadata, photParams, seed=seed,
                        bandpassDict=bandpassDict, addNoise=addNoise,
@@ -212,7 +211,8 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         # visit as a whole.  TODO: Undo this change when we write
         # separate images per exposure.
         exposureTime = self.photParams.nexp*self.photParams.exptime
-        skycounts_persec = SkyCountsPerSec(self.skyModel, self.photParams, self.bandpassDict)
+        skycounts_persec = SkyCountsPerSec(self.skyModel, self.photParams,
+                                           self.bandpassDict)
         return float(skycounts_persec(bandPassName)*exposureTime*u.s)
 
 class FastSiliconSkyModel(ESOSkyModel):
@@ -309,7 +309,7 @@ class ESOSiliconSkyModel(ESOSkyModel):
     sky brightness model.
     """
     def __init__(self, obs_metadata, photParams, seed=None, bandpassDict=None,
-                 bundles_per_pix=20, logger=None):
+                 logger=None):
         """
         Parameters
         ----------
@@ -328,16 +328,13 @@ class ESOSiliconSkyModel(ESOSkyModel):
             Bandpass dictionary used by the sims code.  If None (default),
             the BandpassDict.loadBandpassesFromFiles function is called
             which reads in the standard LSST bandpasses.
-        bundles_per_pix: int, optional [20]
-            Number of photon bundles per pixel for use with SiliconSensor.
-            If bundles_per_pix <= 1, then use unbundled photons.
         """
-        super(ESOSiliconSkyModel, self).__init__(obs_metadata, photParams, seed=seed,
+        super(ESOSiliconSkyModel, self).__init__(obs_metadata, photParams,
+                                                 seed=seed,
                                                  bandpassDict=bandpassDict,
                                                  addNoise=addNoise,
                                                  addBackground=addBackground,
                                                  logger=logger)
-        self.bundles_per_pix = bundles_per_pix
 
         # Wavelength and angle samplers need only be constructed at
         # most once per SED and bandpass, so build them lazily as
@@ -452,15 +449,11 @@ class ESOSiliconSkyModel(ESOSkyModel):
                 chunks = [chunk_size]*(nphotons//chunk_size)
                 if nphotons % chunk_size > 0:
                     chunks.append(nphotons % chunk_size)
+
                 for ichunk, nphot in enumerate(chunks):
-                    if self.bundles_per_pix > 1:
-                        photon_array \
-                            = self.get_bundled_photon_array(temp_amp, nphot,
-                                                            skyCounts)
-                    else:
-                        photon_array = self.get_photon_array(temp_amp, nphot)
-                        self.logger.info("chunk %d of %d", ichunk + 1,
-                                         len(chunks))
+                    photon_array = self.get_photon_array(temp_amp, nphot)
+                    self.logger.info("chunk %d of %d", ichunk + 1, len(chunks))
+
                     self.waves.applyTo(photon_array)
                     self.angles.applyTo(photon_array)
 
@@ -470,77 +463,6 @@ class ESOSiliconSkyModel(ESOSkyModel):
                 # the 1-pixel buffer.
                 image[amp_bounds] += temp_image[amp_bounds]
         return image
-
-    def get_bundled_photon_array(self, image, nphotons, skyCounts):
-        """
-        Use bundled photons for speed.
-        """
-        # skyCounts is the expectation value of the counts in each
-        # pixel.  We want these values to vary according to Poisson
-        # statistics.  One way to do that would be to make
-        #     nphotons = npix * skyCounts
-        # and give them all random positions within the image.  Then
-        # each pixel would have a Poisson variation in its count of
-        # how many photons fall in it.  However, we would like to
-        # speed up the calculation (and reduce the memory demands) by
-        # dropping in photon bundles that effectively do many photons
-        # at once.  Unfortunately, if we still just did random
-        # positions, this would increase the variance in each pixel,
-        # so the values would have the wrong statistics.  Instead, we
-        # fix the number of bundles per pixel and put all the variance
-        # in the flux.
-        #
-        # To get the right expected flux and variance in each pixel, we need:
-        #
-        #     nbundles_per_pixel * mean(flux_per_bundle) = skyCounts
-        #     nbundles_per_pixel * var(flux_per_bundle) = skyCounts
-        #
-        # I.e., we can get the right statistics if
-        #
-        #     mean(flux_per_bundle) = var(flux_per_bundle).
-        #
-
-        # A convenient way to do that is to have the fluxes of the
-        # bundles be generated from a Poisson distribution.
-
-        # Make a PhotonArray to hold the sky photons
-        npix = np.prod(image.array.shape)
-        nbundles_per_pix = self._nbundles_per_pix(skyCounts)
-        flux_per_bundle = np.float(skyCounts) / nbundles_per_pix
-        photon_array = galsim.PhotonArray(nphotons)
-
-        # Generate the x,y values.
-        xx, yy = np.meshgrid(np.arange(image.xmin, image.xmax+1),
-                             np.arange(image.ymin, image.ymax+1))
-        xx = xx.ravel()
-        yy = yy.ravel()
-        assert len(xx) == npix
-        assert len(yy) == npix
-        xx = np.repeat(xx, nbundles_per_pix)
-        yy = np.repeat(yy, nbundles_per_pix)
-        # If the photon_array is smaller than xx and yy,
-        # randomly select the corresponding number of xy values.
-        if photon_array.size() < len(xx):
-            index = (np.random.permutation(np.arange(len(xx)))[:photon_array.size()],)
-            xx = xx[index]
-            yy = yy[index]
-        assert len(xx) == photon_array.size()
-        assert len(yy) == photon_array.size()
-        galsim.random.permute(self.randomNumbers, xx, yy)  # Randomly reshuffle in place
-
-        # The above values are pixel centers.  Add a random offset within each pixel.
-        self.randomNumbers.generate(photon_array.x)  # Random values from 0..1
-        photon_array.x -= 0.5
-        self.randomNumbers.generate(photon_array.y)
-        photon_array.y -= 0.5
-        photon_array.x += xx
-        photon_array.y += yy
-
-        # Set the flux of the photons
-        flux_pd = galsim.PoissonDeviate(self.randomNumbers, mean=flux_per_bundle)
-        flux_pd.generate(photon_array.flux)
-
-        return photon_array
 
     def get_photon_array(self, image, nphotons):
         # Simpler method that has all the pixels with flux=1.
@@ -562,16 +484,10 @@ class ESOSiliconSkyModel(ESOSkyModel):
 
     def get_nphotons(self, image, skyCounts):
         npix = np.prod(image.array.shape)
-        if self.bundles_per_pix <= 1:
-            # No bundling, so return the total number of sky bg
-            # photons drawn from a Poisson distribution.
-            return int(galsim.PoissonDeviate(self.randomNumbers,
-                                             mean=npix*skyCounts)())
-        # Compute the effective number of photons for bundled photons.
-        return int(npix*self._nbundles_per_pix(skyCounts))
-
-    def _nbundles_per_pix(self, skyCounts):
-        return min(int(skyCounts), self.bundles_per_pix)
+        # Return the total number of sky bg photons drawn from a
+        # Poisson distribution.
+        return int(galsim.PoissonDeviate(self.randomNumbers,
+                                         mean=npix*skyCounts)())
 
 
 def get_skyModel_params():
