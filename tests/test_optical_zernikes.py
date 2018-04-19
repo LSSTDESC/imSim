@@ -11,6 +11,8 @@ from desc.imsim.optical_system import OpticalZernikes, mock_deviations
 class OpticalDeviations(unittest.TestCase):
     """Tests the generation of mock optical deviations"""
 
+    shape = mock_deviations().shape
+
     def test_seed_handeling(self):
         """Tests that random deviations are seed dependant"""
 
@@ -25,9 +27,25 @@ class OpticalDeviations(unittest.TestCase):
     def test_shape(self):
         """Tests that mock optical deviations are the correct shape"""
 
-        shape = mock_deviations().shape
         err_msg = 'Expected shape (50,) but received {} instead.'
-        self.assertEqual(shape, (50,), err_msg.format(shape))
+        self.assertEqual(self.shape, (50,), err_msg.format(self.shape))
+
+    def test_average(self):
+        """Tests that mock optical deviations have average zero"""
+
+        num_dof = self.shape[0]
+        num_runs = 2000
+
+        mock_deviations(125)  # Seed number generator
+        hist_data = np.zeros((num_dof, num_runs))
+        for i in range(num_runs - 1):
+            # Use 'persist' to avoid auto reseeding
+            hist_data[:, i] = mock_deviations('persist')
+
+        avg = np.average(hist_data, axis=1)
+        abs_val = np.abs(np.average(hist_data, axis=1))
+        within_range = all(abs_val < 0.03)
+        self.assertTrue(within_range)
 
 
 class FocalPlaneModeling(unittest.TestCase):

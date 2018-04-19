@@ -12,9 +12,9 @@ from scipy.interpolate import interp2d
 from timeit import timeit
 
 from galsim.zernike import Zernike, zernikeBasis
-import lsst.utils
+# import lsst.utils
 
-FILE_DIR = lsst.utils.getPackageDir('imsim')
+FILE_DIR = '../../../'
 
 AOS_PATH = os.path.join(FILE_DIR, 'data', 'optics_data', 'aos_sim_results.txt')
 MATRIX_PATH = os.path.join(FILE_DIR, 'data', 'optics_data', 'sensitivity_matrix.txt')
@@ -91,9 +91,11 @@ def _interp_nominal_coeff(zemax_est, fp_x, fp_y):
     """
     Interpolates the nominal annular Zernike coefficients for given coordinates
 
+    @param [in] zemax_est is an array of Zemax estimates from ZEMAX_PATH
+
     @param [in] fp_x is an x coordinate in the LSST field of view
 
-    @param [in] fp_y is an x coordinate in the LSST field of view
+    @param [in] fp_y is an y coordinate in the LSST field of view
 
     @param [out] An array of 19 zernike coefficients for z=4 through z=22
     """
@@ -152,9 +154,11 @@ def mock_deviations(seed=None):
     Returns an array of random mock optical deviations as a shape (50,) array.
 
     Generates a set of random deviations in each optical degree of freedom for
-    LSST. Ech degree of freedom has a seperate, normal distribution. Parameters
+    LSST. Ech degree of freedom has a separate, normal distribution. Parameters
     used to create each distribution calculated based simulations of the
     adaptive optics system found in AOS_PATH.
+
+    @param [in] seed is the seed for the random number generator
 
     @param [out] A shape (50,) array representing mock optical distortions
     """
@@ -162,8 +166,10 @@ def mock_deviations(seed=None):
     aos_sim_results = np.genfromtxt(AOS_PATH, skip_header=1)
     assert aos_sim_results.shape[0] == 50
 
-    np.random.seed(seed)
-    avg = np.average(aos_sim_results, axis=1)
+    if seed != 'persist':
+        np.random.seed(seed)
+
+    avg = 0
     std = np.std(aos_sim_results, axis=1)
     return np.random.normal(avg, std)
 
@@ -194,13 +200,14 @@ def test_runtime(n_runs, n_coords, verbose=False):
     runtime = timeit('optical_state.cartesian_coeff(x_coords, y_coords)',
                      globals=locals(), number=n_runs)
 
+    avg_init_time = init_time / n_runs
+    avg_runtime = runtime / n_runs
     if verbose:
         print('Averages over {} runs:'.format(n_runs))
-        print('Init time (s):', init_time / n_runs)
-        print('Run time for', n_coords, 'cartesian coords (s):',
-              runtime / n_runs)
+        print('Init time (s):', avg_init_time)
+        print('Run time for', n_coords, 'cartesian coords (s):', avg_runtime)
 
-    return
+    return init_time, avg_runtime
 
 
 class OpticalZernikes:
@@ -218,18 +225,13 @@ class OpticalZernikes:
     cartesian_coords = cartesian_coords()
     _polar_coords = None
 
-    def __init__(self, deviations=None):
+    def __init__(self, seed=None):
         """
-        @param [in] deviations is a (35, 50) array representing deviations in
-        each of LSST's optical degrees of freedom at 35 sampling coordinates
+        @param [in] seed is the value used to seed the random number generator
+            when generating a set of mock optical deviations
         """
 
-        if deviations is None:
-            self.deviations = mock_deviations()
-
-        else:
-            self.deviations = deviations
-
+        self.deviations = mock_deviations(seed)
         self.deviation_coeff = np.dot(self.sensitivity, self.deviations).transpose()
         self.sampling_coeff = np.add(self.deviation_coeff, self.nominal_coeff)
         self._fit_functions = self._optimize_fits()
