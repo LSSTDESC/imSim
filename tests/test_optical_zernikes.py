@@ -43,7 +43,7 @@ class OpticalDeviations(unittest.TestCase):
             hist_data[:, i] = mock_deviations('persist')
 
         avg = np.average(hist_data, axis=1)
-        abs_val = np.abs(np.average(hist_data, axis=1))
+        abs_val = np.abs(avg)
         within_range = all(abs_val < 0.03)
         self.assertTrue(within_range)
 
