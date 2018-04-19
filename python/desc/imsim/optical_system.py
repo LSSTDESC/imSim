@@ -225,13 +225,18 @@ class OpticalZernikes:
     cartesian_coords = cartesian_coords()
     _polar_coords = None
 
-    def __init__(self, seed=None):
+    def __init__(self, deviations=None):
         """
-        @param [in] seed is the value used to seed the random number generator
-            when generating a set of mock optical deviations
+        @param [in] deviations is a (35, 50) array representing deviations in
+        each of LSST's optical degrees of freedom at 35 sampling coordinates
         """
 
-        self.deviations = mock_deviations(seed)
+        if deviations is None:
+            self.deviations = mock_deviations()
+
+        else:
+            self.deviations = deviations
+
         self.deviation_coeff = np.dot(self.sensitivity, self.deviations).transpose()
         self.sampling_coeff = np.add(self.deviation_coeff, self.nominal_coeff)
         self._fit_functions = self._optimize_fits()
