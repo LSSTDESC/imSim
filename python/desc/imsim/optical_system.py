@@ -119,12 +119,12 @@ def _interp_nominal_coeff(zemax_est, fp_x, fp_y):
 
         out_arr[i] = interp_func(fp_x, fp_y)[0]
 
-    return out_arr[3:] # Remove first four Zernike coefficients
+    return out_arr[3:]  # Remove first four Zernike coefficients
 
 
 def _gen_nominal_coeff(zemax_path=ZEMAX_PATH):
     """
-    Use zemax estimates to determine the nominal coeff at 35 sampling coordinates
+    Use Zemax estimates to determine the nominal coeff at 35 sampling coordinates
 
     Results are written to NOMINAL_PATH. By default we use tabulated zemax
     estimates found at ZEMAX_PATH.
@@ -282,9 +282,12 @@ class OpticalZernikes:
         """
         Lazy loads 35 polar sampling coordinates in the LSST field of view
 
-        @param [out] an array of 35 r coordinates
+        These sampling coordinates correspond to the position sampling of the
+        sensitivity matrix found in MATRIX_PATH
 
-        @param [out] an array of 35 theta coordinates
+        @param [out] an array of 35 r coordinates in degrees
+
+        @param [out] an array of 35 theta coordinates in radians
         """
 
         if self._polar_coords is None:
