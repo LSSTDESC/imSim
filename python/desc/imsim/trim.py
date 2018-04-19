@@ -9,7 +9,6 @@ import desc.imsim
 
 __all__ = ['InstCatTrimmer']
 
-
 class InstCatTrimmer:
     """
     Class to trim instance catalogs for acceptance cones centered
@@ -17,8 +16,8 @@ class InstCatTrimmer:
 
     Attributes
     ----------
-    instcat_dir: str
-        Absolute path of the directory containing the instance catalog.
+    instcat_file: str
+        Instance catalog filename.
     command_lines: list
         PhoSim command entries.
     object_lines: list
@@ -26,28 +25,33 @@ class InstCatTrimmer:
     obs_md: ObservationMetadata
         Observation metadata for the visit.
     """
-    def __init__(self, instcat):
+    def __init__(self, instcat, numRows=None):
         """
         Parameters
         ----------
         instcat: str
             Path to input instance catalog.  The file can have includeobj
             entries.
+        numRows: int [None]
+            Number of rows to read from the instance catalog.  If None,
+            then read all rows.
         """
-        self.instcat_dir = os.path.dirname(os.path.abspath(instcat))
+        self.instcat_file = instcat
 
-        # Use .fopen to read in all of the command and object lines
-        # from the instance catalog.
+        # Use .fopen to read in the command and object lines from the
+        # instance catalog.
         with desc.imsim.fopen(instcat, mode='rt') as input_:
-            lines = [x for x in input_]
+            if numRows is None:
+                lines = [x for x in input_ if not x.startswith('#')]
+            else:
+                lines = [x for _, x in zip(range(numRows), input_)
+                         if not x.startswith('#')]
 
         # Extract the phosim commands and create the
         # ObservationMetadata object.
         self.command_lines = []
         phosim_commands = dict()
         for line in lines:
-            if line.startswith('#'):
-                continue
             if line.startswith('object'):
                 break
             tokens = line.strip().split()

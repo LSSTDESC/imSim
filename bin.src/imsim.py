@@ -74,10 +74,9 @@ def main():
 
     obs_md = catalog_contents.obs_metadata
     phot_params = catalog_contents.phot_params
-    instcats = catalog_contents.instcats
-#    sources = catalog_contents.sources
-#    gs_object_arr = sources[0]
-#    gs_object_dict = sources[1]
+    sources = catalog_contents.sources
+    gs_object_arr = sources[0]
+    gs_object_dict = sources[1]
 
     # Sub-divide the source dataframe into stars and galaxies.
     if arguments.sensor is not None:
@@ -146,14 +145,13 @@ def main():
     gs_interpreter.setPSF(PSF=local_PSF)
 
     if arguments.sensor is not None:
-        _, gs_object_dict = desc.imsim.sources_from_list(instcats.get_object_entries(arguments.sensor), obs_md, phot_params, arguments.file)
         gs_objects_to_draw = gs_object_dict[arguments.sensor]
     else:
-        gs_objects_to_draw, _ = desc.imsim.sources_from_list(instcats.object_list, obs_md, phot_params, arugments.file)
+        gs_objects_to_draw = gs_object_arr
 
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', 'Automatic n_photons', UserWarning)
-        for gs_obj in gs_objects_to_draw[:numRows]:
+        for gs_obj in gs_objects_to_draw:
             if gs_obj.uniqueId in gs_interpreter.drawn_objects:
                 continue
             gs_interpreter.drawObject(gs_obj)

@@ -61,7 +61,7 @@ class PhosimInstanceCatalogParseError(RuntimeError):
 PhoSimInstanceCatalogContents = namedtuple('PhoSimInstanceCatalogContents',
                                             ('obs_metadata',
                                              'phot_params',
-                                             'instcats'))
+                                             'sources'))
 
 _required_commands = set("""rightascension
 declination
@@ -181,8 +181,6 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
         if params[0] != 'object':
             continue
         i_obj += 1
-#        if numRows is not None and i_obj>=num_objects:
-#            break
         unique_id[i_obj] = int(params[1])
         ra_phosim[i_obj] = float(params[2])
         dec_phosim[i_obj] = float(params[3])
@@ -792,11 +790,90 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     commands = metadata_from_file(fileName)
     obs_metadata = phosim_obs_metadata(commands)
     phot_params = photometricParameters(commands)
-    instcats = InstCatTrimmer(fileName)
+    instcats = InstCatTrimmer(fileName, numRows=numRows)
+    gs_object_arr = GsObjectList(instcats, phot_params)
+    gs_object_dict = GsObjectDict(instcats, phot_params)
 
     return PhoSimInstanceCatalogContents(obs_metadata,
                                          phot_params,
-                                         instcats)
+                                         (gs_object_arr, gs_object_dict))
+
+
+class GsObjectDict:
+    """
+    Dictionary-like class to provide access to lists of
+    GalSimCelestialObjects from an instance catalog on a per-sensor
+    basis.  This class uses InstCatTrimmer to downselect the object
+    entries via acceptance cones centered on the sensor of interest
+    and to defer the creation of the GalSimCelestialObjects until
+    the data for the specified sensor are requested.
+    """
+    def __init__(self, instcat_trimmer, phot_params, radius=0.18):
+        """
+        Parameters
+        ----------
+        instcat_trimmer: InstCatTrimmer
+            This object manages the GalSimCelestialObject creation.
+        phot_params: PhotometricParameters
+            Photometric parameter info for the visit.
+        radius: float [0.18]
+            Acceptance cone radius, in degrees, for downselecting objects
+            for a single CCD.
+        """
+        self.instcat_trimmer = instcat_trimmer
+        self.phot_params = phot_params
+        self.radius = radius
+
+    def __getitem__(self, chip_name):
+        object_lines \
+            = self.instcat_trimmer.get_object_entries(chip_name,
+                                                      radius=self.radius)
+        obs_md = self.instcat_trimmer.obs_md
+        file_name = self.instcat_trimmer.instcat_file
+        _, obj_dict = sources_from_list(object_lines, obs_md, self.phot_params,
+                                        file_name)
+        return obj_dict[chip_name]
+
+class GsObjectList:
+    """
+    List-like class to provide access to lists of
+    GalSimCelestialObjects from an instance catalog.  This class uses
+    InstCatTrimmer defer the creation of the GalSimCelestialObjects
+    until the data are requested.
+    """
+    def __init__(self, instcat_trimmer, phot_params, radius=0.18):
+        """
+        Parameters
+        ----------
+        instcat_trimmer: InstCatTrimmer
+            This object manages the GalSimCelestialObject creation.
+        phot_params: PhotometricParameters
+            Photometric parameter info for the visit.
+        radius: float [0.18]
+            Acceptance cone radius, in degrees, for downselecting objects
+            for a single CCD.
+        """
+        self.instcat_trimmer = instcat_trimmer
+        self.phot_params = phot_params
+        self.radius = radius
+        self._gs_objects = None
+
+    @property
+    def gs_objects(self):
+        if self._gs_objects is None:
+            object_lines = self.instcat_trimmer.object_lines
+            obs_md = self.instcat_trimmer.obs_md
+            file_name = self.instcat_trimmer.instcat_file
+            self._gs_objects, _ = sources_from_list(object_lines, obs_md,
+                                                    self.phot_params, file_name)
+        return self._gs_objects
+
+    def __iter__(self):
+        for gs_obj in self.gs_objects:
+            yield gs_obj
+
+    def __getitem__(self, index):
+        return self.gs_objects[index]
 
 
 class ImSimConfiguration(object):
