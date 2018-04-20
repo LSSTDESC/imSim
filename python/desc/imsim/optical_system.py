@@ -253,7 +253,7 @@ class OpticalZernikes:
 
         out = []
         for coefficient in self.sampling_coeff:
-            coefs, _, _, _ = np.linalg.lstsq(basis.T, coefficient, rcond=None)
+            coefs, _, _, _ = np.linalg.lstsq(basis.T, coefficient, rcond=-1)
             optimized_func = Zernike(coefs).evalCartesian
             out.append(optimized_func)
 
