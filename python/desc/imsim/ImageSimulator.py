@@ -3,6 +3,7 @@ Code to manage the parallel simulation of sensors using the
 multiprocessing module.
 """
 import os
+import sys
 import multiprocessing
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
@@ -121,7 +122,9 @@ class ImageSimulator:
             for det_name in self.gs_interpreters:
                 simulate_sensor = SimulateSensor(det_name)
                 gs_objects = self.gs_obj_dict[det_name]
-                results.append(pool.apply_async(simulate_sensor, (gs_objects,)))
+                if len(gs_objects) > 0:
+                    results.append(pool.apply_async(simulate_sensor,
+                                                    (gs_objects,)))
             pool.close()
             pool.join()
             for res in results:
@@ -157,6 +160,7 @@ class SimulateSensor:
             return
 
         print("drawing %i objects on %s" % (len(gs_objects), self.sensor_name))
+        sys.stdout.flush()
 
         # image_simulator must be a variable declared in the
         # outer scope and set to an ImageSimulator instance.

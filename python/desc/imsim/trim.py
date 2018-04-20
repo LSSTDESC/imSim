@@ -24,6 +24,9 @@ class InstCatTrimmer:
         PhoSim object entries.
     obs_md: ObservationMetadata
         Observation metadata for the visit.
+    minsource: int
+        Minimum number of sersic objects to require for a sensor-visit
+        to be simulated.
     """
     def __init__(self, instcat, numRows=None):
         """
@@ -57,6 +60,10 @@ class InstCatTrimmer:
             tokens = line.strip().split()
             phosim_commands[tokens[0]] = float(tokens[1])
             self.command_lines.append(line)
+        try:
+            self.minsource = phosim_commands['minsource']
+        except KeyError:
+            self.minsource = None
 
         phosim_commands['bandpass'] = 'ugrizy'[int(phosim_commands['filter'])]
         self.obs_md = desc.imsim.phosim_obs_metadata(phosim_commands)
@@ -67,10 +74,13 @@ class InstCatTrimmer:
         # Extract the ra, dec values for each object.
         self._ra = np.zeros(len(self.object_lines), dtype=np.float)
         self._dec = np.zeros(len(self.object_lines), dtype=np.float)
+        self._sersic = np.zeros(len(self.object_lines), dtype=np.int)
         for i, line in enumerate(self.object_lines):
             lon, lat = line.strip().split()[2:4]
             self._ra[i] = np.float(lon)
             self._dec[i] = np.float(lat)
+            if 'sersic2d' in line:
+                self._sersic[i] = 1
 
         self._camera = desc.imsim.get_obs_lsstSim_camera()
 
@@ -109,10 +119,20 @@ class InstCatTrimmer:
         Returns
         -------
         list: list of object entries from the original instance catalog.
+
+        Notes
+        -----
+
+        This function applies the 'minsource' criterion to the sersic
+        galaxies in the instance catalog if 'minsource' is included in
+        the instance catalog commands.
         """
         ra0, dec0 = self.compute_chip_center(chip_name)
         seps = _angularSeparation(ra0, dec0, self._ra, self._dec)
         index = np.where(seps < radius)
+        if (self.minsource is not None and
+            sum(self._sersic[index]) < self.minsource):
+            return []
         return [self.object_lines[i] for i in index[0]]
 
     def write_instcat(self, chip_name, outfile, radius=0.18):

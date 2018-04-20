@@ -830,9 +830,41 @@ class GsObjectDict:
                                                       radius=self.radius)
         obs_md = self.instcat_trimmer.obs_md
         file_name = self.instcat_trimmer.instcat_file
-        _, obj_dict = sources_from_list(object_lines, obs_md, self.phot_params,
-                                        file_name)
-        return obj_dict[chip_name]
+        return LazyGsObjectList(chip_name, object_lines, obs_md,
+                                self.phot_params, file_name)
+
+class LazyGsObjectList:
+    def __init__(self, chip_name, object_lines, obs_md, phot_params, file_name):
+        self.chip_name = chip_name
+        self.object_lines = object_lines
+        self.obs_md = obs_md
+        self.phot_params = phot_params
+        self.file_name = file_name
+        self._gs_objects = None
+
+    @property
+    def gs_objects(self):
+        if self._gs_objects is None:
+            _, obj_dict = sources_from_list(self.object_lines, self.obs_md,
+                                            self.phot_params, self.file_name)
+            try:
+                self._gs_objects = obj_dict[self.chip_name]
+            except KeyError:
+                self._gs_objects = []
+        return self._gs_objects
+
+    def __len__(self):
+        try:
+            return len(self._gs_objects)
+        except TypeError:
+            return len(self.object_lines)
+
+    def __iter__(self):
+        for gs_obj in self.gs_objects:
+            yield gs_obj
+
+    def __getitem__(self, index):
+        return self.gs_objects[index]
 
 class GsObjectList:
     """
