@@ -8,6 +8,8 @@ import warnings
 from collections import namedtuple, defaultdict
 import logging
 import gc
+import copy
+import galsim
 
 # python_future no longer handles configparser as of 0.16.
 # This is needed for PY2/3 compatabiloty.
@@ -18,25 +20,46 @@ except ImportError:
     import ConfigParser as configparser
 
 import numpy as np
-import pandas as pd
 import lsst.log as lsstLog
+import lsst.obs.lsstSim as obs_lsstSim
 import lsst.utils as lsstUtils
+from lsst.sims.coordUtils import lsst_camera
 from lsst.sims.photUtils import LSSTdefaults, PhotometricParameters
 from lsst.sims.utils import ObservationMetaData, radiansFromArcsec
 from lsst.sims.utils import applyProperMotion, ModifiedJulianDate
+from lsst.sims.coordUtils import getCornerPixels
+from lsst.sims.coordUtils import pixelCoordsFromPupilCoords
+from lsst.sims.catUtils.mixins import PhoSimAstrometryBase
+from lsst.sims.utils import _pupilCoordsFromObserved
+from lsst.sims.utils import _observedFromAppGeo
+from lsst.sims.utils import radiansFromArcsec
+from lsst.sims.GalSimInterface import GalSimCelestialObject
+from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
+from lsst.sims.utils import defaultSpecMap
+from .cosmic_rays import CosmicRays
+from .fopen import fopen
 
-__all__ = ['parsePhoSimInstanceFile', 'PhosimInstanceCatalogParseError',
+_POINT_SOURCE = 1
+_SERSIC_2D = 2
+_RANDOM_WALK = 3
+
+__all__ = ['PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
-           'validate_phosim_object_list',
-           'read_config', 'get_config', 'get_logger']
-
+           'sources_from_file',
+           'metadata_from_file',
+           'read_config', 'get_config', 'get_logger',
+           'get_obs_lsstSim_camera',
+           'add_cosmic_rays',
+           '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK',
+           'parsePhoSimInstanceFile']
 
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
 
-
 PhoSimInstanceCatalogContents = namedtuple('PhoSimInstanceCatalogContents',
-                                           ('commands', 'objects'))
+                                            ('obs_metadata',
+                                             'phot_params',
+                                             'sources'))
 
 _required_commands = set("""rightascension
 declination
@@ -62,323 +85,350 @@ FWHMeff
 FWHMgeom""".split())
 
 
-def parsePhoSimInstanceFile(fileName, numRows=None):
+def get_obs_lsstSim_camera(log_level=lsstLog.WARN):
     """
-    Read a PhoSim instance catalog into a Pandas dataFrame. Then use
-    the information that was read-in to build and return a command
-    dictionary and object dataFrame.
-
-    Parameters
-    ----------
-    fileName : str
-        The instance catalog filename.
-    numRows : int, optional
-        The number of rows to read from the instance catalog.
-        If None (the default), then all of the rows will be read in.
-
-    Returns
-    -------
-    namedtuple
-        This contains the PhoSim commands, the objects, and the
-        original DataFrames containing the header lines and object
-        lines which were parsed with pandas.read_csv.
+    Get the obs_lsstSim CameraMapper object, setting the default
+    log-level at WARN in order to silence the INFO message about
+    "Loading Posix exposure registry from .". Note that this only
+    affects the 'CameraMapper' logging level.  The logging level set
+    by any calling code (e.g., imsim.py) will still apply to other log
+    messages made by imSim code.
     """
+    lsstLog.setLevel('CameraMapper', log_level)
+    return lsst_camera()
 
-    # Read the text instance file into Pandas.  Note that the top of the file
-    # has commands in it, followed by one line per object.
-    #
-    # Note: I have chosen to use pandas here (as opposed to straight numpy e.g.)
-    # because Pandas gracefully handles missing values including at the end
-    # of lines.  Not every line is the same length in the instance file since
-    # different classes of objects have different numbers of parameters.  The
-    # other table reading options do not handle this situation well.
-    columnNames = ['STRING', 'VALUE', 'RA', 'DEC', 'MAG_NORM', 'SED_NAME',
-                   'REDSHIFT', 'GAMMA1', 'GAMMA2', 'KAPPA',
-                   'DELTA_RA', 'DELTA_DEC',
-                   'SOURCE_TYPE',
-                   'PAR1', 'PAR2', 'PAR3', 'PAR4',
-                   'PAR5', 'PAR6', 'PAR7', 'PAR8', 'PAR9', 'PAR10']
 
-    dataFrame = pd.read_csv(fileName, names=columnNames, nrows=numRows,
-                            delim_whitespace=True, comment='#')
+def metadata_from_file(file_name):
+    """
+    Read in the InstanceCatalog specified by file_name.
+    Return a dict of the header values from that
+    InstanceCatalog.
+    """
+    input_params = {}
+    with fopen(file_name, mode='rt') as in_file:
+        for line in in_file:
+            if line[0] == '#':
+                continue
 
-    # Any missing items from the end of the lines etc were turned into NaNs by
-    # Pandas to represent that they were missing.  This causes problems later
-    # with the checks in the SED calculations in the GalSim interface.  So,
-    # convert them into 0.0 instead.
-    dataFrame.fillna('0.0', inplace=True)
+            params = line.strip().split()
 
-    # Split the dataFrame into commands and sources.
-    phoSimHeaderCards = dataFrame.query("STRING != 'object'")
-    phoSimSources = dataFrame.query("STRING == 'object'")
+            if params[0] == 'object':
+                continue
 
-    # Check that the required commands are present in the instance catalog.
-    command_set = set(phoSimHeaderCards['STRING'])
+            float_val = float(params[1])
+            int_val = int(float_val)
+            if np.abs(float_val-int_val)>1.0e-10:
+                val = float_val
+            else:
+                val = int_val
+            input_params[params[0]] = val
+
+    command_set = set(input_params.keys())
     missing_commands = _required_commands - command_set
     if missing_commands:
         message = "\nRequired commands that are missing from the instance catalog %s:\n   " \
-            % fileName + "\n   ".join(missing_commands)
+            % file_name + "\n   ".join(missing_commands)
         raise PhosimInstanceCatalogParseError(message)
 
     # Report on commands that are not part of the required set.
     extra_commands = command_set - _required_commands
     if extra_commands:
         message = "\nExtra commands in the instance catalog %s that are not in the required set:\n   " \
-            % fileName + "\n   ".join(extra_commands)
+            % file_name + "\n   ".join(extra_commands)
         warnings.warn(message)
 
-    # Turn the list of commands into a dictionary.
-    commands = extract_commands(phoSimHeaderCards)
-
-    # This dataFrame will contain all of the objects to return.
-    phoSimObjectList = extract_objects(phoSimSources, commands)
-    return PhoSimInstanceCatalogContents(commands, phoSimObjectList)
-
-
-def extract_commands(df):
-    """
-    Extract the phosim commands and repackage as a simple dictionary,
-    applying appropriate casts.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing the instance catalog command data.
-
-    Returns
-    -------
-    dict
-        A dictionary with the phosim command values.
-    """
-    my_dict = df[['STRING', 'VALUE']].set_index('STRING').T.to_dict('list')
-    commands = dict(((key, value[0]) for key, value in my_dict.items()))
-    commands['filter'] = int(commands['filter'])
-    commands['nsnap'] = int(commands['nsnap'])
-    commands['obshistid'] = int(commands['obshistid'])
-    commands['seed'] = int(commands['seed'])
-    commands['mjd'] = float(commands['mjd'])
+    commands = dict(((key, value) for key, value in input_params.items()))
     # Add bandpass for convenience
     commands['bandpass'] = 'ugrizy'[commands['filter']]
+
     return commands
 
 
-def extract_objects(df, header):
+def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     """
-    Extract the object information needed by the sims code
-    and pack into a new dataframe.
+    Read in an InstanceCatalog and extract all of the astrophysical
+    sources from it
 
     Parameters
     ----------
-    df : pandas.DataFrame
-        DataFrame containing the instance catalog object data.
+    file_name: str
+        The name of the InstanceCatalog
 
-    header : dictionary
-        dictionary containing the PhoSim header cards as output
-        by extract_commands()
-        (necessary for correctly applying proper motion to stars)
+    obs_md: ObservationMetaData
+        The ObservationMetaData characterizing the pointing
 
-    Returns
-    -------
-    pandas.DataFrame
-        A DataFrame with the columns expected by the sims code.
-    """
-    # Check for unhandled source types and emit warning if any are present.
-    valid_types = dict(point='pointSource',
-                       sersic2d='sersic')
-    invalid_types = set(df['SOURCE_TYPE']) - set(valid_types)
-    if invalid_types:
-        warnings.warn("Instance catalog contains unhandled source types:\n%s\nSkipping these."
-                      % '\n'.join(invalid_types))
+    phot_params: PhotometricParameters
+        The PhotometricParameters characterizing this telescope
 
-    columns = ('uniqueId', 'galSimType',
-               'magNorm', 'sedFilepath', 'redshift',
-               'raJ2000', 'decJ2000',
-               'halfLightRadius',
-               'minorAxis',
-               'majorAxis',
-               'positionAngle', 'sindex',
-               'properMotionRa', 'properMotionDec',
-               'parallax', 'radialVelocity')
-
-    # Process point sources and galaxies separately.
-    source_type = 'point'
-    stars = df.query("SOURCE_TYPE=='%s'" % source_type)
-    phosim_stars = pd.DataFrame(np.zeros((len(stars), len(columns))),
-                                index=stars.index,
-                                columns=columns)
-    phosim_stars['uniqueId'] = pd.to_numeric(stars['VALUE']).tolist()
-    phosim_stars['galSimType'] = valid_types[source_type]
-    phosim_stars['magNorm'] = pd.to_numeric(stars['MAG_NORM']).tolist()
-    phosim_stars['sedFilepath'] = stars['SED_NAME'].tolist()
-    phosim_stars['redshift'] = pd.to_numeric(stars['REDSHIFT']).tolist()
-    phosim_stars['raJ2000'] = pd.to_numeric(stars['RA']).tolist()
-    phosim_stars['decJ2000'] = pd.to_numeric(stars['DEC']).tolist()
-    phosim_stars['properMotionRa'] = pd.to_numeric(stars['PAR5']).tolist()
-    phosim_stars['properMotionDec'] = pd.to_numeric(stars['PAR6']).tolist()
-    phosim_stars['parallax'] = pd.to_numeric(stars['PAR7']).tolist()
-    phosim_stars['radialVelocity'] = pd.to_numeric(stars['PAR8']).tolist()
-    if len(phosim_stars) > 0:
-        phosim_stars = extract_extinction(stars, phosim_stars, 1)
-
-        mjd = ModifiedJulianDate(TAI=header['mjd'])
-        raICRS, decICRS = applyProperMotion(phosim_stars.raJ2000.values,
-                                            phosim_stars.decJ2000.values,
-                                            phosim_stars.properMotionRa.values,
-                                            phosim_stars.properMotionDec.values,
-                                            phosim_stars.parallax.values,
-                                            phosim_stars.radialVelocity.values,
-                                            mjd=mjd)
-
-        phosim_stars = phosim_stars.assign(raICRS=raICRS, decICRS=decICRS)
-
-    source_type = 'sersic2d'
-    galaxies = df.query("SOURCE_TYPE == '%s'" % source_type)
-    phosim_galaxies = pd.DataFrame(np.zeros((len(galaxies), len(columns))),
-                                   index=galaxies.index,
-                                   columns=columns)
-    phosim_galaxies['uniqueId'] = pd.to_numeric(galaxies['VALUE']).tolist()
-    phosim_galaxies['galSimType'] = valid_types[source_type]
-    phosim_galaxies['magNorm'] = pd.to_numeric(galaxies['MAG_NORM']).tolist()
-    phosim_galaxies['sedFilepath'] = galaxies['SED_NAME'].tolist()
-    phosim_galaxies['redshift'] = pd.to_numeric(galaxies['REDSHIFT']).tolist()
-    phosim_galaxies['raJ2000'] = pd.to_numeric(galaxies['RA']).tolist()
-    phosim_galaxies['decJ2000'] = pd.to_numeric(galaxies['DEC']).tolist()
-    phosim_galaxies['majorAxis'] = \
-        radiansFromArcsec(pd.to_numeric(galaxies['PAR1'])).tolist()
-    phosim_galaxies['minorAxis'] = \
-        radiansFromArcsec(pd.to_numeric(galaxies['PAR2'])).tolist()
-    phosim_galaxies['halfLightRadius'] = phosim_galaxies['majorAxis']
-    phosim_galaxies['positionAngle'] = \
-        (np.pi/180.*pd.to_numeric(galaxies['PAR3'])).tolist()
-    phosim_galaxies['sindex'] = pd.to_numeric(galaxies['PAR4']).tolist()
-    phosim_galaxies['gamma1'] = pd.to_numeric(galaxies['GAMMA1']).tolist()
-    phosim_galaxies['gamma2'] = pd.to_numeric(galaxies['GAMMA2']).tolist()
-    phosim_galaxies['kappa'] = pd.to_numeric(galaxies['KAPPA']).tolist()
-    n_gal = len(phosim_galaxies.raJ2000.values)
-    phosim_galaxies = phosim_galaxies.assign(raICRS=phosim_galaxies.raJ2000,
-                                             decICRS=phosim_galaxies.decJ2000,
-                                             properMotionRa=np.zeros(n_gal),
-                                             properMotionDec=np.zeros(n_gal),
-                                             parallax=np.zeros(n_gal),
-                                             radialVelocity=np.zeros(n_gal))
-
-    if len(phosim_galaxies) > 0:
-        phosim_galaxies = extract_extinction(galaxies, phosim_galaxies, 5)
-
-    return pd.concat((phosim_stars, phosim_galaxies), ignore_index=True)
-
-
-def extract_extinction(raw_df, object_df, ext_par_start):
-    """
-    Extract the extinction parameters for the 4 possible cases as
-    described in
-    https://bitbucket.org/phosim/phosim_release/wiki/Instance%20Catalog
-
-    Parameters
-    ----------
-    raw_df : pandas.DataFrame
-        The data frame containing the raw column data for the object
-        entries in the instance catalog.
-    object_df : pandas.DataFrame
-        The data frame containing the processed column data, but lacking
-        the extinction parameters.
-    ext_par_start : int
-        The starting parameter number such that the column labeled
-        "PAR%i" % ext_par_start is the column in the raw_df
-        corresponding to the first extinction parameter.  For point
-        sources, ext_par_start=1 (where PAR1 would be 'CCM' or
-        'none').
+    numRows: int (optional)
+        The number of rows of the InstanceCatalog to read in (including the
+        header)
 
     Returns
     -------
-    pandas.DataFrame
-        The data frame resulting from adding the extinction parameters to
-        the object_df data frame.
+    gs_obj_arr: numpy array
+        Contains the GalSimCelestialObjects for all of the
+        astrophysical sources in this InstanceCatalog
+
+    out_obj_dict: dict
+        Keyed on the names of the detectors in the LSST camera.
+        The values are numpy arrays of GalSimCelestialObjects
+        that should be simulated for that detector, including
+        objects that are near the edge of the chip or
+        just bright (in which case, they might still illuminate
+        the detector).
     """
-    dfs = []
 
-    selection = raw_df.query("PAR%i=='CCM' and PAR%i=='CCM'"
-                             % (ext_par_start, ext_par_start+3))
-    if len(selection) > 0:
-        iAv = 'PAR%i' % (ext_par_start+1)
-        iRv = 'PAR%i' % (ext_par_start+2)
-        gAv = 'PAR%i' % (ext_par_start+4)
-        gRv = 'PAR%i' % (ext_par_start+5)
-        assignments = dict(internalAv=pd.to_numeric(selection[iAv]).tolist(),
-                           internalRv=pd.to_numeric(selection[iRv]).tolist(),
-                           galacticAv=pd.to_numeric(selection[gAv]).tolist(),
-                           galacticRv=pd.to_numeric(selection[gRv]).tolist())
-        dfs.append(object_df.loc[selection.index].assign(**assignments))
+    camera = get_obs_lsstSim_camera()
 
-    selection = raw_df.query("PAR%i=='CCM' and PAR%i=='none'"
-                             % (ext_par_start, ext_par_start+3))
-    if len(selection) > 0:
-        iAv = 'PAR%i' % (ext_par_start+1)
-        iRv = 'PAR%i' % (ext_par_start+2)
-        assignments = dict(internalAv=pd.to_numeric(selection[iAv]).tolist(),
-                           internalRv=pd.to_numeric(selection[iRv]).tolist(),
-                           galacticAv=0,
-                           galacticRv=0)
-        dfs.append(object_df.loc[selection.index].assign(**assignments))
+    num_objects = 0
+    ct_rows = 0
+    with fopen(file_name, mode='rt') as input_file:
+        for line in input_file:
+            ct_rows += 1
+            params = line.strip().split()
+            if params[0] == 'object':
+                num_objects += 1
+            if numRows is not None and ct_rows>=numRows:
+                break
 
-    selection = raw_df.query("PAR%i=='none' and PAR%i=='CCM'"
-                             % (ext_par_start, ext_par_start+1))
-    if len(selection) > 0:
-        gAv = 'PAR%i' % (ext_par_start+2)
-        gRv = 'PAR%i' % (ext_par_start+3)
-        assignments = dict(internalAv=0,
-                           internalRv=0,
-                           galacticAv=pd.to_numeric(selection[gAv]).tolist(),
-                           galacticRv=pd.to_numeric(selection[gRv]).tolist())
-        dfs.append(object_df.loc[selection.index].assign(**assignments))
+    # RA, Dec in the coordinate system expected by PhoSim
+    ra_phosim = np.zeros(num_objects, dtype=float)
+    dec_phosim = np.zeros(num_objects, dtype=float)
 
-    selection = raw_df.query("PAR%i=='none' and PAR%i=='none'"
-                             % (ext_par_start, ext_par_start+1))
-    if len(selection) > 0:
-        assignments = dict(internalAv=0,
-                           internalRv=0,
-                           galacticAv=0,
-                           galacticRv=0)
-        dfs.append(object_df.loc[selection.index].assign(**assignments))
+    sed_name = [None]*num_objects
+    mag_norm = 55.0*np.ones(num_objects, dtype=float)
+    gamma1 = np.zeros(num_objects, dtype=float)
+    gamma2 = np.zeros(num_objects, dtype=float)
+    kappa = np.zeros(num_objects, dtype=float)
 
-    result = pd.concat(dfs)
-    gc.collect()
-    return result
+    internal_av = np.zeros(num_objects, dtype=float)
+    internal_rv = np.zeros(num_objects, dtype=float)
+    galactic_av = np.zeros(num_objects, dtype=float)
+    galactic_rv = np.zeros(num_objects, dtype=float)
+    semi_major_arcsec = np.zeros(num_objects, dtype=float)
+    semi_minor_arcsec = np.zeros(num_objects, dtype=float)
+    position_angle_degrees = np.zeros(num_objects, dtype=float)
+    sersic_index = np.zeros(num_objects, dtype=float)
+    npoints = np.zeros(num_objects, dtype=int)
+    redshift = np.zeros(num_objects, dtype=float)
 
+    unique_id = np.zeros(num_objects, dtype=int)
+    object_type = np.zeros(num_objects, dtype=int)
 
-def validate_phosim_object_list(phoSimObjects):
-    """
-    Remove rows with column values that are known to cause problems with
-    the sim_GalSimInterface code.
+    i_obj = -1
+    with fopen(file_name, mode='rt') as input_file:
+        for line in input_file:
+            params = line.strip().split()
+            if params[0] != 'object':
+                continue
+            i_obj += 1
+            if numRows is not None and i_obj>=num_objects:
+                break
+            unique_id[i_obj] = int(params[1])
+            ra_phosim[i_obj] = float(params[2])
+            dec_phosim[i_obj] = float(params[3])
+            mag_norm[i_obj] = float(params[4])
+            sed_name[i_obj] = params[5]
+            redshift[i_obj] = float(params[6])
+            gamma1[i_obj] = float(params[7])
+            gamma2[i_obj] = float(params[8])
+            kappa[i_obj] = float(params[9])
+            if params[12].lower() == 'point':
+                object_type[i_obj] = _POINT_SOURCE
+                i_gal_dust_model = 14
+                if params[13].lower() != 'none':
+                    i_gal_dust_model = 16
+                    internal_av[i_obj] = float(params[14])
+                    internal_rv[i_obj] =float(params[15])
+                if params[i_gal_dust_model].lower() != 'none':
+                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
+                    galactic_rv[i_obj] = float(params[i_gal_dust_model+2])
+            elif params[12].lower() == 'sersic2d':
+                object_type[i_obj] = _SERSIC_2D
+                semi_major_arcsec[i_obj] = float(params[13])
+                semi_minor_arcsec[i_obj] = float(params[14])
+                position_angle_degrees[i_obj] = float(params[15])
+                sersic_index[i_obj] = float(params[16])
+                i_gal_dust_model = 18
+                if params[17].lower() != 'none':
+                    i_gal_dust_model = 20
+                    internal_av[i_obj] = float(params[18])
+                    internal_rv[i_obj] = float(params[19])
+                if params[i_gal_dust_model].lower() != 'none':
+                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
+                    galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
+            elif params[12].lower() == 'knots':
+                object_type[i_obj] = _RANDOM_WALK
+                semi_major_arcsec[i_obj] = float(params[13])
+                semi_minor_arcsec[i_obj] = float(params[14])
+                position_angle_degrees[i_obj] = float(params[15])
+                npoints[i_obj] = int(params[16])
+                i_gal_dust_model = 18
+                if params[17].lower() != 'none':
+                    i_gal_dust_model = 20
+                    internal_av[i_obj] = float(params[18])
+                    internal_rv[i_obj] = float(params[19])
+                if params[i_gal_dust_model].lower() != 'none':
+                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
+                    galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
+            else:
+                raise RuntimeError("Do not know how to handle "
+                                   "object type: %s" % params[12])
 
-    Parameters
-    ----------
-    phoSimObjects : pandas.DataFrame
-       DataFrame of parsed object lines from the instance catalog.
+    ra_appGeo, dec_appGeo = PhoSimAstrometryBase._appGeoFromPhoSim(np.radians(ra_phosim),
+                                                                   np.radians(dec_phosim),
+                                                                   obs_md)
 
-    Returns
-    -------
-    namedtuple
-        A tuple of DataFrames containing the accepted and rejected objects.
-    """
-    bad_row_queries = ('(galSimType=="sersic" and majorAxis < minorAxis)',
-                       '(magNorm > 50)',
-                       '(galacticAv==0 and galacticRv==0)')
+    (ra_obs_rad,
+     dec_obs_rad) = _observedFromAppGeo(ra_appGeo, dec_appGeo,
+                                        obs_metadata=obs_md,
+                                        includeRefraction=True)
 
-    rejected = dict((query, phoSimObjects.query(query))
-                    for query in bad_row_queries)
-    all_rejected = \
-        pd.concat(rejected.values(), ignore_index=True).drop_duplicates()
-    accepted = phoSimObjects.query('not (' + ' or '.join(bad_row_queries) + ')')
-    if len(all_rejected) != 0:
-        message = "\nOmitted %i suspicious objects from" % len(all_rejected)
-        message += " the instance catalog satisfying:\n"
-        for query, objs in rejected.items():
-            message += "%i  %s\n" % (len(objs), query)
-        message += "Some rows may satisfy more than one condition.\n"
+    semi_major_radians = radiansFromArcsec(semi_major_arcsec)
+    semi_minor_radians = radiansFromArcsec(semi_minor_arcsec)
+    position_angle_radians = np.radians(position_angle_degrees)
+
+    x_pupil, y_pupil = _pupilCoordsFromObserved(ra_obs_rad,
+                                                dec_obs_rad,
+                                                obs_md)
+
+    bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
+
+    sed_dir = lsstUtils.getPackageDir('sims_sed_library')
+
+    object_is_valid = np.array([True]*num_objects)
+
+    invalid_objects = np.where(np.logical_or(np.logical_or(
+                                    mag_norm>50.0,
+                                    np.logical_and(galactic_av==0.0, galactic_rv==0.0)),
+                               np.logical_or(
+                                    np.logical_and(object_type==_SERSIC_2D,
+                                                 semi_major_arcsec<semi_minor_arcsec),
+                                    np.logical_and(object_type==_RANDOM_WALK,npoints<=0))))
+
+    object_is_valid[invalid_objects] = False
+
+    if len(invalid_objects[0]) > 0:
+        message = "\nOmitted %d suspicious objects from " % len(invalid_objects[0])
+        message += "the instance catalog:\n"
+        n_bad_mag_norm = len(np.where(mag_norm>50.0)[0])
+        message += "    %d had mag_norm > 50.0\n" % n_bad_mag_norm
+        n_bad_av = len(np.where(np.logical_and(galactic_av==0.0, galactic_rv==0.0))[0])
+        message += "    %d had galactic_Av == galactic_Rv == 0\n" % n_bad_av
+        n_bad_axes = len(np.where(np.logical_and(object_type==_SERSIC_2D,
+                                                 semi_major_arcsec<semi_minor_arcsec))[0])
+        message += "    %d had semi_major_axis < semi_minor_axis\n" % n_bad_axes
+        n_bad_knots = len(np.where(np.logical_and(object_type==_RANDOM_WALK,npoints<=0))[0])
+        message += "    %d had n_points <= 0 \n" % n_bad_knots
         warnings.warn(message)
-    checked_objects = namedtuple('checked_objects', ('accepted', 'rejected'))
-    return checked_objects(accepted, all_rejected)
+
+    wav_int = None
+    wav_gal = None
+
+    gs_object_arr = []
+    for i_obj in range(num_objects):
+        if not object_is_valid[i_obj]:
+            continue
+
+        if object_type[i_obj] == _POINT_SOURCE:
+            gs_type = 'pointSource'
+        elif object_type[i_obj] == _SERSIC_2D:
+            gs_type = 'sersic'
+        elif object_type[i_obj] == _RANDOM_WALK:
+            gs_type = 'RandomWalk'
+
+        # load the SED
+        sed_obj = Sed()
+        sed_obj.readSED_flambda(os.path.join(sed_dir, sed_name[i_obj]))
+        fnorm = getImsimFluxNorm(sed_obj, mag_norm[i_obj])
+        sed_obj.multiplyFluxNorm(fnorm)
+        if internal_av[i_obj] != 0.0:
+            if wav_int is None or not np.array_equal(sed_obj.wavelen, wav_int):
+                a_int, b_int= sed_obj.setupCCMab()
+                wav_int = copy.deepcopy(sed_obj.wavelen)
+
+            sed_obj.addCCMDust(a_int, b_int,
+                               A_v = internal_av[i_obj],
+                               R_v = internal_rv[i_obj])
+
+        if redshift[i_obj] != 0.0:
+            sed_obj.redshiftSED(redshift[i_obj], dimming=True)
+
+        sed_obj.resampleSED(wavelen_match=bp_dict.wavelenMatch)
+
+        if galactic_av[i_obj] != 0.0:
+            if wav_gal is None or not np.array_equal(sed_obj.wavelen, wav_gal):
+                a_g, b_g = sed_obj.setupCCMab()
+                wav_gal = copy.deepcopy(sed_obj.wavelen)
+
+            sed_obj.addCCMDust(a_g, b_g,
+                               A_v = galactic_av[i_obj],
+                               R_v = galactic_rv[i_obj])
+
+        gs_object = GalSimCelestialObject(gs_type,
+                                          x_pupil[i_obj],
+                                          y_pupil[i_obj],
+                                          semi_major_radians[i_obj],
+                                          semi_minor_radians[i_obj],
+                                          semi_major_radians[i_obj],
+                                          position_angle_radians[i_obj],
+                                          sersic_index[i_obj],
+                                          sed_obj,
+                                          bp_dict,
+                                          phot_params,
+                                          npoints[i_obj],
+                                          gamma1=gamma1[i_obj],
+                                          gamma2=gamma2[i_obj],
+                                          kappa=kappa[i_obj],
+                                          uniqueId=unique_id[i_obj])
+
+        gs_object_arr.append(gs_object)
+
+    gs_object_arr = np.array(gs_object_arr)
+
+    # how close to the edge of the detector a source has
+    # to be before we will just simulate it anyway
+    pix_tol = 50.0
+
+    # any source brighter than this will be considered
+    # so bright that it should be simulated for all
+    # detectors, just in case light scatters onto them.
+    max_mag = 16.0
+
+    # down-select mag_norm, x_pupil, and y_pupil
+    # to only contain those objects that were
+    # deemed to be valid above
+    valid = np.where(object_is_valid)
+    mag_norm = mag_norm[valid]
+    x_pupil = x_pupil[valid]
+    y_pupil = y_pupil[valid]
+
+    assert len(mag_norm) == len(gs_object_arr)
+    assert len(x_pupil) == len(gs_object_arr)
+    assert len(y_pupil) == len(gs_object_arr)
+
+    out_obj_dict = {}
+    for det in lsst_camera():
+        chip_name = det.getName()
+        pixel_corners = getCornerPixels(chip_name, lsst_camera())
+        x_min = pixel_corners[0][0]
+        x_max = pixel_corners[2][0]
+        y_min = pixel_corners[0][1]
+        y_max = pixel_corners[3][1]
+        xpix, ypix = pixelCoordsFromPupilCoords(x_pupil, y_pupil,
+                                                chipName=chip_name,
+                                                camera=lsst_camera())
+
+        on_chip = np.where(np.logical_or(mag_norm<max_mag,
+                           np.logical_and(xpix>x_min-pix_tol,
+                           np.logical_and(xpix<x_max+pix_tol,
+                           np.logical_and(ypix>y_min-pix_tol,
+                                          ypix<y_max+pix_tol)))))
+
+        out_obj_dict[chip_name] = gs_object_arr[on_chip]
+
+    return gs_object_arr, out_obj_dict
 
 
 def photometricParameters(phosim_commands):
@@ -450,6 +500,41 @@ def phosim_obs_metadata(phosim_commands):
     obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['rawSeeing']
     obs_md.OpsimMetaData['altitude'] = phosim_commands['altitude']
     return obs_md
+
+
+def parsePhoSimInstanceFile(fileName, numRows=None):
+    """
+    Read a PhoSim instance catalog into a Pandas dataFrame. Then use
+    the information that was read-in to build and return a command
+    dictionary and object dataFrame.
+
+    Parameters
+    ----------
+    fileName : str
+        The instance catalog filename.
+    numRows : int, optional
+        The number of rows to read from the instance catalog.
+        If None (the default), then all of the rows will be read in.
+
+    Returns
+    -------
+    namedtuple
+        This contains the PhoSim commands, the objects, and the
+        original DataFrames containing the header lines and object
+        lines
+    """
+
+    commands = metadata_from_file(fileName)
+    obs_metadata = phosim_obs_metadata(commands)
+    phot_params = photometricParameters(commands)
+    sources = sources_from_file(fileName,
+                                obs_metadata,
+                                phot_params,
+                                numRows=numRows)
+
+    return PhoSimInstanceCatalogContents(obs_metadata,
+                                         phot_params,
+                                         sources)
 
 
 class ImSimConfiguration(object):
@@ -566,3 +651,45 @@ def get_logger(log_level):
                      eval('lsstLog.%s' % log_level))
 
     return logger
+
+def add_cosmic_rays(gs_interpreter, phot_params):
+    """
+    Add cosmic rays draw from a catalog of CRs extracted from single
+    sensor darks.
+
+    Parameters
+    ----------
+    gs_interpreter: lsst.sims.GalSimInterface.GalSimInterpreter
+        The object that is actually drawing the images
+
+    phot_params: lsst.sims.photUtils.PhotometricParameters
+        An object containing the physical parameters characterizing
+        the photometric properties of the telescope/camera system.
+
+    Returns
+    -------
+    None
+        Will act on gs_interpreter, adding cosmic rays to its images.
+    """
+    config = get_config()
+    ccd_rate = config['cosmic_rays']['ccd_rate']
+    if ccd_rate == 0:
+        return
+    catalog = config['cosmic_rays']['catalog']
+    if catalog == 'default':
+        catalog = os.path.join(lsstUtils.getPackageDir('imsim'),
+                               'data', 'cosmic_ray_catalog.fits.gz')
+    crs = CosmicRays.read_catalog(catalog, ccd_rate=ccd_rate)
+
+    # Retrieve the visit number for the random seeds.
+    visit = gs_interpreter.obs_metadata.OpsimMetaData['obshistID']
+
+    exptime = phot_params.nexp*phot_params.exptime
+    for name, image in gs_interpreter.detectorImages.items():
+        imarr = copy.deepcopy(image.array)
+        # Set the random number seed for painting the CRs.
+        crs.set_seed(CosmicRays.generate_seed(visit, name))
+        gs_interpreter.detectorImages[name] = \
+            galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
+
+    return None

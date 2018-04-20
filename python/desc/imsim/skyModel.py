@@ -6,29 +6,101 @@ sims_GalSimInterface/python/lsst/sims/GalSimInterface/galSimNoiseAndBackground.p
 
 from __future__ import absolute_import, division
 
-import numpy as np
 import astropy.units as u
 
-import lsst.sims.skybrightness as skybrightness
-
 import galsim
+
+import lsst.sims.skybrightness as skybrightness
+import lsst.sims.coordUtils
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
+from lsst.sims.photUtils import BandpassDict
+from lsst.sims.photUtils import Sed
 
-from .imSim import get_config
+from . import get_obs_lsstSim_camera
 
-__all__ = ['skyCountsPerSec', 'ESOSkyModel', 'get_skyModel_params']
+__all__ = ['SkyCountsPerSec', 'ESOSkyModel']
 
 
-# Code snippet from D. Kirkby.  Note the use of astropy units.
-def skyCountsPerSec(surface_brightness=21, filter_band='r',
-                    effective_area=32.4*u.m**2, pixel_size=0.2*u.arcsec):
-    pars = get_skyModel_params()
-    # Lookup the zero point corresponding to 24 mag/arcsec**2
-    s0 = pars[filter_band] * u.electron / u.s / u.m ** 2
+class SkyCountsPerSec(object):
+    """
+    This is a class that is used to calculate the number of sky counts per
+    second.
+    """
+    def __init__(self, skyModel, photParams, bandpassdic):
+        """
 
-    # Calculate the rate in detected electrons / second
-    dB = (surface_brightness - pars['B0']) * u.mag(1 / u.arcsec ** 2)
-    return s0 * dB.to(1 / u.arcsec ** 2) * pixel_size ** 2 * effective_area
+        @param [in] skyModel is an instantation of the skybrightness.SkyModel
+        class that carries information about the sky for the current conditions.
+
+        @photParams [in] is an instantiation of the
+        PhotometricParameters class that carries details about the
+        photometric response of the telescope.
+
+        @bandpassdic [in] is an instantation of the Bandpassdict class that
+        holds the bandpasses.
+        """
+
+        self.skyModel = skyModel
+        self.photParams = photParams
+        self.bandpassdic = bandpassdic
+
+    def __call__(self, filter_name='u', magNorm=None):
+        """
+        This method calls the SkyCountsPerSec object and calculates the sky
+        counts.
+
+        @param [in] filter_name is a string that indicates the name of the filter
+        for which to make the calculation.
+
+        @param [in] magNorm is an option to calculate the sky counts for a given
+        magnitude.  When calculating the counts from just the information in skyModel
+        this should be set as MagNorm=None.
+        """
+
+        bandpass = self.bandpassdic[filter_name]
+        wave, spec = self.skyModel.returnWaveSpec()
+        skymodel_Sed = Sed(wavelen=wave, flambda=spec[0, :])
+        if magNorm:
+            skymodel_fluxNorm = skymodel_Sed.calcFluxNorm(magNorm, bandpass)
+            skymodel_Sed.multiplyFluxNorm(skymodel_fluxNorm)
+        sky_counts = skymodel_Sed.calcADU(bandpass=bandpass, photParams=self.photParams)
+        expTime = self.photParams.nexp * self.photParams.exptime * u.s
+        sky_counts_persec = sky_counts * 0.2**2 / expTime
+
+        return sky_counts_persec
+
+
+def get_chip_center(chip_name, camera):
+    """
+    Get center of the chip in focal plane pixel coordinates
+
+    Parameters
+    ----------
+    chip_name: str
+        The name of the chip, e.g., "R:2,2 S:1,1".
+    camera: lsst.afw.cameraGeom.camera.Camera
+        The camera object, e.g., LsstSimMapper().camera.
+
+    Returns
+    -------
+    (float, float): focal plane pixel coordinates of chip center.
+    """
+    corner_list = lsst.sims.coordUtils.getCornerPixels(chip_name, camera)
+
+    x_pix_list = []
+    y_pix_list = []
+
+    for corner in corner_list:
+        x_pix_list.append(corner[0])
+        y_pix_list.append(corner[1])
+
+    center_x = 0.25*(x_pix_list[0] + x_pix_list[1] +
+                     x_pix_list[2] + x_pix_list[3])
+
+    center_y = 0.25*(y_pix_list[0] + y_pix_list[1] +
+                     y_pix_list[2] + y_pix_list[3])
+
+    return center_x, center_y
 
 
 # Here we are defining our own class derived from NoiseAndBackgroundBase for
@@ -63,8 +135,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             self.randomNumbers = galsim.UniformDeviate(seed)
 
     def addNoiseAndBackground(self, image, bandpass=None, m5=None,
-                              FWHMeff=None,
-                              photParams=None):
+                              FWHMeff=None, photParams=None, chipName=None):
         """
         This method actually adds the sky background and noise to an image.
 
@@ -84,32 +155,34 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         PhotometricParameters class that carries details about the
         photometric response of the telescope.  Defaults to None.
 
+        @param [in] chipName is the name of the sensor being considered,
+        e.g., "R:2,2 S:1,1".
+
         @param [out] the input image with the background and noise model added to it.
         """
+        camera = get_obs_lsstSim_camera()
+        center_x, center_y = get_chip_center(chipName, camera)
 
         # calculate the sky background to be added to each pixel
-        skyModel = skybrightness.SkyModel(mags=True)
-        ra = np.array([self.obs_metadata.pointingRA])
-        dec = np.array([self.obs_metadata.pointingDec])
+        skyModel = skybrightness.SkyModel(mags=False)
+        ra, dec = lsst.sims.coordUtils.raDecFromPixelCoords(
+            xPix=center_x, yPix=center_y, chipName=chipName, camera=camera,
+            obs_metadata=self.obs_metadata, epoch=2000.0,
+            includeDistortion=True)
         mjd = self.obs_metadata.mjd.TAI
         skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
 
         bandPassName = self.obs_metadata.bandpass
-        skyMagnitude = skyModel.returnMags()[bandPassName]
+        bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u', 'g', 'r', 'i', 'z', 'y'])
 
         # Since we are only producing one eimage, account for cases
         # where nsnap > 1 with an effective exposure time for the
         # visit as a whole.  TODO: Undo this change when we write
         # separate images per exposure.
-        exposureTime = photParams.nexp*photParams.exptime*u.s
+        exposureTime = photParams.nexp * photParams.exptime
 
-        skyCounts = skyCountsPerSec(surface_brightness=skyMagnitude,
-                                    filter_band=bandPassName)*exposureTime
-
-        # print "Magnitude:", skyMagnitude
-        # print "Brightness:", skyMagnitude, skyCounts
-
-        image = image.copy()
+        skycounts_persec = SkyCountsPerSec(skyModel, photParams, bandPassdic)
+        skyCounts = skycounts_persec(bandPassName) * exposureTime * u.s
 
         if self.addBackground:
             image += skyCounts
@@ -131,7 +204,6 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         return image
 
     def getNoiseModel(self, skyLevel=0.0, photParams=None):
-
         """
         This method returns the noise model implemented for this wrapper
         class.
@@ -140,18 +212,5 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         routine can both Poisson fluctuate the background and add read noise.
         We turn off the read noise by adjusting the parameters in the photParams.
         """
-
         return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel,
                                gain=photParams.gain, read_noise=photParams.readnoise)
-
-
-def get_skyModel_params():
-    """
-    Get the zero points and reference magnitude for the sky model.
-
-    Returns
-    -------
-    dict : the skyModel zero points and reference magnitudes.
-    """
-    config = get_config()
-    return config['skyModel_params']
