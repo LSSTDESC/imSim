@@ -18,6 +18,7 @@ from .imSim import get_config, get_logger
 __all__ = ['make_sky_model', 'SkyCountsPerSec', 'ESOSkyModel',
            'ESOSiliconSkyModel', 'FastSiliconSkyModel']
 
+
 def make_sky_model(obs_metadata, photParams, seed=None, bandpassDict=None,
                    addNoise=True, addBackground=True, apply_sensor_model=False,
                    logger=None, fast_silicon=True):
@@ -134,8 +135,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             self.randomNumbers = galsim.UniformDeviate(seed)
 
     def addNoiseAndBackground(self, image, bandpass='u', m5=None,
-                              FWHMeff=None,
-                              photParams=None, chipName=None):
+                              FWHMeff=None, photParams=None, detector=None):
         """
         This method actually adds the sky background and noise to an image.
 
@@ -164,20 +164,19 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
         if self.addBackground:
             image += skyCounts
-
-            # if we are adding the skyCounts to the image,there is no need # to pass
-            # a skyLevel parameter to the noise model.  skyLevel is # just used to
-            # calculate the level of Poisson noise.  If the # sky background is
-            # included in the image, the Poisson noise # will be calculated from the
-            # actual image brightness.
+            # If we are adding the skyCounts to the image, we
+            # should set skyLevel=0 in the call to the noise model.
+            # skyLevel is just used to calculate the level of Poisson
+            # noise.  If the sky background is included in the image,
+            # the Poisson noise will be calculated from the actual
+            # image brightness.
             skyLevel = 0.0
-
         else:
-            skyLevel = skyCounts * photParams.gain
+            skyLevel = skyCounts*photParams.gain
 
         if self.addNoise:
-            noiseModel = self.getNoiseModel(
-                skyLevel=skyLevel, photParams=photParams)
+            noiseModel \
+                = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
             image.addNoise(noiseModel)
 
         return image
@@ -187,16 +186,15 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         This method returns the noise model implemented for this wrapper
         class.
 
-        This is currently the same as implemented in ExampleCCDNoise.  This
-        routine can both Poisson fluctuate the background and add read noise.
-        We turn off the read noise by adjusting the parameters in the photParams.
+        This is currently the same as implemented in ExampleCCDNoise.
+        This routine can both Poisson fluctuate the background and add
+        read noise.  We turn off the read noise by adjusting the
+        parameters in the photParams.
         """
 
-        return galsim.CCDNoise(
-            self.randomNumbers,
-            sky_level=skyLevel,
-            gain=photParams.gain,
-            read_noise=photParams.readnoise)
+        return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel,
+                               gain=photParams.gain,
+                               read_noise=photParams.readnoise)
 
     def sky_counts(self):
         """
@@ -229,8 +227,7 @@ class FastSiliconSkyModel(ESOSkyModel):
                                                   bandpassDict=bandpassDict,
                                                   logger=logger)
     def addNoiseAndBackground(self, image, bandpass=None, m5=None,
-                              FWHMeff=None, photParams=None, detector=None,
-                              chipName=None):
+                              FWHMeff=None, photParams=None, detector=None):
         """
         Add the sky level counts to the image, rescale by the distorted
         pixel areas to account for tree rings, etc., then add Poisson noise.
@@ -239,16 +236,22 @@ class FastSiliconSkyModel(ESOSkyModel):
         if detector is None:
             raise RuntimeError("A GalSimDetector object must be provided.")
 
-        # Create an image with the detector wcs onto which to draw the
-        # sky background.
-        nrow, ncol = image.array.shape
+        # Create a SiliconSensor object to handle the calculations
+        # of the quantities related to the pixel boundary distortions
+        # from electrostatic effects such as tree rings, etc..
+        # Use the transpose=True option since "eimages" of LSST sensors
+        # follow the Camera Coordinate System convention where the
+        # parallel transfer direction is along the x-axis.
         nrecalc = 1e300 # disable pixel boundary updating.
         sensor = galsim.SiliconSensor(rng=self.randomNumbers,
                                       nrecalc=nrecalc,
                                       treering_func=detector.tree_rings.func,
-                                      treering_center=detector.tree_rings.center)
+                                      treering_center=detector.tree_rings.center,
+                                      transpose=True)
+
         # Loop over amplifiers to save memory when storing the 36
         # pixel vertices per pixel.
+        nrow, ncol = image.array.shape
         nx, ny = 2, 8
         dx = ncol//nx
         dy = nrow//ny
@@ -304,7 +307,6 @@ class FastSiliconSkyModel(ESOSkyModel):
 
 
 class ESOSiliconSkyModel(ESOSkyModel):
-
     """
     This is a subclass of ESOSkyModel and applies the galsim.Silicon
     sensor model to the sky background photons derived from the ESO
@@ -372,8 +374,7 @@ class ESOSiliconSkyModel(ESOSkyModel):
         return self._angles
 
     def addNoiseAndBackground(self, image, bandpass=None, m5=None,
-                              FWHMeff=None,
-                              photParams=None, detector=None, chipName=None):
+                              FWHMeff=None, photParams=None, detector=None):
         """
         This method adds the sky background and noise to an image.
 
@@ -392,21 +393,15 @@ class ESOSiliconSkyModel(ESOSkyModel):
         photParams: lsst.sims.photUtils.PhotometricParameters, optional
             Object that carries details about the photometric response
             of the telescope.  Default: None
-        detector: GalSimDetector, optional
+        detector: GalSimDetector
             This is used to pass the tree ring model to the sensor model.
-            If None, an interface-compatible detector object is created
-            with a null tree ring model.
 
         Returns
         -------
         galsim.Image: The image with the sky background and noise added.
         """
         if detector is None:
-            # Make a dummy detector object with default tree ring
-            # properties.
-            DummyDetector = namedtuple('DummyDetector', ['tree_rings'])
-            TreeRingInfo = namedtuple('TreeRingInfo', ['center', 'func'])
-            detector = DummyDetector(TreeRingInfo(galsim.PositionD(0, 0), None))
+            raise RuntimeError("A detector must be specified.")
 
         return self.process_photons(image.copy(), self.sky_counts(), detector)
 
@@ -428,7 +423,8 @@ class ESOSiliconSkyModel(ESOSkyModel):
         sensor = galsim.SiliconSensor(rng=self.randomNumbers,
                                       nrecalc=nrecalc,
                                       treering_center=tree_rings.center,
-                                      treering_func=tree_rings.func)
+                                      treering_func=tree_rings.func,
+                                      transpose=True)
         for i in range(nx):
             # galsim boundaries start at 1 and include pixels at both ends.
             xmin = i*dx + 1
