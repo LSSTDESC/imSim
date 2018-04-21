@@ -856,8 +856,6 @@ class GsObjectList:
             obj_arr, obj_dict \
                 = sources_from_list(self.object_lines, self.obs_md,
                                     self.phot_params, self.file_name)
-            for key in obj_dict:
-                print(key, len(obj_dict[key]))
             if self.chip_name is not None:
                 try:
                     self._gs_objects = obj_dict[self.chip_name]
