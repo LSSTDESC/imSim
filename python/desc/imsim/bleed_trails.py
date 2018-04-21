@@ -11,7 +11,8 @@ __all__ = ['apply_channel_bleeding', 'bleed_eimage',
 
 def apply_channel_bleeding(gs_interpreter, full_well):
     """
-    Apply charge bleeding to eimages with channels with pixels above full well.
+    Apply charge bleeding to eimages with channels that have pixels
+    above full well.
 
     Parameters
     ----------
@@ -151,7 +152,8 @@ class BleedCharge:
             Index of the pixel to which charge will be redistributed.
             If it is already at full_well, do nothing.
 
-        Returns:
+        Returns
+        -------
         bool:  True if all excess charge has been redistributed.
         """
         try:
