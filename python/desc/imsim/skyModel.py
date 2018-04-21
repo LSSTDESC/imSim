@@ -135,7 +135,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             self.randomNumbers = galsim.UniformDeviate(seed)
 
     def addNoiseAndBackground(self, image, bandpass=None, m5=None,
-                              FWHMeff=None, photParams=None, chipName=None):
+                              FWHMeff=None, photParams=None, detector=None):
         """
         This method actually adds the sky background and noise to an image.
 
@@ -160,6 +160,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
         @param [out] the input image with the background and noise model added to it.
         """
+        chipName = detector.name
         camera = get_obs_lsstSim_camera()
         center_x, center_y = get_chip_center(chipName, camera)
 

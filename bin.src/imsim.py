@@ -155,6 +155,9 @@ def main():
 
     desc.imsim.add_cosmic_rays(gs_interpreter, phot_params)
 
+    full_well = int(config['ccd']['full_well'])
+    desc.imsim.apply_channel_bleeding(gs_interpreter, full_well)
+
     # Write out the fits files
     outdir = arguments.outdir
     if not os.path.isdir(outdir):
