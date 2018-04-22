@@ -49,8 +49,7 @@ def bleed_eimage(eimage, full_well):
     channels = find_channels_with_saturation(eimage, full_well)
     imarr = eimage.getArray()
     for ypix in channels:
-        bled_channel = bleed_channel(imarr[ypix, :], full_well)
-        imarr[ypix, :] = bled_channel
+        imarr[ypix, :] = bleed_channel(imarr[ypix, :], full_well)
     return eimage
 
 
@@ -89,15 +88,17 @@ def bleed_channel(channel, full_well):
 
     Parameters
     ----------
-    channel: numpy.array of ints
+    channel: numpy.array of pixel values
         1D array of pixel values in units of electrons.
     full_well: int
         The pixel full well/saturation value in electrons.
 
     Returns
     -------
-    numpy.array of ints:  The channel of pixel data with bleeding applied.
-       This is a new object, i.e., the input numpy.array is unaltered.
+
+    numpy.array of pixel values: The channel of pixel data with
+       bleeding applied.  This is a new object, i.e., the input
+       numpy.array is unaltered.
     """
     # Construct an afw_image.ImageF to contain the channel data
     # to enable the use of afw_detect to find the above full-well
@@ -133,7 +134,7 @@ class BleedCharge:
         ----------
         imarr: numpy.array
             1D numpy array containing the channel of pixel data.
-        excess_charge: int
+        excess_charge: float
             The remaining charge above full-well to be distributed
             to the specified pixels.
         full_well: int
@@ -154,7 +155,7 @@ class BleedCharge:
 
         Returns
         -------
-        bool:  True if all excess charge has been redistributed.
+        bool: True if all excess charge has been redistributed.
         """
         try:
             bled_charge = min(self.full_well - self.imarr[0, xpix],
