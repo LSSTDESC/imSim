@@ -106,8 +106,9 @@ def main():
                                          epoch=2000.0,
                                          seed=arguments.seed,
                                          apply_sensor_model=apply_sensor_model)
-    gs_interpreter.sky_bg_per_pixel \
-        = noise_and_background.sky_counts(arguments.sensor)
+    chip_name = arguments.sensor if arguments.sensor is not None\
+                else "R:2,2 S:1,1"
+    gs_interpreter.sky_bg_per_pixel = noise_and_background.sky_counts(chip_name)
 
     gs_interpreter.checkpoint_file = arguments.checkpoint_file
     gs_interpreter.nobj_checkpoint = arguments.nobj_checkpoint
