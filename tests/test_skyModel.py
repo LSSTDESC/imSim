@@ -4,6 +4,7 @@ Unit tests for skyModel code.
 from __future__ import absolute_import
 import os
 import unittest
+from collections import namedtuple
 try:
     import configparser
 except ImportError:
@@ -15,6 +16,10 @@ import lsst.sims.skybrightness as skybrightness
 from lsst.sims.photUtils import BandpassDict
 import desc.imsim
 
+def detector(chip_name):
+    "Proxy for a GalSimDetector object."
+    Detector = namedtuple('Detector', ['name'])
+    return Detector(chip_name)
 
 class SkyModelTestCase(unittest.TestCase):
     """
@@ -63,10 +68,10 @@ class SkyModelTestCase(unittest.TestCase):
                                           addBackground=True)
         image_2 = galsim.Image(100, 100)
         image_2 = skymodel.addNoiseAndBackground(image_2, photParams=photPars_2,
-                                                 chipName='R:4,2 S:1,0')
+                                                 detector=detector('R:4,2 S:1,0'))
         image_1 = galsim.Image(100, 100)
         image_1 = skymodel.addNoiseAndBackground(image_1, photParams=photPars_1,
-                                                 chipName='R:4,2 S:1,0')
+                                                 detector=detector('R:4,2 S:1,0'))
 
         self.assertNotEqual(image_1.array[0, 0], 0)
         self.assertAlmostEqual(2*image_1.array[0, 0], image_2.array[0, 0])
@@ -88,7 +93,7 @@ class SkyModelTestCase(unittest.TestCase):
         for chip_name in chip_names:
             image = galsim.Image(1, 1)
             skymodel.addNoiseAndBackground(image, photParams=phot_params,
-                                           chipName=chip_name)
+                                           detector=detector(chip_name))
             sky_bg_values.add(image.array[0][0])
         self.assertEqual(len(sky_bg_values), len(chip_names))
 
