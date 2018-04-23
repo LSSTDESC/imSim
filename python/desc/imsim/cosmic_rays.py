@@ -5,8 +5,8 @@ testing.
 """
 from __future__ import print_function
 from collections import namedtuple, defaultdict
+import hashlib
 import numpy as np
-import numpy.random as random
 import astropy.io.fits as fits
 
 __all__ = ['CosmicRays', 'write_cosmic_ray_catalog']
@@ -15,9 +15,11 @@ CR_Span = namedtuple('CR_Span', 'x0 y0 pixel_values'.split())
 
 class CosmicRays(list):
     """
-    List of cosmic rays.  Each CR is a list of CR_Span tuples derived from
-    lsst.detection.Footprint spans, including starting pixel indices and
-    pixel values in the serial direction.
+    This is a subclass of the Python list data type.  Each element of
+    the list represents a cosmic ray (CR) that was extracted from a
+    CCD dark exposure.  Each CR is in turn a list of CR_Span tuples
+    derived from lsst.detection.Footprint spans, including starting
+    pixel indices and pixel values in the serial direction.
 
     Attributes
     ----------
@@ -28,6 +30,9 @@ class CosmicRays(list):
         Sum of exposure times (seconds) of the input darks.
     ccd_rate: float
         Cosmic rays per second per CCD.
+    rng: numpy.random.RandomState
+        Random number generator.  If the seed is not set with
+        .set_seed(...), this is just set to numpy.random.
     """
     def __init__(self):
         """
@@ -37,6 +42,7 @@ class CosmicRays(list):
         self.num_pix = 0
         self.exptime = 0
         self.ccd_rate = 0
+        self.rng = np.random     # Use numpy.random module by default.
 
     def paint(self, image_array, exptime=30., num_crs=None):
         """
@@ -63,7 +69,7 @@ class CosmicRays(list):
         """
         if num_crs is None:
             ccd_frac = float(np.prod(image_array.shape))/self.num_pix
-            num_crs = random.poisson(exptime*self.ccd_rate*ccd_frac)
+            num_crs = self.rng.poisson(exptime*self.ccd_rate*ccd_frac)
         for i in range(num_crs):
             image_array = self.paint_cr(image_array)
         return image_array
@@ -88,12 +94,12 @@ class CosmicRays(list):
         numpy.array: The input image array with the CR added.
         """
         if index is None:
-            cr = random.choice(self)
+            cr = self.rng.choice(self)
         else:
             cr = self[index]
         if pixel is None:
-            pixel = (random.randint(image_array.shape[1]),
-                     random.randint(image_array.shape[0]))
+            pixel = (self.rng.randint(image_array.shape[1]),
+                     self.rng.randint(image_array.shape[0]))
         for span in cr:
             for dx, value in enumerate(span.pixel_values):
                 try:
@@ -136,6 +142,47 @@ class CosmicRays(list):
         else:
             cosmic_rays.ccd_rate = ccd_rate
         return cosmic_rays
+
+    def set_seed(self, seed):
+        """
+        Set the random number seed for a numpy.random.RandomState
+        instance that's held as the self.rng attribute.
+
+        Parameters
+        ----------
+        seed: int
+            The seed must be between 0 and 2**32 - 1
+        """
+        self.rng = np.random.RandomState(seed)
+
+    @staticmethod
+    def generate_seed(visit, det_name):
+
+        """
+        Deterministically construct an integer, appropriate for a random
+        seed, from visit number and detector name.
+
+        Parameters
+        ----------
+        visit: int
+            Visit (or obsHistID) number.
+        det_name: str
+            Name of the sensor in the LSST focal plane, e.g., "R:2,2 S:1,1".
+
+        Returns
+        -------
+        int
+
+        Notes
+        -----
+        See https://stackoverflow.com/a/42089311
+        """
+        my_string = "{}{}".format(visit, det_name)
+        my_int = int(hashlib.sha256(my_string.encode('utf-8')).hexdigest(), 16)
+
+        # Return a seed between 0 and 2**32-1
+        return my_int % (2**32 - 1)
+
 
 def write_cosmic_ray_catalog(fp_id, x0, y0, pixel_values, exptime, num_pix,
                              outfile='cosmic_ray_catalog.fits', overwrite=True):
@@ -185,7 +232,7 @@ if __name__ == '__main__':
                            'data', 'cosmic_ray_catalog.fits.gz')
     crs.read_catalog(catalog)
 
-    image = galsim.ImageF(random.normal(1000., 7., (2000, 509)))
+    image = galsim.ImageF(np.random.normal(1000., 7., (2000, 509)))
     imarray = copy.deepcopy(image.array)
     imarray = crs.paint(imarray, exptime=500)
     image = galsim.ImageF(imarray)

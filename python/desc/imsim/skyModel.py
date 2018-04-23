@@ -3,17 +3,15 @@ Classes to represent realistic sky models.
 Note that this extends the default classes located in
 sims_GalSimInterface/python/lsst/sims/GalSimInterface/galSimNoiseAndBackground.py
 '''
-
 from __future__ import absolute_import, division
-from collections import namedtuple
 import numpy as np
 import astropy.units as u
 import galsim
-from lsst.sims.photUtils import BandpassDict
+import lsst.sims.coordUtils
+from lsst.sims.photUtils import BandpassDict, Sed
 import lsst.sims.skybrightness as skybrightness
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
-from lsst.sims.photUtils import Sed
-from .imSim import get_config, get_logger
+from .imSim import get_config, get_logger, get_obs_lsstSim_camera
 
 __all__ = ['make_sky_model', 'SkyCountsPerSec', 'ESOSkyModel',
            'ESOSiliconSkyModel', 'FastSiliconSkyModel']
@@ -87,8 +85,39 @@ class SkyCountsPerSec(object):
         return sky_counts_persec
 
 
-# Here we are defining our own class derived from NoiseAndBackgroundBase for
-# use instead of ExampleCCDNoise
+def get_chip_center(chip_name, camera):
+    """
+    Get center of the chip in focal plane pixel coordinates
+
+    Parameters
+    ----------
+    chip_name: str
+        The name of the chip, e.g., "R:2,2 S:1,1".
+    camera: lsst.afw.cameraGeom.camera.Camera
+        The camera object, e.g., LsstSimMapper().camera.
+
+    Returns
+    -------
+    (float, float): focal plane pixel coordinates of chip center.
+    """
+    corner_list = lsst.sims.coordUtils.getCornerPixels(chip_name, camera)
+
+    x_pix_list = []
+    y_pix_list = []
+
+    for corner in corner_list:
+        x_pix_list.append(corner[0])
+        y_pix_list.append(corner[1])
+
+    center_x = 0.25*(x_pix_list[0] + x_pix_list[1] +
+                     x_pix_list[2] + x_pix_list[3])
+
+    center_y = 0.25*(y_pix_list[0] + y_pix_list[1] +
+                     y_pix_list[2] + y_pix_list[3])
+
+    return center_x, center_y
+
+
 class ESOSkyModel(NoiseAndBackgroundBase):
     """
     This class wraps the GalSim class CCDNoise.  This derived class returns
@@ -117,10 +146,6 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         # Computing the skybrightness.SkyModel object is expensive, so
         # do it only once in the constructor.
         self.skyModel = skybrightness.SkyModel(mags=False)
-        ra = np.array([self.obs_metadata.pointingRA])
-        dec = np.array([self.obs_metadata.pointingDec])
-        mjd = self.obs_metadata.mjd.TAI
-        self.skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
 
         self.addNoise = addNoise
         self.addBackground = addBackground
@@ -155,12 +180,11 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         PhotometricParameters class that carries details about the
         photometric response of the telescope.  Defaults to None.
 
+        @param [in] detector is the sensor being considered.
+
         @param [out] the input image with the background and noise model added to it.
         """
-
-        skyCounts = self.sky_counts()
-
-        image = image.copy()
+        skyCounts = self.sky_counts(detector.name)
 
         if self.addBackground:
             image += skyCounts
@@ -196,12 +220,27 @@ class ESOSkyModel(NoiseAndBackgroundBase):
                                gain=photParams.gain,
                                read_noise=photParams.readnoise)
 
-    def sky_counts(self):
+    def sky_counts(self, chipName):
         """
+        Parameters
+        ----------
+        chipName: str
+           The name of the sensor at which the sky background will be
+           evaluated.
+
         Returns
         -------
         float: sky background counts per pixel.
         """
+        camera = get_obs_lsstSim_camera()
+        center_x, center_y = get_chip_center(chipName, camera)
+        ra, dec = lsst.sims.coordUtils.raDecFromPixelCoords(
+            xPix=center_x, yPix=center_y, chipName=chipName,
+            camera=camera, obs_metadata=self.obs_metadata, epoch=2000.0,
+            includeDistortion=True)
+        mjd = self.obs_metadata.mjd.TAI
+        self.skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
+
         bandPassName = self.obs_metadata.bandpass
 
         # Since we are only producing one eimage, account for cases
@@ -226,6 +265,7 @@ class FastSiliconSkyModel(ESOSkyModel):
                                                   seed=seed,
                                                   bandpassDict=bandpassDict,
                                                   logger=logger)
+
     def addNoiseAndBackground(self, image, bandpass=None, m5=None,
                               FWHMeff=None, photParams=None, detector=None):
         """
@@ -260,8 +300,8 @@ class FastSiliconSkyModel(ESOSkyModel):
             xmin = i*dx + 1
             xmax = (i + 1)*dx
             for j in range(ny):
-                self.logger.info("FastSiliconSkyModel: processing amp %d" %
-                                 (i*ny + j + 1))
+                self.logger.debug("FastSiliconSkyModel: processing amp %d" %
+                                  (i*ny + j + 1))
                 ymin = j*dy + 1
                 ymax = (j + 1)*dy
 
@@ -289,7 +329,7 @@ class FastSiliconSkyModel(ESOSkyModel):
                 mean_pixel_area = temp_amp.array.mean()
 
                 # Scale by the sky counts.
-                temp_amp *= self.sky_counts()/mean_pixel_area
+                temp_amp *= self.sky_counts(detector.name)/mean_pixel_area
 
                 # Include pixel area scaling from electrostatic distortions.
                 temp_amp *= sensor_area
@@ -403,7 +443,8 @@ class ESOSiliconSkyModel(ESOSkyModel):
         if detector is None:
             raise RuntimeError("A detector must be specified.")
 
-        return self.process_photons(image.copy(), self.sky_counts(), detector)
+        return self.process_photons(image, self.sky_counts(detector.name),
+                                    detector)
 
     def process_photons(self, image, skyCounts, detector, chunk_size=int(5e6)):
         tree_rings = detector.tree_rings
@@ -486,15 +527,3 @@ class ESOSiliconSkyModel(ESOSkyModel):
         # Poisson distribution.
         return int(galsim.PoissonDeviate(self.randomNumbers,
                                          mean=npix*skyCounts)())
-
-
-def get_skyModel_params():
-    """
-    Get the zero points and reference magnitude for the sky model.
-
-    Returns
-    -------
-    dict : the skyModel zero points and reference magnitudes.
-    """
-    config = get_config()
-    return config['skyModel_params']

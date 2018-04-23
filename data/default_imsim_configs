@@ -7,12 +7,3 @@ eimage_prefix = lsst_e_
 [cosmic_rays]
 ccd_rate = 8
 catalog = default
-
-[skyModel_params]
-B0 = 24.
-u = 0.282598538804
-g = 1.56492206349
-r = 1.3488785992
-i = 0.998783620839
-z = 0.699897205858
-y = 0.32665889564

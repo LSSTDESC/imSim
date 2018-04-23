@@ -36,11 +36,14 @@ from lsst.sims.utils import radiansFromArcsec
 from lsst.sims.GalSimInterface import GalSimCelestialObject
 from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
 from lsst.sims.utils import defaultSpecMap
-from desc.imsim import CosmicRays, TreeRings
+from .tree_rings import TreeRings
+from .cosmic_rays import CosmicRays
 from .sed_wrapper import SedWrapper
+from .fopen import fopen
 
 _POINT_SOURCE = 1
 _SERSIC_2D = 2
+_RANDOM_WALK = 3
 
 __all__ = ['PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
@@ -49,9 +52,10 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'read_config', 'get_config', 'get_logger',
            'get_obs_lsstSim_camera',
            'add_cosmic_rays',
-           '_POINT_SOURCE', '_SERSIC_2D',
+           '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK',
            'parsePhoSimInstanceFile',
            'add_treering_info']
+
 
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
@@ -105,7 +109,7 @@ def metadata_from_file(file_name):
     InstanceCatalog.
     """
     input_params = {}
-    with open(file_name, 'r') as in_file:
+    with fopen(file_name, mode='rt') as in_file:
         for line in in_file:
             if line[0] == '#':
                 continue
@@ -183,7 +187,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
 
     num_objects = 0
     ct_rows = 0
-    with open(file_name, 'r') as input_file:
+    with fopen(file_name, mode='rt') as input_file:
         for line in input_file:
             ct_rows += 1
             params = line.strip().split()
@@ -210,13 +214,14 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     semi_minor_arcsec = np.zeros(num_objects, dtype=float)
     position_angle_degrees = np.zeros(num_objects, dtype=float)
     sersic_index = np.zeros(num_objects, dtype=float)
+    npoints = np.zeros(num_objects, dtype=int)
     redshift = np.zeros(num_objects, dtype=float)
 
     unique_id = np.zeros(num_objects, dtype=int)
     object_type = np.zeros(num_objects, dtype=int)
 
     i_obj = -1
-    with open(file_name, 'r') as input_file:
+    with fopen(file_name, mode='rt') as input_file:
         for line in input_file:
             params = line.strip().split()
             if params[0] != 'object':
@@ -257,7 +262,20 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                 if params[i_gal_dust_model].lower() != 'none':
                     galactic_av[i_obj] = float(params[i_gal_dust_model+1])
                     galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
-
+            elif params[12].lower() == 'knots':
+                object_type[i_obj] = _RANDOM_WALK
+                semi_major_arcsec[i_obj] = float(params[13])
+                semi_minor_arcsec[i_obj] = float(params[14])
+                position_angle_degrees[i_obj] = float(params[15])
+                npoints[i_obj] = int(params[16])
+                i_gal_dust_model = 18
+                if params[17].lower() != 'none':
+                    i_gal_dust_model = 20
+                    internal_av[i_obj] = float(params[18])
+                    internal_rv[i_obj] = float(params[19])
+                if params[i_gal_dust_model].lower() != 'none':
+                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
+                    galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
             else:
                 raise RuntimeError("Do not know how to handle "
                                    "object type: %s" % params[12])
@@ -285,12 +303,13 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
 
     object_is_valid = np.array([True]*num_objects)
 
-    invalid_objects = np.where(np.logical_or(
-                               mag_norm>50.0,
-                               np.logical_and(galactic_av==0.0, galactic_rv==0.0),
-                               np.logical_and(object_type==_SERSIC_2D,
-                                              semi_major_arcsec<semi_minor_arcsec)
-                               ))
+    invalid_objects = np.where(np.logical_or(np.logical_or(
+                                    mag_norm>50.0,
+                                    np.logical_and(galactic_av==0.0, galactic_rv==0.0)),
+                               np.logical_or(
+                                    np.logical_and(object_type==_SERSIC_2D,
+                                                 semi_major_arcsec<semi_minor_arcsec),
+                                    np.logical_and(object_type==_RANDOM_WALK,npoints<=0))))
 
     object_is_valid[invalid_objects] = False
 
@@ -304,6 +323,8 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
         n_bad_axes = len(np.where(np.logical_and(object_type==_SERSIC_2D,
                                                  semi_major_arcsec<semi_minor_arcsec))[0])
         message += "    %d had semi_major_axis < semi_minor_axis\n" % n_bad_axes
+        n_bad_knots = len(np.where(np.logical_and(object_type==_RANDOM_WALK,npoints<=0))[0])
+        message += "    %d had n_points <= 0 \n" % n_bad_knots
         warnings.warn(message)
 
     wav_int = None
@@ -318,6 +339,8 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
             gs_type = 'pointSource'
         elif object_type[i_obj] == _SERSIC_2D:
             gs_type = 'sersic'
+        elif object_type[i_obj] == _RANDOM_WALK:
+            gs_type = 'RandomWalk'
 
         sed_obj = SedWrapper(os.path.join(sed_dir, sed_name[i_obj]),
                              mag_norm[i_obj], redshift[i_obj],
@@ -336,6 +359,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
                                           sed_obj,
                                           bp_dict,
                                           phot_params,
+                                          npoints[i_obj],
                                           gamma1=gamma1[i_obj],
                                           gamma2=gamma2[i_obj],
                                           kappa=kappa[i_obj],
@@ -639,9 +663,14 @@ def add_cosmic_rays(gs_interpreter, phot_params):
                                'data', 'cosmic_ray_catalog.fits.gz')
     crs = CosmicRays.read_catalog(catalog, ccd_rate=ccd_rate)
 
+    # Retrieve the visit number for the random seeds.
+    visit = gs_interpreter.obs_metadata.OpsimMetaData['obshistID']
+
     exptime = phot_params.nexp*phot_params.exptime
     for name, image in gs_interpreter.detectorImages.items():
         imarr = copy.deepcopy(image.array)
+        # Set the random number seed for painting the CRs.
+        crs.set_seed(CosmicRays.generate_seed(visit, name))
         gs_interpreter.detectorImages[name] = \
             galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
 
