@@ -146,7 +146,6 @@ class BleedTrailTestCase(unittest.TestCase):
 
         # Test with midline stop.
         desc.imsim.bleed_eimage(eimage_save, self.full_well, midline_stop=True)
-        eimage_save.writeFits('eimage_bled_with_midline_stop.fits')
         max_pix_right = max(eimage_save.getArray()[:, nx//2:].ravel())
         self.assertLess(max_pix_right, self.full_well)
 
