@@ -3,9 +3,7 @@ Unit tests for electronics readout simulation code.
 """
 from __future__ import absolute_import, print_function
 import os
-import glob
 import itertools
-import subprocess
 import unittest
 import astropy.io.fits as fits
 import lsst.obs.lsstSim as lsstSim
@@ -16,27 +14,15 @@ import desc.imsim
 class ImageSourceTestCase(unittest.TestCase):
     "TestCase class for ImageSource."
 
-    @classmethod
-    def setUpClass(cls):
-        cls.imSimDir = lsstUtils.getPackageDir('imsim')
-        subprocess.call('''python %s/bin/imsim.py %s/tests/tiny_instcat.txt --outdir . \
---sensor "R:2,2 S:1,1" --psf DoubleGaussian --disable_sensor_model''' % (cls.imSimDir, cls.imSimDir), shell=True)
-        cls.eimage_file = glob.glob('lsst_e_161899_*.fits')[0]
-        cls.seg_file = \
-            os.path.join(cls.imSimDir, 'data', 'segmentation_itl.txt')
-
-    @classmethod
-    def tearDownClass(cls):
-        try:
-            os.remove(cls.eimage_file)
-        except OSError:
-            pass
-
     def setUp(self):
-        self.image_source = \
-            desc.imsim.ImageSource.create_from_eimage(self.eimage_file,
-                                                      'R22_S11',
-                                                      seg_file=self.seg_file)
+        imsim_dir = lsstUtils.getPackageDir('imsim')
+        self.eimage_file = os.path.join(imsim_dir, 'tests', 'data',
+                                        'lsst_e_197356_R22_S11_r.fits.gz')
+        seg_file = os.path.join(imsim_dir, 'data', 'segmentation_itl.txt')
+        self.image_source \
+            = desc.imsim.ImageSource.create_from_eimage(self.eimage_file,
+                                                        'R22_S11',
+                                                        seg_file=seg_file)
 
     def tearDown(self):
         del self.image_source
