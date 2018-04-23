@@ -18,7 +18,6 @@ def apply_channel_bleeding(gs_interpreter, full_well):
     ----------
     gs_interpreter: lsst.sims.GalSimInterface.GalSimInterpreter
         The object that is actually drawing the images
-
     full_well: int
         The pixel full well/saturation value in electrons.
     """
@@ -26,7 +25,7 @@ def apply_channel_bleeding(gs_interpreter, full_well):
         bleed_eimage(afw_image.ImageF(gs_image.array), full_well)
 
 
-def bleed_eimage(eimage, full_well):
+def bleed_eimage(eimage, full_well, midline_stop=True):
     """
     Apply the bleed charge algorithm to an eimage.
 
@@ -40,6 +39,8 @@ def bleed_eimage(eimage, full_well):
         the x-axis, hence channels correspond to rows in eimages.
     full_well: int
         The pixel full well/saturation value in electrons.
+    midline_stop: bool [True]
+        Flag to treat the midline of the sensor as a bleed stop.
 
     Returns
     -------
@@ -49,7 +50,12 @@ def bleed_eimage(eimage, full_well):
     channels = find_channels_with_saturation(eimage, full_well)
     imarr = eimage.getArray()
     for ypix in channels:
-        imarr[ypix, :] = bleed_channel(imarr[ypix, :], full_well)
+        if midline_stop:
+            xmid = imarr.shape[1]//2
+            imarr[ypix, :xmid] = bleed_channel(imarr[ypix, :xmid], full_well)
+            imarr[ypix, xmid:] = bleed_channel(imarr[ypix, xmid:], full_well)
+        else:
+            imarr[ypix, :] = bleed_channel(imarr[ypix, :], full_well)
     return eimage
 
 

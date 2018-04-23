@@ -18,6 +18,24 @@ class BleedTrailTestCase(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def _make_sky_flat(self, nx=4000, ny=4072):
+        "Make an eimage with Poisson counts at the sky background level."
+        eimage = afw_image.ImageF(nx, ny)
+        imarr = eimage.getArray()
+        imarr += np.random.poisson(self.sky_level, size=(ny, nx))
+        return eimage
+
+    def _add_bright_object(self, eimage, xpix, ypix, npix=4, flux=None):
+        """
+        Add a bright object, a 2*npix by 2*npix square with constant flux,
+        centered at the (xpix, ypix) location.
+        """
+        if flux is None:
+            flux = 2*self.full_well
+        imarr = eimage.getArray()
+        imarr[ypix - npix:ypix + npix, xpix - npix:xpix + npix] += flux
+        return eimage
+
     def test_bleed_channel(self):
         "Test the bleed_channel function."
         channel = (np.ones(self.nypix, dtype=np.int) *
@@ -52,9 +70,8 @@ class BleedTrailTestCase(unittest.TestCase):
         Test the function to find channels in an image that have pixels
         above full well.
         """
-        nx = 4000
-        ny = 4072
-        eimage = afw_image.ImageF(nx, ny)
+        eimage = self._make_sky_flat()
+        ny, nx = eimage.getArray().shape
         npix = 20
         xpix = np.random.choice(range(nx), npix)
         ypix = np.random.choice(range(ny), npix)
@@ -67,24 +84,23 @@ class BleedTrailTestCase(unittest.TestCase):
 
     def test_bleed_eimage(self):
         "Test the function to process bleeding of a full eimage."
-        nx = 4000
-        ny = 4072
-        eimage = afw_image.ImageF(nx, ny)
+        eimage = self._make_sky_flat()
         imarr = eimage.getArray()
-        imarr += np.random.poisson(self.sky_level, size=(ny, nx))
+        ny, nx = imarr.shape
 
         # Put a super-saturated object in the middle.
         dxy = 4
         xmid = nx//2
         ymid = ny//2
-        imarr[ymid - dxy:ymid + dxy, xmid - dxy:xmid + dxy] += 2*self.full_well
+        self._add_bright_object(eimage, xmid, ymid, npix=dxy)
 
         # Sum the counts in a region that should contain the bled charge.
         total_counts = sum(imarr[ymid - dxy:ymid + dxy,
                                  xmid - 3*dxy:xmid + 3*dxy].ravel())
 
         # Let it bleed.
-        bled_eimage = desc.imsim.bleed_eimage(eimage, self.full_well)
+        bled_eimage = desc.imsim.bleed_eimage(eimage, self.full_well,
+                                              midline_stop=False)
         bled_imarr = bled_eimage.getArray()
         total_bled_counts = sum(bled_imarr[ymid - dxy:ymid + dxy,
                                            xmid - 3*dxy:xmid + 3*dxy].ravel())
@@ -106,6 +122,33 @@ class BleedTrailTestCase(unittest.TestCase):
                                 self.full_well)
         self.assertEqual(max(gs_image.array.ravel()), self.full_well)
 
+    def test_midline_bleed_stop(self):
+        "Test of optional midline bleed stop."
+        eimage = self._make_sky_flat()
+        imarr = eimage.getArray()
+        ny, nx = imarr.shape
+        flux = 10*self.full_well
+
+        # Put a super-saturated object just to one side of the midline.
+        dxy = 4
+        xpix = nx//2 - dxy
+        ypix = ny//2
+        self._add_bright_object(eimage, xpix, ypix, npix=dxy, flux=flux)
+
+        # Save a copy of the eimage for testing with midline stop enabled.
+        eimage_save = eimage.Factory(eimage, deep=True)
+
+        # Make sure this image will bleed across the midline without
+        # the midline stop.
+        desc.imsim.bleed_eimage(eimage, self.full_well, midline_stop=False)
+        max_pix_right = max(imarr[:, nx//2:].ravel())
+        self.assertEqual(max_pix_right, self.full_well)
+
+        # Test with midline stop.
+        desc.imsim.bleed_eimage(eimage_save, self.full_well, midline_stop=True)
+        eimage_save.writeFits('eimage_bled_with_midline_stop.fits')
+        max_pix_right = max(eimage_save.getArray()[:, nx//2:].ravel())
+        self.assertLess(max_pix_right, self.full_well)
 
 if __name__ == '__main__':
     unittest.main()
