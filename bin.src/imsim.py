@@ -18,6 +18,7 @@ from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
 from lsst.sims.GalSimInterface import GalSimInterpreter
 from desc.imsim.skyModel import ESOSkyModel
 import desc.imsim
+import warnings
 
 def main():
     """
@@ -148,10 +149,14 @@ def main():
     else:
         gs_objects_to_draw = gs_object_arr
 
-    for gs_obj in gs_objects_to_draw:
-        if gs_obj.uniqueId in gs_interpreter.drawn_objects:
-            continue
-        gs_interpreter.drawObject(gs_obj)
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', 'Automatic n_photons', UserWarning)
+        for gs_obj in gs_objects_to_draw:
+            if gs_obj.uniqueId in gs_interpreter.drawn_objects:
+                continue
+            gs_interpreter.drawObject(gs_obj)
+            # Delete underlying .sed.sed_obj to release associated memory.
+            gs_obj.sed.delete_sed_obj()
 
     desc.imsim.add_cosmic_rays(gs_interpreter, phot_params)
 

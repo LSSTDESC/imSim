@@ -18,7 +18,7 @@ from lsst.sims.photUtils import Sed
 
 from . import get_obs_lsstSim_camera
 
-__all__ = ['SkyCountsPerSec', 'ESOSkyModel']
+__all__ = ['SkyCountsPerSec', 'ESOSkyModel', 'get_chip_center']
 
 
 class SkyCountsPerSec(object):
@@ -135,7 +135,7 @@ class ESOSkyModel(NoiseAndBackgroundBase):
             self.randomNumbers = galsim.UniformDeviate(seed)
 
     def addNoiseAndBackground(self, image, bandpass=None, m5=None,
-                              FWHMeff=None, photParams=None, chipName=None):
+                              FWHMeff=None, photParams=None, detector=None):
         """
         This method actually adds the sky background and noise to an image.
 
@@ -161,12 +161,12 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         @param [out] the input image with the background and noise model added to it.
         """
         camera = get_obs_lsstSim_camera()
-        center_x, center_y = get_chip_center(chipName, camera)
+        center_x, center_y = get_chip_center(detector.name, camera)
 
         # calculate the sky background to be added to each pixel
         skyModel = skybrightness.SkyModel(mags=False)
         ra, dec = lsst.sims.coordUtils.raDecFromPixelCoords(
-            xPix=center_x, yPix=center_y, chipName=chipName, camera=camera,
+            xPix=center_x, yPix=center_y, chipName=detector.name, camera=camera,
             obs_metadata=self.obs_metadata, epoch=2000.0,
             includeDistortion=True)
         mjd = self.obs_metadata.mjd.TAI
