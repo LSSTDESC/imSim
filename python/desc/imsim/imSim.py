@@ -692,7 +692,7 @@ def add_treering_info(gs_interpreter):
         Will act on gs_interpreter, adding tree ring information to the detectors.
     """
     tr_filename = os.path.join(lsstUtils.getPackageDir('imsim'),
-                               'data', 'tree_ring_data', 'tree_ring_parameters_19mar18.txt')
+                               'data', 'tree_ring_data', 'tree_ring_parameters_2018-04-24.txt')
     TR = TreeRings(tr_filename)
     for detector in gs_interpreter.detectors:
         [Rx, Ry, Sx, Sy] = [int(s) for s in list(detector.name) if s.isdigit()]
