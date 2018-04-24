@@ -12,7 +12,7 @@ import desc.imsim
 
 
 class TreeRingsTestCase(unittest.TestCase):
-    "TestCase class for the tree rings code."
+    """TestCase class for the tree rings code."""
     def setUp(self):
         self.sensors = ['R:2,2 S:1,1', 'R:3,4 S:2,2']
         self.instcat_file = os.path.join(lsstUtils.getPackageDir('imsim'),
@@ -22,7 +22,7 @@ class TreeRingsTestCase(unittest.TestCase):
         self.centers = [(-3026.3, -3001.0), (3095.5, -2971.3)] # Input center values
 
     def test_read_tree_rings(self):
-        "Check reading of tree_ring_parameters file"
+        """Check reading of tree_ring_parameters file"""
         camera_wrapper = LSSTCameraWrapper()
         desc.imsim.read_config()
         needed_stuff = desc.imsim.parsePhoSimInstanceFile(self.instcat_file)
@@ -38,10 +38,10 @@ class TreeRingsTestCase(unittest.TestCase):
 
         for i, detector in enumerate(gs_interpreter.detectors):
             center = detector.tree_rings.center
-            shifted_center = (center.x - detector._xCenterPix, center.y - detector._yCenterPix)            
+            shifted_center = (center.x - detector._xCenterPix, center.y - detector._yCenterPix)
             self.assertAlmostEqual(shifted_center, self.centers[i], 1)
             r_value_test = detector.tree_rings.func(self.rtest)
-            self.assertAlmostEqual(r_value_test, self.rvalues[i], 6)                        
+            self.assertAlmostEqual(r_value_test, self.rvalues[i], 6)
 
 if __name__ == '__main__':
     unittest.main()
