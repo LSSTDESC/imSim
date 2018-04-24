@@ -42,11 +42,15 @@ class TreeRings():
             self.lines = input_.readlines() # Contents of tree_ring_parameters file
 
         return
-    
+
     def Read_DC2_Tree_Ring_Model(self, Rx, Ry, Sx, Sy):
         """
         This function finds the tree ring parameters for a given sensor
         and assigns a tree ring model to that sensor.
+
+        The Rx, Ry, Sx, Sy parameters are ints and are the indexes
+        of the sensor in the LSST focalplane, e.g., "R:0,1 S:2,1"
+        corresponds to Rx, Ry, Sx, Sy = 0, 1, 2, 1
         """
         try:
             for i, line in enumerate(self.lines):
@@ -56,13 +60,13 @@ class TreeRings():
                         Cx = float(items[4])
                         Cy = float(items[5])
                         self.A = float(items[6])
-                        self.B = float(items[7])                    
+                        self.B = float(items[7])
                         for j in range(self.numfreqs):
                             freqitems = self.lines[i + 3 + j].split()
                             self.cfreqs[j] = float(freqitems[0])
-                            self.cphases[j] = float(freqitems[1])                        
+                            self.cphases[j] = float(freqitems[1])
                             self.sfreqs[j] = float(freqitems[2])
-                            self.sphases[j] = float(freqitems[3])                        
+                            self.sphases[j] = float(freqitems[3])
                         tr_function = galsim.LookupTable.from_func(self.tree_ring_radial_function, x_min=0.0,\
                                                                    x_max=self.r_max, npoints=self.npoints)
                         tr_center = galsim.PositionD(Cx, Cy)
@@ -78,7 +82,16 @@ class TreeRings():
         return ()
 
     def tree_ring_radial_function(self, r):
-        # This function defines the tree ring radial function
+        """
+        This function defines the tree ring distortion of the pixels as
+        a radial function.
+
+        Parameters
+        ----------
+        r: float
+            Radial coordinate from the center of the tree ring structure
+            in units of pixels.
+        """
         centroid_shift = 0.0
         for j, fval in enumerate(self.cfreqs):
             centroid_shift += np.sin(2*np.pi*(r/fval)+self.cphases[j]) * fval / (2.0*np.pi)
@@ -86,5 +99,3 @@ class TreeRings():
             centroid_shift += -np.cos(2*np.pi*(r/fval)+self.sphases[j]) * fval / (2.0*np.pi)
         centroid_shift *= (self.A + self.B * r**4) * .01 # 0.01 factor is because data is in percent
         return centroid_shift
-
-    
