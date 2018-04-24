@@ -9,3 +9,4 @@ from .camera_readout import *
 from .focalplane_info import *
 from .skyModel import *
 from .fopen import *
+from .bleed_trails import *
