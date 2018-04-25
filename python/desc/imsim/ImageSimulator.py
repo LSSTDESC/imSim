@@ -6,6 +6,7 @@ import os
 import sys
 import re
 import multiprocessing
+import numpy as np
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
 from lsst.sims.GalSimInterface import make_galsim_detector
@@ -178,7 +179,8 @@ class SimulateSensor:
         for gs_obj in gs_objects:
             if gs_obj.uniqueId in gs_interpreter.drawn_objects:
                 continue
-            gs_interpreter.drawObject(gs_obj)
+            if not np.isnan(gs_obj.flux(image_simulator.obs_md.bandpass)):
+                gs_interpreter.drawObject(gs_obj)
             gs_obj.sed.delete_sed_obj()
 
         # Recover the memory devoted to the GalSimCelestialObject instances.
@@ -199,4 +201,3 @@ class SimulateSensor:
         # Explicitly delete gs_interpreter to recover the memory
         # associated with that object.
         image_simulator.gs_interpreters[self.sensor_name] = None
-        del gs_interpreter

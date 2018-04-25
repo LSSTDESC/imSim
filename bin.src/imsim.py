@@ -154,7 +154,8 @@ def main():
         for gs_obj in gs_objects_to_draw:
             if gs_obj.uniqueId in gs_interpreter.drawn_objects:
                 continue
-            gs_interpreter.drawObject(gs_obj)
+            if not np.isnan(gs_obj.flux(obs_md.bandpass)):
+                gs_interpreter.drawObject(gs_obj)
             # Delete underlying .sed.sed_obj to release associated memory.
             gs_obj.sed.delete_sed_obj()
 
