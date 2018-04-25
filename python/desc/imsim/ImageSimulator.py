@@ -6,6 +6,7 @@ import os
 import sys
 import re
 import multiprocessing
+import warnings
 import numpy as np
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
@@ -176,12 +177,15 @@ class SimulateSensor:
         # image_simulator must be a variable declared in the
         # outer scope and set to an ImageSimulator instance.
         gs_interpreter = image_simulator.gs_interpreters[self.sensor_name]
-        for gs_obj in gs_objects:
-            if gs_obj.uniqueId in gs_interpreter.drawn_objects:
-                continue
-            if not np.isnan(gs_obj.flux(image_simulator.obs_md.bandpass)):
-                gs_interpreter.drawObject(gs_obj)
-            gs_obj.sed.delete_sed_obj()
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', 'Automatic n_photons',
+                                    UserWarning)
+            for gs_obj in gs_objects:
+                if gs_obj.uniqueId in gs_interpreter.drawn_objects:
+                    continue
+                if not np.isnan(gs_obj.flux(image_simulator.obs_md.bandpass)):
+                    gs_interpreter.drawObject(gs_obj)
+                gs_obj.sed.delete_sed_obj()
 
         # Recover the memory devoted to the GalSimCelestialObject instances.
         gs_objects.reset()
@@ -196,8 +200,10 @@ class SimulateSensor:
         gs_interpreter.writeImages(nameRoot=os.path.join(outdir, prefix)
                                    + obsHistID)
 
-        #os.remove(gs_interpreter.checkpoint_file)
+#        # The image for the sensor-visit has been drawn, so delete the
+#        # checkpoint file.
+#        os.remove(gs_interpreter.checkpoint_file)
 
-        # Explicitly delete gs_interpreter to recover the memory
-        # associated with that object.
+        # Remove reference to gs_interpreter in order to recover the
+        # memory associated with that object.
         image_simulator.gs_interpreters[self.sensor_name] = None
