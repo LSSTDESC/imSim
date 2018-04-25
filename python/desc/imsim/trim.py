@@ -9,6 +9,24 @@ import desc.imsim
 
 __all__ = ['InstCatTrimmer']
 
+def degrees_separation(ra0, dec0, ra, dec):
+    """
+    Compute angular separation in degrees.
+
+    Parameters
+    ----------
+    ra0: float
+        Right ascension of reference location in degrees.
+    dec0: float
+        Declination of reference location in degrees.
+    ra: float or numpy.array
+        Right ascension of object(s) in degrees
+    dec: float or numpy.array
+        Declination of object(s) in degrees.
+    """
+    return np.degrees(_angularSeparation(np.radians(ra0), np.radians(dec0),
+                                         np.radians(ra), np.radians(dec)))
+
 class InstCatTrimmer:
     """
     Class to trim instance catalogs for acceptance cones centered
@@ -122,13 +140,12 @@ class InstCatTrimmer:
 
         Notes
         -----
-
         This function applies the 'minsource' criterion to the sersic
         galaxies in the instance catalog if 'minsource' is included in
         the instance catalog commands.
         """
         ra0, dec0 = self.compute_chip_center(chip_name)
-        seps = _angularSeparation(ra0, dec0, self._ra, self._dec)
+        seps = degrees_separation(ra0, dec0, self._ra, self._dec)
         index = np.where(seps < radius)
         if (self.minsource is not None and
             sum(self._sersic[index]) < self.minsource):
