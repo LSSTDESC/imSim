@@ -134,7 +134,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         # by a few 0.01 arcsec depending on the machine
         # being run.  We will make the tolerance on this
         # test more stringent when that gets fixed.
-        self.assertLess(3600.0*dd, 1.0e-1)
+        self.assertLess(3600.0*dd, 1.5e-1)
 
     def test_object_extraction_stars(self):
         """

@@ -12,6 +12,7 @@ class ApparentMagnitudesTestCase(unittest.TestCase):
     def tearDown(self):
         pass
 
+
     @unittest.skip("deprecated functionality slated for removal")
     def test_magnitudes(self):
         instcat = os.path.join(os.environ['IMSIM_DIR'], 'tests',
