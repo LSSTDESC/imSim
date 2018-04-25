@@ -20,6 +20,7 @@ from lsst.sims.GalSimInterface import make_galsim_detector, LSSTCameraWrapper
 from lsst.sims.photUtils import BandpassDict
 import desc.imsim
 
+
 class SkyModelTestCase(unittest.TestCase):
     """
     TestCase class for skyModel module code.
@@ -144,18 +145,19 @@ class SkyModelTestCase(unittest.TestCase):
         sky_bg_values = set()
         for chip_name in chip_names:
             image = galsim.Image(1, 1)
-            skymodel.addNoiseAndBackground(image,
+            skymodel.addNoiseAndBackground(image, photParams=phot_params,
                                            detector=self.detector(chip_name))
             sky_bg_values.add(image.array[0][0])
         self.assertEqual(len(sky_bg_values), len(chip_names))
 
     def test_skycounts_function(self):
         """
-        Test that the SkyCountsPerSec class gives the right result for the previously
-        calculated zero points. (This is defined as the number of counts per second for
-        a 24 magnitude source.)  Here we set magNorm=24 to calculate the zero points
-        but when calculating the sky background from the sky brightness
-        model magNorm=None as above.
+        Test that the SkyCountsPerSec class gives the right result for the
+        previously calculated zero points. (This is defined as the
+        number of counts per second for a 24 magnitude source.)  Here
+        we set magNorm=24 to calculate the zero points but when
+        calculating the sky background from the sky brightness model
+        magNorm=None as above.
         """
         desc.imsim.read_config()
         instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',

@@ -34,7 +34,10 @@ class TreeRingsTestCase(unittest.TestCase):
             detector_list.append(make_galsim_detector(camera_wrapper, sensor, phot_params, obs_md))
 
         gs_interpreter = GalSimInterpreter(detectors=detector_list)
-        desc.imsim.add_treering_info(gs_interpreter)
+        tr_filename = os.path.join(lsstUtils.getPackageDir('imsim'),
+                                   'data', 'tree_ring_data',
+                                   'tree_ring_parameters_19mar18.txt')
+        desc.imsim.add_treering_info(gs_interpreter, tr_filename=tr_filename)
 
         for i, detector in enumerate(gs_interpreter.detectors):
             center = detector.tree_rings.center
