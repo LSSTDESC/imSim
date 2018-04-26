@@ -9,7 +9,7 @@ import numpy as np
 import sys, time, subprocess
 #****************SUBROUTINES*****************
 
-def LSST_DC2_Tree_Ring_Model(seed):
+def LSST_DC2_Tree_Ring_Model(rng):
     # Craig Lage UC Davis 16-Mar-18; cslage@ucdavis.edu
     # This function returns a tree ring model drawn from an anlytical function that was
     # derived based on tree ring data collected by Hye-Yun Park at BNL.  The data
@@ -17,8 +17,6 @@ def LSST_DC2_Tree_Ring_Model(seed):
     # imSim/data/tree_ring_data/Tree_Rings_13Feb18.pdf
     # Based on the data, 40% of the sensors are assumed to have 'bad' tree rings, with an
     # amplitude 10X greater that the 60% of the sensors that have 'good' tree rings.
-
-    rng = np.random.RandomState(seed)
 
     bad_tree_ring_fraction = 0.40 # Fraction of sensors that have 'bad' tree rings.
     A = 2E-3 # Baseline level of pixel deviation
@@ -64,12 +62,16 @@ if __name__ == '__main__':
                (2,0), (2,1), (2,2)]
 
 
-    filename = 'tree_ring_parameters_2018-04-24.txt'
+    local_time = time.localtime()
+    date = '{0}-{1:02}-{2:02}'.format(local_time.tm_year, local_time.tm_mon,
+                                      local_time.tm_mday)
+    filename = 'tree_ring_parameters_{}.txt'.format(date)
     seed = 18419
+    rng = np.random.RandomState(seed)
     file = open(filename, 'w')
     for raft in rafts:
         for sensor in sensors:
-            (A, B, center, cfreqs, cphases, sfreqs, sphases) = LSST_DC2_Tree_Ring_Model(seed)
+            (A, B, center, cfreqs, cphases, sfreqs, sphases) = LSST_DC2_Tree_Ring_Model(rng)
             file.write('Rx      Ry      Sx      Sy           Cx       Cy       A           B\n')
             file.write('%d\t%d\t%d\t%d\t%9.1f%9.1f%8.3g\t%8.3g\n'%(raft[0],raft[1],sensor[0],sensor[1],center[0],center[1],A,B))
             file.write('   CosFreq         CosPhase        SinFreq         SinPhase\n')
