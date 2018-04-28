@@ -36,7 +36,9 @@ from lsst.sims.utils import radiansFromArcsec
 from lsst.sims.GalSimInterface import GalSimCelestialObject
 from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
 from lsst.sims.utils import defaultSpecMap
+from .tree_rings import TreeRings
 from .cosmic_rays import CosmicRays
+from .sed_wrapper import SedWrapper
 from .fopen import fopen
 from .trim import InstCatTrimmer
 from .sed_wrapper import SedWrapper
@@ -53,7 +55,9 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'get_obs_lsstSim_camera',
            'add_cosmic_rays',
            '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK',
-           'parsePhoSimInstanceFile']
+           'parsePhoSimInstanceFile',
+           'add_treering_info']
+
 
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
@@ -726,10 +730,44 @@ def add_cosmic_rays(gs_interpreter, phot_params):
                                'data', 'cosmic_ray_catalog.fits.gz')
     crs = CosmicRays.read_catalog(catalog, ccd_rate=ccd_rate)
 
+    # Retrieve the visit number for the random seeds.
+    visit = gs_interpreter.obs_metadata.OpsimMetaData['obshistID']
+
     exptime = phot_params.nexp*phot_params.exptime
     for name, image in gs_interpreter.detectorImages.items():
         imarr = copy.deepcopy(image.array)
+        # Set the random number seed for painting the CRs.
+        crs.set_seed(CosmicRays.generate_seed(visit, name))
         gs_interpreter.detectorImages[name] = \
             galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
 
+    return None
+
+
+def add_treering_info(gs_interpreter, tr_filename=None):
+    """
+    Adds tree ring info based on a model derived from measured sensors.
+
+    Parameters
+    ----------
+    gs_interpreter: lsst.sims.GalSimInterface.GalSimInterpreter
+        The object that is actually drawing the images
+    tr_filename: str
+        Filename of tree rings parameter file.
+
+    Returns
+    -------
+    None
+        Will act on gs_interpreter, adding tree ring information to the detectors.
+    """
+    if tr_filename is None:
+        tr_filename = os.path.join(lsstUtils.getPackageDir('imsim'),
+                                   'data', 'tree_ring_data',
+                                   'tree_ring_parameters_2018-04-26.txt')
+    TR = TreeRings(tr_filename)
+    for detector in gs_interpreter.detectors:
+        [Rx, Ry, Sx, Sy] = [int(s) for s in list(detector.name) if s.isdigit()]
+        (tr_center, tr_function) = TR.Read_DC2_Tree_Ring_Model(Rx, Ry, Sx, Sy)
+        new_center = galsim.PositionD(tr_center.x + detector._xCenterPix, tr_center.y + detector._yCenterPix)
+        detector.tree_rings = (new_center, tr_function)
     return None

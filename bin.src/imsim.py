@@ -8,6 +8,7 @@ code found in sims_GalSimInterface.
 from __future__ import absolute_import, print_function
 import os
 import argparse
+import warnings
 import numpy as np
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
@@ -15,8 +16,8 @@ from lsst.sims.GalSimInterface import make_galsim_detector
 from lsst.sims.GalSimInterface import SNRdocumentPSF
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from lsst.sims.GalSimInterface import Kolmogorov_and_Gaussian_PSF
-from lsst.sims.GalSimInterface import GalSimInterpreter
-from desc.imsim.skyModel import ESOSkyModel
+from lsst.sims.GalSimInterface import make_gs_interpreter
+from desc.imsim.skyModel import make_sky_model
 import desc.imsim
 import warnings
 
@@ -42,9 +43,12 @@ def main():
     parser.add_argument('--psf', type=str, default='Kolmogorov',
                         choices=['DoubleGaussian', 'Kolmogorov'],
                         help="PSF model to use; either the double Gaussian "
-                        "from LSE=40 (equation 30), or the Kolmogorov convolved "
+                        "from LSE-40 (equation 30) or the Kolmogorov convolved "
                         "with a Gaussian proposed by David Kirkby at the "
                         "23 March 2017 SSims telecon")
+    parser.add_argument('--disable_sensor_model', default=False,
+                        action='store_true',
+                        help='disable sensor effects')
     parser.add_argument('--checkpoint_file', type=str, default=None,
                         help='Checkpoint file name.')
     parser.add_argument('--nobj_checkpoint', type=int, default=1000,
@@ -90,26 +94,22 @@ def main():
                 detector_list.append(make_galsim_detector(camera_wrapper, det.getName(),
                                                           phot_params, obs_md))
 
-    # Add noise and sky background
-    # The simple code using the default lsst-GalSim interface would be:
-    #
-    #    PhoSimStarCatalog.noise_and_background = ExampleCCDNoise(addNoise=True,
-    #                                                             addBackground=True)
-    #
-    # But, we need a more realistic sky model and we need to pass more than
-    # this basic info to use Peter Y's ESO sky model.
-    # We must pass obs_metadata, chip information etc...
+    apply_sensor_model = not arguments.disable_sensor_model
     noise_and_background \
-        = ESOSkyModel(obs_md, addNoise=True, addBackground=True)
+        = make_sky_model(obs_md, phot_params, addNoise=True, addBackground=True,
+                         apply_sensor_model=apply_sensor_model,
+                         logger=logger)
 
     bp_dict = BandpassDict.loadTotalBandpassesFromFiles(bandpassNames=obs_md.bandpass)
 
-    gs_interpreter = GalSimInterpreter(obs_metadata=obs_md,
-                                       epoch=2000.0,
-                                       detectors=detector_list,
-                                       bandpassDict=bp_dict,
-                                       noiseWrapper=noise_and_background,
-                                       seed=arguments.seed)
+    gs_interpreter = make_gs_interpreter(obs_md, detector_list, bp_dict,
+                                         noise_and_background,
+                                         epoch=2000.0,
+                                         seed=arguments.seed,
+                                         apply_sensor_model=apply_sensor_model)
+    chip_name = arguments.sensor if arguments.sensor is not None\
+                else "R:2,2 S:1,1"
+    gs_interpreter.sky_bg_per_pixel = noise_and_background.sky_counts(chip_name)
 
     gs_interpreter.checkpoint_file = arguments.checkpoint_file
     gs_interpreter.nobj_checkpoint = arguments.nobj_checkpoint
@@ -144,6 +144,8 @@ def main():
 
     gs_interpreter.setPSF(PSF=local_PSF)
 
+    desc.imsim.add_treering_info(gs_interpreter)
+
     if arguments.sensor is not None:
         gs_objects_to_draw = gs_object_dict[arguments.sensor]
     else:
@@ -161,6 +163,9 @@ def main():
 
     desc.imsim.add_cosmic_rays(gs_interpreter, phot_params)
 
+    full_well = int(config['ccd']['full_well'])
+    desc.imsim.apply_channel_bleeding(gs_interpreter, full_well)
+
     # Write out the fits files
     outdir = arguments.outdir
     if not os.path.isdir(outdir):
@@ -171,4 +176,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', 'Automatic n_photons', UserWarning)
+        main()
