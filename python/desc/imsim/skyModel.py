@@ -13,8 +13,8 @@ import lsst.sims.skybrightness as skybrightness
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
 from .imSim import get_config, get_logger, get_obs_lsstSim_camera
 
-__all__ = ['make_sky_model', 'SkyCountsPerSec', 'ESOSkyModel',
-           'ESOSiliconSkyModel', 'FastSiliconSkyModel']
+__all__ = ['make_sky_model', 'get_chip_center', 'SkyCountsPerSec',
+           'ESOSkyModel', 'ESOSiliconSkyModel', 'FastSiliconSkyModel']
 
 
 def make_sky_model(obs_metadata, photParams, seed=None, bandpassDict=None,

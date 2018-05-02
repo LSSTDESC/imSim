@@ -11,10 +11,13 @@ import numpy as np
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
 from lsst.sims.GalSimInterface import make_galsim_detector
+from lsst.sims.GalSimInterface import make_gs_interpreter
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from lsst.sims.GalSimInterface import GalSimInterpreter
-from .imSim import read_config, parsePhoSimInstanceFile, add_cosmic_rays
-from .skyModel import ESOSkyModel
+from .imSim import read_config, parsePhoSimInstanceFile, add_cosmic_rays,\
+    add_treering_info
+from .bleed_trails import apply_channel_bleeding
+from .skyModel import make_sky_model
 
 __all__ = ['ImageSimulator']
 
@@ -33,7 +36,8 @@ class ImageSimulator:
     multiprocessing module.
     """
     def __init__(self, instcat, psf, numRows=None, config=None, seed=267,
-                 outdir='fits', sensor_list=None, runNumber=0, visitNumber=0):
+                 outdir='fits', sensor_list=None, runNumber=0, visitNumber=0,
+                 apply_sensor_model=True):
         """
         Parameters
         ----------
@@ -57,6 +61,8 @@ class ImageSimulator:
             The names of sensors (e.g., "R:2,2 S:1,1") to simulate.
             If None, then all sensors in the camera will be
             considered.
+        apply_sensor_model: bool [True]
+            Flag to apply galsim.SiliconSensor model.
         """
         self.config = read_config(config)
         self.psf = psf
@@ -66,6 +72,7 @@ class ImageSimulator:
         self.gs_obj_arr = sources[0]
         self.gs_obj_dict = sources[1]
         self.camera_wrapper = LSSTCameraWrapper()
+        self.apply_sensor_model = apply_sensor_model
         self._make_gs_interpreters(seed, sensor_list, runNumber, visitNumber)
 
     def _make_gs_interpreters(self, seed, sensor_list, runNumber, visitNumber):
@@ -78,7 +85,8 @@ class ImageSimulator:
         """
         bp_dict = BandpassDict.loadTotalBandpassesFromFiles(bandpassNames=self.obs_md.bandpass)
         noise_and_background \
-            = ESOSkyModel(self.obs_md, addNoise=True, addBackground=True)
+            = make_sky_model(self.obs_md, self.phot_params,
+                             apply_sensor_model=self.apply_sensor_model)
         self.gs_interpreters = dict()
         for det in self.camera_wrapper.camera:
             det_type = det.getType()
@@ -90,13 +98,15 @@ class ImageSimulator:
             gs_det = make_galsim_detector(self.camera_wrapper, det_name,
                                           self.phot_params, self.obs_md)
             self.gs_interpreters[det_name] \
-                = GalSimInterpreter(obs_metadata=self.obs_md,
-                                    epoch=2000.0,
-                                    detectors=[gs_det],
-                                    bandpassDict=bp_dict,
-                                    noiseWrapper=noise_and_background,
-                                    seed=seed)
+                = make_gs_interpreter(self.obs_md, [gs_det], bp_dict,
+                                      noise_and_background,
+                                      epoch=2000.0, seed=seed,
+                                      apply_sensor_model=self.apply_sensor_model)
+            self.gs_interpreters[det_name].sky_bg_per_pixel \
+                = noise_and_background.sky_counts(det_name)
             self.gs_interpreters[det_name].setPSF(PSF=self.psf)
+            if self.apply_sensor_model:
+                add_treering_info(self.gs_interpreters[det_name])
             self.gs_interpreters[det_name].checkpoint_file \
                 = self.checkpoint_file(runNumber, visitNumber, det_name)
             self.gs_interpreters[det_name].restore_checkpoint(self.camera_wrapper,
@@ -191,6 +201,8 @@ class SimulateSensor:
         gs_objects.reset()
 
         add_cosmic_rays(gs_interpreter, image_simulator.phot_params)
+        full_well = int(image_simulator.config['ccd']['full_well'])
+        apply_channel_bleeding(gs_interpreter, full_well)
 
         outdir = image_simulator.outdir
         if not os.path.isdir(outdir):

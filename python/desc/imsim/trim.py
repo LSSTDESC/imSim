@@ -93,12 +93,14 @@ class InstCatTrimmer:
         self._ra = np.zeros(len(self.object_lines), dtype=np.float)
         self._dec = np.zeros(len(self.object_lines), dtype=np.float)
         self._sersic = np.zeros(len(self.object_lines), dtype=np.int)
+        self._magnorm = np.zeros(len(self.object_lines), dtype=np.float)
         for i, line in enumerate(self.object_lines):
-            lon, lat = line.strip().split()[2:4]
-            self._ra[i] = np.float(lon)
-            self._dec[i] = np.float(lat)
+            tokens = line.strip().split()
+            self._ra[i] = np.float(tokens[2])
+            self._dec[i] = np.float(tokens[3])
             if 'sersic2d' in line:
                 self._sersic[i] = 1
+            self._magnorm[i] = np.float(tokens[4])
 
         self._camera = desc.imsim.get_obs_lsstSim_camera()
 
@@ -122,7 +124,7 @@ class InstCatTrimmer:
             camera=self._camera, obs_metadata=self.obs_md, epoch=2000.0,
             includeDistortion=True)
 
-    def get_object_entries(self, chip_name, radius=0.18):
+    def get_object_entries(self, chip_name, radius=0.18, sort_magnorm=True):
         """
         Get the object entries within an acceptance cone centered on
         a specified CCD.
@@ -133,6 +135,8 @@ class InstCatTrimmer:
             Name of the CCD, e.g., "R:2,2 S:1,1".
         radius: float [0.18]
             Radius, in degrees, of the acceptance cone.
+        sort_magnorm: bool [True]
+            Flag to sort the output list by ascending magnorm value.
 
         Returns
         -------
@@ -147,10 +151,20 @@ class InstCatTrimmer:
         ra0, dec0 = self.compute_chip_center(chip_name)
         seps = degrees_separation(ra0, dec0, self._ra, self._dec)
         index = np.where(seps < radius)
+
         if (self.minsource is not None and
             sum(self._sersic[index]) < self.minsource):
+            # Apply the minsource criterion.
             return []
-        return [self.object_lines[i] for i in index[0]]
+
+        # Collect the selected objects.
+        selected = [self.object_lines[i] for i in index[0]]
+        if sort_magnorm:
+            # Sort by magnorm.
+            sorted_index = np.argsort(self._magnorm[index])
+            selected = [selected[i] for i in sorted_index]
+
+        return selected
 
     def write_instcat(self, chip_name, outfile, radius=0.18):
         """
