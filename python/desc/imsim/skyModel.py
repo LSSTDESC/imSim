@@ -289,10 +289,10 @@ class FastSiliconSkyModel(ESOSkyModel):
                                       treering_center=detector.tree_rings.center,
                                       transpose=True)
 
-        # Loop over amplifiers to save memory when storing the 36
+        # Loop over 1/2 amplifiers to save memory when storing the 36
         # pixel vertices per pixel.
         nrow, ncol = image.array.shape
-        nx, ny = 2, 8
+        nx, ny = 4, 8
         dx = ncol//nx
         dy = nrow//ny
 
@@ -300,7 +300,7 @@ class FastSiliconSkyModel(ESOSkyModel):
             xmin = i*dx + 1
             xmax = (i + 1)*dx
             for j in range(ny):
-                self.logger.debug("FastSiliconSkyModel: processing amp %d" %
+                self.logger.debug("FastSiliconSkyModel: processing amp region %d" %
                                   (i*ny + j + 1))
                 ymin = j*dy + 1
                 ymax = (j + 1)*dy
