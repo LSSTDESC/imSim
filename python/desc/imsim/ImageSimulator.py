@@ -34,7 +34,7 @@ class ImageSimulator:
     Class to manage the parallel simulation of sensors using the
     multiprocessing module.
     """
-    def __init__(self, instcat, psf, numRows=None, config=None, seed=267,
+    def __init__(self, instcat, create_centroid_file, psf, numRows=None, config=None, seed=267,
                  outdir='fits', sensor_list=None, apply_sensor_model=True,
                  file_id=None, log_level='WARN'):
         """
@@ -69,6 +69,7 @@ class ImageSimulator:
             Logging level ('DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL').
         """
         self.config = read_config(config)
+        self.create_centroid_file = create_centroid_file
         self.psf = psf
         self.outdir = outdir
         self.obs_md, self.phot_params, sources \
@@ -124,6 +125,10 @@ class ImageSimulator:
                     .restore_checkpoint(self.camera_wrapper,
                                         self.phot_params,
                                         self.obs_md)
+
+            if self.create_centroid_file is True:
+                self.gs_interpreter.centroid_base_name = self.outdir + '/' \
+                    + self.config['persistence']['centroid_prefix']
 
     @staticmethod
     def checkpoint_file(file_id, det_name):
@@ -279,6 +284,9 @@ class SimulateSensor:
         obsHistID = str(image_simulator.obs_md.OpsimMetaData['obshistID'])
         gs_interpreter.writeImages(nameRoot=os.path.join(outdir, prefix)
                                    + obsHistID)
+
+        gs_interpreter.close_centroid_files()
+
 
 #        # The image for the sensor-visit has been drawn, so delete the
 #        # checkpoint file.

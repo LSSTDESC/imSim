@@ -30,6 +30,8 @@ parser.add_argument('--disable_sensor_model', default=False,
                     help='disable sensor effects')
 parser.add_argument('--file_id', type=str, default=None,
                     help='ID string to use for checkpoint and centroid filenames.')
+parser.add_argument('--create_centroid_file', default=False, action="store_true",
+                    help='Write centroid file(s).')
 parser.add_argument('--seed', type=int, default=267,
                     help='integer used to seed random number generator')
 parser.add_argument('--processes', type=int, default=1,
@@ -43,12 +45,12 @@ obs_md = desc.imsim.phosim_obs_metadata(commands)
 psf = desc.imsim.make_psf(args.psf, obs_md, log_level=args.log_level)
 
 sensor_list = args.sensors.split('^') if args.sensors is not None \
-              else args.sensors
+    else args.sensors
 
 apply_sensor_model = not args.disable_sensor_model
 
 image_simulator \
-    = desc.imsim.ImageSimulator(args.file, psf,
+    = desc.imsim.ImageSimulator(args.file, args.create_centroid_file, psf,
                                 numRows=args.numrows,
                                 config=args.config_file,
                                 seed=args.seed,
