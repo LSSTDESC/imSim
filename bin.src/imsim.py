@@ -41,7 +41,7 @@ def main():
                         choices=['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'],
                         default='INFO', help='Logging level. Default: "INFO"')
     parser.add_argument('--psf', type=str, default='Kolmogorov',
-                        choices=['DoubleGaussian', 'Kolmogorov'],
+                        choices=['DoubleGaussian', 'Kolmogorov', 'Atmospheric'],
                         help="PSF model to use; either the double Gaussian "
                         "from LSE-40 (equation 30) or the Kolmogorov convolved "
                         "with a Gaussian proposed by David Kirkby at the "
@@ -117,6 +117,10 @@ def main():
                                       phot_params,
                                       obs_md)
 
+    # equation 3 of Krisciunas and Schaefer 1991
+    altRad = np.radians(obs_md.OpsimMetaData['altitude'])
+    airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-altRad))**2)
+
     # Add a PSF.
     if arguments.psf.lower() == "doublegaussian":
         # This one is taken from equation 30 of
@@ -131,13 +135,21 @@ def main():
         #
         # https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
 
-        # equation 3 of Krisciunas and Schaefer 1991
-        airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-obs_md.OpsimMetaData['altitude']))**2)
-
         local_PSF = \
             Kolmogorov_and_Gaussian_PSF(airmass=airmass,
                                         rawSeeing=obs_md.OpsimMetaData['rawSeeing'],
                                         band=obs_md.bandpass)
+    elif arguments.psf.lower() == "atmospheric":
+        # This PSF uses the galsim atmospheric turbulent phases machinery
+
+        # Duplicate the rng so we don't change the seed for anything subsequent.
+        atm_rng = gs_interpreter._rng.duplicate()
+        local_PSF = \
+            desc.imsim.AtmosphericPSF(airmass=airmass,
+                                      rawSeeing=obs_md.OpsimMetaData['rawSeeing'],
+                                      band=obs_md.bandpass,
+                                      rng=atm_rng,
+                                      logger=logger)
     else:
         raise RuntimeError("Do not know what to do with psf model: "
                            "%s" % arguments.psf)
