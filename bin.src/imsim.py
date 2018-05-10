@@ -130,9 +130,7 @@ def main():
         #
         # https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
 
-        # equation 3 of Krisciunas and Schaefer 1991
-        airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-obs_md.OpsimMetaData['altitude']))**2)
-
+        airmass = desc.imsim.airmass(obs_md.OpsimMetaData['altitude'])
         local_PSF = \
             Kolmogorov_and_Gaussian_PSF(airmass=airmass,
                                         rawSeeing=obs_md.OpsimMetaData['rawSeeing'],

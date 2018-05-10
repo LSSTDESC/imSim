@@ -54,7 +54,7 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'add_cosmic_rays',
            '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK',
            'parsePhoSimInstanceFile',
-           'add_treering_info']
+           'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -83,10 +83,7 @@ obshistid
 seed
 seeing
 sunalt
-vistime
-rawSeeing
-FWHMeff
-FWHMgeom""".split())
+vistime""".split())
 
 
 def get_obs_lsstSim_camera(log_level=lsstLog.WARN):
@@ -461,25 +458,24 @@ def phosim_obs_metadata(phosim_commands):
     Returns
     -------
     lsst.sims.utils.ObservationMetaData
-
-    Notes
-    -----
-    The seeing from the instance catalog is the value at 500nm at
-    zenith.  Do we need to do a band-specific calculation?
     """
     bandpass = phosim_commands['bandpass']
+    fwhm_eff = FWHMeff(phosim_commands['seeing'], bandpass,
+                       phosim_commands['altitude'])
+    fwhm_geom = FWHMgeom(phosim_commands['seeing'], bandpass,
+                         phosim_commands['altitude'])
     obs_md = ObservationMetaData(pointingRA=phosim_commands['rightascension'],
                                  pointingDec=phosim_commands['declination'],
                                  mjd=phosim_commands['mjd'],
                                  rotSkyPos=phosim_commands['rotskypos'],
                                  bandpassName=bandpass,
                                  m5=LSSTdefaults().m5(bandpass),
-                                 seeing=phosim_commands['FWHMeff'])
+                                 seeing=fwhm_eff)
     # Set the OpsimMetaData attribute with the obshistID info.
     obs_md.OpsimMetaData = {'obshistID': phosim_commands['obshistid']}
-    obs_md.OpsimMetaData['FWHMgeom'] = phosim_commands['FWHMgeom']
-    obs_md.OpsimMetaData['FWHMeff'] = phosim_commands['FWHMeff']
-    obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['rawSeeing']
+    obs_md.OpsimMetaData['FWHMgeom'] = fwhm_geom
+    obs_md.OpsimMetaData['FWHMeff'] =  fwhm_eff
+    obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['seeing']
     obs_md.OpsimMetaData['altitude'] = phosim_commands['altitude']
     return obs_md
 
@@ -704,3 +700,73 @@ def add_treering_info(gs_interpreter, tr_filename=None):
         new_center = galsim.PositionD(tr_center.x + detector._xCenterPix, tr_center.y + detector._yCenterPix)
         detector.tree_rings = (new_center, tr_function)
     return None
+
+def airmass(altitude):
+    """
+    Function to compute the airmass from altitude using equation 3
+    of Krisciunas and Schaefer 1991.
+
+    Parameters
+    ----------
+    altitude: float
+        Altitude of pointing direction in degrees.
+
+    Returns
+    -------
+    float: the airmass in units of sea-level airmass at the zenith.
+    """
+    altRad = np.radians(altitude)
+    return 1.0/np.sqrt(1.0 - 0.96*(np.sin(0.5*np.pi - altRad))**2)
+
+def FWHMeff(rawSeeing, band, altitude):
+    """
+    Compute the effective FWHM for a single Gaussian describing the PSF.
+
+    Parameters
+    ----------
+    rawSeeing: float
+        The "ideal" seeing in arcsec at zenith and at 500 nm.
+        reference: LSST Document-20160
+    band: str
+        The LSST ugrizy band.
+    altitude: float
+        The altitude in degrees of the pointing.
+
+    Returns
+    -------
+    float: Effective FWHM in arcsec.
+    """
+    X = airmass(altitude)
+
+    # Find the effective wavelength for the band.
+    wl = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
+
+    # Compute the atmospheric contribution.
+    FWHMatm = rawSeeing*(wl/500)**(-0.3)*X**(0.6)
+
+    # The worst case instrument contribution (see LSE-30).
+    FWHMsys = 0.4*X**(0.6)
+
+    # From LSST Document-20160, p. 8.
+    return 1.16*np.sqrt(FWHMsys**2 + 1.04*FWHMatm**2)
+
+def FWHMgeom(rawSeeing, band, altitude):
+    """
+    FWHM of the "combined PSF".  This is FWHMtot from
+    LSST Document-20160, p. 8.
+
+    Parameters
+    ----------
+    rawSeeing: float
+        The "ideal" seeing in arcsec at zenith and at 500 nm.
+        reference: LSST Document-20160
+    band: str
+        The LSST ugrizy band.
+    altitude: float
+        The altitude in degrees of the pointing.
+
+    Returns
+    -------
+    float: FWHM of the combined PSF in arcsec.
+    """
+    return 0.822*FWHMeff(rawSeeing, band, altitude) + 0.052
