@@ -33,7 +33,7 @@ class FWHMgeomTestCase(unittest.TestCase):
         band = 'r'
         altitude = 52.54199126195116065
         self.assertLess(np.abs(desc.imsim.FWHMeff(rawSeeing, band, altitude)
-                               - 0.8300650), 0.3)
+                               - 0.8300650), 0.03)
 
     def test_FWHMgeom(self):
         """
@@ -44,7 +44,7 @@ class FWHMgeomTestCase(unittest.TestCase):
         band = 'r'
         altitude = 52.54199126195116065
         self.assertLess(np.abs(desc.imsim.FWHMgeom(rawSeeing, band, altitude)
-                               - 0.7343130), 0.3)
+                               - 0.7343130), 0.03)
 
 if __name__ == '__main__':
     unittest.main()
