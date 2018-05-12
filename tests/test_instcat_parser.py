@@ -10,6 +10,9 @@ import shutil
 import numpy as np
 import desc.imsim
 from lsst.sims.utils import _pupilCoordsFromRaDec
+from lsst.sims.utils import altAzPaFromRaDec
+from lsst.sims.utils import angularSeparation
+from lsst.sims.utils import ObservationMetaData
 from lsst.sims.utils import arcsecFromRadians
 from lsst.sims.photUtils import Sed, BandpassDict
 from lsst.sims.photUtils import Bandpass, PhotometricParameters
@@ -73,17 +76,15 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         from InstanceCatalogs.
         """
         metadata = desc.imsim.metadata_from_file(self.phosim_file)
-        self.assertAlmostEqual(metadata['rightascension'], 53.0091385, 7)
-        self.assertAlmostEqual(metadata['declination'], -27.4389488, 7)
-        self.assertAlmostEqual(metadata['mjd'], 59580.1397460, 7)
-        self.assertAlmostEqual(metadata['altitude'], 66.3464409, 7)
-        self.assertAlmostEqual(metadata['azimuth'], 270.2764762, 7)
+        self.assertAlmostEqual(metadata['rightascension'], 53.00913847303155535, 16)
+        self.assertAlmostEqual(metadata['declination'], -27.43894880881512321, 16)
+        self.assertAlmostEqual(metadata['mjd'], 59580.13974597222113516, 16)
+        self.assertAlmostEqual(metadata['altitude'], 66.34657337061349835, 16)
+        self.assertAlmostEqual(metadata['azimuth'], 270.27655488919378968, 16)
         self.assertEqual(metadata['filter'], 2)
         self.assertIsInstance(metadata['filter'], int)
         self.assertEqual(metadata['bandpass'], 'r')
         self.assertAlmostEqual(metadata['rotskypos'], 256.7507532, 7)
-        self.assertAlmostEqual(metadata['FWHMeff'], 1.1219680, 7)
-        self.assertAlmostEqual(metadata['FWHMgeom'], 0.9742580, 7)
         self.assertAlmostEqual(metadata['dist2moon'], 124.2838277, 7)
         self.assertAlmostEqual(metadata['moonalt'], -36.1323801, 7)
         self.assertAlmostEqual(metadata['moondec'], -23.4960252, 7)
@@ -93,7 +94,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertIsInstance(metadata['nsnap'], int)
         self.assertEqual(metadata['obshistid'], 230)
         self.assertIsInstance(metadata['obshistid'], int)
-        self.assertAlmostEqual(metadata['rawSeeing'], 0.8662850, 7)
         self.assertAlmostEqual(metadata['rottelpos'], 0.0000000, 7)
         self.assertEqual(metadata['seed'], 230)
         self.assertIsInstance(metadata['seed'], int)
@@ -101,7 +101,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertAlmostEqual(metadata['sunalt'], -32.7358290, 7)
         self.assertAlmostEqual(metadata['vistime'], 33.0000000, 7)
 
-        self.assertEqual(len(metadata), 23)  # 22 lines plus 'bandpass'
+        self.assertEqual(len(metadata), 20)  # 19 lines plus 'bandpass'
 
         obs = desc.imsim.phosim_obs_metadata(metadata)
 
@@ -110,6 +110,28 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertAlmostEqual(obs.rotSkyPos, metadata['rotskypos'], 7)
         self.assertAlmostEqual(obs.mjd.TAI, metadata['mjd'], 7)
         self.assertEqual(obs.bandpass, 'r')
+
+        # make sure that the relationship between Alt, Az and RA, Dec
+        # is correct
+
+        mjd = metadata['mjd'] - 16.5/86400.0
+        # the adjustment to mjd is because altitude is reckoned at the start of
+        # the observation, but mjd is reported at the middle of the observation
+
+        alt, az, pa = altAzPaFromRaDec(metadata['rightascension'],
+                                       metadata['declination'],
+                                       ObservationMetaData(mjd=mjd),
+                                       includeRefraction=False)
+        dd = angularSeparation(metadata['azimuth'], metadata['altitude'],
+                               az, alt)
+
+        # This test is more lax than we want; there appears
+        # to be an instability in PALPY that causes the
+        # transformation from RA, Dec to Alt, Az to vary
+        # by a few 0.01 arcsec depending on the machine
+        # being run.  We will make the tolerance on this
+        # test more stringent when that gets fixed.
+        self.assertLess(3600.0*dd, 1.5e-1)
 
     def test_object_extraction_stars(self):
         """
