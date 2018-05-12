@@ -36,7 +36,9 @@ from lsst.sims.utils import radiansFromArcsec
 from lsst.sims.GalSimInterface import GalSimCelestialObject
 from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
 from lsst.sims.utils import defaultSpecMap
+from .tree_rings import TreeRings
 from .cosmic_rays import CosmicRays
+from .sed_wrapper import SedWrapper
 from .fopen import fopen
 
 _POINT_SOURCE = 1
@@ -51,7 +53,9 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'get_obs_lsstSim_camera',
            'add_cosmic_rays',
            '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK',
-           'parsePhoSimInstanceFile']
+           'parsePhoSimInstanceFile',
+           'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom']
+
 
 class PhosimInstanceCatalogParseError(RuntimeError):
     "Exception class for instance catalog parser."
@@ -79,10 +83,7 @@ obshistid
 seed
 seeing
 sunalt
-vistime
-rawSeeing
-FWHMeff
-FWHMgeom""".split())
+vistime""".split())
 
 
 def get_obs_lsstSim_camera(log_level=lsstLog.WARN):
@@ -338,33 +339,11 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
         elif object_type[i_obj] == _RANDOM_WALK:
             gs_type = 'RandomWalk'
 
-        # load the SED
-        sed_obj = Sed()
-        sed_obj.readSED_flambda(os.path.join(sed_dir, sed_name[i_obj]))
-        fnorm = getImsimFluxNorm(sed_obj, mag_norm[i_obj])
-        sed_obj.multiplyFluxNorm(fnorm)
-        if internal_av[i_obj] != 0.0:
-            if wav_int is None or not np.array_equal(sed_obj.wavelen, wav_int):
-                a_int, b_int= sed_obj.setupCCMab()
-                wav_int = copy.deepcopy(sed_obj.wavelen)
-
-            sed_obj.addCCMDust(a_int, b_int,
-                               A_v = internal_av[i_obj],
-                               R_v = internal_rv[i_obj])
-
-        if redshift[i_obj] != 0.0:
-            sed_obj.redshiftSED(redshift[i_obj], dimming=True)
-
-        sed_obj.resampleSED(wavelen_match=bp_dict.wavelenMatch)
-
-        if galactic_av[i_obj] != 0.0:
-            if wav_gal is None or not np.array_equal(sed_obj.wavelen, wav_gal):
-                a_g, b_g = sed_obj.setupCCMab()
-                wav_gal = copy.deepcopy(sed_obj.wavelen)
-
-            sed_obj.addCCMDust(a_g, b_g,
-                               A_v = galactic_av[i_obj],
-                               R_v = galactic_rv[i_obj])
+        sed_obj = SedWrapper(os.path.join(sed_dir, sed_name[i_obj]),
+                             mag_norm[i_obj], redshift[i_obj],
+                             internal_av[i_obj], internal_rv[i_obj],
+                             galactic_av[i_obj], galactic_rv[i_obj],
+                             bp_dict)
 
         gs_object = GalSimCelestialObject(gs_type,
                                           x_pupil[i_obj],
@@ -479,25 +458,24 @@ def phosim_obs_metadata(phosim_commands):
     Returns
     -------
     lsst.sims.utils.ObservationMetaData
-
-    Notes
-    -----
-    The seeing from the instance catalog is the value at 500nm at
-    zenith.  Do we need to do a band-specific calculation?
     """
     bandpass = phosim_commands['bandpass']
+    fwhm_eff = FWHMeff(phosim_commands['seeing'], bandpass,
+                       phosim_commands['altitude'])
+    fwhm_geom = FWHMgeom(phosim_commands['seeing'], bandpass,
+                         phosim_commands['altitude'])
     obs_md = ObservationMetaData(pointingRA=phosim_commands['rightascension'],
                                  pointingDec=phosim_commands['declination'],
                                  mjd=phosim_commands['mjd'],
                                  rotSkyPos=phosim_commands['rotskypos'],
                                  bandpassName=bandpass,
                                  m5=LSSTdefaults().m5(bandpass),
-                                 seeing=phosim_commands['FWHMeff'])
+                                 seeing=fwhm_eff)
     # Set the OpsimMetaData attribute with the obshistID info.
     obs_md.OpsimMetaData = {'obshistID': phosim_commands['obshistid']}
-    obs_md.OpsimMetaData['FWHMgeom'] = phosim_commands['FWHMgeom']
-    obs_md.OpsimMetaData['FWHMeff'] = phosim_commands['FWHMeff']
-    obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['rawSeeing']
+    obs_md.OpsimMetaData['FWHMgeom'] = fwhm_geom
+    obs_md.OpsimMetaData['FWHMeff'] =  fwhm_eff
+    obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['seeing']
     obs_md.OpsimMetaData['altitude'] = phosim_commands['altitude']
     return obs_md
 
@@ -693,3 +671,102 @@ def add_cosmic_rays(gs_interpreter, phot_params):
             galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
 
     return None
+
+
+def add_treering_info(gs_interpreter, tr_filename=None):
+    """
+    Adds tree ring info based on a model derived from measured sensors.
+
+    Parameters
+    ----------
+    gs_interpreter: lsst.sims.GalSimInterface.GalSimInterpreter
+        The object that is actually drawing the images
+    tr_filename: str
+        Filename of tree rings parameter file.
+
+    Returns
+    -------
+    None
+        Will act on gs_interpreter, adding tree ring information to the detectors.
+    """
+    if tr_filename is None:
+        tr_filename = os.path.join(lsstUtils.getPackageDir('imsim'),
+                                   'data', 'tree_ring_data',
+                                   'tree_ring_parameters_2018-04-26.txt')
+    TR = TreeRings(tr_filename)
+    for detector in gs_interpreter.detectors:
+        [Rx, Ry, Sx, Sy] = [int(s) for s in list(detector.name) if s.isdigit()]
+        (tr_center, tr_function) = TR.Read_DC2_Tree_Ring_Model(Rx, Ry, Sx, Sy)
+        new_center = galsim.PositionD(tr_center.x + detector._xCenterPix, tr_center.y + detector._yCenterPix)
+        detector.tree_rings = (new_center, tr_function)
+    return None
+
+def airmass(altitude):
+    """
+    Function to compute the airmass from altitude using equation 3
+    of Krisciunas and Schaefer 1991.
+
+    Parameters
+    ----------
+    altitude: float
+        Altitude of pointing direction in degrees.
+
+    Returns
+    -------
+    float: the airmass in units of sea-level airmass at the zenith.
+    """
+    altRad = np.radians(altitude)
+    return 1.0/np.sqrt(1.0 - 0.96*(np.sin(0.5*np.pi - altRad))**2)
+
+def FWHMeff(rawSeeing, band, altitude):
+    """
+    Compute the effective FWHM for a single Gaussian describing the PSF.
+
+    Parameters
+    ----------
+    rawSeeing: float
+        The "ideal" seeing in arcsec at zenith and at 500 nm.
+        reference: LSST Document-20160
+    band: str
+        The LSST ugrizy band.
+    altitude: float
+        The altitude in degrees of the pointing.
+
+    Returns
+    -------
+    float: Effective FWHM in arcsec.
+    """
+    X = airmass(altitude)
+
+    # Find the effective wavelength for the band.
+    wl = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
+
+    # Compute the atmospheric contribution.
+    FWHMatm = rawSeeing*(wl/500)**(-0.3)*X**(0.6)
+
+    # The worst case instrument contribution (see LSE-30).
+    FWHMsys = 0.4*X**(0.6)
+
+    # From LSST Document-20160, p. 8.
+    return 1.16*np.sqrt(FWHMsys**2 + 1.04*FWHMatm**2)
+
+def FWHMgeom(rawSeeing, band, altitude):
+    """
+    FWHM of the "combined PSF".  This is FWHMtot from
+    LSST Document-20160, p. 8.
+
+    Parameters
+    ----------
+    rawSeeing: float
+        The "ideal" seeing in arcsec at zenith and at 500 nm.
+        reference: LSST Document-20160
+    band: str
+        The LSST ugrizy band.
+    altitude: float
+        The altitude in degrees of the pointing.
+
+    Returns
+    -------
+    float: FWHM of the combined PSF in arcsec.
+    """
+    return 0.822*FWHMeff(rawSeeing, band, altitude) + 0.052

@@ -95,3 +95,6 @@ ENV/
 *~
 
 *.DS_Store
+bin/
+.sconf_temp
+.sconsign.dblite

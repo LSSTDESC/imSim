@@ -5,8 +5,6 @@ altitude 66.34657337061349835
 azimuth 270.27655488919378968
 filter 2
 rotskypos 256.75075318193080420
-FWHMeff 1.1219680
-FWHMgeom 0.9742580
 dist2moon 124.2838277
 moonalt -36.1323801
 moondec -23.4960252
@@ -14,7 +12,6 @@ moonphase 3.8193650
 moonra 256.4036553
 nsnap 2
 obshistid 230
-rawSeeing 0.8662850
 rottelpos 0.0000000
 seed 230
 seeing 0.8662850
