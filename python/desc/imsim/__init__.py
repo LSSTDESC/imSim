@@ -9,6 +9,7 @@ from .imSim import *
 from .camera_readout import *
 from .focalplane_info import *
 from .skyModel import *
+from .atmPSF import *
 from .sed_wrapper import *
 from .fopen import *
 from .bleed_trails import *
