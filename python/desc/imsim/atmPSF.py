@@ -10,18 +10,26 @@ from lsst.sims.GalSimInterface import PSFbase
 
 from .optical_system import OpticalZernikes, mock_deviations
 
+
 class OptWF(object):
-    def __init__(self, rng):
+    def __init__(self, rng, wavelength, gsparams=None):
         u = galsim.UniformDeviate(rng)
         self.deviations = mock_deviations(seed=int(u()*2**31))
         self.oz = OpticalZernikes(self.deviations)
         self.dynamic = False
         self.reversible = True
 
+        # Compute stepk once and store
+        obj = galsim.Airy(lam=wavelength, diam=8.36, obscuration=0.61, gsparams=gsparams)
+        self.stepk = obj.stepk
+
     def _wavefront_gradient(self, u, v, t, theta):
         z = self.oz.cartesian_coeff(theta[0].rad, theta[1].rad)
         Z = galsim.OpticalScreen(diam=8.36, obscuration=0.61, aberrations=[0]*4+list(z))
         return Z._wavefront_gradient(u, v, t, theta)
+
+    def _stepK(self, **kwargs):
+        return self.stepk
 
 
 class AtmosphericPSF(PSFbase):
@@ -68,7 +76,7 @@ class AtmosphericPSF(PSFbase):
         self.atm.instantiate(kmax=kmax, check='phot')
 
         if doOpt:
-            self.atm.append(OptWF(rng))
+            self.atm.append(OptWF(rng, self.wlen_eff))
 
     @staticmethod
     def _seeing_resid(r0_500, wavelength, L0, target):
