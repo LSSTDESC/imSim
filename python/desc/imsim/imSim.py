@@ -33,7 +33,8 @@ from lsst.sims.catUtils.mixins import PhoSimAstrometryBase
 from lsst.sims.utils import _pupilCoordsFromObserved
 from lsst.sims.utils import _observedFromAppGeo
 from lsst.sims.utils import radiansFromArcsec
-from lsst.sims.GalSimInterface import GalSimCelestialObject
+from lsst.sims.GalSimInterface import GalSimCelestialObject, SNRdocumentPSF,\
+    Kolmogorov_and_Gaussian_PSF
 from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
 from lsst.sims.utils import defaultSpecMap
 from .tree_rings import TreeRings
@@ -42,6 +43,7 @@ from .sed_wrapper import SedWrapper
 from .fopen import fopen
 from .trim import InstCatTrimmer
 from .sed_wrapper import SedWrapper
+from .atmPSF import AtmosphericPSF
 
 _POINT_SOURCE = 1
 _SERSIC_2D = 2
@@ -56,7 +58,7 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'add_cosmic_rays',
            '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK',
            'parsePhoSimInstanceFile',
-           'add_treering_info']
+           'add_treering_info', 'make_psf']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -771,3 +773,47 @@ def add_treering_info(gs_interpreter, tr_filename=None):
         new_center = galsim.PositionD(tr_center.x + detector._xCenterPix, tr_center.y + detector._yCenterPix)
         detector.tree_rings = (new_center, tr_function)
     return None
+
+def make_psf(psf_name, obs_md, logger, rng=None):
+    """
+    Make the requested PSF object.
+
+    Parameters
+    ----------
+    psf_name: str
+        Either "DoubleGaussian", "Kolmogorov", or "Atmospheric".
+        The name is case-insensitive.
+    obs_md: lsst.sims.utils.ObservationMetaData
+        Metadata associated with the visit, e.g., pointing direction,
+        observation time, seeing, etc..
+    logger: logging.Logger
+        Logger object obtained from a call to desc.imsim.get_logger.
+    rng: galsim.BaseDeviate
+        Instance of the galsim.baseDeviate random number generator.
+
+    Returns
+    -------
+    lsst.sims.GalSimInterface.PSFbase:  Instance of a subclass of PSFbase.
+    """
+    if psf_name.lower() == 'doublegaussian':
+        return SNRdocumentPSF(obs_md.OpsimMetaData['FWHMgeom'])
+
+    rawSeeing=obs_md.OpsimMetaData['rawSeeing']
+    altRad = np.radians(obs_md.OpsimMetaData['altitude'])
+
+    # equation 3 of Krisciunas and Schaefer 1991
+    airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-altRad))**2)
+
+    if psf_name.lower() == 'kolmogorov':
+        psf = Kolmogorov_and_Gaussian_PSF(airmass,
+                                          rawSeeing=rawSeeing,
+                                          band=obs_md.bandpass)
+    elif psf_name.lower() == 'atmospheric':
+        if rng is None:
+            rng = galsim.UniformDeviate()
+        psf = AtmosphericPSF(airmass=airmass,
+                             rawSeeing=rawSeeing,
+                             band=obs_md.bandpass,
+                             rng=rng,
+                             logger=logger)
+    return psf

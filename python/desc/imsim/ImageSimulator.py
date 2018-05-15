@@ -36,8 +36,8 @@ class ImageSimulator:
     multiprocessing module.
     """
     def __init__(self, instcat, psf, numRows=None, config=None, seed=267,
-                 outdir='fits', sensor_list=None, runNumber=0, visitNumber=0,
-                 apply_sensor_model=True):
+                 outdir='fits', sensor_list=None, apply_sensor_model=True,
+                 file_id=None):
         """
         Parameters
         ----------
@@ -63,6 +63,9 @@ class ImageSimulator:
             considered.
         apply_sensor_model: bool [True]
             Flag to apply galsim.SiliconSensor model.
+        file_id: str [None]
+            string to use for the output files like the checkpoint file.
+            If None, then no checkpoint file will be used
         """
         self.config = read_config(config)
         self.psf = psf
@@ -73,9 +76,9 @@ class ImageSimulator:
         self.gs_obj_dict = sources[1]
         self.camera_wrapper = LSSTCameraWrapper()
         self.apply_sensor_model = apply_sensor_model
-        self._make_gs_interpreters(seed, sensor_list, runNumber, visitNumber)
+        self._make_gs_interpreters(seed, sensor_list, file_id)
 
-    def _make_gs_interpreters(self, seed, sensor_list, runNumber, visitNumber):
+    def _make_gs_interpreters(self, seed, sensor_list, file_id):
         """
         Create a separate GalSimInterpreter for each sensor so that they
         can be run in parallel and maintain separate checkpoint files.
@@ -107,15 +110,19 @@ class ImageSimulator:
             self.gs_interpreters[det_name].setPSF(PSF=self.psf)
             if self.apply_sensor_model:
                 add_treering_info(self.gs_interpreters[det_name])
-            self.gs_interpreters[det_name].checkpoint_file \
-                = self.checkpoint_file(runNumber, visitNumber, det_name)
-            self.gs_interpreters[det_name].restore_checkpoint(self.camera_wrapper,
-                                                              self.phot_params,
-                                                              self.obs_md)
+            if file_id is not None:
+                self.gs_interpreters[det_name].checkpoint_file \
+                    = self.checkpoint_file(file_id, det_name)
+                self.gs_interpreters[det_name].nobj_checkpoint \
+                    = self.config['checkpointing']['nobj']
+                self.gs_interpreters[det_name]\
+                    .restore_checkpoint(self.camera_wrapper,
+                                        self.phot_params,
+                                        self.obs_md)
 
     @staticmethod
-    def checkpoint_file(runNumber, visitNumber, det_name):
-        return '-'.join(('checkpoint', str(runNumber), str(visitNumber),
+    def checkpoint_file(file_id, det_name):
+        return '-'.join(('checkpoint', file_id,
                          re.sub('[:, ]', '_', det_name))) + '.ckpt'
 
     def run(self, processes=1):

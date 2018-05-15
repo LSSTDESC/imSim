@@ -10,3 +10,6 @@ eimage_prefix = lsst_e_
 [cosmic_rays]
 ccd_rate = 8
 catalog = default
+
+[checkpointing]
+nobj = 1000
