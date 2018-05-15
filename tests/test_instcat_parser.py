@@ -85,8 +85,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertIsInstance(metadata['filter'], int)
         self.assertEqual(metadata['bandpass'], 'r')
         self.assertAlmostEqual(metadata['rotskypos'], 256.7507532, 7)
-        self.assertAlmostEqual(metadata['FWHMeff'], 1.1219680, 7)
-        self.assertAlmostEqual(metadata['FWHMgeom'], 0.9742580, 7)
         self.assertAlmostEqual(metadata['dist2moon'], 124.2838277, 7)
         self.assertAlmostEqual(metadata['moonalt'], -36.1323801, 7)
         self.assertAlmostEqual(metadata['moondec'], -23.4960252, 7)
@@ -96,7 +94,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertIsInstance(metadata['nsnap'], int)
         self.assertEqual(metadata['obshistid'], 230)
         self.assertIsInstance(metadata['obshistid'], int)
-        self.assertAlmostEqual(metadata['rawSeeing'], 0.8662850, 7)
         self.assertAlmostEqual(metadata['rottelpos'], 0.0000000, 7)
         self.assertEqual(metadata['seed'], 230)
         self.assertIsInstance(metadata['seed'], int)
@@ -104,7 +101,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertAlmostEqual(metadata['sunalt'], -32.7358290, 7)
         self.assertAlmostEqual(metadata['vistime'], 33.0000000, 7)
 
-        self.assertEqual(len(metadata), 23)  # 22 lines plus 'bandpass'
+        self.assertEqual(len(metadata), 20)  # 19 lines plus 'bandpass'
 
         obs = desc.imsim.phosim_obs_metadata(metadata)
 
@@ -134,7 +131,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         # by a few 0.01 arcsec depending on the machine
         # being run.  We will make the tolerance on this
         # test more stringent when that gets fixed.
-        self.assertLess(3600.0*dd, 1.5e-1)
+        self.assertLess(3600.0*dd, 1.)
 
     def test_object_extraction_stars(self):
         """
@@ -226,7 +223,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                    truth_data['x_pupil'],
                                    truth_data['y_pupil']):
 
-            chip_name = chipNameFromPupilCoordsLSST(xpup, ypup)[0]
+            chip_name = chipNameFromPupilCoordsLSST(xpup, ypup)
             if chip_name is not None:
                self.assertIn(unq, unique_id_dict[chip_name])
                valid_chip_names.add(chip_name)
@@ -355,7 +352,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                    truth_data['x_pupil'],
                                    truth_data['y_pupil']):
 
-            chip_name = chipNameFromPupilCoordsLSST(xpup, ypup)[0]
+            chip_name = chipNameFromPupilCoordsLSST(xpup, ypup)
             if chip_name is not None:
                self.assertIn(unq, unique_id_dict[chip_name])
                valid_chip_names.add(chip_name)
