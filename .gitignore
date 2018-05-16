@@ -69,6 +69,9 @@ target/
 # IPython Notebook
 .ipynb_checkpoints
 
+#PyCharm
+*.idea
+
 # pyenv
 .python-version
 
@@ -91,6 +94,7 @@ ENV/
 # backup files
 *~
 
+*.DS_Store
 bin/
 .sconf_temp
 .sconsign.dblite

@@ -9,6 +9,8 @@ from .imSim import *
 from .camera_readout import *
 from .focalplane_info import *
 from .skyModel import *
+from .cosmic_rays import *
+from .optical_system import OpticalZernikes
 from .atmPSF import *
 from .sed_wrapper import *
 from .fopen import *
