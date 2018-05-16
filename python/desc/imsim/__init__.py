@@ -10,6 +10,7 @@ from .camera_readout import *
 from .focalplane_info import *
 from .skyModel import *
 from .ImageSimulator import *
+from .optical_system import OpticalZernikes
 from .atmPSF import *
 from .fopen import *
 from .trim import *
