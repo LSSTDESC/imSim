@@ -122,8 +122,44 @@ class ImageSimulator:
 
     @staticmethod
     def checkpoint_file(file_id, det_name):
+        """
+        Function to create a checkpoint filename of the form
+           checkpoint_<file_id>_Rxx_Syy.ckpt
+        from a file_id and the detector name.
+
+        Parameters
+        ----------
+        file_id: str
+            User-supplied ID string to insert in the filename.
+        det_name: str
+            Detector slot name following DM conventions, e.g., 'R:2,2 S:1,1'.
+
+        Returns
+        -------
+        str: The checkpoint file name.
+        """
         return '-'.join(('checkpoint', file_id,
                          re.sub('[:, ]', '_', det_name))) + '.ckpt'
+
+    def eimage_file(self, det_name):
+        """
+        The path of the eimage file that the GalSimInterpreter object
+        writes to.
+
+        Parameters
+        ----------
+        det_name: str
+            Detector slot name following DM conventions, e.g., 'R:2,2 S:1,1'.
+
+        Returns
+        -------
+        str: The eimage file path.
+        """
+        detector = self.gs_interpreters[det_name].detectors[0]
+        prefix = self.config['persistence']['eimage_prefix']
+        obsHistID = str(self.obs_md.OpsimMetaData['obshistID'])
+        return os.path.join(self.outdir, prefix + '_'.join(
+            (obsHistID, detector.fileName, self.obs_md.bandpass +'.fits')))
 
     def run(self, processes=1):
         """
@@ -142,6 +178,8 @@ class ImageSimulator:
         if processes == 1:
             # Don't need multiprocessing, so just run serially.
             for det_name in self.gs_interpreters:
+                if os.path.exists(self.eimage_file(det_name)):
+                    continue
                 simulate_sensor = SimulateSensor(det_name)
                 simulate_sensor(self.gs_obj_dict[det_name])
         else:
@@ -149,6 +187,8 @@ class ImageSimulator:
             pool = multiprocessing.Pool(processes=processes)
             results = []
             for det_name in self.gs_interpreters:
+                if os.path.exists(self.eimage_file(det_name)):
+                    continue
                 simulate_sensor = SimulateSensor(det_name)
                 gs_objects = self.gs_obj_dict[det_name]
                 if len(gs_objects) > 0:
