@@ -40,9 +40,7 @@ commands = desc.imsim.metadata_from_file(args.file)
 
 obs_md = desc.imsim.phosim_obs_metadata(commands)
 
-logger = desc.imsim.get_logger(args.log_level)
-
-psf = desc.imsim.make_psf(args.psf, obs_md, logger)
+psf = desc.imsim.make_psf(args.psf, obs_md, log_level=args.log_level)
 
 sensor_list = args.sensor.split('^') if args.sensor is not None \
               else args.sensor
@@ -57,6 +55,7 @@ image_simulator \
                                 outdir=args.outdir,
                                 sensor_list=sensor_list,
                                 apply_sensor_model=apply_sensor_model,
-                                file_id=args.file_id)
+                                file_id=args.file_id,
+                                log_level=args.log_level)
 
 image_simulator.run(processes=args.processes)

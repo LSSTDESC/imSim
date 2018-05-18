@@ -15,7 +15,7 @@ from lsst.sims.GalSimInterface import make_gs_interpreter
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from lsst.sims.GalSimInterface import GalSimInterpreter
 from .imSim import read_config, parsePhoSimInstanceFile, add_cosmic_rays,\
-    add_treering_info
+    add_treering_info, get_logger
 from .bleed_trails import apply_channel_bleeding
 from .skyModel import make_sky_model
 
@@ -37,7 +37,7 @@ class ImageSimulator:
     """
     def __init__(self, instcat, psf, numRows=None, config=None, seed=267,
                  outdir='fits', sensor_list=None, apply_sensor_model=True,
-                 file_id=None):
+                 file_id=None, log_level='WARN'):
         """
         Parameters
         ----------
@@ -66,6 +66,8 @@ class ImageSimulator:
         file_id: str [None]
             string to use for the output files like the checkpoint file.
             If None, then no checkpoint file will be used
+        log_level: str ['WARN']
+            Logging level ('DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL').
         """
         self.config = read_config(config)
         self.psf = psf
@@ -77,6 +79,7 @@ class ImageSimulator:
         self.camera_wrapper = LSSTCameraWrapper()
         self.apply_sensor_model = apply_sensor_model
         self._make_gs_interpreters(seed, sensor_list, file_id)
+        self.log_level = log_level
 
     def _make_gs_interpreters(self, seed, sensor_list, file_id):
         """
@@ -180,7 +183,7 @@ class ImageSimulator:
             for det_name in self.gs_interpreters:
                 if os.path.exists(self.eimage_file(det_name)):
                     continue
-                simulate_sensor = SimulateSensor(det_name)
+                simulate_sensor = SimulateSensor(det_name, self.log_level)
                 simulate_sensor(self.gs_obj_dict[det_name])
         else:
             # Use multiprocessing.
@@ -189,7 +192,7 @@ class ImageSimulator:
             for det_name in self.gs_interpreters:
                 if os.path.exists(self.eimage_file(det_name)):
                     continue
-                simulate_sensor = SimulateSensor(det_name)
+                simulate_sensor = SimulateSensor(det_name, self.log_level)
                 gs_objects = self.gs_obj_dict[det_name]
                 if len(gs_objects) > 0:
                     results.append(pool.apply_async(simulate_sensor,
@@ -206,14 +209,17 @@ class SimulateSensor:
     parallel using the multiprocessing module.  Note that the
     image_simulator variable is defined in the global scope.
     """
-    def __init__(self, sensor_name):
+    def __init__(self, sensor_name, log_level='WARN'):
         """
         Parameters
         ----------
         sensor_name: str
-            The name of the sensor to be simulated, e.g., "R:2,2 S:1,1"
+            The name of the sensor to be simulated, e.g., "R:2,2 S:1,1".
+        log_level: str ['WARN']
+            Logging level ('DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL').
         """
         self.sensor_name = sensor_name
+        self.log_level = log_level
 
     def __call__(self, gs_objects):
         """
@@ -228,8 +234,8 @@ class SimulateSensor:
         if len(gs_objects) == 0:
             return
 
-        print("drawing %i objects on %s" % (len(gs_objects), self.sensor_name))
-        sys.stdout.flush()
+        logger = get_logger(self.log_level, name=self.sensor_name)
+        logger.info("drawing %i objects", len(gs_objects))
 
         # image_simulator must be a variable declared in the
         # outer scope and set to an ImageSimulator instance.
@@ -240,7 +246,10 @@ class SimulateSensor:
             for gs_obj in gs_objects:
                 if gs_obj.uniqueId in gs_interpreter.drawn_objects:
                     continue
-                if not np.isnan(gs_obj.flux(image_simulator.obs_md.bandpass)):
+                flux = gs_obj.flux(image_simulator.obs_md.bandpass)
+                if not np.isnan(flux):
+                    logger.debug("%s  %s  %s", gs_obj.uniqueId, flux,
+                                 gs_obj.galSimType)
                     gs_interpreter.drawObject(gs_obj)
                 gs_obj.sed.delete_sed_obj()
 

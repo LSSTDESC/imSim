@@ -675,27 +675,31 @@ def read_config(config_file=None):
     return my_config
 
 
-def get_logger(log_level):
+def get_logger(log_level, name=None):
     """
     Set up standard logging module and set lsst.log to the same log
     level.
 
     Parameters
     ----------
-    log_level : str
+    log_level: str
         This is converted to logging.<log_level> and set in the logging
         config.
+    name: str [None]
+        The name to preprend to the log message to identify different
+        logging contexts.  If None, then the root context is used.
     """
     # Setup logging output.
-    logging.basicConfig(format="%(message)s", stream=sys.stdout)
-    logger = logging.getLogger()
+    logging.basicConfig(format="%(asctime)s %(name)s: %(message)s",
+                        stream=sys.stdout)
+    logger = logging.getLogger(name)
     logger.setLevel(eval('logging.' + log_level))
 
-    # Set similar logging level for Stack code.
-    if log_level == "CRITICAL":
-        log_level = "FATAL"
-    lsstLog.setLevel(lsstLog.getDefaultLoggerName(),
-                     eval('lsstLog.%s' % log_level))
+#    # Set similar logging level for Stack code.
+#    if log_level == "CRITICAL":
+#        log_level = "FATAL"
+#    lsstLog.setLevel(lsstLog.getDefaultLoggerName(),
+#                     eval('lsstLog.%s' % log_level))
 
     return logger
 
@@ -844,7 +848,7 @@ def FWHMgeom(rawSeeing, band, altitude):
     return 0.822*FWHMeff(rawSeeing, band, altitude) + 0.052
 
 
-def make_psf(psf_name, obs_md, logger, rng=None):
+def make_psf(psf_name, obs_md, log_level='WARN', rng=None):
     """
     Make the requested PSF object.
 
@@ -856,8 +860,8 @@ def make_psf(psf_name, obs_md, logger, rng=None):
     obs_md: lsst.sims.utils.ObservationMetaData
         Metadata associated with the visit, e.g., pointing direction,
         observation time, seeing, etc..
-    logger: logging.Logger
-        Logger object obtained from a call to desc.imsim.get_logger.
+    log_level: str ['WARN']
+        Logging level ('DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL').
     rng: galsim.BaseDeviate
         Instance of the galsim.baseDeviate random number generator.
 
@@ -868,20 +872,19 @@ def make_psf(psf_name, obs_md, logger, rng=None):
     if psf_name.lower() == 'doublegaussian':
         return SNRdocumentPSF(obs_md.OpsimMetaData['FWHMgeom'])
 
-    rawSeeing=obs_md.OpsimMetaData['rawSeeing']
-    altRad = np.radians(obs_md.OpsimMetaData['altitude'])
+    rawSeeing = obs_md.OpsimMetaData['rawSeeing']
 
-    # equation 3 of Krisciunas and Schaefer 1991
-    airmass = 1.0/np.sqrt(1.0-0.96*(np.sin(0.5*np.pi-altRad))**2)
+    my_airmass = airmass(obs_md.OpsimMetaData['altitude'])
 
     if psf_name.lower() == 'kolmogorov':
-        psf = Kolmogorov_and_Gaussian_PSF(airmass,
+        psf = Kolmogorov_and_Gaussian_PSF(my_airmass,
                                           rawSeeing=rawSeeing,
                                           band=obs_md.bandpass)
     elif psf_name.lower() == 'atmospheric':
         if rng is None:
             rng = galsim.UniformDeviate()
-        psf = AtmosphericPSF(airmass=airmass,
+        logger = get_logger(log_level, 'psf')
+        psf = AtmosphericPSF(airmass=my_airmass,
                              rawSeeing=rawSeeing,
                              band=obs_md.bandpass,
                              rng=rng,
