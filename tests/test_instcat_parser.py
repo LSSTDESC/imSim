@@ -131,7 +131,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         # by a few 0.01 arcsec depending on the machine
         # being run.  We will make the tolerance on this
         # test more stringent when that gets fixed.
-        self.assertLess(3600.0*dd, 1.5e-1)
+        self.assertLess(3600.0*dd, 1.)
 
     def test_object_extraction_stars(self):
         """
@@ -220,7 +220,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                    truth_data['x_pupil'],
                                    truth_data['y_pupil']):
 
-            chip_name = chipNameFromPupilCoordsLSST(xpup, ypup)[0]
+            chip_name = chipNameFromPupilCoordsLSST(xpup, ypup)
             if chip_name is not None:
                self.assertIn(unq, unique_id_dict[chip_name])
                valid_chip_names.add(chip_name)
@@ -346,7 +346,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                    truth_data['x_pupil'],
                                    truth_data['y_pupil']):
 
-            chip_name = chipNameFromPupilCoordsLSST(xpup, ypup)[0]
+            chip_name = chipNameFromPupilCoordsLSST(xpup, ypup)
             if chip_name is not None:
                self.assertIn(unq, unique_id_dict[chip_name])
                valid_chip_names.add(chip_name)
