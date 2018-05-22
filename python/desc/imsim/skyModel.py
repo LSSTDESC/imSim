@@ -254,10 +254,11 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
 class FastSiliconSkyModel(ESOSkyModel):
     """
-    This version produces a sky background image by scaling the counts
-    in each pixel by the areas of distorted pixel geometries in the
-    galsim.Silicon model to account for electrostatic effects such as
-    tree rings.
+    This version produces an image by scaling the counts in each pixel
+    by the areas of distorted pixel geometries in the galsim.Silicon
+    model to account for electrostatic effects such as tree rings. It
+    is currently used for making the sky background or flats which
+    require a large number of electrons in every pixel.
     """
     def __init__(self, obs_metadata, photParams, seed=None,
                  bandpassDict=None, logger=None):
@@ -290,7 +291,10 @@ class FastSiliconSkyModel(ESOSkyModel):
                                       transpose=True)
 
         # Loop over 1/2 amplifiers to save memory when storing the 36
-        # pixel vertices per pixel.
+        # pixel vertices per pixel. The 36 vertices arise from the 8
+        # vertices per side + 4 corners (8*(4 sides) + 4 = 36).  This
+        # corresponds to 72 floats per pixel (x and y coordinates) for
+        # representing the pixel distortions in memory.
         nrow, ncol = image.array.shape
         nx, ny = 4, 8
         dx = ncol//nx
