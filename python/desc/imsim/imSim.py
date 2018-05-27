@@ -151,6 +151,7 @@ def metadata_from_file(file_name):
 
 def sources_from_list(object_lines, obs_md, phot_params, file_name):
     camera = get_obs_lsstSim_camera()
+    config = get_config()
 
     num_objects = len(object_lines)
 
@@ -162,6 +163,7 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
     mag_norm = 55.0*np.ones(num_objects, dtype=float)
     gamma1 = np.zeros(num_objects, dtype=float)
     gamma2 = np.zeros(num_objects, dtype=float)
+    gamma2_sign = config['wl_params']['gamma2_sign']
     kappa = np.zeros(num_objects, dtype=float)
 
     internal_av = np.zeros(num_objects, dtype=float)
@@ -191,7 +193,7 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
         sed_name[i_obj] = params[5]
         redshift[i_obj] = float(params[6])
         gamma1[i_obj] = float(params[7])
-        gamma2[i_obj] = float(params[8])
+        gamma2[i_obj] = gamma2_sign*float(params[8])
         kappa[i_obj] = float(params[9])
         if params[12].lower() == 'point':
             object_type[i_obj] = _POINT_SOURCE
