@@ -3,7 +3,6 @@ Code to manage the parallel simulation of sensors using the
 multiprocessing module.
 """
 import os
-import sys
 import re
 import multiprocessing
 import warnings
@@ -13,11 +12,11 @@ from lsst.sims.photUtils import BandpassDict
 from lsst.sims.GalSimInterface import make_galsim_detector
 from lsst.sims.GalSimInterface import make_gs_interpreter
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
-from lsst.sims.GalSimInterface import GalSimInterpreter
 from .imSim import read_config, parsePhoSimInstanceFile, add_cosmic_rays,\
     add_treering_info, get_logger
 from .bleed_trails import apply_channel_bleeding
 from .skyModel import make_sky_model
+from .process_monitor import process_monitor
 
 __all__ = ['ImageSimulator']
 
@@ -80,6 +79,9 @@ class ImageSimulator:
         self.apply_sensor_model = apply_sensor_model
         self._make_gs_interpreters(seed, sensor_list, file_id)
         self.log_level = log_level
+        self.logger = get_logger(self.log_level, name='ImageSimulator')
+        if not self.gs_obj_arr:
+            self.logger.warn("No object entries in %s", instcat)
 
     def _make_gs_interpreters(self, seed, sensor_list, file_id):
         """
@@ -164,7 +166,7 @@ class ImageSimulator:
         return os.path.join(self.outdir, prefix + '_'.join(
             (obsHistID, detector.fileName, self.obs_md.bandpass +'.fits')))
 
-    def run(self, processes=1):
+    def run(self, processes=1, wait_time=None):
         """
         Use multiprocessing module to simulate sensors in parallel.
         """
@@ -181,7 +183,7 @@ class ImageSimulator:
         if processes == 1:
             # Don't need multiprocessing, so just run serially.
             for det_name in self.gs_interpreters:
-                if os.path.exists(self.eimage_file(det_name)):
+                if self._outfile_exists(det_name):
                     continue
                 simulate_sensor = SimulateSensor(det_name, self.log_level)
                 simulate_sensor(self.gs_obj_dict[det_name])
@@ -189,18 +191,28 @@ class ImageSimulator:
             # Use multiprocessing.
             pool = multiprocessing.Pool(processes=processes)
             results = []
+            if wait_time is not None:
+                results.append(pool.apply_async(process_monitor, (),
+                                                dict(wait_time=wait_time)))
             for det_name in self.gs_interpreters:
-                if os.path.exists(self.eimage_file(det_name)):
+                if self._outfile_exists(det_name):
                     continue
                 simulate_sensor = SimulateSensor(det_name, self.log_level)
                 gs_objects = self.gs_obj_dict[det_name]
-                if len(gs_objects) > 0:
+                if gs_objects:
                     results.append(pool.apply_async(simulate_sensor,
                                                     (gs_objects,)))
             pool.close()
             pool.join()
             for res in results:
                 res.get()
+
+    def _outfile_exists(self, det_name):
+        eimage_file = self.eimage_file(det_name)
+        if os.path.exists(eimage_file):
+            self.logger.info("%s already exists, skipping.", eimage_file)
+            return True
+        return False
 
 
 class SimulateSensor:
@@ -231,7 +243,7 @@ class SimulateSensor:
             The list of objects to draw.  This should be restricted to
             the objects for the corresponding sensor.
         """
-        if len(gs_objects) == 0:
+        if not gs_objects:
             return
 
         logger = get_logger(self.log_level, name=self.sensor_name)

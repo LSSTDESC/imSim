@@ -237,7 +237,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         Test that method to get GalSimCelestialObjects from
         InstanceCatalogs works
         """
-        # Read in test_imsims_configs since default ones may change.
+        # Read in test_imsim_configs since default ones may change.
         desc.imsim.read_config(os.path.join(self.data_dir, 'test_imsim_configs'))
         galaxy_phosim_file = os.path.join(self.data_dir, 'phosim_galaxies.txt')
         commands = desc.imsim.metadata_from_file(galaxy_phosim_file)
