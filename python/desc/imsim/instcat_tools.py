@@ -145,9 +145,9 @@ def make_sed_dataframe(instcat, sensor, band):
     """
     _, phot_params, objects = parsePhoSimInstanceFile(instcat)
 
+    print("processing", len(objects[1][sensor]), "SEDs")
     my_seds = [SedInspector.create_from_gs_object(gs_obj)
                for gs_obj in objects[1][sensor]]
-    print("processing", len(my_seds), "SEDs")
     bp_dict = sims_photUtils.BandpassDict.loadTotalBandpassesFromFiles()
     bp = bp_dict[band]
 
