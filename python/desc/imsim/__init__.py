@@ -15,3 +15,4 @@ from .atmPSF import *
 from .sed_wrapper import *
 from .fopen import *
 from .bleed_trails import *
+from .instcat_tools import *
