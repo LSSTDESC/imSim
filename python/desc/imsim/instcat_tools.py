@@ -155,6 +155,7 @@ def make_sed_dataframe(instcat, sensor, band):
     for ised, sed in enumerate(my_seds):
         if ised % (len(my_seds)//20) == 0:
             sys.stdout.write('.')
+            sys.stdout.flush()
         if sed.redshift == 0:
             continue
         rows.append((sed.gs_obj.uniqueId,
