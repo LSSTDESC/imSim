@@ -162,6 +162,8 @@ def make_sed_dataframe(instcat, sensor, band):
                      sed.gs_obj.uniqueId >> 10,
                      sed.gs_obj.xPupilRadians,
                      sed.gs_obj.yPupilRadians,
+                     sed.redshift,
+                     sed.mag_norm,
                      sed.intrinsic.calcMag(bp),
                      sed.intrinsic.calcADU(bp, phot_params),
                      sed.reddened.calcMag(bp),
@@ -171,6 +173,7 @@ def make_sed_dataframe(instcat, sensor, band):
 
     columns = ['uniqueId', 'galaxy_id',
                'xPupilRadians', 'yPupilRadians',
+               'redshift', 'mag_norm',
                'mag_intrinsic', 'flux_intrinsic',
                'mag_reddened', 'flux_reddened',
                'mag_observed', 'flux_observed']
