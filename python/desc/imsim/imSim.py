@@ -249,7 +249,8 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
 
     semi_major_radians = radiansFromArcsec(semi_major_arcsec)
     semi_minor_radians = radiansFromArcsec(semi_minor_arcsec)
-    position_angle_radians = np.radians(position_angle_degrees)
+    # Account for PA sign difference wrt phosim convention.
+    position_angle_radians = np.radians(360. - position_angle_degrees)
 
     x_pupil, y_pupil = _pupilCoordsFromObserved(ra_obs_rad,
                                                 dec_obs_rad,
