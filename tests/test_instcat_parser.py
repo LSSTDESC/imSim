@@ -289,7 +289,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                    truth_data['minorAxis'][i_obj], 13)
             self.assertAlmostEqual(gs_obj.majorAxisRadians,
                                    truth_data['majorAxis'][i_obj], 13)
-            self.assertAlmostEqual(gs_obj.positionAngleRadians,
+            self.assertAlmostEqual(2.*np.pi - gs_obj.positionAngleRadians,
                                    truth_data['positionAngle'][i_obj], 7)
             self.assertAlmostEqual(gs_obj.sindex,
                                    truth_data['sindex'][i_obj], 10)
