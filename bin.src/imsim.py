@@ -14,8 +14,8 @@ parser.add_argument('-n', '--numrows', default=None, type=int,
                     help="Read the first numrows of the file.")
 parser.add_argument('--outdir', type=str, default='fits',
                     help='Output directory for eimage file')
-parser.add_argument('--sensor', type=str, default=None,
-                    help='Sensor to simulate, e.g., "R:2,2 S:1,1".' +
+parser.add_argument('--sensors', type=str, default=None,
+                    help='Sensors to simulate, e.g., "R:2,2 S:1,1^R:2,2 S:1,0".' +
                     'If None, then simulate all sensors with sources on them')
 parser.add_argument('--config_file', type=str, default=None,
                     help="Config file. If None, the default config will be used.")
@@ -42,8 +42,8 @@ obs_md = desc.imsim.phosim_obs_metadata(commands)
 
 psf = desc.imsim.make_psf(args.psf, obs_md, log_level=args.log_level)
 
-sensor_list = args.sensor.split('^') if args.sensor is not None \
-              else args.sensor
+sensor_list = args.sensors.split('^') if args.sensors is not None \
+              else args.sensors
 
 apply_sensor_model = not args.disable_sensor_model
 
