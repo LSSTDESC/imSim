@@ -41,7 +41,7 @@ class PhoSimRepackager:
     def __init__(self):
         self.amp_info_records = list(list(lsstCam.LsstCamMapper().camera)[0])
 
-    def process_visit(self, visit_dir, out_dir=None):
+    def process_visit(self, visit_dir, out_dir=None, verbose=False):
         """
         Parameters
         ----------
@@ -50,6 +50,8 @@ class PhoSimRepackager:
         out_dir: str [None]
             Output directory for MEF files. If None, then a directory
             with name v<visit #>-<band> will be created in the cwd.
+        verbose: bool [False]
+            Set to True to print out time for processing each sensor.
         """
         phosim_amp_files \
             = sorted(glob.glob(os.path.join(visit_dir, 'lsst_a_*')))
@@ -67,8 +69,9 @@ class PhoSimRepackager:
             sys.stdout.write(sensor_id + '  ')
             t0 = time.time()
             self.repackage(amp_files[sensor_id], out_dir=out_dir)
-            print(time.time() - t0)
-            sys.stdout.flush()
+            if verbose:
+                print(time.time() - t0)
+                sys.stdout.flush()
 
     def repackage(self, phosim_amp_files, out_dir='.'):
         """
@@ -95,8 +98,7 @@ class PhoSimRepackager:
         for amp in self.amp_info_records:
             hdu = segments[amp.get('name')]
             hdu.header['EXTNAME'] = 'Segment%s' % amp.get('name')
-            hdu.header['DATASEC'] \
-                = noao_section_keyword(amp.getRawDataBBox())
+            hdu.header['DATASEC'] = noao_section_keyword(amp.getRawDataBBox())
             hdu.header['DETSEC'] \
                 = noao_section_keyword(amp.getBBox(),
                                        flipx=amp.get('raw_flip_x'),
@@ -129,8 +131,15 @@ class PhoSimRepackager:
         sensor[0].header['SENSNAME'] = ccd
 
         tokens = os.path.basename(phosim_amp_files[0]).split('_')
-        outfile = '_'.join(tokens[:6] + tokens[7:]).replace('.gz', '')
+        outfile = '_'.join(tokens[:6] + tokens[7:])
         outfile = os.path.join(out_dir, outfile)
+
+        # astropy's gzip compression is very slow, so remove any .gz
+        # extension from the computed output filename and gzip the
+        # files later.
+        if outfile.endswith('.gz'):
+            outfile = outfile[:-len('.gz')]
+
         sensor.writeto(outfile, overwrite=True)
 
 if __name__ == '__main__':
@@ -141,7 +150,10 @@ if __name__ == '__main__':
     parser.add_argument('visit_dir', type=str, help="visit directory")
     parser.add_argument('--out_dir', type=str, default=None,
                         help="output directory")
+    parser.add_argument('--verbose', default=False, action='store_true',
+                        help='print time to process the data each sensor')
     args = parser.parse_args()
 
     repackager = PhoSimRepackager()
-    repackager.process_visit(args.visit_dir, out_dir=args.out_dir)
+    repackager.process_visit(args.visit_dir, out_dir=args.out_dir,
+                             verbose=args.verbose)
