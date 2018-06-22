@@ -7,26 +7,41 @@ import os
 import sys
 import glob
 import time
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 import astropy.io.fits as fits
 import astropy.time
-import lsst.utils
-import desc.imsim
+import lsst.obs.lsstCam as lsstCam
 
-noao_section_keyword = desc.imsim.ImageSource._noao_section_keyword
+def noao_section_keyword(bbox, flipx=False, flipy=False):
+    """
+    Convert bounding boxes into NOAO section keywords.
+
+    Parameters
+    ----------
+    bbox : lsst.afw.geom.Box2I
+        Bounding box.
+    flipx : bool
+        Flag to indicate that data should be flipped in the x-direction.
+    flipy : bool
+        Flag to indicate that data should be flipped in the y-direction.
+    """
+    xmin, xmax = bbox.getMinX()+1, bbox.getMaxX()+1
+    ymin, ymax = bbox.getMinY()+1, bbox.getMaxY()+1
+    if flipx:
+        xmin, xmax = xmax, xmin
+    if flipy:
+        ymin, ymax = ymax, ymin
+    return '[%i:%i,%i:%i]' % (xmin, xmax, ymin, ymax)
 
 class PhoSimRepackager:
     """
     Class to repackage phosim amplifier files into single sensor
     MEFs with one HDU per amp.
     """
-    def __init__(self, seg_file=None):
-        if seg_file is None:
-            seg_file = os.path.join(lsst.utils.getPackageDir('imSim'),
-                                    'data', 'segmentation_itl.txt')
-        self.fp_props = desc.imsim.FocalPlaneInfo.read_phosim_seg_file(seg_file)
+    def __init__(self):
+        self.amp_info_records = list(list(lsstCam.LsstCamMapper().camera)[0])
 
-    def __call__(self, visit_dir, out_dir=None):
+    def process_visit(self, visit_dir, out_dir=None):
         """
         Parameters
         ----------
@@ -48,59 +63,75 @@ class PhoSimRepackager:
         if not os.path.isdir(out_dir):
             os.mkdir(out_dir)
 
-        # Use this list to write the image extensions in the order
-        # specified by LCA-10140 via an OrderedDict:
-        channels = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
-        segments = OrderedDict()
-        for channel in channels:
-            segments[channel] = None
-
         for sensor_id in amp_files:
             sys.stdout.write(sensor_id + '  ')
             t0 = time.time()
-            sensor = fits.HDUList(fits.PrimaryHDU())
-            for fn in amp_files[sensor_id]:
-                channel = os.path.basename(fn).split('_')[6][1:]
-                segments[channel] = fits.open(fn)[0]
-            for channel, hdu in segments.items():
-                sensor.append(hdu)
-                sensor[-1].header['EXTNAME'] = 'Segment%s' % channel
-                amp_name = '_'.join((sensor_id, 'C' + channel))
-                amp_props = self.fp_props.get_amp(amp_name)
-                sensor[-1].header['DATASEC'] \
-                    = noao_section_keyword(amp_props.imaging)
-                sensor[-1].header['DETSEC'] \
-                    = noao_section_keyword(amp_props.mosaic_section,
-                                           flipx=amp_props.flip_x,
-                                           flipy=amp_props.flip_y)
-                sensor[-1].header['BIASSEC'] \
-                    = noao_section_keyword(amp_props.serial_overscan)
-
-            # Set keywords in primary HDU, extracting most of the relevant
-            # ones from the first phosim amplifier file.
-            raft, ccd = sensor_id.split('_')
-            sensor[0].header['EXPTIME'] = sensor[1].header['EXPTIME']
-            sensor[0].header['DARKTIME'] = sensor[1].header['DARKTIME']
-            sensor[0].header['RUNNUM'] = sensor[1].header['OBSID']
-            sensor[0].header['MJD-OBS'] = sensor[1].header['MJD-OBS']
-            sensor[0].header['DATE-OBS'] \
-                = astropy.time.Time(sensor[1].header['MJD-OBS'],
-                                    format='mjd').isot
-            sensor[0].header['FILTER'] = sensor[1].header['FILTER']
-            sensor[0].header['LSST_NUM'] = sensor_id
-            sensor[0].header['CHIPID'] = sensor_id
-            sensor[0].header['OBSID'] = sensor[1].header['OBSID']
-            sensor[0].header['TESTTYPE'] = 'PHOSIM'
-            sensor[0].header['IMGTYPE'] = 'SKYEXP'
-            sensor[0].header['MONOWL'] = -1
-            sensor[0].header['RAFTNAME'] = raft
-            sensor[0].header['SENSNAME'] = ccd
-            tokens = os.path.basename(amp_files[sensor_id][0]).split('_')
-            outfile = '_'.join(tokens[:6] + tokens[7:]).replace('.gz', '')
-            outfile = os.path.join(out_dir, outfile)
-            sensor.writeto(outfile, overwrite=True)
+            self.repackage(amp_files[sensor_id], out_dir=out_dir)
             print(time.time() - t0)
             sys.stdout.flush()
+
+    def repackage(self, phosim_amp_files, out_dir='.'):
+        """
+        Repackage a collection of phosim amplifier files for a
+        single sensor into a multi-extension FITS file.
+
+        Parameters
+        ----------
+        phosim_amp_files: list
+            List of phosim amplifier filenames.
+        """
+        # Create the HDUList to contain the MEF data.
+        sensor = fits.HDUList(fits.PrimaryHDU())
+
+        # Extract the data for each segment from the FITS files
+        # into a dictionary keyed by channel id.
+        segments = dict()
+        for fn in phosim_amp_files:
+            channel = os.path.basename(fn).split('_')[6][1:]
+            segments[channel] = fits.open(fn)[0]
+
+        # Set the NOAO section kewyords based on the pixel geometry
+        # in the LsstCam object.
+        for amp in self.amp_info_records:
+            hdu = segments[amp.get('name')]
+            hdu.header['EXTNAME'] = 'Segment%s' % amp.get('name')
+            hdu.header['DATASEC'] \
+                = noao_section_keyword(amp.getRawDataBBox())
+            hdu.header['DETSEC'] \
+                = noao_section_keyword(amp.getBBox(),
+                                       flipx=amp.get('raw_flip_x'),
+                                       flipy=amp.get('raw_flip_y'))
+            # Remove the incorrect BIASSEC keyword that phosim writes.
+            try:
+                hdu.header.remove('BIASSEC')
+            except KeyError:
+                pass
+            sensor.append(hdu)
+
+        # Set keywords in primary HDU, extracting most of the relevant
+        # ones from the first phosim amplifier file.
+        chip_id = sensor[1].header['CHIPID']
+        raft, ccd = chip_id.split('_')
+        sensor[0].header['EXPTIME'] = sensor[1].header['EXPTIME']
+        sensor[0].header['DARKTIME'] = sensor[1].header['DARKTIME']
+        sensor[0].header['RUNNUM'] = sensor[1].header['OBSID']
+        sensor[0].header['MJD-OBS'] = sensor[1].header['MJD-OBS']
+        sensor[0].header['DATE-OBS'] \
+            = astropy.time.Time(sensor[1].header['MJD-OBS'], format='mjd').isot
+        sensor[0].header['FILTER'] = sensor[1].header['FILTER']
+        sensor[0].header['LSST_NUM'] = chip_id
+        sensor[0].header['CHIPID'] = chip_id
+        sensor[0].header['OBSID'] = sensor[1].header['OBSID']
+        sensor[0].header['TESTTYPE'] = 'PHOSIM'
+        sensor[0].header['IMGTYPE'] = 'SKYEXP'
+        sensor[0].header['MONOWL'] = -1
+        sensor[0].header['RAFTNAME'] = raft
+        sensor[0].header['SENSNAME'] = ccd
+
+        tokens = os.path.basename(phosim_amp_files[0]).split('_')
+        outfile = '_'.join(tokens[:6] + tokens[7:]).replace('.gz', '')
+        outfile = os.path.join(out_dir, outfile)
+        sensor.writeto(outfile, overwrite=True)
 
 if __name__ == '__main__':
     import argparse
@@ -110,9 +141,7 @@ if __name__ == '__main__':
     parser.add_argument('visit_dir', type=str, help="visit directory")
     parser.add_argument('--out_dir', type=str, default=None,
                         help="output directory")
-    parser.add_argument('--seg_file', type=str, default=None,
-                        help="segmentation.txt file")
     args = parser.parse_args()
 
-    repackage_data = PhoSimRepackager(args.seg_file)
-    repackage_data(args.visit_dir, out_dir=args.out_dir)
+    repackager = PhoSimRepackager()
+    repackager.process_visit(args.visit_dir, out_dir=args.out_dir)
