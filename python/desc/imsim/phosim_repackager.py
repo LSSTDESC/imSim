@@ -12,7 +12,7 @@ import astropy.io.fits as fits
 import astropy.time
 import lsst.obs.lsstCam as lsstCam
 
-__all__ == ['PhoSimRepackager']
+__all__ = ['PhoSimRepackager']
 
 
 def noao_section_keyword(bbox, flipx=False, flipy=False):
@@ -70,7 +70,8 @@ class PhoSimRepackager:
             os.mkdir(out_dir)
 
         for sensor_id in amp_files:
-            sys.stdout.write(sensor_id + '  ')
+            if verbose:
+                sys.stdout.write(sensor_id + '  ')
             t0 = time.time()
             self.repackage(amp_files[sensor_id], out_dir=out_dir)
             if verbose:
@@ -97,11 +98,11 @@ class PhoSimRepackager:
             channel = os.path.basename(fn).split('_')[6][1:]
             segments[channel] = fits.open(fn)[0]
 
-        # Set the NOAO section kewyords based on the pixel geometry
+        # Set the NOAO section keywords based on the pixel geometry
         # in the LsstCam object.
         for amp in self.amp_info_records:
-            hdu = segments[amp.get('name')]
-            hdu.header['EXTNAME'] = 'Segment%s' % amp.get('name')
+            hdu = segments[amp.get('name')[1:]]
+            hdu.header['EXTNAME'] = 'Segment%s' % amp.get('name')[1:]
             hdu.header['DATASEC'] = noao_section_keyword(amp.getRawDataBBox())
             hdu.header['DETSEC'] \
                 = noao_section_keyword(amp.getBBox(),
