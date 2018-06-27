@@ -147,6 +147,12 @@ class PhoSimRepackager:
         sensor[0].header['MONOWL'] = -1
         sensor[0].header['RAFTNAME'] = raft
         sensor[0].header['SENSNAME'] = ccd
+        # Add boresight pointing angles and rotskypos (angle of sky
+        # relative to Camera coordinates) from which obs_lsstCam can
+        # infer the CCD-wide WCS.
+        sensor[0].header['RATEL'] = sensor[1].header['RA_DEG']
+        sensor[0].header['DECTEL'] = sensor[1].header['DEC_DEG']
+        sensor[0].header['ROTANGLE'] = sensor[1].header['ROTANGZ']
 
         outfile = self.mef_filename(phosim_amp_files[0], out_dir=out_dir)
         sensor.writeto(outfile, overwrite=True)
