@@ -292,29 +292,59 @@ class ImageSource(object):
             appropriate for the requested sensor segment.
         """
         hdu = fits.ImageHDU(data=self.amp_images[amp_name].getArray().astype(np.int32))
-
+        hdr = hdu.header
+        amp_props = self.fp_props.get_amp(amp_name)
         # Copy keywords from eimage primary header.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             for key in self.eimage[0].header.keys():
                 try:
-                    hdu.header[key] = self.eimage[0].header[key]
+                    hdr[key] = self.eimage[0].header[key]
                 except ValueError as eobj:
                     # eimages produced by phosim contain non-ASCII or
                     # non-printable characters resulting in a ValueError.
                     self.logger.warn("ValueError raised while attempting to "
                                      "read {} from eimage header".format(key))
 
+        # Transpose the WCS matrix elements to account for the use of the
+        # Camera Coordinate System in the eimage.  These changes
+        # neglect any implied changes in the SIP coefficients.
+        channels = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
+        amp_nums = dict(kv_pair for kv_pair in zip(channels, range(16)))
+        amp_num = amp_nums[amp_name[-2:]]
+#        # These keywords seem to give approximately correct per amp
+#        # WCS's when viewed with ds9, but they don't work with
+#        # obs_lsstCam.
+#        x_pos = (list(range(1, 9)) + list(range(8, 0, -1)))[amp_num]
+#        hdr['CRPIX1'], hdr['CRPIX2'] \
+#            = (hdr['CRPIX2'] - amp_props.imaging.getWidth()*(8 - x_pos),
+#               hdr['CRPIX1'])
+#        if amp_num < 8:
+#            hdr['CD1_1'], hdr['CD1_2'] = -hdr['CD1_2'], hdr['CD1_1']
+#            hdr['CD2_1'], hdr['CD2_2'] = -hdr['CD2_2'], hdr['CD2_1']
+#        else:
+#            hdr['CD1_1'], hdr['CD1_2'] = -hdr['CD1_2'], -hdr['CD1_1']
+#            hdr['CD2_1'], hdr['CD2_2'] = -hdr['CD2_2'], -hdr['CD2_1']
+
+        # These keywords seem to work with obs_lsstCam and allow
+        # for the astrometry to solve for protoDC2 data.
+        hdr['CRPIX1'], hdr['CRPIX2'] = hdr['CRPIX2'], hdr['CRPIX1']
+        if amp_num < 8:
+            hdr['CD1_1'], hdr['CD1_2'] = hdr['CD1_2'], hdr['CD1_1']
+            hdr['CD2_1'], hdr['CD2_2'] = hdr['CD2_2'], hdr['CD2_1']
+        else:
+            hdr['CD1_1'], hdr['CD1_2'] = hdr['CD1_2'], -hdr['CD1_1']
+            hdr['CD2_1'], hdr['CD2_2'] = hdr['CD2_2'], -hdr['CD2_1']
+
         # Set NOAO geometry keywords.
-        amp_props = self.fp_props.get_amp(amp_name)
-        hdu.header['DATASEC'] = self._noao_section_keyword(amp_props.imaging)
-        hdu.header['DETSEC'] = \
+        hdr['DATASEC'] = self._noao_section_keyword(amp_props.imaging)
+        hdr['DETSEC'] = \
             self._noao_section_keyword(amp_props.mosaic_section,
                                        flipx=amp_props.flip_x,
                                        flipy=amp_props.flip_y)
-        hdu.header['BIASSEC'] = \
+        hdr['BIASSEC'] = \
             self._noao_section_keyword(amp_props.serial_overscan)
-        hdu.header['GAIN'] = amp_props.gain
+        hdr['GAIN'] = amp_props.gain
 
         return hdu
 

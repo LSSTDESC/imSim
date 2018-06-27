@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Code to repackage phosim amplifier files into single sensor
 multi-extension FITS files, with an HDU per amplifier.
@@ -61,11 +60,11 @@ class PhoSimRepackager:
             = sorted(glob.glob(os.path.join(visit_dir, 'lsst_a_*')))
         amp_files = defaultdict(list)
         for item in phosim_amp_files:
-            sensor_id = '_'.join(item.split('_')[4:6])
+            sensor_id = '_'.join(os.path.basename(item).split('_')[4:6])
             amp_files[sensor_id].append(item)
         if out_dir is None:
             tokens = os.path.basename(phosim_amp_files[0]).split('_')
-            out_dir = 'v%s-%s' % (tokens[2], 'ugrizy'[int(tokens[3][1])])
+            out_dir = 'v%07i-%s' % (int(tokens[2]), 'ugrizy'[int(tokens[3][1])])
         if not os.path.isdir(out_dir):
             os.mkdir(out_dir)
 
@@ -73,6 +72,12 @@ class PhoSimRepackager:
             if verbose:
                 sys.stdout.write(sensor_id + '  ')
             t0 = time.time()
+            # Skip already-processed and compressed files.
+            gzip_file = self.mef_filename(amp_files[sensor_id][0],
+                                          out_dir=out_dir) + '.gz'
+            if os.path.isfile(gzip_file):
+                continue
+            print("repackaging", gzip_file)
             self.repackage(amp_files[sensor_id], out_dir=out_dir)
             if verbose:
                 print(time.time() - t0)
@@ -113,6 +118,14 @@ class PhoSimRepackager:
                 hdu.header.remove('BIASSEC')
             except KeyError:
                 pass
+
+            # Kludge the phosim WCS keywords so that obs_lsstCam can
+            # build an approximately consistent WCS for the
+            # sensor-level mosaic.  This is based on RHL's hack.
+            hdu.header['CRPIX1'] \
+                = -hdu.header['CRPIX1'] + amp.getBBox().getWidth()
+            hdu.header['CD1_1'] = -hdu.header['CD1_1']
+            hdu.header['CD2_1'] = -hdu.header['CD2_1']
             sensor.append(hdu)
 
         # Set keywords in primary HDU, extracting most of the relevant
@@ -135,14 +148,22 @@ class PhoSimRepackager:
         sensor[0].header['RAFTNAME'] = raft
         sensor[0].header['SENSNAME'] = ccd
 
-        tokens = os.path.basename(phosim_amp_files[0]).split('_')
+        outfile = self.mef_filename(phosim_amp_files[0], out_dir=out_dir)
+        sensor.writeto(outfile, overwrite=True)
+
+    @staticmethod
+    def mef_filename(phosim_amp_file, out_dir='.'):
+        """
+        Construct the filename of the output MEF file based
+        on a phosim single amplifier filename.
+        """
+        tokens = os.path.basename(phosim_amp_file).split('_')
+        # Remove the channel identifier.
         outfile = '_'.join(tokens[:6] + tokens[7:])
         outfile = os.path.join(out_dir, outfile)
-
         # astropy's gzip compression is very slow, so remove any .gz
         # extension from the computed output filename and gzip the
         # files later.
         if outfile.endswith('.gz'):
             outfile = outfile[:-len('.gz')]
-
-        sensor.writeto(outfile, overwrite=True)
+        return outfile
