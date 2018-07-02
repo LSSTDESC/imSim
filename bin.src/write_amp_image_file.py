@@ -11,6 +11,7 @@ import desc.imsim
 
 parser = argparse.ArgumentParser()
 parser.add_argument("eimage_file", help="eimage file to process")
+parser.add_argument("instcat", help="associated instance catalog")
 parser.add_argument('--log_level', type=str,
                     choices=['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'],
                     default='INFO', help='Logging level. Default: "INFO"')
@@ -21,6 +22,7 @@ args = parser.parse_args()
 logger = desc.imsim.get_logger(args.log_level)
 
 image_source = desc.imsim.ImageSource.create_from_eimage(args.eimage_file,
+                                                         args.instcat,
                                                          seg_file=args.seg_file,
                                                          logger=logger)
 outfile = os.path.basename(args.eimage_file).replace('lsst_e', 'lsst_a')
