@@ -135,41 +135,14 @@ class ImageSource(object):
                                    logger=logger)
         image_source.eimage = eimage
         image_source.eimage_data = eimage[0].data
-        image_source._read_pointing_info(opsim_db)
+        image_source._read_instcat_commands(instcat)
         return image_source
 
-    def _read_pointing_info(self, opsim_db):
-        try:
-            self.ratel = self.eimage[0].header['RATEL']
-            self.dectel = self.eimage[0].header['DECTEL']
-            self.rotangle = self.eimage[0].header['ROTANGLE']
-            return
-        except KeyError:
-            if opsim_db is None:
-                raise RuntimeError("eimage file does not have pointing info. "
-                                   "Need an opsim db file.")
-        # Read from the opsim db.
-        visit = self.eimage[0].header['OBSID']
-        # We need an ObservationMetaData object to use the getRotSkyPos
-        # function.
-        obs_gen = ObservationMetaDataGenerator(database=opsim_db,
-                                               driver="sqlite")
-        obs_md = obs_gen.getObservationMetaData(obsHistID=visit,
-                                                boundType='circle',
-                                                boundLength=0)[0]
-        # Extract pointing info from opsim db for desired visit.
-        conn = sqlite3.connect(opsim_db)
-        query = """select descDitheredRA, descDitheredDec,
-        descDitheredRotTelPos from summary where
-        obshistid={}""".format(visit)
-        curs = conn.execute(query)
-        ra, dec, rottelpos = [np.degrees(x) for x in curs][0]
-        conn.close()
-        self.ratel, self.dectel = ra, dec
-        obs_md.pointingRA = ra
-        obs_md.pointingDec = dec
-        self.rotangle = getRotSkyPos(ra, dec, obs_md, rottelpos)
-
+    def _read_instcat_commands(self, instcat):
+        commands = metadata_from_file(instcat)
+        self.ratel = float(commands['rightascension'])
+        self.dectel = float(commands['declination'])
+        self.rotangle = float(commands['rotskypos'])
 
     def get_amp_image(self, amp_info_record, imageFactory=afwImage.ImageI):
         """
