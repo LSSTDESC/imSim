@@ -24,7 +24,7 @@ import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.utils as lsstUtils
 from .focalplane_info import FocalPlaneInfo, cte_matrix
-from .imSim import get_logger
+from .imSim import get_logger, metadata_from_file
 
 __all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
            'set_phosim_bboxes', 'set_noao_keywords']
@@ -92,8 +92,8 @@ class ImageSource(object):
         self.eimage.close()
 
     @staticmethod
-    def create_from_eimage(eimage_file, sensor_id=None, seg_file=None,
-                           logger=None):
+    def create_from_eimage(eimage_file, instcat, sensor_id=None,
+                           seg_file=None, logger=None):
         """
         Create an ImageSource object from a PhoSim eimage file.
 
@@ -102,6 +102,11 @@ class ImageSource(object):
         eimage_file: str
            Filename of the eimage FITS file from which the amplifier
            images will be extracted.
+        instcat: str
+           Instance catalog associated with the input eimage.  The
+           boresight coordinates and rotator angle will be extracted
+           from the phosim commands in order to write them to the PHDU
+           of the MEF file.
         sensor_id: str, optional
             The raft and sensor identifier, e.g., 'R22_S11'.  If None,
             then extract the CHIPID keyword in the primarey HDU.
@@ -129,7 +134,14 @@ class ImageSource(object):
                                    seg_file=seg_file, logger=logger)
         image_source.eimage = eimage
         image_source.eimage_data = eimage[0].data
+        image_source._read_instcat_commands(instcat)
         return image_source
+
+    def _read_instcat_commands(self, instcat):
+        commands = metadata_from_file(instcat)
+        self.ratel = float(commands['rightascension'])
+        self.dectel = float(commands['declination'])
+        self.rotangle = float(commands['rotskypos'])
 
     def _read_seg_file(self, seg_file):
         if seg_file is None:
@@ -371,13 +383,23 @@ class ImageSource(object):
         if run_number is None:
             run_number = output[0].header['OBSID']
         output[0].header['RUNNUM'] = str(run_number)
+        output[0].header['DARKTIME'] = output[0].header['EXPTIME']
         mjd_obs = astropy.time.Time(output[0].header['MJD-OBS'], format='mjd')
         output[0].header['DATE-OBS'] = mjd_obs.isot
         output[0].header['LSST_NUM'] = lsst_num
         output[0].header['TESTTYPE'] = 'IMSIM'
         output[0].header['IMGTYPE'] = 'SKYEXP'
         output[0].header['MONOWL'] = -1
+        raft, ccd = output[0].header['CHIPID'].split('_')
+        output[0].header['RAFTNAME'] = raft
+        output[0].header['SENSNAME'] = ccd
         output[0].header['OUTFILE'] = os.path.basename(outfile)
+        # Add boresight pointing angles and rotskypos (angle of sky
+        # relative to Camera coordinates) from which obs_lsstCam can
+        # infer the CCD-wide WCS.
+        output[0].header['RATEL'] = self.ratel
+        output[0].header['DECTEL'] = self.dectel
+        output[0].header['ROTANGLE'] = self.rotangle
         # Use seg_ids to write the image extensions in the order
         # specified by LCA-10140.
         seg_ids = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
