@@ -93,6 +93,25 @@ class PhoSimRepackager:
         phosim_amp_files: list
             List of phosim amplifier filenames.
         """
+        # PhoSim labels the amplifier channels incorrectly.  Here is a
+        # mapping from the phosim channels to the correct ones.
+        ch_map = {'00': '10',
+                  '01': '11',
+                  '02': '12',
+                  '03': '13',
+                  '04': '14',
+                  '05': '15',
+                  '06': '16',
+                  '07': '17',
+                  '17': '07',
+                  '16': '06',
+                  '15': '05',
+                  '14': '04',
+                  '13': '03',
+                  '12': '02',
+                  '11': '01',
+                  '10': '00'}
+
         # Create the HDUList to contain the MEF data.
         sensor = fits.HDUList(fits.PrimaryHDU())
 
@@ -100,8 +119,11 @@ class PhoSimRepackager:
         # into a dictionary keyed by channel id.
         segments = dict()
         for fn in phosim_amp_files:
-            channel = os.path.basename(fn).split('_')[6][1:]
-            segments[channel] = fits.open(fn)[0]
+            # Get the channel id from the filename written by phosim.
+            # This is the incorrect channel id, so correct it when
+            # filling the segments dictionary.
+            phosim_channel = os.path.basename(fn).split('_')[6][1:]
+            segments[ch_map[phosim_channel]] = fits.open(fn)[0]
 
         # Set the NOAO section keywords based on the pixel geometry
         # in the LsstCam object.
@@ -119,13 +141,6 @@ class PhoSimRepackager:
             except KeyError:
                 pass
 
-            # Kludge the phosim WCS keywords so that obs_lsstCam can
-            # build an approximately consistent WCS for the
-            # sensor-level mosaic.  This is based on RHL's hack.
-            hdu.header['CRPIX1'] \
-                = -hdu.header['CRPIX1'] + amp.getBBox().getWidth()
-            hdu.header['CD1_1'] = -hdu.header['CD1_1']
-            hdu.header['CD2_1'] = -hdu.header['CD2_1']
             sensor.append(hdu)
 
         # Set keywords in primary HDU, extracting most of the relevant
