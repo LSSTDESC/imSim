@@ -285,6 +285,8 @@ class SimulateSensor:
         gs_interpreter.writeImages(nameRoot=os.path.join(outdir, prefix)
                                    + obsHistID)
 
+        # Write out the centroid files if they were made.
+        gs_interpreter.write_centroid_files()
         gs_interpreter.close_centroid_files()
 
 
