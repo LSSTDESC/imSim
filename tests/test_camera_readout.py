@@ -18,9 +18,11 @@ class ImageSourceTestCase(unittest.TestCase):
         imsim_dir = lsstUtils.getPackageDir('imsim')
         self.eimage_file = os.path.join(imsim_dir, 'tests', 'data',
                                         'lsst_e_197356_R22_S11_r.fits.gz')
+        instcat = os.path.join(imsim_dir, 'tests', 'tiny_instcat.txt')
         seg_file = os.path.join(imsim_dir, 'data', 'segmentation_itl.txt')
         self.image_source \
             = desc.imsim.ImageSource.create_from_eimage(self.eimage_file,
+                                                        instcat,
                                                         'R22_S11',
                                                         seg_file=seg_file)
 
