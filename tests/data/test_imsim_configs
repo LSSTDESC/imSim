@@ -12,7 +12,7 @@ ccd_rate = 8
 catalog = default
 
 [checkpointing]
-nobj = 200
+nobj = 1000
 
 [wl_params]
-gamma2_sign = -1
+gamma2_sign = 1

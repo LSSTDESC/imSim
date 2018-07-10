@@ -20,7 +20,6 @@ from lsst.sims.GalSimInterface import make_galsim_detector, LSSTCameraWrapper
 from lsst.sims.photUtils import BandpassDict
 import desc.imsim
 
-
 class SkyModelTestCase(unittest.TestCase):
     """
     TestCase class for skyModel module code.

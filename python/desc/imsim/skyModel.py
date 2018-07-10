@@ -13,8 +13,8 @@ import lsst.sims.skybrightness as skybrightness
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
 from .imSim import get_config, get_logger, get_obs_lsstSim_camera
 
-__all__ = ['make_sky_model', 'SkyCountsPerSec', 'ESOSkyModel',
-           'ESOSiliconSkyModel', 'FastSiliconSkyModel']
+__all__ = ['make_sky_model', 'get_chip_center', 'SkyCountsPerSec',
+           'ESOSkyModel', 'ESOSiliconSkyModel', 'FastSiliconSkyModel']
 
 
 def make_sky_model(obs_metadata, photParams, seed=None, bandpassDict=None,
@@ -254,10 +254,11 @@ class ESOSkyModel(NoiseAndBackgroundBase):
 
 class FastSiliconSkyModel(ESOSkyModel):
     """
-    This version produces a sky background image by scaling the counts
-    in each pixel by the areas of distorted pixel geometries in the
-    galsim.Silicon model to account for electrostatic effects such as
-    tree rings.
+    This version produces an image by scaling the counts in each pixel
+    by the areas of distorted pixel geometries in the galsim.Silicon
+    model to account for electrostatic effects such as tree rings. It
+    is currently used for making the sky background or flats which
+    require a large number of electrons in every pixel.
     """
     def __init__(self, obs_metadata, photParams, seed=None,
                  bandpassDict=None, logger=None):
@@ -289,10 +290,13 @@ class FastSiliconSkyModel(ESOSkyModel):
                                       treering_center=detector.tree_rings.center,
                                       transpose=True)
 
-        # Loop over amplifiers to save memory when storing the 36
-        # pixel vertices per pixel.
+        # Loop over 1/2 amplifiers to save memory when storing the 36
+        # pixel vertices per pixel. The 36 vertices arise from the 8
+        # vertices per side + 4 corners (8*(4 sides) + 4 = 36).  This
+        # corresponds to 72 floats per pixel (x and y coordinates) for
+        # representing the pixel distortions in memory.
         nrow, ncol = image.array.shape
-        nx, ny = 2, 8
+        nx, ny = 4, 8
         dx = ncol//nx
         dy = nrow//ny
 
@@ -300,7 +304,7 @@ class FastSiliconSkyModel(ESOSkyModel):
             xmin = i*dx + 1
             xmax = (i + 1)*dx
             for j in range(ny):
-                self.logger.debug("FastSiliconSkyModel: processing amp %d" %
+                self.logger.debug("FastSiliconSkyModel: processing amp region %d" %
                                   (i*ny + j + 1))
                 ymin = j*dy + 1
                 ymax = (j + 1)*dy
