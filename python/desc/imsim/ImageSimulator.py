@@ -29,6 +29,7 @@ __all__ = ['ImageSimulator']
 # image_simulator to self so that it is available in the callbacks.
 image_simulator = None
 
+
 class ImageSimulator:
     """
     Class to manage the parallel simulation of sensors using the
@@ -36,7 +37,7 @@ class ImageSimulator:
     """
     def __init__(self, instcat, psf, numRows=None, config=None, seed=267,
                  outdir='fits', sensor_list=None, apply_sensor_model=True,
-                 file_id=None, log_level='WARN'):
+                 create_centroid_file=False, file_id=None, log_level='WARN'):
         """
         Parameters
         ----------
@@ -69,6 +70,7 @@ class ImageSimulator:
             Logging level ('DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL').
         """
         self.config = read_config(config)
+        self.create_centroid_file = create_centroid_file
         self.psf = psf
         self.outdir = outdir
         self.obs_md, self.phot_params, sources \
@@ -125,6 +127,11 @@ class ImageSimulator:
                                         self.phot_params,
                                         self.obs_md)
 
+            if self.create_centroid_file:
+                self.gs_interpreters[det_name].centroid_base_name = \
+                    os.path.join(self.outdir,
+                                 self.config['persistence']['centroid_prefix'])
+
     @staticmethod
     def checkpoint_file(file_id, det_name):
         """
@@ -164,7 +171,7 @@ class ImageSimulator:
         prefix = self.config['persistence']['eimage_prefix']
         obsHistID = str(self.obs_md.OpsimMetaData['obshistID'])
         return os.path.join(self.outdir, prefix + '_'.join(
-            (obsHistID, detector.fileName, self.obs_md.bandpass +'.fits')))
+            (obsHistID, detector.fileName, self.obs_md.bandpass + '.fits')))
 
     def run(self, processes=1, wait_time=None):
         """
@@ -279,6 +286,9 @@ class SimulateSensor:
         obsHistID = str(image_simulator.obs_md.OpsimMetaData['obshistID'])
         gs_interpreter.writeImages(nameRoot=os.path.join(outdir, prefix)
                                    + obsHistID)
+
+        # Write out the centroid files if they were made.
+        gs_interpreter.write_centroid_files()
 
 #        # The image for the sensor-visit has been drawn, so delete the
 #        # checkpoint file.
