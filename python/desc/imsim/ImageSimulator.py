@@ -127,7 +127,7 @@ class ImageSimulator:
                                         self.phot_params,
                                         self.obs_md)
 
-            if self.create_centroid_file is True:
+            if self.create_centroid_file:
                 self.gs_interpreters[det_name].centroid_base_name = \
                     os.path.join(self.outdir,
                                  self.config['persistence']['centroid_prefix'])
