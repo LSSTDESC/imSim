@@ -29,14 +29,15 @@ __all__ = ['ImageSimulator']
 # image_simulator to self so that it is available in the callbacks.
 image_simulator = None
 
+
 class ImageSimulator:
     """
     Class to manage the parallel simulation of sensors using the
     multiprocessing module.
     """
-    def __init__(self, instcat, create_centroid_file, psf, numRows=None, config=None, seed=267,
+    def __init__(self, instcat, psf, numRows=None, config=None, seed=267,
                  outdir='fits', sensor_list=None, apply_sensor_model=True,
-                 file_id=None, log_level='WARN'):
+                 create_centroid_file=False, file_id=None, log_level='WARN'):
         """
         Parameters
         ----------
@@ -169,7 +170,7 @@ class ImageSimulator:
         prefix = self.config['persistence']['eimage_prefix']
         obsHistID = str(self.obs_md.OpsimMetaData['obshistID'])
         return os.path.join(self.outdir, prefix + '_'.join(
-            (obsHistID, detector.fileName, self.obs_md.bandpass +'.fits')))
+            (obsHistID, detector.fileName, self.obs_md.bandpass + '.fits')))
 
     def run(self, processes=1, wait_time=None):
         """

@@ -50,13 +50,14 @@ sensor_list = args.sensors.split('^') if args.sensors is not None \
 apply_sensor_model = not args.disable_sensor_model
 
 image_simulator \
-    = desc.imsim.ImageSimulator(args.file, args.create_centroid_file, psf,
+    = desc.imsim.ImageSimulator(args.file, psf,
                                 numRows=args.numrows,
                                 config=args.config_file,
                                 seed=args.seed,
                                 outdir=args.outdir,
                                 sensor_list=sensor_list,
                                 apply_sensor_model=apply_sensor_model,
+                                create_centroid_file=args.create_centroid_file,
                                 file_id=args.file_id,
                                 log_level=args.log_level)
 
