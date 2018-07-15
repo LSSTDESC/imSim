@@ -289,8 +289,6 @@ class SimulateSensor:
 
         # Write out the centroid files if they were made.
         gs_interpreter.write_centroid_files()
-        gs_interpreter.close_centroid_files()
-
 
 #        # The image for the sensor-visit has been drawn, so delete the
 #        # checkpoint file.
