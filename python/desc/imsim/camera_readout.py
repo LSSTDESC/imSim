@@ -23,8 +23,12 @@ import astropy.time
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.utils as lsstUtils
+with warnings.catch_warnings():
+    warnings.simplefilter('ignore')
+    from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
+    from lsst.sims.utils import getRotSkyPos
 from .focalplane_info import FocalPlaneInfo, cte_matrix
-from .imSim import get_logger, metadata_from_file
+from .imSim import get_logger
 
 __all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
            'set_phosim_bboxes', 'set_noao_keywords']
@@ -65,10 +69,11 @@ class ImageSource(object):
             The exposure time of the image in seconds.
         sensor_id : str
             The raft and sensor identifier, e.g., 'R22_S11'.
-        seg_file : str, optional
+        seg_file : str [None]
             The segmentation.txt file, the PhoSim-formatted file that
             describes the properties of the sensors in the focal
-            plane.  If None, then the version in imSim/data will be used.
+            plane.  If None, then imSim/data/segmentation_itl.txt will
+            be used.
         logger: logging.Logger [None]
             logging.Logger object to use. If None, then a logger with level
             INFO will be used.
@@ -92,8 +97,8 @@ class ImageSource(object):
         self.eimage.close()
 
     @staticmethod
-    def create_from_eimage(eimage_file, instcat, sensor_id=None,
-                           seg_file=None, logger=None):
+    def create_from_eimage(eimage_file, sensor_id=None, seg_file=None,
+                           opsim_db=None, logger=None):
         """
         Create an ImageSource object from a PhoSim eimage file.
 
@@ -102,19 +107,20 @@ class ImageSource(object):
         eimage_file: str
            Filename of the eimage FITS file from which the amplifier
            images will be extracted.
-        instcat: str
-           Instance catalog associated with the input eimage.  The
-           boresight coordinates and rotator angle will be extracted
-           from the phosim commands in order to write them to the PHDU
-           of the MEF file.
-        sensor_id: str, optional
+        sensor_id: str [None]
             The raft and sensor identifier, e.g., 'R22_S11'.  If None,
             then extract the CHIPID keyword in the primarey HDU.
-        seg_file: str, optional
-            Full path of segmentation.txt file, the PhoSim-formatted file
+        seg_file: str [None]
+            Full path of segmentation.txt, the PhoSim-formatted file
             that describes the properties of the sensors in the focal
-            plane.  If None, then the version in obs_lsstSim/description
+            plane.  If None, then imSim/data/segmentation_itl.txt
             will be used.
+        opsim_db: str [None]
+            OpSim db file to use to find pointing information for each
+            visit.  This is needed for older imSim eimage files that
+            do not have the RATEL, DECTEL, and ROTANGLE keywords
+            set in the FITS header.   If None and if an eimage file without
+            those keywords is provided, then a RuntimeError will be raised.
         logger: logging.Logger [None]
             logging.Logger object to use. If None, then a logger with level
             INFO will be used.
@@ -134,14 +140,39 @@ class ImageSource(object):
                                    seg_file=seg_file, logger=logger)
         image_source.eimage = eimage
         image_source.eimage_data = eimage[0].data
-        image_source._read_instcat_commands(instcat)
+        image_source._read_pointing_info(opsim_db)
         return image_source
 
-    def _read_instcat_commands(self, instcat):
-        commands = metadata_from_file(instcat)
-        self.ratel = float(commands['rightascension'])
-        self.dectel = float(commands['declination'])
-        self.rotangle = float(commands['rotskypos'])
+    def _read_pointing_info(self, opsim_db):
+        try:
+            self.ratel = self.eimage[0].header['RATEL']
+            self.dectel = self.eimage[0].header['DECTEL']
+            self.rotangle = self.eimage[0].header['ROTANGLE']
+            return
+        except KeyError:
+            if opsim_db is None:
+                raise RuntimeError("eimage file does not have pointing info. "
+                                   "Need an opsim db file.")
+        # Read from the opsim db.
+        visit = self.eimage[0].header['OBSID']
+        # We need an ObservationMetaData object to use the getRotSkyPos
+        # function.
+        obs_gen = ObservationMetaDataGenerator(database=opsim_db,
+                                               driver="sqlite")
+        obs_md = obs_gen.getObservationMetaData(obsHistID=obsid,
+                                                boundType='circle',
+                                                boundLength=0)
+        # Extract pointing info from opsim db for desired visit.
+        conn = sqlite3.connect(opsim_db)
+        query = """select descDitheredRA, descDitheredDec,
+        descDitheredRotTelPos from summary where
+        obshistid={}""".format(visit)
+        curs = conn.execute(query)
+        conn.close()
+        ra, dec, rottelpos = [np.degrees(x) for x in curs][0]
+        self.ratel, self.dectel = ra, dec
+        obs_md.pointingRA, obs_md.pointingDec = ra, dec
+        self.rotangle = getRotSkyPos(ra, dec, obs_md, rottelpos)
 
     def _read_seg_file(self, seg_file):
         if seg_file is None:
