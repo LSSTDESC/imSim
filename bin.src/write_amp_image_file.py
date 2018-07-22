@@ -18,6 +18,7 @@ parser.add_argument("--opsim_db", default=None, type=str,
                     help="OpSim db file as alternative source of pointing info")
 parser.add_argument('--config_file', type=str, default=None,
                     help='Config file. If None, the default config will be used.')
+e for old eimage files
 args = parser.parse_args()
 
 logger = desc.imsim.get_logger(args.log_level)
