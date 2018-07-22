@@ -153,7 +153,7 @@ if __name__ == '__main__':
     outfile = 'segmentation.txt_new'
 
     # Use default ITL geometry.
-    geom = AmpGeom(serial_overscan=10, parallel_overscan=10)
+    geom = AmpGeom()
 
 #    # e2v geometry
 #    geom = AmpGeom(nx=512, ny=2002, prescan=10,
