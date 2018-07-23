@@ -18,6 +18,7 @@ import os
 import warnings
 from collections import namedtuple, OrderedDict
 import numpy as np
+import sqlite3
 import astropy.io.fits as fits
 import astropy.time
 import lsst.afw.geom as afwGeom
