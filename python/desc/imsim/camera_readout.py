@@ -162,17 +162,18 @@ class ImageSource(object):
                                                driver="sqlite")
         obs_md = obs_gen.getObservationMetaData(obsHistID=visit,
                                                 boundType='circle',
-                                                boundLength=0)
+                                                boundLength=0)[0]
         # Extract pointing info from opsim db for desired visit.
         conn = sqlite3.connect(opsim_db)
         query = """select descDitheredRA, descDitheredDec,
         descDitheredRotTelPos from summary where
         obshistid={}""".format(visit)
         curs = conn.execute(query)
-        conn.close()
         ra, dec, rottelpos = [np.degrees(x) for x in curs][0]
+        conn.close()
         self.ratel, self.dectel = ra, dec
-        obs_md.pointingRA, obs_md.pointingDec = ra, dec
+        obs_md.pointingRA = ra
+        obs_md.pointingDec = dec
         self.rotangle = getRotSkyPos(ra, dec, obs_md, rottelpos)
 
     def _read_seg_file(self, seg_file):
