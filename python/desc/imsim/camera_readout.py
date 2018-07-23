@@ -159,7 +159,7 @@ class ImageSource(object):
         # function.
         obs_gen = ObservationMetaDataGenerator(database=opsim_db,
                                                driver="sqlite")
-        obs_md = obs_gen.getObservationMetaData(obsHistID=obsid,
+        obs_md = obs_gen.getObservationMetaData(obsHistID=visit,
                                                 boundType='circle',
                                                 boundLength=0)
         # Extract pointing info from opsim db for desired visit.
