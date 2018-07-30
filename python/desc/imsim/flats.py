@@ -9,16 +9,24 @@ __all__ = ['make_flats']
 
 def make_flats(obs_md, phosim_commands=None, counts_per_iter=4e3, counts_total=80e3, treering_amplitude = 0.26, nflats=1, nborder=2, treering_period = 47., treering_center = galsim.PositionD(0,0), seed = 31415):
     
+    # get photometric parameters
     if phosim_commands==None:
         phot_params = photometricParameters(phosim_commands)
     else:
         phot_params = PhotometricParameters(bandpass='r', darkcurrent=0, exptime=30., gain=1, nexp=1, readnoise=0)
     
-
+    # create an lsst camera object
     camera = get_obs_lsstSim_camera()
+    
     interpreter = GSInterface.GalSimInterpreter(detectors=list(camera))
+    
+    # create lsst cameraWrapper
     cameraWrapper = GSInterface.LSSTCameraWrapper()
+    
+    # create a list of detector objects
     detectors = [GSInterface.make_galsim_detector(cameraWrapper, det.getName(), phot_params, obs_md) for det in list(camera) if str(det.getType())=='DetectorType.SCIENCE']
+    
+    # use detector objects to make blank images with correct lsst pixel geometry and wcs
     blank_imgs = [interpreter.blankImage(det) for det in detectors] 
     
     
