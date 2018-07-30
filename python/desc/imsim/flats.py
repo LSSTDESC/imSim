@@ -3,14 +3,14 @@ import lsst.sims.GalSimInterface as GSInterface
 from lsst.sims.photUtils import PhotometricParameters
 from lsst.sims.utils import ObservationMetaData
 import numpy as np
-import sys, galsim
+import os, galsim
 
 __all__ = ['make_flats']
 
-def make_flats(obs_md, phosim_commands=None, counts_per_iter=4e3, counts_total=80e3, treering_amplitude = 0.26, nflats=1, nborder=2, treering_period = 47., treering_center = galsim.PositionD(0,0), seed = 31415):
+def make_flats(obs_md, outdir, phosim_commands=None, counts_per_iter=4e3, counts_total=80e3, treering_amplitude = 0.26, nflats=1, nborder=2, treering_period = 47., treering_center = galsim.PositionD(0,0), seed = 31415):
     
     # get photometric parameters
-    if phosim_commands==None:
+    if phosim_commands!=None:
         phot_params = photometricParameters(phosim_commands)
     else:
         phot_params = PhotometricParameters(bandpass='r', darkcurrent=0, exptime=30., gain=1, nexp=1, readnoise=0)
@@ -29,6 +29,9 @@ def make_flats(obs_md, phosim_commands=None, counts_per_iter=4e3, counts_total=8
     # use detector objects to make blank images with correct lsst pixel geometry and wcs
     blank_imgs = [interpreter.blankImage(det) for det in detectors] 
     
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    outdir = outdir+'/'
     
     for m,img in enumerate(blank_imgs):
         
@@ -58,7 +61,7 @@ def make_flats(obs_md, phosim_commands=None, counts_per_iter=4e3, counts_total=8
         # We also need to account for the distortion of the wcs across the image.  
         # This expects sky_level in ADU/arcsec^2, not ADU/pixel.
         base_image.wcs.makeSkyImage(base_image, sky_level=1.)
-        base_image.write('wcs_area.fits')
+        # base_image.write(outdir+'wcs_area.fits')
 
         # Rescale so that the mean sky level per pixel is skyCounts
         mean_pixel_area = base_image.array.mean()
@@ -84,16 +87,16 @@ def make_flats(obs_md, phosim_commands=None, counts_per_iter=4e3, counts_total=8
                 temp = sensor.calculate_pixel_areas(image)
                 temp = temp
                 temp /= np.mean(temp.array)  # Normalize to unit mean.
-                # temp.write('sensor_area.fits')
+                # temp.write(outdir+'sensor_area.fits')
 
                 # Multiply by the base image to get the right mean level and wcs effects
                 temp *= base_image
-                # temp.write('nonoise.fits')
+                # temp.write(outdir+'nonoise.fits')
 
                 # Finally, add noise.  What we have here so far is the expectation value in each pixel.
                 # We need to realize this according to Poisson statistics with these means.
                 temp.addNoise(noise)
-                # temp.write('withnoise.fits')
+                # temp.write(outdir+'withnoise.fits')
 
                 # Add this to the image we are building up.
                 image += temp
@@ -105,4 +108,4 @@ def make_flats(obs_md, phosim_commands=None, counts_per_iter=4e3, counts_total=8
             image.setOrigin(1,1)
             # print('bounds => ',image.bounds)
 
-            image.write('flat{:02d}_{:02d}.fits'.format(m,n))
+            image.write(outdir+'flat{:02d}_{:02d}.fits'.format(m,n))

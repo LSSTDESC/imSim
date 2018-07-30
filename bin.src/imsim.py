@@ -54,7 +54,7 @@ sensor_list = args.sensors.split('^') if args.sensors is not None \
 apply_sensor_model = not args.disable_sensor_model
 
 if args.make_flats==True:
-    desc.imsim.flats.make_flats(obs_md, seed=args.seed)
+    desc.imsim.flats.make_flats(obs_md, outdir=args.outdir, seed=args.seed)
 
 
 if args.flats_only==False:
