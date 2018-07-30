@@ -36,6 +36,10 @@ parser.add_argument('--seed', type=int, default=267,
                     help='integer used to seed random number generator')
 parser.add_argument('--processes', type=int, default=1,
                     help='number of processes to use in multiprocessing mode')
+parser.add_argument('--make_flats', type=bool, default=False,
+                    help='simulate flats with treerings')
+parser.add_argument('--flats_only', type=bool, default=False,
+                    help='only makes flats, skips the rest of the simulations')
 args = parser.parse_args()
 
 commands = desc.imsim.metadata_from_file(args.file)
@@ -49,16 +53,23 @@ sensor_list = args.sensors.split('^') if args.sensors is not None \
 
 apply_sensor_model = not args.disable_sensor_model
 
-image_simulator \
-    = desc.imsim.ImageSimulator(args.file, psf,
-                                numRows=args.numrows,
-                                config=args.config_file,
-                                seed=args.seed,
-                                outdir=args.outdir,
-                                sensor_list=sensor_list,
-                                apply_sensor_model=apply_sensor_model,
-                                create_centroid_file=args.create_centroid_file,
-                                file_id=args.file_id,
-                                log_level=args.log_level)
+if args.make_flats==True:
+    desc.imsim.flats.make_flats(obs_md, args.file, seed=args.seed)
 
-image_simulator.run(processes=args.processes)
+
+if args.flats_only==False:
+
+    image_simulator \
+        = desc.imsim.ImageSimulator(args.file, psf,
+                                    numRows=args.numrows,
+                                    config=args.config_file,
+                                    seed=args.seed,
+                                    outdir=args.outdir,
+                                    sensor_list=sensor_list,
+                                    apply_sensor_model=apply_sensor_model,
+                                    create_centroid_file=args.create_centroid_file,
+                                    file_id=args.file_id,
+                                    log_level=args.log_level)
+
+
+    image_simulator.run(processes=args.processes)
