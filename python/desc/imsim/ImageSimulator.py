@@ -296,9 +296,12 @@ class SimulateSensor:
         # Write out the centroid files if they were made.
         gs_interpreter.write_centroid_files()
 
-#        # The image for the sensor-visit has been drawn, so delete the
-#        # checkpoint file.
-#        os.remove(gs_interpreter.checkpoint_file)
+        # The image for the sensor-visit has been drawn, so delete any
+        # existing checkpoint file if the config says to do so.
+        if (gs_interpreter.checkpoint_file is not None
+            and os.path.isfile(gs_interpreter.checkpoint_file)
+            and image_simulator.config['checkpointing']['cleanup']):
+            os.remove(gs_interpreter.checkpoint_file)
 
         # Remove reference to gs_interpreter in order to recover the
         # memory associated with that object.
