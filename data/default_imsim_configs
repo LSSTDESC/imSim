@@ -6,6 +6,7 @@ full_well = 1e5
 
 [persistence]
 eimage_prefix = lsst_e_
+eimage_compress = True
 centroid_prefix = centroid_
 
 [cosmic_rays]
