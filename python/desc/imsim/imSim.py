@@ -621,7 +621,7 @@ class ImSimConfiguration(object):
 
         Returns
         -------
-        None, int, float, str
+        None, int, float, bool, str
             Depending on the first workable cast, in that order.
         """
         if value == 'None':
@@ -632,6 +632,9 @@ class ImSimConfiguration(object):
             else:
                 return float(value)
         except ValueError:
+            # Check if it can be cast as a boolean.
+            if value in 'True False'.split():
+                return eval(value)
             # Return as the original string.
             return value
 

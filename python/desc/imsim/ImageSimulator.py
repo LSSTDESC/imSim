@@ -6,6 +6,8 @@ import os
 import re
 import multiprocessing
 import warnings
+import gzip
+import shutil
 import numpy as np
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
@@ -18,7 +20,7 @@ from .bleed_trails import apply_channel_bleeding
 from .skyModel import make_sky_model
 from .process_monitor import process_monitor
 
-__all__ = ['ImageSimulator']
+__all__ = ['ImageSimulator', 'compress_files']
 
 # This is global variable is needed since instances of ImageSimulator
 # contain references to unpickleable objects in the LSST Stack (e.g.,
@@ -216,6 +218,8 @@ class ImageSimulator:
 
     def _outfile_exists(self, det_name):
         eimage_file = self.eimage_file(det_name)
+        if self.config['persistence']['eimage_compress']:
+            eimage_file += '.gz'
         if os.path.exists(eimage_file):
             self.logger.info("%s already exists, skipping.", eimage_file)
             return True
@@ -284,16 +288,44 @@ class SimulateSensor:
             os.makedirs(outdir)
         prefix = image_simulator.config['persistence']['eimage_prefix']
         obsHistID = str(image_simulator.obs_md.OpsimMetaData['obshistID'])
-        gs_interpreter.writeImages(nameRoot=os.path.join(outdir, prefix)
-                                   + obsHistID)
+        nameRoot = os.path.join(outdir, prefix) + obsHistID
+        outfiles = gs_interpreter.writeImages(nameRoot=nameRoot)
+        if image_simulator.config['persistence']['eimage_compress']:
+            compress_files(outfiles)
 
         # Write out the centroid files if they were made.
         gs_interpreter.write_centroid_files()
 
-#        # The image for the sensor-visit has been drawn, so delete the
-#        # checkpoint file.
-#        os.remove(gs_interpreter.checkpoint_file)
+        # The image for the sensor-visit has been drawn, so delete any
+        # existing checkpoint file if the config says to do so.
+        if (gs_interpreter.checkpoint_file is not None
+            and os.path.isfile(gs_interpreter.checkpoint_file)
+            and image_simulator.config['checkpointing']['cleanup']):
+            os.remove(gs_interpreter.checkpoint_file)
 
         # Remove reference to gs_interpreter in order to recover the
         # memory associated with that object.
         image_simulator.gs_interpreters[self.sensor_name] = None
+
+def compress_files(file_list, remove_originals=True):
+    """
+    Use gzip to compress a list of files.
+
+    Parameters
+    ----------
+    file_list: list
+        A list of the names of files to compress.
+    remove_originals: bool [True]
+        Flag to remove original files.
+
+    Notes
+    -----
+    The compressed files will have a .gz extension added to the
+    original filename.
+    """
+    for infile in file_list:
+        outfile = infile + '.gz'
+        with open(infile, 'rb') as src, gzip.open(outfile, 'wb') as output:
+            shutil.copyfileobj(src, output)
+        if remove_originals:
+            os.remove(infile)
