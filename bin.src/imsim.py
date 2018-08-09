@@ -30,7 +30,7 @@ parser.add_argument('--disable_sensor_model', default=False,
                     action='store_true',
                     help='disable sensor effects')
 parser.add_argument('--file_id', type=str, default=None,
-                    help='ID string to use for checkpoint and centroid filenames.')
+                    help='ID string to use for checkpoint filenames.')
 parser.add_argument('--create_centroid_file', default=False, action="store_true",
                     help='Write centroid file(s).')
 parser.add_argument('--seed', type=int, default=267,
@@ -39,7 +39,7 @@ parser.add_argument('--processes', type=int, default=1,
                     help='number of processes to use in multiprocessing mode')
 args = parser.parse_args()
 
-commands = desc.imsim.metadata_from_file(args.file)
+commands = desc.imsim.metadata_from_file(args.instcat)
 
 obs_md = desc.imsim.phosim_obs_metadata(commands)
 
@@ -51,7 +51,7 @@ sensor_list = args.sensors.split('^') if args.sensors is not None \
 apply_sensor_model = not args.disable_sensor_model
 
 image_simulator \
-    = desc.imsim.ImageSimulator(args.file, psf,
+    = desc.imsim.ImageSimulator(args.instcat, psf,
                                 numRows=args.numrows,
                                 config=args.config_file,
                                 seed=args.seed,
