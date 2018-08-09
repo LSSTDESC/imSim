@@ -9,27 +9,28 @@ import argparse
 import desc.imsim
 
 parser = argparse.ArgumentParser()
-parser.add_argument('file', help="The instance catalog")
+parser.add_argument('instcat', help="The instance catalog")
 parser.add_argument('-n', '--numrows', default=None, type=int,
                     help="Read the first numrows of the file.")
 parser.add_argument('--outdir', type=str, default='fits',
                     help='Output directory for eimage file')
 parser.add_argument('--sensors', type=str, default=None,
-                    help='Sensors to simulate, e.g., "R:2,2 S:1,1^R:2,2 S:1,0".' +
+                    help='Sensors to simulate, e.g., '
+                    '"R:2,2 S:1,1^R:2,2 S:1,0". '
                     'If None, then simulate all sensors with sources on them')
 parser.add_argument('--config_file', type=str, default=None,
                     help="Config file. If None, the default config will be used.")
 parser.add_argument('--log_level', type=str,
                     choices=['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'],
-                    default='INFO', help='Logging level. Default: "INFO"')
+                    default='INFO', help='Logging level. Default: INFO')
 parser.add_argument('--psf', type=str, default='Kolmogorov',
                     choices=['DoubleGaussian', 'Kolmogorov', 'Atmospheric'],
-                    help="PSF model to use.")
+                    help="PSF model to use.  Default: Kolmogorov")
 parser.add_argument('--disable_sensor_model', default=False,
                     action='store_true',
                     help='disable sensor effects')
 parser.add_argument('--file_id', type=str, default=None,
-                    help='ID string to use for checkpoint and centroid filenames.')
+                    help='ID string to use for checkpoint filenames.')
 parser.add_argument('--create_centroid_file', default=False, action="store_true",
                     help='Write centroid file(s).')
 parser.add_argument('--seed', type=int, default=267,
@@ -38,7 +39,7 @@ parser.add_argument('--processes', type=int, default=1,
                     help='number of processes to use in multiprocessing mode')
 args = parser.parse_args()
 
-commands = desc.imsim.metadata_from_file(args.file)
+commands = desc.imsim.metadata_from_file(args.instcat)
 
 obs_md = desc.imsim.phosim_obs_metadata(commands)
 
@@ -50,7 +51,7 @@ sensor_list = args.sensors.split('^') if args.sensors is not None \
 apply_sensor_model = not args.disable_sensor_model
 
 image_simulator \
-    = desc.imsim.ImageSimulator(args.file, psf,
+    = desc.imsim.ImageSimulator(args.instcat, psf,
                                 numRows=args.numrows,
                                 config=args.config_file,
                                 seed=args.seed,
