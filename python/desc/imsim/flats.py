@@ -42,7 +42,7 @@ def make_flat(gs_det, counts_per_iter, niter, rng, buf=2, logger=None,
     galsim.ImageF
     """
     if logger is None:
-        logger = desc.imsim.get_logger('INFO', name='make_flat')
+        logger = desc.imsim.get_logger('DEBUG', name='make_flat')
     if wcs is None:
         wcs = gs_det.wcs
     ncol = gs_det.xMaxPix - gs_det.xMinPix + 1
