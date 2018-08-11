@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Script to create imSim flats.  This includes electorstatic sensor effects
+Script to create imSim flats.  This includes electrostatic sensor effects
 such as treerings and brighter-fatter.
 """
 import argparse
