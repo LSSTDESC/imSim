@@ -21,6 +21,8 @@ parser.add_argument('--counts_per_iter', type=int, default=4e3,
 parser.add_argument('--log_level', type=str,
                     choices=['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'],
                     default='INFO', help='Logging level. Default: INFO')
+parser.add_argument('--wcs_file', type=str, default=None,
+                    help='FITS file to use for the WCS (as galsim.FitsWCS)')
 
 args = parser.parse_args()
 
@@ -39,6 +41,8 @@ visit = obs_md.OpsimMetaData['obshistID']
 
 camera_wrapper = LSSTCameraWrapper()
 
+wcs = galsim.FitsWCS(args.wcs_file) if args.wcs_file is not None else None
+
 for det in camera_wrapper.camera:
     det_name = det.getName()
     if (det.getType() != cameraGeom.SCIENCE or
@@ -48,6 +52,6 @@ for det in camera_wrapper.camera:
     gs_det = make_galsim_detector(camera_wrapper, det_name, phot_params, obs_md)
     desc.imsim.add_treering_info([gs_det])
     my_flat = desc.imsim.make_flat(gs_det, counts_per_iter, niter, rng,
-                                   logger=logger, wcs=None)
+                                   logger=logger, wcs=wcs)
     ccd_id = "R{}_S{}".format(det_name[2:5:2], det_name[8:11:2])
     my_flat.write('flat_{}_{}_{}.fits'.format(visit, ccd_id, obs_md.bandpass))

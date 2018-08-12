@@ -78,11 +78,10 @@ def make_flat(gs_det, counts_per_iter, niter, rng, buf=2, logger=None,
             bounds = (galsim.BoundsI(xmin-buf, xmax+buf, ymin-buf, ymax+buf)
                       & temp_image.bounds)
             temp_amp = temp_image[bounds]
-            pixel_areas = sensor.calculate_pixel_areas(temp_amp)
-            pixel_areas /= pixel_areas.array.mean()
             for it in range(niter):
                 logger.debug("iter %d", it)
-                temp = pixel_areas.copy()
+                temp = sensor.calculate_pixel_areas(temp_amp)
+                temp /= temp.array.mean()
                 temp *= base_image[bounds]
                 temp.addNoise(noise)
                 temp_amp += temp
