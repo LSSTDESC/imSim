@@ -23,7 +23,7 @@ def make_flat(gs_det, counts_per_iter, niter, rng, buf=2, logger=None,
         The detector in the LSST focalplane to use.  This object
         contains the CCD pixel geometry, WCS, and treering info.
     counts_per_iter: int
-        Roughly the number of electrons/pixel to add at each iteration.
+        The mean number of electrons/pixel to add at each iteration.
     niter: int
         Number of iterations. Final flat will have niter*counts_per_iter
         electrons/pixel.
@@ -34,7 +34,7 @@ def make_flat(gs_det, counts_per_iter, niter, rng, buf=2, logger=None,
         across pixel boundaries.
     logger: logging.Logger [None]
         Logging object. If None, then a default logger will be used.
-    wcs: galsim.fitswcs.GSFitsWCS [None]
+    wcs: galsim.WCS [None]
         Alternative WCS object. If None, then gs_det.wcs will be used.
 
     Returns
