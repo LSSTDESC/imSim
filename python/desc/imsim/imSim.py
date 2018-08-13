@@ -752,28 +752,28 @@ def add_cosmic_rays(gs_interpreter, phot_params):
     return None
 
 
-def add_treering_info(gs_interpreter, tr_filename=None):
+def add_treering_info(detectors, tr_filename=None):
     """
     Adds tree ring info based on a model derived from measured sensors.
 
     Parameters
     ----------
-    gs_interpreter: lsst.sims.GalSimInterface.GalSimInterpreter
-        The object that is actually drawing the images
+    detectors: list (or other iterable)
+        A list of GalSimDetector objects.
     tr_filename: str
         Filename of tree rings parameter file.
 
     Returns
     -------
     None
-        Will act on gs_interpreter, adding tree ring information to the detectors.
+        Will add tree ring information to each of the detectors.
     """
     if tr_filename is None:
         tr_filename = os.path.join(lsstUtils.getPackageDir('imsim'),
                                    'data', 'tree_ring_data',
                                    'tree_ring_parameters_2018-04-26.txt')
     TR = TreeRings(tr_filename)
-    for detector in gs_interpreter.detectors:
+    for detector in detectors:
         [Rx, Ry, Sx, Sy] = [int(s) for s in list(detector.name) if s.isdigit()]
         (tr_center, tr_function) = TR.Read_DC2_Tree_Ring_Model(Rx, Ry, Sx, Sy)
         new_center = galsim.PositionD(tr_center.x + detector._xCenterPix, tr_center.y + detector._yCenterPix)
