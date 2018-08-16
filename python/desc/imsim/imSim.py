@@ -6,6 +6,7 @@ import os
 import sys
 import warnings
 from collections import namedtuple, defaultdict
+import pickle
 import logging
 import gc
 import copy
@@ -58,7 +59,8 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'add_cosmic_rays',
            '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK',
            'parsePhoSimInstanceFile',
-           'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom', 'make_psf']
+           'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom', 'make_psf',
+           'save_psf', 'load_psf']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -680,6 +682,8 @@ def read_config(config_file=None):
             my_config.set_from_config(section, key, value)
     return my_config
 
+read_config()
+
 
 def get_logger(log_level, name=None):
     """
@@ -873,7 +877,7 @@ def make_psf(psf_name, obs_md, log_level='WARN', rng=None):
 
     Returns
     -------
-    lsst.sims.GalSimInterface.PSFbase:  Instance of a subclass of PSFbase.
+    lsst.sims.GalSimInterface.PSFbase: Instance of a subclass of PSFbase.
     """
     if psf_name.lower() == 'doublegaussian':
         return SNRdocumentPSF(obs_md.OpsimMetaData['FWHMgeom'])
@@ -895,4 +899,22 @@ def make_psf(psf_name, obs_md, log_level='WARN', rng=None):
                              band=obs_md.bandpass,
                              rng=rng,
                              logger=logger)
+    return psf
+
+def save_psf(psf, outfile):
+    """
+    Save the psf as a pickle file.
+    """
+    # Set any logger attribute to None since loggers cannot be persisted.
+    if hasattr(psf, 'logger'):
+        psf.logger = None
+    with open(outfile, 'wb') as output:
+        pickle.dump(psf, output)
+
+def load_psf(psf_file):
+    """
+    Load a psf from a pickle file.
+    """
+    with open(psf_file, 'rb') as fd:
+        psf = pickle.load(fd)
     return psf
