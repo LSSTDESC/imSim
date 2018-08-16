@@ -11,14 +11,14 @@ electronics readout effects.
  * Apply crosstalk
  * Add read noise and bias offset
  * Write FITS file for each amplifier
-
 """
 from __future__ import print_function, absolute_import, division
 import os
 import warnings
 from collections import namedtuple, OrderedDict
-import numpy as np
 import sqlite3
+import numpy as np
+import scipy
 import astropy.io.fits as fits
 import astropy.time
 import lsst.afw.geom as afwGeom
@@ -28,13 +28,13 @@ with warnings.catch_warnings():
     warnings.simplefilter('ignore')
     from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
     from lsst.sims.utils import getRotSkyPos
-from .focalplane_info import FocalPlaneInfo, cte_matrix
-from .imSim import get_logger
+from .camera_info import CameraInfo
+from .imSim import get_logger, get_config
 
 __all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
-           'set_phosim_bboxes', 'set_noao_keywords']
+           'set_phosim_bboxes', 'set_noao_keywords', 'cte_matrix']
 
-
+config = get_config()
 class ImageSource(object):
     '''
     Class to create single segment images based on the pixel geometry
@@ -42,23 +42,22 @@ class ImageSource(object):
 
     Attributes
     ----------
-    eimage : astropy.io.fits.HDUList
+    eimage: astropy.io.fits.HDUList
         The input eimage data.  This is used as a container for both
         the pixel data and image metadata.
-    eimage_data : np.array
+    eimage_data: np.array
         The data attribute of the eimage PrimaryHDU.
-    exptime : float
+    exptime: float
         The exposure time of the image in seconds.
-    sensor_id : str
+    sensor_id: str
         The raft and sensor identifier, e.g., 'R22_S11'.
-    amp_images : OrderedDict
+    amp_images: OrderedDict
         Dictionary of amplifier images.
-    fp_props : FocalPlaneInfo object
+    camera_info: CameraInfo object
         Object containing the readout properties of the sensors in the
-        focal plane, extracted from the segmentation.txt file.
+        focal plane, provided by obs_lsstCam.ImsimMapper().camera.
     '''
-    def __init__(self, image_array, exptime, sensor_id, seg_file=None,
-                 logger=None):
+    def __init__(self, image_array, exptime, sensor_id, logger=None):
         """
         Class constructor.
 
@@ -70,11 +69,6 @@ class ImageSource(object):
             The exposure time of the image in seconds.
         sensor_id : str
             The raft and sensor identifier, e.g., 'R22_S11'.
-        seg_file : str [None]
-            The segmentation.txt file, the PhoSim-formatted file that
-            describes the properties of the sensors in the focal
-            plane.  If None, then imSim/data/segmentation_itl.txt will
-            be used.
         logger: logging.Logger [None]
             logging.Logger object to use. If None, then a logger with level
             INFO will be used.
@@ -86,7 +80,8 @@ class ImageSource(object):
         self.exptime = exptime
         self.sensor_id = sensor_id
 
-        self._read_seg_file(seg_file)
+        self.camera_info = CameraInfo()
+
         self._make_amp_images()
 
         if logger is None:
@@ -94,12 +89,16 @@ class ImageSource(object):
         else:
             self.logger = logger
 
+        self.ratel = 0
+        self.dectel = 0
+        self.rotangle = 0
+
     def __del__(self):
         self.eimage.close()
 
     @staticmethod
-    def create_from_eimage(eimage_file, sensor_id=None, seg_file=None,
-                           opsim_db=None, logger=None):
+    def create_from_eimage(eimage_file, sensor_id=None, opsim_db=None,
+                           logger=None):
         """
         Create an ImageSource object from a PhoSim eimage file.
 
@@ -111,11 +110,6 @@ class ImageSource(object):
         sensor_id: str [None]
             The raft and sensor identifier, e.g., 'R22_S11'.  If None,
             then extract the CHIPID keyword in the primarey HDU.
-        seg_file: str [None]
-            Full path of segmentation.txt, the PhoSim-formatted file
-            that describes the properties of the sensors in the focal
-            plane.  If None, then imSim/data/segmentation_itl.txt
-            will be used.
         opsim_db: str [None]
             OpSim db file to use to find pointing information for each
             visit.  This is needed for older imSim eimage files that
@@ -138,7 +132,7 @@ class ImageSource(object):
             sensor_id = eimage[0].header['CHIPID']
 
         image_source = ImageSource(eimage[0].data, exptime, sensor_id,
-                                   seg_file=seg_file, logger=logger)
+                                   logger=logger)
         image_source.eimage = eimage
         image_source.eimage_data = eimage[0].data
         image_source._read_pointing_info(opsim_db)
@@ -176,11 +170,6 @@ class ImageSource(object):
         obs_md.pointingDec = dec
         self.rotangle = getRotSkyPos(ra, dec, obs_md, rottelpos)
 
-    def _read_seg_file(self, seg_file):
-        if seg_file is None:
-            seg_file = os.path.join(lsstUtils.getPackageDir('imSim'),
-                                    'data', 'segmentation_itl.txt')
-        self.fp_props = FocalPlaneInfo.read_phosim_seg_file(seg_file)
 
     def get_amp_image(self, amp_info_record, imageFactory=afwImage.ImageI):
         """
@@ -206,40 +195,37 @@ class ImageSource(object):
         float_image = self.amp_images[amp_name]
         if imageFactory == afwImage.ImageF:
             return float_image
-        # Return image as the type given by imageFactory.  The
-        # following line implicitly assumes that the bounding box for
-        # the full segment matches the bounding box read from
-        # segmentation.txt in the creation of the .fp_props attribute.
+        # Return image as the type given by imageFactory.
         output_image = imageFactory(amp_info_record.getRawBBox())
         output_image.getArray()[:] = float_image.getArray()
         return output_image
 
-    def amp_name(self, amp_info_record):
+    def amp_name(self, amp_info):
         """
-        The ampifier name derived from a lsst.afw.table.tableLib.AmpInfoRecord.
+        The ampifier name derived from a
+        lsst.afw.table.ampInfo.ampInfo.AmpInfoRecord.
 
         Parameters
         ----------
-        amp_info_record : lsst.afw.table.tableLib.AmpInfoRecord
+        amp_info: lsst.afw.table.ampInfo.ampInfo.AmpInfoRecord.
 
         Returns
         -------
         str
              The amplifier name, e.g., "R22_S22_C00".
         """
-        return '_'.join((self.sensor_id,
-                         'C%s' % amp_info_record.getName()[::2]))
+        return '_'.join((self.sensor_id, amp_info.getName()))
 
     def _make_amp_images(self):
         """
         Make the amplifier images for all the amps in the sensor.
         """
         self.amp_images = OrderedDict()
-        sensor_props = self.fp_props.get_sensor(self.sensor_id)
-        for amp_name in sensor_props.amp_names:
+        amp_names = self.camera_info.get_amp_names(self.sensor_id)
+        for amp_name in amp_names:
             self._make_amp_image(amp_name)
         self._apply_crosstalk()
-        for amp_name in sensor_props.amp_names:
+        for amp_name in amp_names:
             self._add_read_noise_and_bias(amp_name)
 
     def _make_amp_image(self, amp_name):
@@ -251,43 +237,47 @@ class ImageSource(object):
         amp_name : str
             The amplifier name, e.g., "R22_S11_C00".
         """
-        amp_props = self.fp_props.get_amp(amp_name)
-        bbox = amp_props.mosaic_section
-        full_segment = afwImage.ImageF(amp_props.full_segment)
+        amp_info = self.camera_info.get_amp_info(amp_name)
+        bbox = self.camera_info.mosaic_section(amp_info)
+        full_segment = afwImage.ImageF(amp_info.getRawBBox())
 
         # Get the imaging segment (i.e., excluding prescan and
         # overscan regions), and fill with data from the eimage.
-        imaging_segment = full_segment.Factory(full_segment, amp_props.imaging)
+        imaging_segment \
+            = full_segment.Factory(full_segment, amp_info.getRawDataBBox())
         data = self.eimage_data[bbox.getMinY():bbox.getMaxY()+1,
                                 bbox.getMinX():bbox.getMaxX()+1].copy()
 
         # Apply flips in x and y relative to assembled eimage in order
         # to have the pixels in readout order.
-        if amp_props.flip_x:
+        if amp_info.getRawFlipX():
             data = data[:, ::-1]
-        if amp_props.flip_y:
+        if amp_info.getRawFlipY():
             data = data[::-1, :]
 
         imaging_segment.getArray()[:] = data
         full_arr = full_segment.getArray()
 
         # Add dark current.
-        full_arr += np.random.poisson(amp_props.dark_current*self.exptime,
+        dark_current = config['electronics_readout']['dark_current']
+        full_arr += np.random.poisson(dark_current*self.exptime,
                                       size=full_arr.shape)
 
         # Add defects.
 
         # Apply CTE.
-        pcte_matrix = cte_matrix(full_arr.shape[0], amp_props.pcti)
+        pcti = config['electronics_readout']['pcti']
+        pcte_matrix = cte_matrix(full_arr.shape[0], pcti)
         for col in range(0, full_arr.shape[1]):
             full_arr[:, col] = np.dot(pcte_matrix, full_arr[:, col])
 
-        scte_matrix = cte_matrix(full_arr.shape[1], amp_props.scti)
+        scti = config['electronics_readout']['scti']
+        scte_matrix = cte_matrix(full_arr.shape[1], scti)
         for row in range(0, full_arr.shape[0]):
             full_arr[row, :] = np.dot(scte_matrix, full_arr[row, :])
 
         # Convert to ADU.
-        full_arr /= amp_props.gain
+        full_arr /= amp_info.getGain()
 
         self.amp_images[amp_name] = full_segment
 
@@ -301,25 +291,27 @@ class ImageSource(object):
         amp_name : str
             The amplifier name, e.g., "R22_S11_C00".
         """
-        amp_props = self.fp_props.get_amp(amp_name)
+        amp_info = self.camera_info.get_amp_info(amp_name)
         full_arr = self.amp_images[amp_name].getArray()
-        full_arr += np.random.normal(scale=amp_props.read_noise,
+        full_arr += np.random.normal(scale=amp_info.getReadNoise(),
                                      size=full_arr.shape)
-        full_arr += amp_props.bias_level
+        full_arr += config['electronics_readout']['bias_level']
 
     def _apply_crosstalk(self):
         """
-        Apply inter-amplifier crosstalk using the cross-talk matrix
-        from segmentation.txt.  This should be run only once and
+        Apply intra-CCD crosstalk using the cross-talk matrix
+        from obs_lsstCam.  This should be run only once and
         only after ._make_amp_image has been run for each amplifier.
         """
-        sensor_props = self.fp_props.get_sensor(self.sensor_id)
+        if not self.camera_info.det_catalog[self.sensor_id].hasCrosstalk():
+            return
+        xtalk = self.camera_info.det_catalog[self.sensor_id].getCrosstalk()
+        amp_names = self.camera_info.get_amp_names(self.sensor_id)
         imarrs = np.array([self.amp_images[amp_name].getArray()
-                           for amp_name in sensor_props.amp_names])
-        for amp_name in sensor_props.amp_names:
-            amp_props = self.fp_props.get_amp(amp_name)
+                           for amp_name in amp_names])
+        for amp_name, xtalk_row in zip(amp_names, xtalk):
             self.amp_images[amp_name].getArray()[:, :] \
-                = sum([x*y for x, y in zip(imarrs, amp_props.crosstalk)])
+                = sum([x*y for x, y in zip(imarrs, xtalk_row)])
 
     def get_amplifier_hdu(self, amp_name):
         """
@@ -338,18 +330,18 @@ class ImageSource(object):
         """
         hdu = fits.ImageHDU(data=self.amp_images[amp_name].getArray().astype(np.int32))
         hdr = hdu.header
-        amp_props = self.fp_props.get_amp(amp_name)
+        amp_info = self.camera_info.get_amp_info(amp_name)
         # Copy keywords from eimage primary header.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             for key in self.eimage[0].header.keys():
                 try:
                     hdr[key] = self.eimage[0].header[key]
-                except ValueError as eobj:
+                except ValueError:
                     # eimages produced by phosim contain non-ASCII or
                     # non-printable characters resulting in a ValueError.
                     self.logger.warn("ValueError raised while attempting to "
-                                     "read {} from eimage header".format(key))
+                                     "read %s from eimage header", key)
 
         # Transpose the WCS matrix elements to account for the use of the
         # Camera Coordinate System in the eimage.  These changes
@@ -361,7 +353,7 @@ class ImageSource(object):
         # WCS's when viewed with ds9.
         x_pos = (list(range(1, 9)) + list(range(8, 0, -1)))[amp_num]
         hdr['CRPIX1'], hdr['CRPIX2'] \
-            = (hdr['CRPIX2'] - amp_props.imaging.getWidth()*(8 - x_pos),
+            = (hdr['CRPIX2'] - amp_info.getRawDataBBox().getWidth()*(8 - x_pos),
                hdr['CRPIX1'])
         if amp_num < 8:
             hdr['CD1_1'], hdr['CD1_2'] = -hdr['CD1_2'], hdr['CD1_1']
@@ -371,14 +363,12 @@ class ImageSource(object):
             hdr['CD2_1'], hdr['CD2_2'] = -hdr['CD2_2'], -hdr['CD2_1']
 
         # Set NOAO geometry keywords.
-        hdr['DATASEC'] = self._noao_section_keyword(amp_props.imaging)
+        hdr['DATASEC'] = self._noao_section_keyword(amp_info.getRawDataBBox())
         hdr['DETSEC'] = \
-            self._noao_section_keyword(amp_props.mosaic_section,
-                                       flipx=amp_props.flip_x,
-                                       flipy=amp_props.flip_y)
-        hdr['BIASSEC'] = \
-            self._noao_section_keyword(amp_props.serial_overscan)
-        hdr['GAIN'] = amp_props.gain
+            self._noao_section_keyword(self.camera_info.mosaic_section(amp_info),
+                                       flipx=amp_info.getRawFlipX(),
+                                       flipy=amp_info.getRawFlipY())
+        hdr['GAIN'] = amp_info.getGain()
 
         return hdu
 
@@ -481,13 +471,13 @@ def set_itl_bboxes(amp):
         The updated AmpInfoRecord.
     """
     amp.setRawBBox(afwGeom.Box2I(afwGeom.Point2I(0, 0),
-                                 afwGeom.Extent2I(532, 2020)))
+                                 afwGeom.Extent2I(544, 2048)))
     amp.setRawDataBBox(afwGeom.Box2I(afwGeom.Point2I(3, 0),
                                      afwGeom.Extent2I(509, 2000)))
     amp.setRawHorizontalOverscanBBox(afwGeom.Box2I(afwGeom.Point2I(512, 0),
-                                                   afwGeom.Extent2I(20, 2000)))
+                                                   afwGeom.Extent2I(48, 2000)))
     amp.setRawVerticalOverscanBBox(afwGeom.Box2I(afwGeom.Point2I(0, 2000),
-                                                 afwGeom.Extent2I(532, 20)))
+                                                 afwGeom.Extent2I(544, 48)))
     amp.setRawPrescanBBox(afwGeom.Box2I(afwGeom.Point2I(0, 0),
                                         afwGeom.Extent2I(3, 2000)))
     return amp
@@ -749,3 +739,59 @@ def set_noao_keywords(hdu, slot_name):
         hdu.header['DTV2'] = (2*pixel_pars.dimv + 1)*(1 - sx)
 
     return hdu
+
+
+def cte_matrix(npix, cti, ntransfers=20, nexact=30):
+    """
+    Compute the CTE matrix so that the apparent charge q_i in the i-th
+    pixel is given by
+
+    q_i = Sum_j cte_matrix_ij q0_j
+
+    where q0_j is the initial charge in j-th pixel.  The corresponding
+    python code would be
+
+    >>> cte = cte_matrix(npix, cti)
+    >>> qout = numpy.dot(cte, qin)
+
+    Parameters
+    ----------
+    npix : int
+        Total number of pixels in either the serial or parallel
+        directions.
+    cti : float
+        The charge transfer inefficiency.
+    ntransfers : int, optional
+        Maximum number of transfers to consider as contributing to
+        a target pixel.
+    nexact : int, optional
+        Number of transfers to use exact the binomial distribution
+        expression, otherwise use Poisson's approximation.
+
+    Returns
+    -------
+    numpy.array
+        The npix x npix numpy array containing the CTE matrix.
+
+    Notes
+    -----
+    This implementation is based on
+    Janesick, J. R., 2001, "Scientific Charge-Coupled Devices", Chapter 5,
+    eqs. 5.2a,b.
+
+    """
+    ntransfers = min(npix, ntransfers)
+    nexact = min(nexact, ntransfers)
+    my_matrix = np.zeros((npix, npix), dtype=np.float)
+    for i in range(1, npix):
+        jvals = np.concatenate((np.arange(1, i+1), np.zeros(npix-i)))
+        index = np.where(i - nexact < jvals)
+        j = jvals[index]
+        my_matrix[i-1, :][index] \
+            = scipy.special.binom(i, j)*(1 - cti)**i*cti**(i - j)
+        if nexact < ntransfers:
+            index = np.where((i - nexact >= jvals) & (i - ntransfers < jvals))
+            j = jvals[index]
+            my_matrix[i-1, :][index] \
+                = (j*cti)**(i-j)*np.exp(-j*cti)/scipy.special.factorial(i-j)
+    return my_matrix

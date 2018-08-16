@@ -1,5 +1,9 @@
 [electronics_readout]
 readout_time = 3.
+dark_current = 0.02
+bias_level = 1000.
+pcti = 1e-6
+scti = 1e-6
 
 [ccd]
 full_well = 1e5

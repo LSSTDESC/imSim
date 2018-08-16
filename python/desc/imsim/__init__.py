@@ -7,7 +7,7 @@ from .cosmic_rays import *
 from .tree_rings import *
 from .imSim import *
 from .camera_readout import *
-from .focalplane_info import *
+from .camera_info import *
 from .skyModel import *
 from .cosmic_rays import *
 from .optical_system import OpticalZernikes
