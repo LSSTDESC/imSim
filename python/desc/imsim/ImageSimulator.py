@@ -97,7 +97,7 @@ class ImageSimulator:
         """
         bp_dict = BandpassDict.loadTotalBandpassesFromFiles(bandpassNames=self.obs_md.bandpass)
         noise_and_background \
-            = make_sky_model(self.obs_md, self.phot_params,
+            = make_sky_model(self.obs_md, self.phot_params, seed=seed,
                              apply_sensor_model=self.apply_sensor_model)
         self.gs_interpreters = dict()
         for det in self.camera_wrapper.camera:
