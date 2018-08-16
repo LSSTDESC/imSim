@@ -18,11 +18,16 @@ import os
 import warnings
 from collections import namedtuple, OrderedDict
 import numpy as np
+import sqlite3
 import astropy.io.fits as fits
 import astropy.time
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.utils as lsstUtils
+with warnings.catch_warnings():
+    warnings.simplefilter('ignore')
+    from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
+    from lsst.sims.utils import getRotSkyPos
 from .focalplane_info import FocalPlaneInfo, cte_matrix
 from .imSim import get_logger
 
@@ -65,10 +70,11 @@ class ImageSource(object):
             The exposure time of the image in seconds.
         sensor_id : str
             The raft and sensor identifier, e.g., 'R22_S11'.
-        seg_file : str, optional
+        seg_file : str [None]
             The segmentation.txt file, the PhoSim-formatted file that
             describes the properties of the sensors in the focal
-            plane.  If None, then the version in imSim/data will be used.
+            plane.  If None, then imSim/data/segmentation_itl.txt will
+            be used.
         logger: logging.Logger [None]
             logging.Logger object to use. If None, then a logger with level
             INFO will be used.
@@ -93,7 +99,7 @@ class ImageSource(object):
 
     @staticmethod
     def create_from_eimage(eimage_file, sensor_id=None, seg_file=None,
-                           logger=None):
+                           opsim_db=None, logger=None):
         """
         Create an ImageSource object from a PhoSim eimage file.
 
@@ -102,14 +108,20 @@ class ImageSource(object):
         eimage_file: str
            Filename of the eimage FITS file from which the amplifier
            images will be extracted.
-        sensor_id: str, optional
+        sensor_id: str [None]
             The raft and sensor identifier, e.g., 'R22_S11'.  If None,
             then extract the CHIPID keyword in the primarey HDU.
-        seg_file: str, optional
-            Full path of segmentation.txt file, the PhoSim-formatted file
+        seg_file: str [None]
+            Full path of segmentation.txt, the PhoSim-formatted file
             that describes the properties of the sensors in the focal
-            plane.  If None, then the version in obs_lsstSim/description
+            plane.  If None, then imSim/data/segmentation_itl.txt
             will be used.
+        opsim_db: str [None]
+            OpSim db file to use to find pointing information for each
+            visit.  This is needed for older imSim eimage files that
+            do not have the RATEL, DECTEL, and ROTANGLE keywords
+            set in the FITS header.   If None and if an eimage file without
+            those keywords is provided, then a RuntimeError will be raised.
         logger: logging.Logger [None]
             logging.Logger object to use. If None, then a logger with level
             INFO will be used.
@@ -129,7 +141,40 @@ class ImageSource(object):
                                    seg_file=seg_file, logger=logger)
         image_source.eimage = eimage
         image_source.eimage_data = eimage[0].data
+        image_source._read_pointing_info(opsim_db)
         return image_source
+
+    def _read_pointing_info(self, opsim_db):
+        try:
+            self.ratel = self.eimage[0].header['RATEL']
+            self.dectel = self.eimage[0].header['DECTEL']
+            self.rotangle = self.eimage[0].header['ROTANGLE']
+            return
+        except KeyError:
+            if opsim_db is None:
+                raise RuntimeError("eimage file does not have pointing info. "
+                                   "Need an opsim db file.")
+        # Read from the opsim db.
+        visit = self.eimage[0].header['OBSID']
+        # We need an ObservationMetaData object to use the getRotSkyPos
+        # function.
+        obs_gen = ObservationMetaDataGenerator(database=opsim_db,
+                                               driver="sqlite")
+        obs_md = obs_gen.getObservationMetaData(obsHistID=visit,
+                                                boundType='circle',
+                                                boundLength=0)[0]
+        # Extract pointing info from opsim db for desired visit.
+        conn = sqlite3.connect(opsim_db)
+        query = """select descDitheredRA, descDitheredDec,
+        descDitheredRotTelPos from summary where
+        obshistid={}""".format(visit)
+        curs = conn.execute(query)
+        ra, dec, rottelpos = [np.degrees(x) for x in curs][0]
+        conn.close()
+        self.ratel, self.dectel = ra, dec
+        obs_md.pointingRA = ra
+        obs_md.pointingDec = dec
+        self.rotangle = getRotSkyPos(ra, dec, obs_md, rottelpos)
 
     def _read_seg_file(self, seg_file):
         if seg_file is None:
@@ -292,29 +337,48 @@ class ImageSource(object):
             appropriate for the requested sensor segment.
         """
         hdu = fits.ImageHDU(data=self.amp_images[amp_name].getArray().astype(np.int32))
-
+        hdr = hdu.header
+        amp_props = self.fp_props.get_amp(amp_name)
         # Copy keywords from eimage primary header.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             for key in self.eimage[0].header.keys():
                 try:
-                    hdu.header[key] = self.eimage[0].header[key]
+                    hdr[key] = self.eimage[0].header[key]
                 except ValueError as eobj:
                     # eimages produced by phosim contain non-ASCII or
                     # non-printable characters resulting in a ValueError.
                     self.logger.warn("ValueError raised while attempting to "
                                      "read {} from eimage header".format(key))
 
+        # Transpose the WCS matrix elements to account for the use of the
+        # Camera Coordinate System in the eimage.  These changes
+        # neglect any implied changes in the SIP coefficients.
+        channels = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
+        amp_nums = dict(kv_pair for kv_pair in zip(channels, range(16)))
+        amp_num = amp_nums[amp_name[-2:]]
+        # These keywords seem to give approximately correct per amp
+        # WCS's when viewed with ds9.
+        x_pos = (list(range(1, 9)) + list(range(8, 0, -1)))[amp_num]
+        hdr['CRPIX1'], hdr['CRPIX2'] \
+            = (hdr['CRPIX2'] - amp_props.imaging.getWidth()*(8 - x_pos),
+               hdr['CRPIX1'])
+        if amp_num < 8:
+            hdr['CD1_1'], hdr['CD1_2'] = -hdr['CD1_2'], hdr['CD1_1']
+            hdr['CD2_1'], hdr['CD2_2'] = -hdr['CD2_2'], hdr['CD2_1']
+        else:
+            hdr['CD1_1'], hdr['CD1_2'] = -hdr['CD1_2'], -hdr['CD1_1']
+            hdr['CD2_1'], hdr['CD2_2'] = -hdr['CD2_2'], -hdr['CD2_1']
+
         # Set NOAO geometry keywords.
-        amp_props = self.fp_props.get_amp(amp_name)
-        hdu.header['DATASEC'] = self._noao_section_keyword(amp_props.imaging)
-        hdu.header['DETSEC'] = \
+        hdr['DATASEC'] = self._noao_section_keyword(amp_props.imaging)
+        hdr['DETSEC'] = \
             self._noao_section_keyword(amp_props.mosaic_section,
                                        flipx=amp_props.flip_x,
                                        flipy=amp_props.flip_y)
-        hdu.header['BIASSEC'] = \
+        hdr['BIASSEC'] = \
             self._noao_section_keyword(amp_props.serial_overscan)
-        hdu.header['GAIN'] = amp_props.gain
+        hdr['GAIN'] = amp_props.gain
 
         return hdu
 
@@ -352,13 +416,23 @@ class ImageSource(object):
         if run_number is None:
             run_number = output[0].header['OBSID']
         output[0].header['RUNNUM'] = str(run_number)
+        output[0].header['DARKTIME'] = output[0].header['EXPTIME']
         mjd_obs = astropy.time.Time(output[0].header['MJD-OBS'], format='mjd')
         output[0].header['DATE-OBS'] = mjd_obs.isot
         output[0].header['LSST_NUM'] = lsst_num
         output[0].header['TESTTYPE'] = 'IMSIM'
         output[0].header['IMGTYPE'] = 'SKYEXP'
         output[0].header['MONOWL'] = -1
+        raft, ccd = output[0].header['CHIPID'].split('_')
+        output[0].header['RAFTNAME'] = raft
+        output[0].header['SENSNAME'] = ccd
         output[0].header['OUTFILE'] = os.path.basename(outfile)
+        # Add boresight pointing angles and rotskypos (angle of sky
+        # relative to Camera coordinates) from which obs_lsstCam can
+        # infer the CCD-wide WCS.
+        output[0].header['RATEL'] = self.ratel
+        output[0].header['DECTEL'] = self.dectel
+        output[0].header['ROTANGLE'] = self.rotangle
         # Use seg_ids to write the image extensions in the order
         # specified by LCA-10140.
         seg_ids = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
