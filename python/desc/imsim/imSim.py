@@ -859,7 +859,7 @@ def FWHMgeom(rawSeeing, band, altitude):
     return 0.822*FWHMeff(rawSeeing, band, altitude) + 0.052
 
 
-def make_psf(psf_name, obs_md, log_level='WARN', rng=None):
+def make_psf(psf_name, obs_md, log_level='WARN', rng=None, **kwds):
     """
     Make the requested PSF object.
 
@@ -875,6 +875,9 @@ def make_psf(psf_name, obs_md, log_level='WARN', rng=None):
         Logging level ('DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL').
     rng: galsim.BaseDeviate
         Instance of the galsim.baseDeviate random number generator.
+    **kwds: **dict
+        Additional keyword arguments to pass to the AtmosphericPSF,
+        i.e., screen_size(=819.2) and screen_scale(=0.1).
 
     Returns
     -------
@@ -901,7 +904,7 @@ def make_psf(psf_name, obs_md, log_level='WARN', rng=None):
                              rawSeeing=rawSeeing,
                              band=obs_md.bandpass,
                              rng=rng,
-                             logger=logger)
+                             logger=logger, **kwds)
     return psf
 
 def save_psf(psf, outfile):

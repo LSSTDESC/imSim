@@ -46,11 +46,13 @@ class AtmosphericPSF(PSFbase):
     @param exptime      Exposure time in seconds.  default: 30.
     @param kcrit        Critical Fourier mode at which to split first and second kicks
                         in units of (1/r0).  default: 0.2
+    @param screen_size  Size of the phase screens in meters.  default: 819.2
+    @param screen_scale Size of phase screen "pixels" in meters.  default: 0.1
     @param doOpt        Add in optical phase screens?  default: True
     @param logger       Optional logger.  default: None
     """
     def __init__(self, airmass, rawSeeing, band, rng, t0=0.0, exptime=30.0, kcrit=0.2,
-                 doOpt=True, logger=None):
+                 screen_size=819.2, screen_scale=0.1, doOpt=True, logger=None):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
 
@@ -62,6 +64,8 @@ class AtmosphericPSF(PSFbase):
         self.rng = rng
         self.t0 = t0
         self.exptime = exptime
+        self.screen_size = screen_size
+        self.screen_scale = screen_scale
         self.logger = logger
 
         self.atm = galsim.Atmosphere(**self._getAtmKwargs())
@@ -139,7 +143,7 @@ class AtmosphericPSF(PSFbase):
 
         return dict(r0_500=r0_500, L0=L0, speed=speeds, direction=directions,
                     altitude=altitudes, r0_weights=weights, rng=self.rng,
-                    screen_size=819.2, screen_scale=0.1)
+                    screen_size=self.screen_size, screen_scale=self.screen_scale)
 
     def _getPSF(self, xPupil=None, yPupil=None, gsparams=None):
         """
