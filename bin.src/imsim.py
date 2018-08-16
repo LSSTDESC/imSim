@@ -55,7 +55,7 @@ if args.psf_file is None or not os.path.isfile(args.psf_file):
     if args.psf_file is not None:
         desc.imsim.save_psf(psf, args.psf_file)
 else:
-    psf = desc.imsim.load_psf(args.psf_file)
+    psf = desc.imsim.load_psf(args.psf_file, log_level=args.log_level)
 
 sensor_list = args.sensors.split('^') if args.sensors is not None \
     else args.sensors

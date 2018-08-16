@@ -917,10 +917,16 @@ def save_psf(psf, outfile):
     with open(outfile, 'wb') as output:
         pickle.dump(psf, output)
 
-def load_psf(psf_file):
+def load_psf(psf_file, log_level='INFO'):
     """
     Load a psf from a pickle file.
     """
     with open(psf_file, 'rb') as fd:
         psf = pickle.load(fd)
+
+    # Since save_psf sets any logger attribute to None, restore
+    # it here.
+    if hasattr(psf, 'logger'):
+        psf.logger = get_logger(log_level, 'psf')
+
     return psf
