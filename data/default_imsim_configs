@@ -10,7 +10,8 @@ eimage_compress = True
 centroid_prefix = centroid_
 
 [cosmic_rays]
-ccd_rate = 8
+#ccd_rate = None   # Use the computed rate for the ITL lab data, ~1.2/sec.
+ccd_rate = 0.2    # CTIO rate extracted from DECam darks.
 catalog = default
 
 [checkpointing]
