@@ -7,21 +7,6 @@ import unittest
 import desc.imsim
 
 
-def are_psfs_equal(psf1, psf2):
-    """
-    Test that two PSFs are equal.  For PSFs implemented in
-    sims_GalSimInterface, it is sufficient to compare the
-    ._cached_psf attributes.  For the AtmosphericPSF, only certain
-    attributes are meaningful to compare. See issue #117.
-    """
-    if type(psf1) != type(psf2):
-        return False
-    if not isinstance(psf1, desc.imsim.atmPSF.AtmosphericPSF):
-        # Compare cached galsim objects.
-        return psf1._cached_psf == psf2._cached_psf
-    return psf1 == psf2
-
-
 class PsfTestCase(unittest.TestCase):
     """
     TestCase class for PSF-related functions.
@@ -49,7 +34,7 @@ class PsfTestCase(unittest.TestCase):
             psf_file = os.path.join(self.test_dir, '{}.pkl'.format(psf_name))
             desc.imsim.save_psf(psf, psf_file)
             psf_retrieved = desc.imsim.load_psf(psf_file)
-            self.assertTrue(are_psfs_equal(psf, psf_retrieved))
+            self.assertEqual(psf, psf_retrieved)
 
 
 if __name__ == '__main__':
