@@ -41,6 +41,8 @@ def make_flat(gs_det, counts_per_iter, niter, rng, buf=2, logger=None,
     -------
     galsim.ImageF
     """
+    config = desc.imsim.read_config()
+
     if logger is None:
         logger = desc.imsim.get_logger('DEBUG', name='make_flat')
     if wcs is None:
@@ -49,6 +51,7 @@ def make_flat(gs_det, counts_per_iter, niter, rng, buf=2, logger=None,
     nrow = gs_det.yMaxPix - gs_det.yMinPix + 1
     flat = galsim.ImageF(ncol, nrow, wcs=wcs)
     sensor = galsim.SiliconSensor(rng=rng,
+                                  strength=config['ccd']['bf_strength'],
                                   treering_center=gs_det.tree_rings.center,
                                   treering_func=gs_det.tree_rings.func,
                                   transpose=True)
