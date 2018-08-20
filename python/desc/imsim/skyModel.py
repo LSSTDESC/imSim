@@ -283,9 +283,11 @@ class FastSiliconSkyModel(ESOSkyModel):
         # Use the transpose=True option since "eimages" of LSST sensors
         # follow the Camera Coordinate System convention where the
         # parallel transfer direction is along the x-axis.
-        nrecalc = 1e300 # disable pixel boundary updating.
+        config = get_config()
+        nrecalc = 1e300  # disable pixel boundary updating.
         sensor = galsim.SiliconSensor(rng=self.randomNumbers,
                                       nrecalc=nrecalc,
+                                      strength=config['ccd']['bf_strength'],
                                       treering_func=detector.tree_rings.func,
                                       treering_center=detector.tree_rings.center,
                                       transpose=True)
@@ -462,11 +464,14 @@ class ESOSiliconSkyModel(ESOSkyModel):
         nrow, ncol = image.array.shape
         dx = ncol//nx   # number of pixels in x for an amp
         dy = nrow//ny   # number of pixels in y
+
+        config = get_config()
         # Disable the updating of the pixel boundaries by
         # setting nrecalc to 1e300
         nrecalc = 1e300
         sensor = galsim.SiliconSensor(rng=self.randomNumbers,
                                       nrecalc=nrecalc,
+                                      strength=config['ccd']['bf_strength'],
                                       treering_center=tree_rings.center,
                                       treering_func=tree_rings.func,
                                       transpose=True)
