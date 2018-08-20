@@ -19,8 +19,7 @@ def are_psfs_equal(psf1, psf2):
     if not isinstance(psf1, desc.imsim.atmPSF.AtmosphericPSF):
         # Compare cached galsim objects.
         return psf1._cached_psf == psf2._cached_psf
-    # See issue #117 for an explanation of these comparisons:
-    return (psf1.atm[:-1] == psf2.atm[:-1]) and (psf1.aper == psf2.aper)
+    return psf1 == psf2
 
 
 class PsfTestCase(unittest.TestCase):

@@ -23,6 +23,11 @@ class OptWF(object):
         obj = galsim.Airy(lam=wavelength, diam=8.36, obscuration=0.61, gsparams=gsparams)
         self.stepk = obj.stepk
 
+    def __eq__(self, rhs):
+        return (isinstance(rhs, OptWF)
+                and np.array_equal(self.deviations, rhs.deviations)
+                and self.stepk == rhs.stepk)
+
     def _wavefront_gradient(self, u, v, t, theta):
         z = self.oz.cartesian_coeff(theta[0].rad, theta[1].rad)
         Z = galsim.OpticalScreen(diam=8.36, obscuration=0.61, aberrations=[0]*4+list(z))
@@ -81,6 +86,16 @@ class AtmosphericPSF(PSFbase):
 
         if doOpt:
             self.atm.append(OptWF(rng, self.wlen_eff))
+
+    def __eq__(self, rhs):
+        return (isinstance(rhs, AtmosphericPSF)
+                and self.airmass == rhs.airmass
+                and self.rawSeeing == rhs.rawSeeing
+                and self.wlen_eff == rhs.wlen_eff
+                and self.t0 == rhs.t0
+                and self.exptime == rhs.exptime
+                and self.atm == rhs.atm
+                and self.aper == rhs.aper)
 
     @staticmethod
     def _seeing_resid(r0_500, wavelength, L0, target):
