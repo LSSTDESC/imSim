@@ -624,6 +624,9 @@ class ImSimConfiguration(object):
         None, int, float, bool, str
             Depending on the first workable cast, in that order.
         """
+        # Remove any inline comments after a '#' delimiter.
+        value = value.split('#')[0].strip()
+
         if value == 'None':
             return None
         try:
