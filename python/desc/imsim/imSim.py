@@ -55,7 +55,7 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
            'sources_from_list',
            'metadata_from_file',
-           'read_config', 'get_config', 'get_logger',
+           'read_config', 'get_config', 'get_logger', 'get_image_dirs',
            'get_obs_lsstSim_camera',
            'add_cosmic_rays',
            '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK', '_FITS_IMAGE',
@@ -399,9 +399,14 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
 
 def get_image_dirs():
     """
-    Return a list of possible directories for FITS images.
+    Return a list of possible directories for FITS images, making sure
+    the list of image_dirs contains '.'.
     """
-    return os.environ.get('IMAGE_DIR_PATH', '.').split(':')
+    image_dirs = os.environ.get('IMSIM_IMAGE_PATH', '.').split(':')
+    if '.' not in image_dirs:
+        # Follow the usual convention of searching '.' first.
+        image_dirs.insert(0, '.')
+    return image_dirs
 
 def sed_dirs(instcat_file):
     """

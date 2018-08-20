@@ -43,18 +43,18 @@ parser.add_argument('--psf_file', type=str, default=None,
                     "If the file exists, the psf will be loaded from that "
                     "file, ignoring the --psf option; "
                     "if not, a PSF will be created and saved to that filename.")
-parser.add_argument('--image_dir_path', type=str, default=None,
+parser.add_argument('--image_path', type=str, default=None,
                     help="search path for FITS postage stamp images."
-                    "This will be prepended to any existing IMAGE_DIR_PATH"
+                    "This will be prepended to any existing IMSIM_IMAGE_PATH"
                     "environment variable, for which $CWD is included by"
                     "default.")
 
 args = parser.parse_args()
 
-if args.image_dir_path is not None:
-    os.environ['IMAGE_DIR_PATH'] \
-        = ':'.join([args.image_dir_path] +
-                   [os.environ.get('IMAGE_DIR_PATH', '.')])
+# Prepend any additional paths to IMSIM_IMAGE_PATH.
+if args.image_path is not None:
+    os.environ['IMSIM_IMAGE_PATH']\
+        = ':'.join([args.image_path] + desc.imsim.get_image_dirs())
 
 commands = desc.imsim.metadata_from_file(args.instcat)
 
