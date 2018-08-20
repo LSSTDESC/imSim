@@ -114,11 +114,16 @@ class ImageSimulator:
                                       noise_and_background,
                                       epoch=2000.0, seed=seed,
                                       apply_sensor_model=self.apply_sensor_model)
+
             self.gs_interpreters[det_name].sky_bg_per_pixel \
                 = noise_and_background.sky_counts(det_name)
             self.gs_interpreters[det_name].setPSF(PSF=self.psf)
+
             if self.apply_sensor_model:
                 add_treering_info(self.gs_interpreters[det_name].detectors)
+                self.gs_interpreters[det_name].bf_strength \
+                    = self.config['ccd']['bf_strength']
+
             if file_id is not None:
                 self.gs_interpreters[det_name].checkpoint_file \
                     = self.checkpoint_file(file_id, det_name)
