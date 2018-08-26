@@ -43,7 +43,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.extra_commands = 'instcat_extra.txt'
         with open(self.phosim_file, 'r') as input_file:
             with open(self.extra_commands, 'w') as output:
-                for line in input_file.readlines()[:23]:
+                for line in input_file.readlines()[:22]:
                     output.write(line)
                 output.write('extra_command 1\n')
 
@@ -141,10 +141,13 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         commands = desc.imsim.metadata_from_file(self.phosim_file)
         obs_md = desc.imsim.phosim_obs_metadata(commands)
         phot_params = desc.imsim.photometricParameters(commands)
+        with desc.imsim.fopen(self.phosim_file, mode='rt') as input_:
+            lines = [x for x in input_]
         (gs_object_arr,
-         gs_object_dict) = desc.imsim.sources_from_file(self.phosim_file,
+         gs_object_dict) = desc.imsim.sources_from_list(lines,
                                                         obs_md,
-                                                        phot_params)
+                                                        phot_params,
+                                                        self.phosim_file)
 
         id_arr = np.zeros(len(gs_object_arr), dtype=int)
         for i_obj in range(len(gs_object_arr)):
@@ -234,14 +237,19 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         Test that method to get GalSimCelestialObjects from
         InstanceCatalogs works
         """
+        # Read in test_imsim_configs since default ones may change.
+        desc.imsim.read_config(os.path.join(self.data_dir, 'test_imsim_configs'))
         galaxy_phosim_file = os.path.join(self.data_dir, 'phosim_galaxies.txt')
         commands = desc.imsim.metadata_from_file(galaxy_phosim_file)
         obs_md = desc.imsim.phosim_obs_metadata(commands)
         phot_params = desc.imsim.photometricParameters(commands)
+        with desc.imsim.fopen(galaxy_phosim_file, mode='rt') as input_:
+            lines = [x for x in input_]
         (gs_object_arr,
-         gs_object_dict) = desc.imsim.sources_from_file(galaxy_phosim_file,
+         gs_object_dict) = desc.imsim.sources_from_list(lines,
                                                         obs_md,
-                                                        phot_params)
+                                                        phot_params,
+                                                        galaxy_phosim_file)
 
         id_arr = np.zeros(len(gs_object_arr), dtype=int)
         for i_obj in range(len(gs_object_arr)):
@@ -281,7 +289,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                    truth_data['minorAxis'][i_obj], 13)
             self.assertAlmostEqual(gs_obj.majorAxisRadians,
                                    truth_data['majorAxis'][i_obj], 13)
-            self.assertAlmostEqual(gs_obj.positionAngleRadians,
+            self.assertAlmostEqual(2.*np.pi - gs_obj.positionAngleRadians,
                                    truth_data['positionAngle'][i_obj], 7)
             self.assertAlmostEqual(gs_obj.sindex,
                                    truth_data['sindex'][i_obj], 10)
@@ -358,10 +366,16 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
     def test_parsePhoSimInstanceFile_warning(self):
         "Test the warnings emitted by the instance catalog parser."
+        commands = desc.imsim.metadata_from_file(self.extra_commands)
+        obs_md = desc.imsim.phosim_obs_metadata(commands)
+        phot_params = desc.imsim.photometricParameters(commands)
+        with desc.imsim.fopen(self.extra_commands, mode='rt') as input_:
+            lines = [x for x in input_]
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             self.assertRaises(UserWarning,
-                              desc.imsim.metadata_from_file,
+                              desc.imsim.sources_from_list,
+                              lines, obs_md, phot_params,
                               self.extra_commands)
 
     def test_photometricParameters(self):
@@ -383,6 +397,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         with warnings.catch_warnings(record=True) as wa:
             instcat_contents = desc.imsim.parsePhoSimInstanceFile(cat_file)
+            [x for x in instcat_contents.sources[0]]
         self.assertGreater(len(wa), 0)
 
         # we must detect which warning is the warning we are actually

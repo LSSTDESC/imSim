@@ -12,7 +12,7 @@ import copy
 import galsim
 
 # python_future no longer handles configparser as of 0.16.
-# This is needed for PY2/3 compatabiloty.
+# This is needed for PY2/3 compatibility.
 try:
     import configparser
 except ImportError:
@@ -33,13 +33,17 @@ from lsst.sims.catUtils.mixins import PhoSimAstrometryBase
 from lsst.sims.utils import _pupilCoordsFromObserved
 from lsst.sims.utils import _observedFromAppGeo
 from lsst.sims.utils import radiansFromArcsec
-from lsst.sims.GalSimInterface import GalSimCelestialObject
+from lsst.sims.GalSimInterface import GalSimCelestialObject, SNRdocumentPSF,\
+    Kolmogorov_and_Gaussian_PSF
 from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
 from lsst.sims.utils import defaultSpecMap
 from .tree_rings import TreeRings
 from .cosmic_rays import CosmicRays
 from .sed_wrapper import SedWrapper
 from .fopen import fopen
+from .trim import InstCatTrimmer
+from .sed_wrapper import SedWrapper
+from .atmPSF import AtmosphericPSF
 
 _POINT_SOURCE = 1
 _SERSIC_2D = 2
@@ -47,14 +51,14 @@ _RANDOM_WALK = 3
 
 __all__ = ['PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
-           'sources_from_file',
+           'sources_from_list',
            'metadata_from_file',
            'read_config', 'get_config', 'get_logger',
            'get_obs_lsstSim_camera',
            'add_cosmic_rays',
            '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK',
            'parsePhoSimInstanceFile',
-           'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom']
+           'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom', 'make_psf']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -114,7 +118,7 @@ def metadata_from_file(file_name):
             params = line.strip().split()
 
             if params[0] == 'object':
-                continue
+                break
 
             float_val = float(params[1])
             int_val = int(float_val)
@@ -145,53 +149,11 @@ def metadata_from_file(file_name):
     return commands
 
 
-def sources_from_file(file_name, obs_md, phot_params, numRows=None):
-    """
-    Read in an InstanceCatalog and extract all of the astrophysical
-    sources from it
-
-    Parameters
-    ----------
-    file_name: str
-        The name of the InstanceCatalog
-
-    obs_md: ObservationMetaData
-        The ObservationMetaData characterizing the pointing
-
-    phot_params: PhotometricParameters
-        The PhotometricParameters characterizing this telescope
-
-    numRows: int (optional)
-        The number of rows of the InstanceCatalog to read in (including the
-        header)
-
-    Returns
-    -------
-    gs_obj_arr: numpy array
-        Contains the GalSimCelestialObjects for all of the
-        astrophysical sources in this InstanceCatalog
-
-    out_obj_dict: dict
-        Keyed on the names of the detectors in the LSST camera.
-        The values are numpy arrays of GalSimCelestialObjects
-        that should be simulated for that detector, including
-        objects that are near the edge of the chip or
-        just bright (in which case, they might still illuminate
-        the detector).
-    """
-
+def sources_from_list(object_lines, obs_md, phot_params, file_name):
     camera = get_obs_lsstSim_camera()
+    config = get_config()
 
-    num_objects = 0
-    ct_rows = 0
-    with fopen(file_name, mode='rt') as input_file:
-        for line in input_file:
-            ct_rows += 1
-            params = line.strip().split()
-            if params[0] == 'object':
-                num_objects += 1
-            if numRows is not None and ct_rows>=numRows:
-                break
+    num_objects = len(object_lines)
 
     # RA, Dec in the coordinate system expected by PhoSim
     ra_phosim = np.zeros(num_objects, dtype=float)
@@ -201,6 +163,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     mag_norm = 55.0*np.ones(num_objects, dtype=float)
     gamma1 = np.zeros(num_objects, dtype=float)
     gamma2 = np.zeros(num_objects, dtype=float)
+    gamma2_sign = config['wl_params']['gamma2_sign']
     kappa = np.zeros(num_objects, dtype=float)
 
     internal_av = np.zeros(num_objects, dtype=float)
@@ -218,85 +181,82 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     object_type = np.zeros(num_objects, dtype=int)
 
     i_obj = -1
-    with fopen(file_name, mode='rt') as input_file:
-        for line in input_file:
-            params = line.strip().split()
-            if params[0] != 'object':
-                continue
-            i_obj += 1
-            if numRows is not None and i_obj>=num_objects:
-                break
-            unique_id[i_obj] = int(params[1])
-            ra_phosim[i_obj] = float(params[2])
-            dec_phosim[i_obj] = float(params[3])
-            mag_norm[i_obj] = float(params[4])
-            sed_name[i_obj] = params[5]
-            redshift[i_obj] = float(params[6])
-            gamma1[i_obj] = float(params[7])
-            gamma2[i_obj] = float(params[8])
-            kappa[i_obj] = float(params[9])
-            if params[12].lower() == 'point':
-                object_type[i_obj] = _POINT_SOURCE
-                i_gal_dust_model = 14
-                if params[13].lower() != 'none':
-                    i_gal_dust_model = 16
-                    internal_av[i_obj] = float(params[14])
-                    internal_rv[i_obj] =float(params[15])
-                if params[i_gal_dust_model].lower() != 'none':
-                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
-                    galactic_rv[i_obj] = float(params[i_gal_dust_model+2])
-            elif params[12].lower() == 'sersic2d':
-                object_type[i_obj] = _SERSIC_2D
-                semi_major_arcsec[i_obj] = float(params[13])
-                semi_minor_arcsec[i_obj] = float(params[14])
-                position_angle_degrees[i_obj] = float(params[15])
-                sersic_index[i_obj] = float(params[16])
-                i_gal_dust_model = 18
-                if params[17].lower() != 'none':
-                    i_gal_dust_model = 20
-                    internal_av[i_obj] = float(params[18])
-                    internal_rv[i_obj] = float(params[19])
-                if params[i_gal_dust_model].lower() != 'none':
-                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
-                    galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
-            elif params[12].lower() == 'knots':
-                object_type[i_obj] = _RANDOM_WALK
-                semi_major_arcsec[i_obj] = float(params[13])
-                semi_minor_arcsec[i_obj] = float(params[14])
-                position_angle_degrees[i_obj] = float(params[15])
-                npoints[i_obj] = int(params[16])
-                i_gal_dust_model = 18
-                if params[17].lower() != 'none':
-                    i_gal_dust_model = 20
-                    internal_av[i_obj] = float(params[18])
-                    internal_rv[i_obj] = float(params[19])
-                if params[i_gal_dust_model].lower() != 'none':
-                    galactic_av[i_obj] = float(params[i_gal_dust_model+1])
-                    galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
-            else:
-                raise RuntimeError("Do not know how to handle "
-                                   "object type: %s" % params[12])
+    for line in object_lines:
+        params = line.strip().split()
+        if params[0] != 'object':
+            continue
+        i_obj += 1
+        unique_id[i_obj] = int(params[1])
+        ra_phosim[i_obj] = float(params[2])
+        dec_phosim[i_obj] = float(params[3])
+        mag_norm[i_obj] = float(params[4])
+        sed_name[i_obj] = params[5]
+        redshift[i_obj] = float(params[6])
+        gamma1[i_obj] = float(params[7])
+        gamma2[i_obj] = gamma2_sign*float(params[8])
+        kappa[i_obj] = float(params[9])
+        if params[12].lower() == 'point':
+            object_type[i_obj] = _POINT_SOURCE
+            i_gal_dust_model = 14
+            if params[13].lower() != 'none':
+                i_gal_dust_model = 16
+                internal_av[i_obj] = float(params[14])
+                internal_rv[i_obj] =float(params[15])
+            if params[i_gal_dust_model].lower() != 'none':
+                galactic_av[i_obj] = float(params[i_gal_dust_model+1])
+                galactic_rv[i_obj] = float(params[i_gal_dust_model+2])
+        elif params[12].lower() == 'sersic2d':
+            object_type[i_obj] = _SERSIC_2D
+            semi_major_arcsec[i_obj] = float(params[13])
+            semi_minor_arcsec[i_obj] = float(params[14])
+            position_angle_degrees[i_obj] = float(params[15])
+            sersic_index[i_obj] = float(params[16])
+            i_gal_dust_model = 18
+            if params[17].lower() != 'none':
+                i_gal_dust_model = 20
+                internal_av[i_obj] = float(params[18])
+                internal_rv[i_obj] = float(params[19])
+            if params[i_gal_dust_model].lower() != 'none':
+                galactic_av[i_obj] = float(params[i_gal_dust_model+1])
+                galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
+        elif params[12].lower() == 'knots':
+            object_type[i_obj] = _RANDOM_WALK
+            semi_major_arcsec[i_obj] = float(params[13])
+            semi_minor_arcsec[i_obj] = float(params[14])
+            position_angle_degrees[i_obj] = float(params[15])
+            npoints[i_obj] = int(params[16])
+            i_gal_dust_model = 18
+            if params[17].lower() != 'none':
+                i_gal_dust_model = 20
+                internal_av[i_obj] = float(params[18])
+                internal_rv[i_obj] = float(params[19])
+            if params[i_gal_dust_model].lower() != 'none':
+                galactic_av[i_obj] = float(params[i_gal_dust_model+1])
+                galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
+        else:
+            raise RuntimeError("Do not know how to handle "
+                               "object type: %s" % params[12])
 
-    ra_appGeo, dec_appGeo = PhoSimAstrometryBase._appGeoFromPhoSim(np.radians(ra_phosim),
-                                                                   np.radians(dec_phosim),
-                                                                   obs_md)
+    ra_appGeo, dec_appGeo \
+        = PhoSimAstrometryBase._appGeoFromPhoSim(np.radians(ra_phosim),
+                                                 np.radians(dec_phosim),
+                                                 obs_md)
 
-    (ra_obs_rad,
-     dec_obs_rad) = _observedFromAppGeo(ra_appGeo, dec_appGeo,
-                                        obs_metadata=obs_md,
-                                        includeRefraction=True)
+    ra_obs_rad, dec_obs_rad \
+        = _observedFromAppGeo(ra_appGeo, dec_appGeo,
+                              obs_metadata=obs_md,
+                              includeRefraction=True)
 
     semi_major_radians = radiansFromArcsec(semi_major_arcsec)
     semi_minor_radians = radiansFromArcsec(semi_minor_arcsec)
-    position_angle_radians = np.radians(position_angle_degrees)
+    # Account for PA sign difference wrt phosim convention.
+    position_angle_radians = np.radians(360. - position_angle_degrees)
 
     x_pupil, y_pupil = _pupilCoordsFromObserved(ra_obs_rad,
                                                 dec_obs_rad,
                                                 obs_md)
 
     bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
-
-    sed_dir = lsstUtils.getPackageDir('sims_sed_library')
 
     object_is_valid = np.array([True]*num_objects)
 
@@ -327,6 +287,8 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
     wav_int = None
     wav_gal = None
 
+    my_sed_dirs = sed_dirs(file_name)
+
     gs_object_arr = []
     for i_obj in range(num_objects):
         if not object_is_valid[i_obj]:
@@ -339,7 +301,7 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
         elif object_type[i_obj] == _RANDOM_WALK:
             gs_type = 'RandomWalk'
 
-        sed_obj = SedWrapper(os.path.join(sed_dir, sed_name[i_obj]),
+        sed_obj = SedWrapper(sed_file(sed_name[i_obj], my_sed_dirs),
                              mag_norm[i_obj], redshift[i_obj],
                              internal_av[i_obj], internal_rv[i_obj],
                              galactic_av[i_obj], galactic_rv[i_obj],
@@ -409,6 +371,26 @@ def sources_from_file(file_name, obs_md, phot_params, numRows=None):
 
     return gs_object_arr, out_obj_dict
 
+
+def sed_dirs(instcat_file):
+    """
+    Return a list of SED directories to check for SED folders. This
+    includes $SIMS_SED_LIBRARY_DIR and the directory containing
+    the instance catalog.
+    """
+    return [lsstUtils.getPackageDir('sims_sed_library'),
+            os.path.dirname(os.path.abspath(instcat_file))]
+
+def sed_file(sed_name, sed_directories):
+    """
+    Search the sed_directories for the specific sed_name filename
+    and return the first file found.
+    """
+    for sed_dir in sed_directories:
+        my_path = os.path.join(sed_dir, sed_name)
+        if os.path.isfile(my_path):
+            return my_path
+    return sed_name
 
 def photometricParameters(phosim_commands):
     """
@@ -505,14 +487,104 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     commands = metadata_from_file(fileName)
     obs_metadata = phosim_obs_metadata(commands)
     phot_params = photometricParameters(commands)
-    sources = sources_from_file(fileName,
-                                obs_metadata,
-                                phot_params,
-                                numRows=numRows)
+    instcats = InstCatTrimmer(fileName, numRows=numRows)
+    gs_object_arr = GsObjectList(instcats.object_lines, instcats.obs_md,
+                                 phot_params, instcats.instcat_file)
+    gs_object_dict = GsObjectDict(instcats, phot_params)
 
     return PhoSimInstanceCatalogContents(obs_metadata,
                                          phot_params,
-                                         sources)
+                                         (gs_object_arr, gs_object_dict))
+
+
+class GsObjectDict:
+    """
+    Dictionary-like class to provide access to lists of
+    GalSimCelestialObjects from an instance catalog on a per-sensor
+    basis.  This class uses InstCatTrimmer to downselect the object
+    entries via acceptance cones centered on the sensor of interest
+    and to defer the creation of the GalSimCelestialObjects until
+    the data for the specified sensor are requested.
+    """
+    def __init__(self, instcat_trimmer, phot_params, radius=0.18):
+        """
+        Parameters
+        ----------
+        instcat_trimmer: InstCatTrimmer
+            This object manages the GalSimCelestialObject creation.
+        phot_params: PhotometricParameters
+            Photometric parameter info for the visit.
+        radius: float [0.18]
+            Acceptance cone radius, in degrees, for downselecting objects
+            for a single CCD.
+        """
+        self.instcat_trimmer = instcat_trimmer
+        self.phot_params = phot_params
+        self.radius = radius
+
+    def __iter__(self):
+        for detector in self.instcat_trimmer._camera:
+            yield detector.getName()
+
+    def __getitem__(self, chip_name):
+        object_lines \
+            = self.instcat_trimmer.get_object_entries(chip_name,
+                                                      radius=self.radius)
+        obs_md = self.instcat_trimmer.obs_md
+        file_name = self.instcat_trimmer.instcat_file
+        return GsObjectList(object_lines, obs_md, self.phot_params, file_name,
+                            chip_name=chip_name)
+
+
+class GsObjectList:
+    """
+    List-like class to provide access to lists of objects from an
+    instance catalog, deferring creation of GalSimCelestialObjects
+    until items in the list are accessed.
+    """
+    def __init__(self, object_lines, obs_md, phot_params, file_name,
+                 chip_name=None):
+        self.object_lines = object_lines
+        self.obs_md = obs_md
+        self.phot_params = phot_params
+        self.file_name = file_name
+        self.chip_name = chip_name
+        self._gs_objects = None
+
+    @property
+    def gs_objects(self):
+        if self._gs_objects is None:
+            obj_arr, obj_dict \
+                = sources_from_list(self.object_lines, self.obs_md,
+                                    self.phot_params, self.file_name)
+            if self.chip_name is not None:
+                try:
+                    self._gs_objects = obj_dict[self.chip_name]
+                except KeyError:
+                    self._gs_objects = []
+            else:
+                self._gs_objects = obj_arr
+        return self._gs_objects
+
+    def reset(self):
+        """
+        Reset the ._gs_objects attribute to None in order to recover
+        memory devoted to the GalSimCelestialObject instances.
+        """
+        self._gs_objects = None
+
+    def __len__(self):
+        try:
+            return len(self._gs_objects)
+        except TypeError:
+            return len(self.object_lines)
+
+    def __iter__(self):
+        for gs_obj in self.gs_objects:
+            yield gs_obj
+
+    def __getitem__(self, index):
+        return self.gs_objects[index]
 
 
 class ImSimConfiguration(object):
@@ -549,9 +621,12 @@ class ImSimConfiguration(object):
 
         Returns
         -------
-        None, int, float, str
+        None, int, float, bool, str
             Depending on the first workable cast, in that order.
         """
+        # Remove any inline comments after a '#' delimiter.
+        value = value.split('#')[0].strip()
+
         if value == 'None':
             return None
         try:
@@ -560,6 +635,9 @@ class ImSimConfiguration(object):
             else:
                 return float(value)
         except ValueError:
+            # Check if it can be cast as a boolean.
+            if value in 'True False'.split():
+                return eval(value)
             # Return as the original string.
             return value
 
@@ -606,27 +684,31 @@ def read_config(config_file=None):
     return my_config
 
 
-def get_logger(log_level):
+def get_logger(log_level, name=None):
     """
     Set up standard logging module and set lsst.log to the same log
     level.
 
     Parameters
     ----------
-    log_level : str
+    log_level: str
         This is converted to logging.<log_level> and set in the logging
         config.
+    name: str [None]
+        The name to preprend to the log message to identify different
+        logging contexts.  If None, then the root context is used.
     """
     # Setup logging output.
-    logging.basicConfig(format="%(message)s", stream=sys.stdout)
-    logger = logging.getLogger()
+    logging.basicConfig(format="%(asctime)s %(name)s: %(message)s",
+                        stream=sys.stdout)
+    logger = logging.getLogger(name)
     logger.setLevel(eval('logging.' + log_level))
 
-    # Set similar logging level for Stack code.
-    if log_level == "CRITICAL":
-        log_level = "FATAL"
-    lsstLog.setLevel(lsstLog.getDefaultLoggerName(),
-                     eval('lsstLog.%s' % log_level))
+#    # Set similar logging level for Stack code.
+#    if log_level == "CRITICAL":
+#        log_level = "FATAL"
+#    lsstLog.setLevel(lsstLog.getDefaultLoggerName(),
+#                     eval('lsstLog.%s' % log_level))
 
     return logger
 
@@ -673,33 +755,34 @@ def add_cosmic_rays(gs_interpreter, phot_params):
     return None
 
 
-def add_treering_info(gs_interpreter, tr_filename=None):
+def add_treering_info(detectors, tr_filename=None):
     """
     Adds tree ring info based on a model derived from measured sensors.
 
     Parameters
     ----------
-    gs_interpreter: lsst.sims.GalSimInterface.GalSimInterpreter
-        The object that is actually drawing the images
+    detectors: list (or other iterable)
+        A list of GalSimDetector objects.
     tr_filename: str
         Filename of tree rings parameter file.
 
     Returns
     -------
     None
-        Will act on gs_interpreter, adding tree ring information to the detectors.
+        Will add tree ring information to each of the detectors.
     """
     if tr_filename is None:
         tr_filename = os.path.join(lsstUtils.getPackageDir('imsim'),
                                    'data', 'tree_ring_data',
                                    'tree_ring_parameters_2018-04-26.txt')
     TR = TreeRings(tr_filename)
-    for detector in gs_interpreter.detectors:
+    for detector in detectors:
         [Rx, Ry, Sx, Sy] = [int(s) for s in list(detector.name) if s.isdigit()]
         (tr_center, tr_function) = TR.Read_DC2_Tree_Ring_Model(Rx, Ry, Sx, Sy)
         new_center = galsim.PositionD(tr_center.x + detector._xCenterPix, tr_center.y + detector._yCenterPix)
         detector.tree_rings = (new_center, tr_function)
     return None
+
 
 def airmass(altitude):
     """
@@ -717,6 +800,7 @@ def airmass(altitude):
     """
     altRad = np.radians(altitude)
     return 1.0/np.sqrt(1.0 - 0.96*(np.sin(0.5*np.pi - altRad))**2)
+
 
 def FWHMeff(rawSeeing, band, altitude):
     """
@@ -750,6 +834,7 @@ def FWHMeff(rawSeeing, band, altitude):
     # From LSST Document-20160, p. 8.
     return 1.16*np.sqrt(FWHMsys**2 + 1.04*FWHMatm**2)
 
+
 def FWHMgeom(rawSeeing, band, altitude):
     """
     FWHM of the "combined PSF".  This is FWHMtot from
@@ -770,3 +855,47 @@ def FWHMgeom(rawSeeing, band, altitude):
     float: FWHM of the combined PSF in arcsec.
     """
     return 0.822*FWHMeff(rawSeeing, band, altitude) + 0.052
+
+
+def make_psf(psf_name, obs_md, log_level='WARN', rng=None):
+    """
+    Make the requested PSF object.
+
+    Parameters
+    ----------
+    psf_name: str
+        Either "DoubleGaussian", "Kolmogorov", or "Atmospheric".
+        The name is case-insensitive.
+    obs_md: lsst.sims.utils.ObservationMetaData
+        Metadata associated with the visit, e.g., pointing direction,
+        observation time, seeing, etc..
+    log_level: str ['WARN']
+        Logging level ('DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL').
+    rng: galsim.BaseDeviate
+        Instance of the galsim.baseDeviate random number generator.
+
+    Returns
+    -------
+    lsst.sims.GalSimInterface.PSFbase:  Instance of a subclass of PSFbase.
+    """
+    if psf_name.lower() == 'doublegaussian':
+        return SNRdocumentPSF(obs_md.OpsimMetaData['FWHMgeom'])
+
+    rawSeeing = obs_md.OpsimMetaData['rawSeeing']
+
+    my_airmass = airmass(obs_md.OpsimMetaData['altitude'])
+
+    if psf_name.lower() == 'kolmogorov':
+        psf = Kolmogorov_and_Gaussian_PSF(my_airmass,
+                                          rawSeeing=rawSeeing,
+                                          band=obs_md.bandpass)
+    elif psf_name.lower() == 'atmospheric':
+        if rng is None:
+            rng = galsim.UniformDeviate()
+        logger = get_logger(log_level, 'psf')
+        psf = AtmosphericPSF(airmass=my_airmass,
+                             rawSeeing=rawSeeing,
+                             band=obs_md.bandpass,
+                             rng=rng,
+                             logger=logger)
+    return psf

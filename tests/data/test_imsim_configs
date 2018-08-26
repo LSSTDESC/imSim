@@ -1,0 +1,18 @@
+[electronics_readout]
+readout_time = 3.
+
+[ccd]
+full_well = 1e5
+
+[persistence]
+eimage_prefix = lsst_e_
+
+[cosmic_rays]
+ccd_rate = 8
+catalog = default
+
+[checkpointing]
+nobj = 1000
+
+[wl_params]
+gamma2_sign = 1

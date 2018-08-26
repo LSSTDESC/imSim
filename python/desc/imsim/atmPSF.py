@@ -141,7 +141,7 @@ class AtmosphericPSF(PSFbase):
                     altitude=altitudes, r0_weights=weights, rng=self.rng,
                     screen_size=819.2, screen_scale=0.1)
 
-    def _getPSF(self, xPupil=None, yPupil=None):
+    def _getPSF(self, xPupil=None, yPupil=None, gsparams=None):
         """
         Return a PSF to be convolved with sources.
 
@@ -155,5 +155,6 @@ class AtmosphericPSF(PSFbase):
             aper=self.aper,
             theta=theta,
             t0=self.t0,
-            exptime=self.exptime)
+            exptime=self.exptime,
+            gsparams=gsparams)
         return psf

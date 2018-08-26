@@ -3,10 +3,22 @@ readout_time = 3.
 
 [ccd]
 full_well = 1e5
+bf_strength = 1.0
 
 [persistence]
 eimage_prefix = lsst_e_
+eimage_compress = True
+centroid_prefix = centroid_
 
 [cosmic_rays]
-ccd_rate = 8
+# The ccd_rate is in units of CRs per second per CCD.
+#ccd_rate = None   # This will use the computed rate for the ITL lab data, ~1.2.
+ccd_rate = 0.2    # CTIO rate extracted from DECam darks.
 catalog = default
+
+[checkpointing]
+nobj = 200
+cleanup = True
+
+[wl_params]
+gamma2_sign = -1

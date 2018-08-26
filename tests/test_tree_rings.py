@@ -37,7 +37,8 @@ class TreeRingsTestCase(unittest.TestCase):
         tr_filename = os.path.join(lsstUtils.getPackageDir('imsim'),
                                    'data', 'tree_ring_data',
                                    'tree_ring_parameters_19mar18.txt')
-        desc.imsim.add_treering_info(gs_interpreter, tr_filename=tr_filename)
+        desc.imsim.add_treering_info(gs_interpreter.detectors,
+                                     tr_filename=tr_filename)
 
         for i, detector in enumerate(gs_interpreter.detectors):
             center = detector.tree_rings.center
