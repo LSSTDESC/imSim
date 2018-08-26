@@ -267,17 +267,17 @@ class ImageSource(object):
             data = data[:, ::-1]
         if amp_props.flip_y:
             data = data[::-1, :]
-
         imaging_segment.getArray()[:] = data
-        full_arr = full_segment.getArray()
 
         # Add dark current.
-        full_arr += np.random.poisson(amp_props.dark_current*self.exptime,
-                                      size=full_arr.shape)
+        imaging_arr = imaging_segment.getArray()
+        imaging_arr += np.random.poisson(amp_props.dark_current*self.exptime,
+                                         size=imaging_arr.shape)
 
         # Add defects.
 
         # Apply CTE.
+        full_arr = full_segment.getArray()
         pcte_matrix = cte_matrix(full_arr.shape[0], amp_props.pcti)
         for col in range(0, full_arr.shape[1]):
             full_arr[:, col] = np.dot(pcte_matrix, full_arr[:, col])
