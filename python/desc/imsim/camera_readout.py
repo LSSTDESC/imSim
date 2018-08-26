@@ -254,18 +254,18 @@ class ImageSource(object):
             data = data[:, ::-1]
         if amp_info.getRawFlipY():
             data = data[::-1, :]
-
         imaging_segment.getArray()[:] = data
-        full_arr = full_segment.getArray()
 
         # Add dark current.
         dark_current = config['electronics_readout']['dark_current']
-        full_arr += np.random.poisson(dark_current*self.exptime,
-                                      size=full_arr.shape)
+        imaging_arr = imaging_segment.getArray()
+        imaging_arr += np.random.poisson(dark_current*self.exptime,
+                                         size=imaging_arr.shape)
 
         # Add defects.
 
         # Apply CTE.
+        full_arr = full_segment.getArray()
         pcti = config['electronics_readout']['pcti']
         pcte_matrix = cte_matrix(full_arr.shape[0], pcti)
         for col in range(0, full_arr.shape[1]):
