@@ -5,6 +5,7 @@ for the DESC collaboration and LSST project.  This version of the program can
 read phoSim instance files as is. It leverages the LSST Sims GalSim interface
 code found in sims_GalSimInterface.
 """
+import os
 import argparse
 import desc.imsim
 
@@ -37,13 +38,24 @@ parser.add_argument('--seed', type=int, default=267,
                     help='integer used to seed random number generator')
 parser.add_argument('--processes', type=int, default=1,
                     help='number of processes to use in multiprocessing mode')
+parser.add_argument('--psf_file', type=str, default=None,
+                    help="Pickle file containing for the persisted PSF. "
+                    "If the file exists, the psf will be loaded from that "
+                    "file, ignoring the --psf option; "
+                    "if not, a PSF will be created and saved to that filename.")
+
 args = parser.parse_args()
 
 commands = desc.imsim.metadata_from_file(args.instcat)
 
 obs_md = desc.imsim.phosim_obs_metadata(commands)
 
-psf = desc.imsim.make_psf(args.psf, obs_md, log_level=args.log_level)
+if args.psf_file is None or not os.path.isfile(args.psf_file):
+    psf = desc.imsim.make_psf(args.psf, obs_md, log_level=args.log_level)
+    if args.psf_file is not None:
+        desc.imsim.save_psf(psf, args.psf_file)
+else:
+    psf = desc.imsim.load_psf(args.psf_file, log_level=args.log_level)
 
 sensor_list = args.sensors.split('^') if args.sensors is not None \
     else args.sensors

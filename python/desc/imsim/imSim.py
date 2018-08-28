@@ -6,6 +6,7 @@ import os
 import sys
 import warnings
 from collections import namedtuple, defaultdict
+import pickle
 import logging
 import gc
 import copy
@@ -58,7 +59,8 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'add_cosmic_rays',
            '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK',
            'parsePhoSimInstanceFile',
-           'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom', 'make_psf']
+           'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom', 'make_psf',
+           'save_psf', 'load_psf']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -459,6 +461,7 @@ def phosim_obs_metadata(phosim_commands):
     obs_md.OpsimMetaData['FWHMeff'] =  fwhm_eff
     obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['seeing']
     obs_md.OpsimMetaData['altitude'] = phosim_commands['altitude']
+    obs_md.OpsimMetaData['seed'] = phosim_commands['seed']
     return obs_md
 
 
@@ -683,6 +686,8 @@ def read_config(config_file=None):
             my_config.set_from_config(section, key, value)
     return my_config
 
+read_config()
+
 
 def get_logger(log_level, name=None):
     """
@@ -857,7 +862,7 @@ def FWHMgeom(rawSeeing, band, altitude):
     return 0.822*FWHMeff(rawSeeing, band, altitude) + 0.052
 
 
-def make_psf(psf_name, obs_md, log_level='WARN', rng=None):
+def make_psf(psf_name, obs_md, log_level='WARN', rng=None, **kwds):
     """
     Make the requested PSF object.
 
@@ -873,10 +878,13 @@ def make_psf(psf_name, obs_md, log_level='WARN', rng=None):
         Logging level ('DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL').
     rng: galsim.BaseDeviate
         Instance of the galsim.baseDeviate random number generator.
+    **kwds: **dict
+        Additional keyword arguments to pass to the AtmosphericPSF,
+        i.e., screen_size(=819.2) and screen_scale(=0.1).
 
     Returns
     -------
-    lsst.sims.GalSimInterface.PSFbase:  Instance of a subclass of PSFbase.
+    lsst.sims.GalSimInterface.PSFbase: Instance of a subclass of PSFbase.
     """
     if psf_name.lower() == 'doublegaussian':
         return SNRdocumentPSF(obs_md.OpsimMetaData['FWHMgeom'])
@@ -891,11 +899,37 @@ def make_psf(psf_name, obs_md, log_level='WARN', rng=None):
                                           band=obs_md.bandpass)
     elif psf_name.lower() == 'atmospheric':
         if rng is None:
-            rng = galsim.UniformDeviate()
+            # Use the 'seed' value from the instance catalog for the rng
+            # used by the atmospheric PSF.
+            rng = galsim.UniformDeviate(obs_md.OpsimMetaData['seed'])
         logger = get_logger(log_level, 'psf')
         psf = AtmosphericPSF(airmass=my_airmass,
                              rawSeeing=rawSeeing,
                              band=obs_md.bandpass,
                              rng=rng,
-                             logger=logger)
+                             logger=logger, **kwds)
+    return psf
+
+def save_psf(psf, outfile):
+    """
+    Save the psf as a pickle file.
+    """
+    # Set any logger attribute to None since loggers cannot be persisted.
+    if hasattr(psf, 'logger'):
+        psf.logger = None
+    with open(outfile, 'wb') as output:
+        pickle.dump(psf, output)
+
+def load_psf(psf_file, log_level='INFO'):
+    """
+    Load a psf from a pickle file.
+    """
+    with open(psf_file, 'rb') as fd:
+        psf = pickle.load(fd)
+
+    # Since save_psf sets any logger attribute to None, restore
+    # it here.
+    if hasattr(psf, 'logger'):
+        psf.logger = get_logger(log_level, 'psf')
+
     return psf
