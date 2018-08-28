@@ -241,7 +241,7 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
                 galactic_rv[i_obj] = float(params[i_gal_dust_model+2])
         elif (params[12].endswith('.fits') or params[12].endswith('.fits.gz')):
             object_type[i_obj] = _FITS_IMAGE
-            fits_image_file[i_obj] = sed_file(params[12], get_image_dirs())
+            fits_image_file[i_obj] = find_file_path(params[12], get_image_dirs())
             pixel_scale[i_obj] = float(params[13])
             rotation_angle[i_obj] = float(params[14])
             i_gal_dust_model = 16
@@ -324,7 +324,7 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
             gs_type = 'FitsImage'
             fits_file = fits_image_file[i_obj]
 
-        sed_obj = SedWrapper(sed_file(sed_name[i_obj], my_sed_dirs),
+        sed_obj = SedWrapper(find_file_path(sed_name[i_obj], my_sed_dirs),
                              mag_norm[i_obj], redshift[i_obj],
                              internal_av[i_obj], internal_rv[i_obj],
                              galactic_av[i_obj], galactic_rv[i_obj],
@@ -401,12 +401,7 @@ def get_image_dirs():
     """
     Return a list of possible directories for FITS images.
     """
-    my_dirs = ['.']
-    try:
-        my_dirs.append(os.environ['IMAGE_DIR'])
-    except KeyError:
-        pass
-    return my_dirs
+    return os.environ.get('IMAGE_DIR_PATH', '.').split(':')
 
 def sed_dirs(instcat_file):
     """
@@ -417,16 +412,16 @@ def sed_dirs(instcat_file):
     return [lsstUtils.getPackageDir('sims_sed_library'),
             os.path.dirname(os.path.abspath(instcat_file))]
 
-def sed_file(sed_name, sed_directories):
+def find_file_path(file_name, path_directories):
     """
-    Search the sed_directories for the specific sed_name filename
+    Search the path_directories for the specific filename
     and return the first file found.
     """
-    for sed_dir in sed_directories:
-        my_path = os.path.join(sed_dir, sed_name)
+    for path_dir in path_directories:
+        my_path = os.path.join(path_dir, file_name)
         if os.path.isfile(my_path):
             return my_path
-    return sed_name
+    return file_name
 
 def photometricParameters(phosim_commands):
     """
