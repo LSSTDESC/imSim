@@ -426,7 +426,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertIn('1 had semi_major_axis', message)
         self.assertIn('1 had n_points', message)
 
-        self.assertEqual(len(instcat_contents.sources[0]), 17)
+        self.assertEqual(len(instcat_contents.sources[0]), 18)
         for obj in instcat_contents.sources[0]:
             self.assertNotIn(obj.uniqueId, bad_unique_ids)
 

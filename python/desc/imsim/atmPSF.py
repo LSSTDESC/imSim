@@ -23,6 +23,11 @@ class OptWF(object):
         obj = galsim.Airy(lam=wavelength, diam=8.36, obscuration=0.61, gsparams=gsparams)
         self.stepk = obj.stepk
 
+    def __eq__(self, rhs):
+        return (isinstance(rhs, OptWF)
+                and np.array_equal(self.deviations, rhs.deviations)
+                and self.stepk == rhs.stepk)
+
     def _wavefront_gradient(self, u, v, t, theta):
         z = self.oz.cartesian_coeff(theta[0].rad, theta[1].rad)
         Z = galsim.OpticalScreen(diam=8.36, obscuration=0.61, aberrations=[0]*4+list(z))
@@ -46,11 +51,13 @@ class AtmosphericPSF(PSFbase):
     @param exptime      Exposure time in seconds.  default: 30.
     @param kcrit        Critical Fourier mode at which to split first and second kicks
                         in units of (1/r0).  default: 0.2
+    @param screen_size  Size of the phase screens in meters.  default: 819.2
+    @param screen_scale Size of phase screen "pixels" in meters.  default: 0.1
     @param doOpt        Add in optical phase screens?  default: True
     @param logger       Optional logger.  default: None
     """
     def __init__(self, airmass, rawSeeing, band, rng, t0=0.0, exptime=30.0, kcrit=0.2,
-                 doOpt=True, logger=None):
+                 screen_size=819.2, screen_scale=0.1, doOpt=True, logger=None):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
 
@@ -62,6 +69,8 @@ class AtmosphericPSF(PSFbase):
         self.rng = rng
         self.t0 = t0
         self.exptime = exptime
+        self.screen_size = screen_size
+        self.screen_scale = screen_scale
         self.logger = logger
 
         self.atm = galsim.Atmosphere(**self._getAtmKwargs())
@@ -77,6 +86,16 @@ class AtmosphericPSF(PSFbase):
 
         if doOpt:
             self.atm.append(OptWF(rng, self.wlen_eff))
+
+    def __eq__(self, rhs):
+        return (isinstance(rhs, AtmosphericPSF)
+                and self.airmass == rhs.airmass
+                and self.rawSeeing == rhs.rawSeeing
+                and self.wlen_eff == rhs.wlen_eff
+                and self.t0 == rhs.t0
+                and self.exptime == rhs.exptime
+                and self.atm == rhs.atm
+                and self.aper == rhs.aper)
 
     @staticmethod
     def _seeing_resid(r0_500, wavelength, L0, target):
@@ -139,7 +158,7 @@ class AtmosphericPSF(PSFbase):
 
         return dict(r0_500=r0_500, L0=L0, speed=speeds, direction=directions,
                     altitude=altitudes, r0_weights=weights, rng=self.rng,
-                    screen_size=819.2, screen_scale=0.1)
+                    screen_size=self.screen_size, screen_scale=self.screen_scale)
 
     def _getPSF(self, xPupil=None, yPupil=None, gsparams=None):
         """
