@@ -8,6 +8,9 @@ bf_strength = 1.0
 [persistence]
 eimage_prefix = lsst_e_
 eimage_compress = True
+eimage_skip = True
+raw_file_prefix = lsst_a_
+raw_file_compress = True
 centroid_prefix = centroid_
 
 [cosmic_rays]

@@ -19,6 +19,7 @@ from .imSim import read_config, parsePhoSimInstanceFile, add_cosmic_rays,\
 from .bleed_trails import apply_channel_bleeding
 from .skyModel import make_sky_model
 from .process_monitor import process_monitor
+from .camera_readout import ImageSource
 
 __all__ = ['ImageSimulator', 'compress_files']
 
@@ -294,9 +295,12 @@ class SimulateSensor:
         prefix = image_simulator.config['persistence']['eimage_prefix']
         obsHistID = str(image_simulator.obs_md.OpsimMetaData['obshistID'])
         nameRoot = os.path.join(outdir, prefix) + obsHistID
-        outfiles = gs_interpreter.writeImages(nameRoot=nameRoot)
-        if image_simulator.config['persistence']['eimage_compress']:
-            compress_files(outfiles)
+        if not image_simulator.config['persistence']['eimage_skip']:
+            outfiles = gs_interpreter.writeImages(nameRoot=nameRoot)
+            if image_simulator.config['persistence']['eimage_compress']:
+                compress_files(outfiles)
+        else:
+            self.write_raw_files(gs_interpreter.detectorImages)
 
         # Write out the centroid files if they were made.
         gs_interpreter.write_centroid_files()
@@ -311,6 +315,25 @@ class SimulateSensor:
         # Remove reference to gs_interpreter in order to recover the
         # memory associated with that object.
         image_simulator.gs_interpreters[self.sensor_name] = None
+
+    def write_raw_files(self, detector_images):
+        """
+        Write the raw files directly from galsim images.
+
+        Parameters
+        ----------
+        detector_images: dict
+            The dictionary attribute of the GalSimInterpreter object
+            used to fill the galsim images with eimage data.
+        """
+        persist = image_simulator.config['persistence']
+        prefix = persist['raw_file_prefix']
+        obsHistID = str(image_simulator.obs_md.OpsimMetaData['obshistID'])
+        nameRoot = os.path.join(image_simulator.outdir, prefix) + obsHistID
+        for name, gs_image in detector_images.items():
+            raw = ImageSource.create_from_galsim_image(gs_image)
+            outfile = '_'.join((nameRoot, name))
+            raw.write_fits_file(outfile, compress=persist['raw_file_compress'])
 
 def compress_files(file_list, remove_originals=True):
     """
