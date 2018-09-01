@@ -97,6 +97,29 @@ class ImageSource(object):
         self.eimage.close()
 
     @staticmethod
+    def create_from_galsim_image(gs_image, logger=None):
+        """
+        Create an ImageSource object from a galsim Image object
+        produced by a GalSimInterpreter.
+        """
+        # Extract the exptime and sensor_id from the
+        # sims_GalSimInterface.GalSim_afw_TanSimWCS object.
+        wcs = gs_image.wcs
+        exptime = wcs.photParams.exptime*wcs.photParams.nexp
+        sensor_id = 'R{}{}_S{}{}'\
+                    .format(*[x for x in wcs.detectorName if x.isdigit()])
+
+        raw_image = ImageSource(gs_image.array, exptime, sensor_id)
+        raw_image.eimage_data = gs_image.array
+
+        # Add the keywords from wcs.fitsHeader to the raw_image.eimage
+        # attribute so that they are propagated to the raw file.
+        for name in wcs.fitsHeader.names():
+            raw_image.eimage[0].header[name] = wcs.fitsHeader.getScalar(name)
+        raw_image._read_pointing_info(None)
+        return raw_image
+
+    @staticmethod
     def create_from_eimage(eimage_file, sensor_id=None, opsim_db=None,
                            logger=None):
         """
@@ -312,14 +335,16 @@ class ImageSource(object):
             self.amp_images[amp_name].getArray()[:, :] \
                 = sum([x*y for x, y in zip(imarrs, xtalk_row)])
 
-    def get_amplifier_hdu(self, amp_name):
+    def get_amplifier_hdu(self, amp_name, compress=True):
         """
         Get an astropy.io.fits.HDU for the specified amplifier.
 
         Parameters
         ----------
-        amp_name : str
+        amp_name: str
             The amplifier name, e.g., "R22_S11_C00".
+        compress: bool [True]
+            Use RICE_1 compression.
 
         Returns
         -------
@@ -327,13 +352,19 @@ class ImageSource(object):
             Image HDU with the pixel data and header keywords
             appropriate for the requested sensor segment.
         """
-        hdu = fits.ImageHDU(data=self.amp_images[amp_name].getArray().astype(np.int32))
+        data = self.amp_images[amp_name].getArray().astype(np.int32)
+        if compress:
+            hdu = fits.CompImageHDU(data=data, compression_type='RICE_1')
+        else:
+            hdu = fits.ImageHDU(data=data)
         hdr = hdu.header
         amp_info = self.camera_info.get_amp_info(amp_name)
         # Copy keywords from eimage primary header.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             for key in self.eimage[0].header.keys():
+                if key in ('BITPIX', 'NAXIS'):
+                    continue
                 try:
                     hdr[key] = self.eimage[0].header[key]
                 except ValueError:
@@ -389,16 +420,20 @@ class ImageSource(object):
         output.writeto(outfile, overwrite=overwrite)
 
     def write_fits_file(self, outfile, overwrite=True, run_number=None,
-                        lsst_num='LCA-11021_RTM-000'):
+                        lsst_num='LCA-11021_RTM-000', compress=True):
         """
         Write the processed eimage data as a multi-extension FITS file.
 
         Parameters
         ----------
-        outfile : str
+        outfile: str
             Name of the output FITS file.
-        overwrite : bool, optional
-            Flag whether to overwrite an existing output file.  Default: True.
+        overwrite: bool [True]
+            Flag whether to overwrite an existing output file.
+        run_number: int [None]
+            Run number.  If None, then the visit number is used.
+        compress: bool [True]
+            Use RICE_1 compression for each image HDU.
         """
         output = fits.HDUList(fits.PrimaryHDU())
         output[0].header = self.eimage[0].header
@@ -427,7 +462,7 @@ class ImageSource(object):
         seg_ids = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
         for seg_id in seg_ids:
             amp_name = '_C'.join((self.sensor_id, seg_id))
-            output.append(self.get_amplifier_hdu(amp_name))
+            output.append(self.get_amplifier_hdu(amp_name, compress=compress))
             output[-1].header['EXTNAME'] = 'Segment%s' % seg_id
         output.writeto(outfile, overwrite=overwrite)
 
