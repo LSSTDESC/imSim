@@ -311,8 +311,6 @@ class SimulateSensor:
             return
 
         logger = get_logger(self.log_level, name=self.sensor_name)
-        num_objects = len(gs_objects)
-        logger.info("drawing %i objects", num_objects)
 
         # IMAGE_SIMULATOR must be a variable declared in the
         # outer scope and set to an ImageSimulator instance.
@@ -326,6 +324,8 @@ class SimulateSensor:
                     continue
                 flux = gs_obj.flux(IMAGE_SIMULATOR.obs_md.bandpass)
                 if not np.isnan(flux):
+                    if not gs_interpreter.drawn_objects:
+                        logger.info("drawing %d objects", len(gs_objects))
                     logger.debug("%s  %s  %s", gs_obj.uniqueId, flux,
                                  gs_obj.galSimType)
                     gs_interpreter.drawObject(gs_obj)
@@ -367,8 +367,6 @@ class SimulateSensor:
         # memory associated with that object.
         IMAGE_SIMULATOR.gs_interpreters[self.sensor_name] = None
 
-        return None
-
     def update_checkpoint_summary(self, gs_interpreter, num_objects):
         """
         If the checkpoint file has been updated, send the summary
@@ -380,7 +378,8 @@ class SimulateSensor:
         # Apply the checkpointing criterion used by the gs_interpreter.
         nobjs = len(gs_interpreter.drawn_objects)
         if nobjs % gs_interpreter.nobj_checkpoint == 0:
-            self.sender.send((nobjs, self.sensor_name, num_objects))
+            self.sender.send((nobjs, self.sensor_name, num_objects,
+                              gs_interpreter.nobj_checkpoint))
 
 
 def compress_files(file_list, remove_originals=True):
@@ -494,12 +493,10 @@ def checkpoint_aggregator(receivers):
     while receivers:
         for receiver in multiprocessing.connection.wait(receivers, timeout=0.1):
             try:
-                nobj, det, nmax = receiver.recv()
-                if nobj == nmax:
+                nobj, det, nmax, nobj_ckpt = receiver.recv()
+                if nobj >= nmax - nobj_ckpt:
                     receivers.remove(receiver)
             except EOFError:
                 receivers.remove(receiver)
             else:
                 CHECKPOINT_SUMMARY.update_record(nobj, det, nmax)
-
-    return None
