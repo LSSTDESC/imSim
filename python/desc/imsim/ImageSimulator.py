@@ -329,12 +329,16 @@ class SimulateSensor:
                     logger.debug("%s  %s  %s", gs_obj.uniqueId, flux,
                                  gs_obj.galSimType)
                     gs_interpreter.drawObject(gs_obj)
+                    # Ensure the object's id is added to the drawn
+                    # object set.
+                    gs_interpreter.drawn_objects.add(gs_obj.uniqueId)
                     self.update_checkpoint_summary(gs_interpreter,
                                                    len(gs_objects))
                 else:
                     nan_fluxes += 1
                 gs_obj.sed.delete_sed_obj()
-            logger.info("%s objects had nan fluxes", nan_fluxes)
+            if nan_fluxes > 0:
+                logger.info("%s objects had nan fluxes", nan_fluxes)
 
         # Recover the memory devoted to the GalSimCelestialObject instances.
         gs_objects.reset()
