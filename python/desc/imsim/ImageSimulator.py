@@ -113,7 +113,7 @@ class ImageSimulator:
             det_name = det.getName()
             if sensor_list is not None and det_name not in sensor_list:
                 continue
-            if det_type == WAVEFRONT or det_type == GUIDER:
+            if det_type in (WAVEFRONT, GUIDER):
                 continue
             gs_det = make_galsim_detector(self.camera_wrapper, det_name,
                                           self.phot_params, self.obs_md)
@@ -219,54 +219,52 @@ class ImageSimulator:
                 simulate_sensor = SimulateSensor(det_name, self.log_level)
                 results.append(simulate_sensor(self.gs_obj_dict[det_name]))
             return results
-        else:
-            # Use multiprocessing.
-            pool = multiprocessing.Pool(processes=processes)
-            receivers = []
-            if wait_time is not None:
-                results.append(pool.apply_async(process_monitor, (),
-                                                dict(wait_time=wait_time)))
-            for det_name in self.gs_interpreters:
-                gs_objects = self.gs_obj_dict[det_name]
-                if self._outfile_exists(det_name) or not gs_objects:
-                    continue
 
-                # If we are checkpointing, create the connections
-                # between the checkpoint_aggregator and the
-                # SimulateSensor functors, insert a record into the
-                # summary db for the current detector, and add the
-                # receiver to the list to pass to the
-                # checkpoint_aggregator.
-                sender = None
-                if CHECKPOINT_SUMMARY is not None:
-                    receiver, sender = multiprocessing.Pipe(duplex=False)
-                    CHECKPOINT_SUMMARY.insert_record(det_name, len(gs_objects))
-                    receivers.append(receiver)
+        # Use multiprocessing.
+        pool = multiprocessing.Pool(processes=processes)
+        receivers = []
+        if wait_time is not None:
+            results.append(pool.apply_async(process_monitor, (),
+                                            dict(wait_time=wait_time)))
+        for det_name in self.gs_interpreters:
+            gs_objects = self.gs_obj_dict[det_name]
+            if self._outfile_exists(det_name) or not gs_objects:
+                continue
 
-                # Create the function that renders the night sky on
-                # the sensor.
-                simulate_sensor \
-                    = SimulateSensor(det_name, self.log_level, sender)
-
-                # Add it to the processing pool.
-                results.append(pool.apply_async(simulate_sensor, (gs_objects,)))
-            pool.close()
-
+            # If we are checkpointing, create the connections between
+            # the checkpoint_aggregator and the SimulateSensor
+            # functors, insert a record into the summary db for the
+            # current detector, and add the receiver to the list to
+            # pass to the checkpoint_aggregator.
+            sender = None
             if CHECKPOINT_SUMMARY is not None:
-                # Create a separate processing pool for the
-                # checkpoint_aggregator.
-                agg_pool = multiprocessing.Pool(processes=1)
-                aggregator \
-                    = agg_pool.apply_async(checkpoint_aggregator, (receivers,))
-                agg_pool.close()
-                agg_pool.join()
-                aggregator.get()
+                receiver, sender = multiprocessing.Pipe(duplex=False)
+                CHECKPOINT_SUMMARY.insert_record(det_name, len(gs_objects))
+                receivers.append(receiver)
 
-            # The simulate_sensor pool must be joined after the
-            # aggregator pool so that the checkpoint_aggregator is running
-            # when the summary info is sent by the simulate_sensor workers.
-            pool.join()
-            return [res.get() for res in results]
+            # Create the function that renders the night sky on
+            # the sensor.
+            simulate_sensor = SimulateSensor(det_name, self.log_level, sender)
+
+            # Add it to the processing pool.
+            results.append(pool.apply_async(simulate_sensor, (gs_objects,)))
+        pool.close()
+
+        if CHECKPOINT_SUMMARY is not None:
+            # Create a separate processing pool for the
+            # checkpoint_aggregator.
+            agg_pool = multiprocessing.Pool(processes=1)
+            aggregator \
+                = agg_pool.apply_async(checkpoint_aggregator, (receivers,))
+            agg_pool.close()
+            agg_pool.join()
+            aggregator.get()
+
+        # The simulate_sensor pool must be joined after the aggregator
+        # pool so that the checkpoint_aggregator is running when the
+        # summary info is sent by the simulate_sensor workers.
+        pool.join()
+        return [res.get() for res in results]
 
     def _outfile_exists(self, det_name):
         eimage_file = self.eimage_file(det_name)
@@ -322,6 +320,7 @@ class SimulateSensor:
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', 'Automatic n_photons',
                                     UserWarning)
+            nan_fluxes = 0
             for gs_obj in gs_objects:
                 if gs_obj.uniqueId in gs_interpreter.drawn_objects:
                     continue
@@ -330,8 +329,12 @@ class SimulateSensor:
                     logger.debug("%s  %s  %s", gs_obj.uniqueId, flux,
                                  gs_obj.galSimType)
                     gs_interpreter.drawObject(gs_obj)
-                    self.update_checkpoint_summary(gs_interpreter, num_objects)
+                    self.update_checkpoint_summary(gs_interpreter,
+                                                   len(gs_objects))
+                else:
+                    nan_fluxes += 1
                 gs_obj.sed.delete_sed_obj()
+            logger.info("%s objects had nan fluxes", nan_fluxes)
 
         # Recover the memory devoted to the GalSimCelestialObject instances.
         gs_objects.reset()
@@ -363,6 +366,8 @@ class SimulateSensor:
         # Remove reference to gs_interpreter in order to recover the
         # memory associated with that object.
         IMAGE_SIMULATOR.gs_interpreters[self.sensor_name] = None
+
+        return None
 
     def update_checkpoint_summary(self, gs_interpreter, num_objects):
         """
@@ -432,7 +437,7 @@ class CheckpointSummary:
         self.cursor.execute(sql)
         self.conn.commit()
 
-    def update_record(self, objects_drawn, detector):
+    def update_record(self, objects_drawn, detector, num_objects):
         """
         Update the number of objects drawn for the given detector.
 
@@ -442,11 +447,19 @@ class CheckpointSummary:
             The number of objects drawn, i.e., in the checkpoint file.
         detector: str
             The detector name, e.g., "R22_S11".
+        num_objects: int
+            The expected number of objects to be drawn.
         """
-        sql = """update {} set objects_drawn={}
-              where detector='{}'""".format(self.table, objects_drawn, detector)
-        self.cursor.execute(sql)
-        self.conn.commit()
+        sql = """update {} set objects_drawn={}, total_objects={}
+              where detector='{}'"""\
+                  .format(self.table, objects_drawn, num_objects, detector)
+        try:
+            self.cursor.execute(sql)
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            # This will occur if an external process is accessing the
+            # db file and a database lock is encountered.
+            pass
 
     def insert_record(self, detector, nobjects):
         """
@@ -479,7 +492,7 @@ def checkpoint_aggregator(receivers):
     """
     global CHECKPOINT_SUMMARY
     while receivers:
-        for receiver in multiprocessing.connection.wait(receivers, timeout=-1):
+        for receiver in multiprocessing.connection.wait(receivers, timeout=0.1):
             try:
                 nobj, det, nmax = receiver.recv()
                 if nobj == nmax:
@@ -487,4 +500,6 @@ def checkpoint_aggregator(receivers):
             except EOFError:
                 receivers.remove(receiver)
             else:
-                CHECKPOINT_SUMMARY.update_record(nobj, det)
+                CHECKPOINT_SUMMARY.update_record(nobj, det, nmax)
+
+    return None
