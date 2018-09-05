@@ -21,6 +21,7 @@ import numpy as np
 import sqlite3
 import astropy.io.fits as fits
 import astropy.time
+import galsim
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
 import lsst.utils as lsstUtils
@@ -30,6 +31,7 @@ with warnings.catch_warnings():
     from lsst.sims.utils import getRotSkyPos
 from .focalplane_info import FocalPlaneInfo, cte_matrix
 from .imSim import get_logger
+from .cosmic_rays import CosmicRays
 
 __all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
            'set_phosim_bboxes', 'set_noao_keywords']
@@ -57,20 +59,23 @@ class ImageSource(object):
         Object containing the readout properties of the sensors in the
         focal plane, extracted from the segmentation.txt file.
     '''
-    def __init__(self, image_array, exptime, sensor_id, seg_file=None,
-                 logger=None):
+    def __init__(self, image_array, exptime, sensor_id, visit=42,
+                 seg_file=None, logger=None):
         """
         Class constructor.
 
         Parameters
         ----------
-        image_array : np.array
+        image_array: np.array
             A numpy array containing the pixel data for an eimage.
-        exptime : float
+        exptime: float
             The exposure time of the image in seconds.
-        sensor_id : str
+        sensor_id: str
             The raft and sensor identifier, e.g., 'R22_S11'.
-        seg_file : str [None]
+        visit: int [42]
+            Visit number to be used with the sensor_id for generating
+            the random seed for the dark current and read noise.
+        seg_file: str [None]
             The segmentation.txt file, the PhoSim-formatted file that
             describes the properties of the sensors in the focal
             plane.  If None, then imSim/data/segmentation_itl.txt will
@@ -85,6 +90,7 @@ class ImageSource(object):
 
         self.exptime = exptime
         self.sensor_id = sensor_id
+        self.visit = visit
 
         self._read_seg_file(seg_file)
         self._make_amp_images()
@@ -110,7 +116,8 @@ class ImageSource(object):
         sensor_id = 'R{}{}_S{}{}'\
                     .format(*[x for x in wcs.detectorName if x.isdigit()])
 
-        raw_image = ImageSource(gs_image.array, exptime, sensor_id)
+        raw_image = ImageSource(gs_image.array, exptime, sensor_id,
+                                visit=wcs.fitsHeader.getScalar('OBSID'))
         raw_image.eimage_data = gs_image.array
 
         # Add the keywords from wcs.fitsHeader to the raw_image.eimage
@@ -161,6 +168,7 @@ class ImageSource(object):
             sensor_id = eimage[0].header['CHIPID']
 
         image_source = ImageSource(eimage[0].data, exptime, sensor_id,
+                                   visit=eimage[0].header['OBSID'],
                                    seg_file=seg_file, logger=logger)
         image_source.eimage = eimage
         image_source.eimage_data = eimage[0].data
@@ -178,19 +186,18 @@ class ImageSource(object):
                 raise RuntimeError("eimage file does not have pointing info. "
                                    "Need an opsim db file.")
         # Read from the opsim db.
-        visit = self.eimage[0].header['OBSID']
         # We need an ObservationMetaData object to use the getRotSkyPos
         # function.
         obs_gen = ObservationMetaDataGenerator(database=opsim_db,
                                                driver="sqlite")
-        obs_md = obs_gen.getObservationMetaData(obsHistID=visit,
+        obs_md = obs_gen.getObservationMetaData(obsHistID=self.visit,
                                                 boundType='circle',
                                                 boundLength=0)[0]
         # Extract pointing info from opsim db for desired visit.
         conn = sqlite3.connect(opsim_db)
         query = """select descDitheredRA, descDitheredDec,
         descDitheredRotTelPos from summary where
-        obshistid={}""".format(visit)
+        obshistid={}""".format(self.visit)
         curs = conn.execute(query)
         ra, dec, rottelpos = [np.degrees(x) for x in curs][0]
         conn.close()
@@ -294,8 +301,13 @@ class ImageSource(object):
 
         # Add dark current.
         imaging_arr = imaging_segment.getArray()
-        imaging_arr += np.random.poisson(amp_props.dark_current*self.exptime,
-                                         size=imaging_arr.shape)
+        # Generate a seed from the visit number and sensor_id so that
+        # the dark current noise is deterministic.
+        seed = CosmicRays.generate_seed(self.visit, self.sensor_id)
+        rng = galsim.PoissonDeviate(seed, amp_props.dark_current*self.exptime)
+        dc_data = np.zeros(np.prod(imaging_arr.shape))
+        rng.generate(dc_data)
+        imaging_arr += dc_data.reshape(imaging_arr.shape)
 
         # Add defects.
 
@@ -326,8 +338,13 @@ class ImageSource(object):
         """
         amp_props = self.fp_props.get_amp(amp_name)
         full_arr = self.amp_images[amp_name].getArray()
-        full_arr += np.random.normal(scale=amp_props.read_noise,
-                                     size=full_arr.shape)
+        # Generate a seed from the visit number and sensor_id so that
+        # the read noise is deterministic.
+        seed = CosmicRays.generate_seed(self.visit, self.sensor_id)
+        rng = galsim.GaussianDeviate(seed, amp_props.read_noise)
+        rn_data = np.zeros(np.prod(full_arr.shape))
+        rng.generate(rn_data)
+        full_arr += rn_data.reshape(full_arr.shape)
         full_arr += amp_props.bias_level
 
     def _apply_crosstalk(self):
@@ -449,7 +466,7 @@ class ImageSource(object):
         output = fits.HDUList(fits.PrimaryHDU())
         output[0].header = self.eimage[0].header
         if run_number is None:
-            run_number = output[0].header['OBSID']
+            run_number = self.visit
         output[0].header['RUNNUM'] = str(run_number)
         output[0].header['DARKTIME'] = output[0].header['EXPTIME']
         mjd_obs = astropy.time.Time(output[0].header['MJD-OBS'], format='mjd')
