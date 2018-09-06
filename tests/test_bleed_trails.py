@@ -171,6 +171,14 @@ class BleedTrailTestCase(unittest.TestCase):
         for i in range(-1, -10, -1):
             self.assertEqual(bled_channel[i], 0)
 
+        # Check the bleed stop end of the channel to be sure charge
+        # doesn't wrap the other way.
+        channel = np.zeros(self.nypix, dtype=np.int)
+        channel[-1] = 20*self.full_well
+        bled_channel = desc.imsim.bleed_channel(channel, self.full_well)
+        for i in range(10):
+            self.assertEqual(bled_channel[i], 0)
+
 
 if __name__ == '__main__':
     unittest.main()
