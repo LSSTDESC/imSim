@@ -159,8 +159,6 @@ class BleedTrailTestCase(unittest.TestCase):
         that no signal appears at the high-index end of the channel.
         """
         channel = np.zeros(self.nypix, dtype=np.int)
-        star_center = 1000
-        star_size = 20
         # Put an initial signal in the first pixel in this channel
         # so that the bleed trail would try to extend +/-10 pixels
         # in each direction.
