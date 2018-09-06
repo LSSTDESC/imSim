@@ -166,7 +166,12 @@ class BleedCharge:
         try:
             bled_charge = min(self.full_well - self.imarr[0, xpix],
                               self.excess_charge)
-            self.imarr[0, xpix] += bled_charge
+            if xpix >= 0:
+                # Restrict charge redistribution to positive xpix
+                # values to avoid wrapping the bleed trail to the
+                # other end of the channel.  Charge bled off the end
+                # will still be removed from the excess charge pool.
+                self.imarr[0, xpix] += bled_charge
             self.excess_charge -= bled_charge
         except IndexError:
             # Trying to bleed charge past end of the channel, so
