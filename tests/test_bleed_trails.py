@@ -149,5 +149,36 @@ class BleedTrailTestCase(unittest.TestCase):
         max_pix_right = max(eimage_save.getArray()[:, nx//2:].ravel())
         self.assertLess(max_pix_right, self.full_well)
 
+    def test_bleed_trail_wrap(self):
+        """
+        In issue #153, it was noted that bleed trails extending to
+        the sensor edge will wrap around to the midline bleed stop
+        and continue bleeding from the opposite end of the amplifier
+        segment.  Test against this by placing well above saturated
+        signal in a pixel at the 0-index end of the channel and ensure
+        that no signal appears at the high-index end of the channel.
+        """
+        channel = np.zeros(self.nypix, dtype=np.int)
+        # Put an initial signal in the first pixel in this channel
+        # so that the bleed trail would try to extend +/-10 pixels
+        # in each direction.
+        channel[0] = 20*self.full_well
+
+        bled_channel = desc.imsim.bleed_channel(channel, self.full_well)
+
+        # Check that the pixels at the other end of the channel are
+        # still empty.
+        for i in range(-1, -10, -1):
+            self.assertEqual(bled_channel[i], 0)
+
+        # Check the bleed stop end of the channel to be sure charge
+        # doesn't wrap the other way.
+        channel = np.zeros(self.nypix, dtype=np.int)
+        channel[-1] = 20*self.full_well
+        bled_channel = desc.imsim.bleed_channel(channel, self.full_well)
+        for i in range(10):
+            self.assertEqual(bled_channel[i], 0)
+
+
 if __name__ == '__main__':
     unittest.main()
