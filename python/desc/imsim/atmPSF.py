@@ -100,11 +100,14 @@ class AtmosphericPSF(PSFbase):
     @staticmethod
     def _seeing_resid(r0_500, wavelength, L0, target):
         """Residual function to use with `_r0_500` below."""
-        r0_500 = r0_500[0]
-        kolm_seeing = galsim.Kolmogorov(r0_500=r0_500, lam=wavelength).fwhm
-        r0 = r0_500 * (wavelength/500)**1.2
-        factor = np.sqrt(1. - 2.183*(r0/L0)**0.356)
-        return kolm_seeing*factor - target
+        r0_500 = np.atleast_1d(r0_500)
+        resids = np.empty_like(r0_500)
+        for i, this_r0_500 in enumerate(r0_500):
+            kolm_seeing = galsim.Kolmogorov(r0_500=this_r0_500, lam=wavelength).fwhm
+            r0 = this_r0_500 * (wavelength/500)**1.2
+            factor = np.sqrt(1. - 2.183*(r0/L0)**0.356)
+            resids[i] = kolm_seeing*factor - target
+        return resids
 
     @staticmethod
     def _r0_500(wavelength, L0, seeing):
@@ -129,10 +132,15 @@ class AtmosphericPSF(PSFbase):
         weights = np.clip(weights, 0.01, 0.8)  # keep weights from straying too far.
         weights /= np.sum(weights)  # renormalize
 
-        # Draw a single common outer scale for all layers from a log normal
+        # Draw outer scale from truncated log normal
         L0 = 0
         while L0 < 10.0 or L0 > 100:
             L0 = np.exp(gd() * 0.6 + np.log(25.0))
+        # Given the desired seeing500 and randomly selected L0, determine appropriate
+        # r0_500
+        r0_500 = AtmosphericPSF._r0_500(500.0, L0, self.seeing500)
+
+        # Broadcast common outer scale across all layers
         L0 = [L0 for _ in range(6)]
 
         # Uniformly draw layer speeds between 0 and max_speed.
@@ -140,10 +148,6 @@ class AtmosphericPSF(PSFbase):
         speeds = [ud()*maxSpeed for _ in range(6)]
         # Isotropically draw directions.
         directions = [ud()*360.0*galsim.degrees for _ in range(6)]
-
-        # Given the desired seeing500 and randomly selected L0, determine appropriate
-        # r0_500
-        r0_500 = AtmosphericPSF._r0_500(500.0, L0, self.seeing500)
 
         if self.logger:
             self.logger.debug("airmass = {}".format(self.airmass))
