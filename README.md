@@ -17,6 +17,18 @@ execute the `setup imsim` command, and that command can be issued from
 any directory.  The `scons` build step needs only to be re-run if a
 new command line executable is added to the `bin.src` folder.
 
+### obs_lsstCam
+The CCD pixel and LSST focalplane geometries are obtained from the
+lsst/obs_lsstCam package, which is not yet part of the standard LSST
+distribution.  Until it is, you'll need to clone a copy, set it up,
+and build:
+```
+$ git clone https://github.com/lsst/obs_lsstCam.git
+$ cd obs_lsstCam
+$ setup -r . -j
+$ scons
+```
+
 ## Usage
 The executables in the `bin` folder should be in your path and so
 should be runnable directly from the command line:
@@ -28,6 +40,7 @@ usage: imsim.py [-h] [-n NUMROWS] [--outdir OUTDIR] [--sensors SENSORS]
                 [--psf {DoubleGaussian,Kolmogorov,Atmospheric}]
                 [--disable_sensor_model] [--file_id FILE_ID]
                 [--create_centroid_file] [--seed SEED] [--processes PROCESSES]
+                [--psf_file PSF_FILE] [--image_path IMAGE_PATH]
                 instcat
 
 positional arguments:
@@ -49,11 +62,18 @@ optional arguments:
                         PSF model to use. Default: Kolmogorov
   --disable_sensor_model
                         disable sensor effects
-  --file_id FILE_ID     ID string to use for checkpoint and centroid
-                        filenames.
+  --file_id FILE_ID     ID string to use for checkpoint filenames.
   --create_centroid_file
                         Write centroid file(s).
   --seed SEED           integer used to seed random number generator
   --processes PROCESSES
                         number of processes to use in multiprocessing mode
+  --psf_file PSF_FILE   Pickle file containing for the persisted PSF. If the
+                        file exists, the psf will be loaded from that file,
+                        ignoring the --psf option; if not, a PSF will be
+                        created and saved to that filename.
+  --image_path IMAGE_PATH
+                        search path for FITS postage stamp images.This will be
+                        prepended to any existing IMSIM_IMAGE_PATHenvironment
+                        variable, for which $CWD is included bydefault.
 ```

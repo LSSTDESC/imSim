@@ -5,6 +5,11 @@ setup lsst_sims
 pip install nose
 pip install coveralls
 pip install pylint
+git clone https://github.com/lsst/obs_lsstCam.git
+cd obs_lsstCam
+setup -r . -j
+scons
+cd ..
 eups declare imsim -r ${TRAVIS_BUILD_DIR} -t current
 setup imsim
 cd ${TRAVIS_BUILD_DIR}
