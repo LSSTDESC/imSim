@@ -45,7 +45,7 @@ class OptWF(object):
                                  annular_zernike=True)
         return Z._wavefront_gradient(u, v, t, theta)
 
-    def _stepK(self, **kwargs):
+    def _getStepK(self, **kwargs):
         return self.stepk
 
 
