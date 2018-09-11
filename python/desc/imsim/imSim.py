@@ -183,7 +183,7 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
     rotation_angle = np.zeros(num_objects, dtype=float)
     fits_image_file = dict()
 
-    unique_id = np.zeros(num_objects, dtype=int)
+    unique_id = [None]*num_objects
     object_type = np.zeros(num_objects, dtype=int)
 
     i_obj = -1
@@ -192,7 +192,7 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
         if params[0] != 'object':
             continue
         i_obj += 1
-        unique_id[i_obj] = int(params[1])
+        unique_id[i_obj] = params[1]
         ra_phosim[i_obj] = float(params[2])
         dec_phosim[i_obj] = float(params[3])
         mag_norm[i_obj] = float(params[4])
