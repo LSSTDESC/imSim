@@ -28,7 +28,7 @@ class PsfTestCase(unittest.TestCase):
         """
         instcat = os.path.join(os.environ['IMSIM_DIR'], 'tests',
                                'tiny_instcat.txt')
-        obs_md, _, _ = desc.imsim.parsePhoSimInstanceFile(instcat)
+        obs_md, _, _ = desc.imsim.parsePhoSimInstanceFile(instcat, ())
         for psf_name in ("DoubleGaussian", "Kolmogorov", "Atmospheric"):
             psf = desc.imsim.make_psf(psf_name, obs_md, screen_scale=6.4)
             psf_file = os.path.join(self.test_dir, '{}.pkl'.format(psf_name))

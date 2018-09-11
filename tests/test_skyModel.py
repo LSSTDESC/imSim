@@ -135,7 +135,7 @@ class SkyModelTestCase(unittest.TestCase):
         instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests', 'data',
                                     'phosim_stars.txt')
         obs_md, phot_params, _ \
-            = desc.imsim.parsePhoSimInstanceFile(instcat_file)
+            = desc.imsim.parsePhoSimInstanceFile(instcat_file, ())
         skymodel = desc.imsim.ESOSkyModel(obs_md, phot_params, addNoise=False,
                                           addBackground=True)
         camera = desc.imsim.get_obs_lsstSim_camera()
@@ -161,7 +161,7 @@ class SkyModelTestCase(unittest.TestCase):
         desc.imsim.read_config()
         instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',
                                     'tiny_instcat.txt')
-        _, phot_params, _ = desc.imsim.parsePhoSimInstanceFile(instcat_file)
+        _, phot_params, _ = desc.imsim.parsePhoSimInstanceFile(instcat_file, ())
         skyModel = skybrightness.SkyModel(mags=False)
         skyModel.setRaDecMjd(0., 90., 58000, azAlt=True, degrees=True)
 
