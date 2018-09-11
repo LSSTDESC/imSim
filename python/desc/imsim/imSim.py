@@ -499,7 +499,7 @@ def phosim_obs_metadata(phosim_commands):
     return obs_md
 
 
-def parsePhoSimInstanceFile(fileName, numRows=None):
+def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None):
     """
     Read a PhoSim instance catalog into a Pandas dataFrame. Then use
     the information that was read-in to build and return a command
@@ -509,6 +509,8 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     ----------
     fileName : str
         The instance catalog filename.
+    sensor_list: list
+        List of sensors for which to extract object lists.
     numRows : int, optional
         The number of rows to read from the instance catalog.
         If None (the default), then all of the rows will be read in.
@@ -524,14 +526,14 @@ def parsePhoSimInstanceFile(fileName, numRows=None):
     commands = metadata_from_file(fileName)
     obs_metadata = phosim_obs_metadata(commands)
     phot_params = photometricParameters(commands)
-    instcats = InstCatTrimmer(fileName, numRows=numRows)
-    gs_object_arr = GsObjectList(instcats.object_lines, instcats.obs_md,
-                                 phot_params, instcats.instcat_file)
-    gs_object_dict = GsObjectDict(instcats, phot_params)
+    instcats = InstCatTrimmer(fileName, sensor_list, numRows=numRows)
+    gs_object_dict = {detname: GsObjectList(instcats[detname], instcats.obs_md,
+                                            phot_params, instcats.instcat_file)
+                      for detname in sensor_list}
 
     return PhoSimInstanceCatalogContents(obs_metadata,
                                          phot_params,
-                                         (gs_object_arr, gs_object_dict))
+                                         ([], gs_object_dict))
 
 
 class GsObjectDict:

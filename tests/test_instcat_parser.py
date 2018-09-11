@@ -9,6 +9,7 @@ import tempfile
 import shutil
 import numpy as np
 import desc.imsim
+from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.utils import _pupilCoordsFromRaDec
 from lsst.sims.utils import altAzPaFromRaDec
 from lsst.sims.utils import angularSeparation
@@ -17,6 +18,7 @@ from lsst.sims.utils import arcsecFromRadians
 from lsst.sims.photUtils import Sed, BandpassDict
 from lsst.sims.photUtils import Bandpass, PhotometricParameters
 from lsst.sims.coordUtils import chipNameFromPupilCoordsLSST
+from lsst.sims.GalSimInterface import LSSTCameraWrapper
 
 
 class InstanceCatalogParserTestCase(unittest.TestCase):
@@ -65,7 +67,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                     output_file.write(line)
 
         with self.assertRaises(desc.imsim.PhosimInstanceCatalogParseError) as ee:
-            results = desc.imsim.parsePhoSimInstanceFile(dummy_catalog)
+            results = desc.imsim.parsePhoSimInstanceFile(dummy_catalog, ())
         self.assertIn("Required commands", ee.exception.args[0])
         if os.path.isfile(dummy_catalog):
             os.remove(dummy_catalog)
@@ -395,9 +397,15 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         "Test the validation of the rows of the phoSimObjects DataFrame."
         cat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests', 'tiny_instcat.txt')
 
+        camera = LSSTCameraWrapper().camera
+        sensors = [det.getName() for det in camera
+                   if det.getType() not in (WAVEFRONT, GUIDER)]
         with warnings.catch_warnings(record=True) as wa:
-            instcat_contents = desc.imsim.parsePhoSimInstanceFile(cat_file)
-            [x for x in instcat_contents.sources[0]]
+            instcat_contents \
+                = desc.imsim.parsePhoSimInstanceFile(cat_file, sensors)
+            my_objs = set()
+            for sensor in sensors:
+                [my_objs.add(x) for x in instcat_contents.sources[1][sensor]]
         self.assertGreater(len(wa), 0)
 
         # we must detect which warning is the warning we are actually
@@ -426,7 +434,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertIn('1 had semi_major_axis', message)
         self.assertIn('1 had n_points', message)
 
-        self.assertEqual(len(instcat_contents.sources[0]), 18)
+        self.assertEqual(len(my_objs), 35)
         for obj in instcat_contents.sources[0]:
             self.assertNotIn(obj.uniqueId, bad_unique_ids)
 
