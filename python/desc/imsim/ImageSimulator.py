@@ -8,6 +8,7 @@ import multiprocessing
 import warnings
 import gzip
 import shutil
+import sqlite3
 import numpy as np
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
@@ -26,11 +27,17 @@ __all__ = ['ImageSimulator', 'compress_files']
 # This is global variable is needed since instances of ImageSimulator
 # contain references to unpickleable objects in the LSST Stack (e.g.,
 # various cameraGeom objects), and the multiprocessing module can only
-# execute pickleable callback functions. The SimulateSensor functor
-# class below uses the global image_simulator variable to access its
+# execute pickleable functions. The SimulateSensor functor class below
+# uses the global IMAGE_SIMULATOR variable to access its
 # gs_interpreter objects, and the ImageSimulator.run method sets
-# image_simulator to self so that it is available in the callbacks.
-image_simulator = None
+# IMAGE_SIMULATOR to self so that it is available in the
+# SimulateSensor functors.
+IMAGE_SIMULATOR = None
+
+# This global variable is needed since the CheckpointSummary class, of
+# which CHECKPOINT_SUMMARY would be an instance, uses an unpickleable
+# sqlite db connection to persist the checkpoint info.
+CHECKPOINT_SUMMARY = None
 
 
 class ImageSimulator:
@@ -82,11 +89,12 @@ class ImageSimulator:
         self.gs_obj_dict = sources[1]
         self.camera_wrapper = LSSTCameraWrapper()
         self.apply_sensor_model = apply_sensor_model
+        self.file_id = file_id
         self._make_gs_interpreters(seed, sensor_list, file_id)
         self.log_level = log_level
         self.logger = get_logger(self.log_level, name='ImageSimulator')
         if not self.gs_obj_arr:
-            self.logger.warn("No object entries in %s", instcat)
+            self.logger.warning("No object entries in %s", instcat)
 
     def _make_gs_interpreters(self, seed, sensor_list, file_id):
         """
@@ -106,7 +114,7 @@ class ImageSimulator:
             det_name = det.getName()
             if sensor_list is not None and det_name not in sensor_list:
                 continue
-            if det_type == WAVEFRONT or det_type == GUIDER:
+            if det_type in (WAVEFRONT, GUIDER):
                 continue
             gs_det = make_galsim_detector(self.camera_wrapper, det_name,
                                           self.phot_params, self.obs_md)
@@ -177,50 +185,87 @@ class ImageSimulator:
         """
         detector = self.gs_interpreters[det_name].detectors[0]
         prefix = self.config['persistence']['eimage_prefix']
-        obsHistID = str(self.obs_md.OpsimMetaData['obshistID'])
+        visit = str(self.obs_md.OpsimMetaData['obshistID'])
         return os.path.join(self.outdir, prefix + '_'.join(
-            (obsHistID, detector.fileName, self.obs_md.bandpass + '.fits')))
+            (visit, detector.fileName, self.obs_md.bandpass + '.fits')))
 
     def run(self, processes=1, wait_time=None):
         """
         Use multiprocessing module to simulate sensors in parallel.
         """
-        # Set the image_simulator variable so that the SimulateSensor
+        # Set the IMAGE_SIMULATOR variable so that the SimulateSensor
         # instance can use it to access the GalSimInterpreter
         # instances to draw objects.
-        global image_simulator
-        if image_simulator is None:
-            image_simulator = self
-        elif id(image_simulator) != id(self):
+        global IMAGE_SIMULATOR
+        if IMAGE_SIMULATOR is None:
+            IMAGE_SIMULATOR = self
+        elif id(IMAGE_SIMULATOR) != id(self):
             raise RuntimeError("Attempt to use more than one instance of "
                                "ImageSimulator in the same python interpreter")
 
+        # Set the CHECKPOINT_SUMMARY variable so that the summary info
+        # from the subprocesses can be persisted.
+        global CHECKPOINT_SUMMARY
+        if self.file_id is not None and CHECKPOINT_SUMMARY is None:
+            visit = self.obs_md.OpsimMetaData['obshistID']
+            CHECKPOINT_SUMMARY \
+                = CheckpointSummary(db_file='ckpt_{}.sqlite3'.format(visit))
+
+        results = []
         if processes == 1:
             # Don't need multiprocessing, so just run serially.
             for det_name in self.gs_interpreters:
                 if self._outfile_exists(det_name):
                     continue
                 simulate_sensor = SimulateSensor(det_name, self.log_level)
-                simulate_sensor(self.gs_obj_dict[det_name])
-        else:
-            # Use multiprocessing.
-            pool = multiprocessing.Pool(processes=processes)
-            results = []
-            if wait_time is not None:
-                results.append(pool.apply_async(process_monitor, (),
-                                                dict(wait_time=wait_time)))
-            for det_name in self.gs_interpreters:
-                if self._outfile_exists(det_name):
-                    continue
-                simulate_sensor = SimulateSensor(det_name, self.log_level)
-                gs_objects = self.gs_obj_dict[det_name]
-                if gs_objects:
-                    results.append(pool.apply_async(simulate_sensor,
-                                                    (gs_objects,)))
-            pool.close()
-            pool.join()
-            for res in results:
-                res.get()
+                results.append(simulate_sensor(self.gs_obj_dict[det_name]))
+            return results
+
+        # Use multiprocessing.
+        pool = multiprocessing.Pool(processes=processes)
+        receivers = []
+        if wait_time is not None:
+            results.append(pool.apply_async(process_monitor, (),
+                                            dict(wait_time=wait_time)))
+        for det_name in self.gs_interpreters:
+            gs_objects = self.gs_obj_dict[det_name]
+            if self._outfile_exists(det_name) or not gs_objects:
+                continue
+
+            # If we are checkpointing, create the connections between
+            # the checkpoint_aggregator and the SimulateSensor
+            # functors, insert a record into the summary db for the
+            # current detector, and add the receiver to the list to
+            # pass to the checkpoint_aggregator.
+            sender = None
+            if CHECKPOINT_SUMMARY is not None:
+                receiver, sender = multiprocessing.Pipe(duplex=False)
+                CHECKPOINT_SUMMARY.insert_record(det_name, len(gs_objects))
+                receivers.append(receiver)
+
+            # Create the function that renders the night sky on
+            # the sensor.
+            simulate_sensor = SimulateSensor(det_name, self.log_level, sender)
+
+            # Add it to the processing pool.
+            results.append(pool.apply_async(simulate_sensor, (gs_objects,)))
+        pool.close()
+
+        if CHECKPOINT_SUMMARY is not None:
+            # Create a separate processing pool for the
+            # checkpoint_aggregator.
+            agg_pool = multiprocessing.Pool(processes=1)
+            aggregator \
+                = agg_pool.apply_async(checkpoint_aggregator, (receivers,))
+            agg_pool.close()
+            agg_pool.join()
+            aggregator.get()
+
+        # The simulate_sensor pool must be joined after the aggregator
+        # pool so that the checkpoint_aggregator is running when the
+        # summary info is sent by the simulate_sensor workers.
+        pool.join()
+        return [res.get() for res in results]
 
     def _outfile_exists(self, det_name):
         eimage_file = self.eimage_file(det_name)
@@ -234,11 +279,11 @@ class ImageSimulator:
 
 class SimulateSensor:
     """
-    Functor class to serve as the callback for simulating sensors in
-    parallel using the multiprocessing module.  Note that the
-    image_simulator variable is defined in the global scope.
+    Functor class for simulating sensors in parallel using the
+    multiprocessing module.  Note that the IMAGE_SIMULATOR variable is
+    defined in the global scope.
     """
-    def __init__(self, sensor_name, log_level='WARN'):
+    def __init__(self, sensor_name, log_level='WARN', sender=None):
         """
         Parameters
         ----------
@@ -246,9 +291,12 @@ class SimulateSensor:
             The name of the sensor to be simulated, e.g., "R:2,2 S:1,1".
         log_level: str ['WARN']
             Logging level ('DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL').
+        sender: multiprocessing.connection.Connection
+            Sender to the checkpoint_aggregator.
         """
         self.sensor_name = sensor_name
         self.log_level = log_level
+        self.sender = sender
 
     def __call__(self, gs_objects):
         """
@@ -264,40 +312,51 @@ class SimulateSensor:
             return
 
         logger = get_logger(self.log_level, name=self.sensor_name)
-        logger.info("drawing %i objects", len(gs_objects))
 
-        # image_simulator must be a variable declared in the
+        # IMAGE_SIMULATOR must be a variable declared in the
         # outer scope and set to an ImageSimulator instance.
-        gs_interpreter = image_simulator.gs_interpreters[self.sensor_name]
+        gs_interpreter = IMAGE_SIMULATOR.gs_interpreters[self.sensor_name]
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', 'Automatic n_photons',
                                     UserWarning)
+            nan_fluxes = 0
             for gs_obj in gs_objects:
                 if gs_obj.uniqueId in gs_interpreter.drawn_objects:
                     continue
-                flux = gs_obj.flux(image_simulator.obs_md.bandpass)
+                flux = gs_obj.flux(IMAGE_SIMULATOR.obs_md.bandpass)
                 if not np.isnan(flux):
+                    if not gs_interpreter.drawn_objects:
+                        logger.info("drawing %d objects", len(gs_objects))
                     logger.debug("%s  %s  %s", gs_obj.uniqueId, flux,
                                  gs_obj.galSimType)
                     gs_interpreter.drawObject(gs_obj)
+                    # Ensure the object's id is added to the drawn
+                    # object set.
+                    gs_interpreter.drawn_objects.add(gs_obj.uniqueId)
+                    self.update_checkpoint_summary(gs_interpreter,
+                                                   len(gs_objects))
+                else:
+                    nan_fluxes += 1
                 gs_obj.sed.delete_sed_obj()
+            if nan_fluxes > 0:
+                logger.info("%s objects had nan fluxes", nan_fluxes)
 
         # Recover the memory devoted to the GalSimCelestialObject instances.
         gs_objects.reset()
 
-        add_cosmic_rays(gs_interpreter, image_simulator.phot_params)
-        full_well = int(image_simulator.config['ccd']['full_well'])
+        add_cosmic_rays(gs_interpreter, IMAGE_SIMULATOR.phot_params)
+        full_well = int(IMAGE_SIMULATOR.config['ccd']['full_well'])
         apply_channel_bleeding(gs_interpreter, full_well)
 
-        outdir = image_simulator.outdir
+        outdir = IMAGE_SIMULATOR.outdir
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
-        prefix = image_simulator.config['persistence']['eimage_prefix']
-        obsHistID = str(image_simulator.obs_md.OpsimMetaData['obshistID'])
-        nameRoot = os.path.join(outdir, prefix) + obsHistID
-        if not image_simulator.config['persistence']['eimage_skip']:
+        prefix = IMAGE_SIMULATOR.config['persistence']['eimage_prefix']
+        visit = str(IMAGE_SIMULATOR.obs_md.OpsimMetaData['obshistID'])
+        name_root = os.path.join(outdir, prefix) + visit
+        if not IMAGE_SIMULATOR.config['persistence']['eimage_skip']:
             outfiles = gs_interpreter.writeImages(nameRoot=nameRoot)
-            if image_simulator.config['persistence']['eimage_compress']:
+            if IMAGE_SIMULATOR.config['persistence']['eimage_compress']:
                 compress_files(outfiles)
         else:
             self.write_raw_files(gs_interpreter.detectorImages)
@@ -308,13 +367,28 @@ class SimulateSensor:
         # The image for the sensor-visit has been drawn, so delete any
         # existing checkpoint file if the config says to do so.
         if (gs_interpreter.checkpoint_file is not None
-            and os.path.isfile(gs_interpreter.checkpoint_file)
-            and image_simulator.config['checkpointing']['cleanup']):
+                and os.path.isfile(gs_interpreter.checkpoint_file)
+                and IMAGE_SIMULATOR.config['checkpointing']['cleanup']):
             os.remove(gs_interpreter.checkpoint_file)
 
         # Remove reference to gs_interpreter in order to recover the
         # memory associated with that object.
-        image_simulator.gs_interpreters[self.sensor_name] = None
+        IMAGE_SIMULATOR.gs_interpreters[self.sensor_name] = None
+
+    def update_checkpoint_summary(self, gs_interpreter, num_objects):
+        """
+        If the checkpoint file has been updated, send the summary
+        information to the checkpoint_aggregator.
+        """
+        if CHECKPOINT_SUMMARY is None:
+            # No checkpointing, so return without sending.
+            return
+        # Apply the checkpointing criterion used by the gs_interpreter.
+        nobjs = len(gs_interpreter.drawn_objects)
+        if nobjs % gs_interpreter.nobj_checkpoint == 0:
+            self.sender.send((nobjs, self.sensor_name, num_objects,
+                              gs_interpreter.nobj_checkpoint))
+
 
     def write_raw_files(self, detector_images):
         """
@@ -326,10 +400,10 @@ class SimulateSensor:
             The dictionary attribute of the GalSimInterpreter object
             used to fill the galsim images with eimage data.
         """
-        persist = image_simulator.config['persistence']
+        persist = IMAGE_SIMULATOR.config['persistence']
         prefix = persist['raw_file_prefix']
-        obsHistID = str(image_simulator.obs_md.OpsimMetaData['obshistID'])
-        nameRoot = os.path.join(image_simulator.outdir, prefix) + obsHistID
+        obsHistID = str(IMAGE_SIMULATOR.obs_md.OpsimMetaData['obshistID'])
+        nameRoot = os.path.join(IMAGE_SIMULATOR.outdir, prefix) + obsHistID
         for name, gs_image in detector_images.items():
             raw = ImageSource.create_from_galsim_image(gs_image)
             outfile = '_'.join((nameRoot, name))
@@ -357,3 +431,99 @@ def compress_files(file_list, remove_originals=True):
             shutil.copyfileobj(src, output)
         if remove_originals:
             os.remove(infile)
+
+
+class CheckpointSummary:
+    """
+    Class to manage the sqlite3 db file.  Since sqlite3 connection
+    objects are not pickleable, this class should live in the global
+    namespace.
+    """
+    def __init__(self, db_file='checkpoint_summary.sqlite',
+                 table='summary', overwrite=True):
+        """
+        Parameters
+        ----------
+        db_file: str ['checkpoint_summary.sqlite']
+            sqlite3 db file to contain the checkpoint summary info.
+        table: str ['summary']
+            The name of the summary table.
+        overwrite: bool [True]
+            Flag to overwrite any existing sqlite db file.
+        """
+        self.db_file = db_file
+        self.table = table
+        if overwrite and os.path.isfile(db_file):
+            os.remove(db_file)
+        self.conn = sqlite3.connect(db_file)
+        self.cursor = self.conn.cursor()
+        sql = """create table if not exists {}
+              (detector text primary key, objects_drawn int default 0,
+              total_objects int)""".format(self.table)
+        self.cursor.execute(sql)
+        self.conn.commit()
+
+    def update_record(self, objects_drawn, detector, num_objects):
+        """
+        Update the number of objects drawn for the given detector.
+
+        Parameters
+        ----------
+        objects_drawn: int
+            The number of objects drawn, i.e., in the checkpoint file.
+        detector: str
+            The detector name, e.g., "R22_S11".
+        num_objects: int
+            The expected number of objects to be drawn.
+        """
+        sql = """update {} set objects_drawn={}, total_objects={}
+              where detector='{}'"""\
+                  .format(self.table, objects_drawn, num_objects, detector)
+        try:
+            self.cursor.execute(sql)
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            # This will occur if an external process is accessing the
+            # db file and a database lock is encountered.
+            pass
+
+    def insert_record(self, detector, nobjects):
+        """
+        Method to insert a new record into the summary table.
+
+        Parameters
+        ----------
+        detector: str
+            The detector name, e.g., "R22_S11".
+        nobjects: int
+            The number of objects to be drawn.
+        """
+        sql = """insert into {} (detector, objects_drawn, total_objects)
+              values ('{}', 0, {})""".format(self.table, detector, nobjects)
+        self.cursor.execute(sql)
+        self.conn.commit()
+
+
+def checkpoint_aggregator(receivers):
+    """
+    This function receives checkpoint summary info from the
+    SimulateSensor class via multiprocessing.Pipe connections and
+    writes that info via the global CHECKPOINT_SUMMARY object to
+    an sqlite3 db.
+
+    Parameters
+    ----------
+    receivers: list
+        List of receiver connections for each SimulateSensor instance.
+    """
+    global CHECKPOINT_SUMMARY
+    while receivers:
+        for receiver in multiprocessing.connection.wait(receivers, timeout=0.1):
+            try:
+                nobj, det, nmax, nobj_ckpt = receiver.recv()
+                if nobj >= nmax - nobj_ckpt:
+                    receivers.remove(receiver)
+            except EOFError:
+                receivers.remove(receiver)
+            else:
+                CHECKPOINT_SUMMARY.update_record(nobj, det, nmax)

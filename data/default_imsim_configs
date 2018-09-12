@@ -24,7 +24,7 @@ ccd_rate = 0.2    # CTIO rate extracted from DECam darks.
 catalog = default
 
 [checkpointing]
-nobj = 200
+nobj = 500
 cleanup = True
 
 [wl_params]
