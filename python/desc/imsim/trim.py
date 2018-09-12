@@ -136,7 +136,7 @@ class InstCatTrimmer(dict):
         to be simulated.
 
     """
-    def __init__(self, instcat, sensor_list, chunk_size=int(1e5),
+    def __init__(self, instcat, sensor_list, chunk_size=int(3e5),
                  radius=0.18, numRows=None):
         """
         Parameters
