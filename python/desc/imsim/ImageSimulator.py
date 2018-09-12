@@ -80,26 +80,32 @@ class ImageSimulator:
             Logging level ('DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL').
         """
         self.config = read_config(config)
+        self.log_level = log_level
+        self.logger = get_logger(self.log_level, name='ImageSimulator')
         self.create_centroid_file = create_centroid_file
         self.psf = psf
         self.outdir = outdir
-        self.obs_md, self.phot_params, sources \
-            = parsePhoSimInstanceFile(instcat, numRows=numRows)
-        self.gs_obj_arr = sources[0]
-        self.gs_obj_dict = sources[1]
         self.camera_wrapper = LSSTCameraWrapper()
+        if sensor_list is None:
+            sensor_list = self._get_all_sensors()
+        self.logger.debug("parsing instance catalog for %d sensors",
+                          len(sensor_list))
+        self.obs_md, self.phot_params, sources \
+            = parsePhoSimInstanceFile(instcat, sensor_list, numRows=numRows)
+        self.gs_obj_dict = sources[1]
         self.apply_sensor_model = apply_sensor_model
         self.file_id = file_id
         self._make_gs_interpreters(seed, sensor_list, file_id)
-        self.log_level = log_level
-        self.logger = get_logger(self.log_level, name='ImageSimulator')
-        if not self.gs_obj_arr:
-            self.logger.warning("No object entries in %s", instcat)
 
     def _make_gs_interpreters(self, seed, sensor_list, file_id):
         """
-        Create a separate GalSimInterpreter for each sensor so that they
-        can be run in parallel and maintain separate checkpoint files.
+        Create a separate GalSimInterpreter for each sensor so that
+        they can be run in parallel and maintain separate checkpoint
+        files.
+
+        Also extract GsObjectLists from gs_obj_dict for only the
+        sensors in sensor_list so that the memory in the underlying
+        InstCatTrimmer object in gs_obj_dict can be recovered.
 
         TODO: Find a good way to pass a different seed to each
         gs_interpreter or have them share the random number generator.
@@ -146,6 +152,11 @@ class ImageSimulator:
                 self.gs_interpreters[det_name].centroid_base_name = \
                     os.path.join(self.outdir,
                                  self.config['persistence']['centroid_prefix'])
+
+    def _get_all_sensors(self):
+        """Get a list of all of the science sensors."""
+        return [det.getName() for det in self.camera_wrapper.camera
+                if det.getType() not in (WAVEFRONT, GUIDER)]
 
     @staticmethod
     def checkpoint_file(file_id, det_name):

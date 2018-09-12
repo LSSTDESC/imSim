@@ -25,7 +25,7 @@ class TreeRingsTestCase(unittest.TestCase):
         """Check reading of tree_ring_parameters file"""
         camera_wrapper = LSSTCameraWrapper()
         desc.imsim.read_config()
-        needed_stuff = desc.imsim.parsePhoSimInstanceFile(self.instcat_file)
+        needed_stuff = desc.imsim.parsePhoSimInstanceFile(self.instcat_file, ())
         obs_md = needed_stuff.obs_metadata
         phot_params = needed_stuff.phot_params
 
