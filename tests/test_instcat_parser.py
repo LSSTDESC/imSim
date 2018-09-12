@@ -151,11 +151,11 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                                         phot_params,
                                                         self.phosim_file)
 
-        id_arr = np.zeros(len(gs_object_arr), dtype=int)
+        id_arr = [None]*len(gs_object_arr)
         for i_obj in range(len(gs_object_arr)):
             id_arr[i_obj] = gs_object_arr[i_obj].uniqueId
 
-        truth_dtype = np.dtype([('uniqueId', int), ('x_pupil', float), ('y_pupil', float),
+        truth_dtype = np.dtype([('uniqueId', str, 200), ('x_pupil', float), ('y_pupil', float),
                                 ('sedFilename', str, 200), ('magNorm', float),
                                 ('raJ2000', float), ('decJ2000', float),
                                 ('pmRA', float), ('pmDec', float),
@@ -253,11 +253,11 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                                         phot_params,
                                                         galaxy_phosim_file)
 
-        id_arr = np.zeros(len(gs_object_arr), dtype=int)
+        id_arr = [None]*len(gs_object_arr)
         for i_obj in range(len(gs_object_arr)):
             id_arr[i_obj] = gs_object_arr[i_obj].uniqueId
 
-        truth_dtype = np.dtype([('uniqueId', int), ('x_pupil', float), ('y_pupil', float),
+        truth_dtype = np.dtype([('uniqueId', str, 200), ('x_pupil', float), ('y_pupil', float),
                                 ('sedFilename', str, 200), ('magNorm', float),
                                 ('raJ2000', float), ('decJ2000', float),
                                 ('redshift', float), ('gamma1', float),
@@ -424,9 +424,10 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         message = wa[desired_warning_dex].message.args[0]
 
         # these are the objects that should be omitted
-        bad_unique_ids = set([34307989098524, 811883374597,
+        bad_unique_ids = set([str(x) for x in
+                              [34307989098524, 811883374597,
                               811883374596, 956090392580,
-                              34307989098523, 34304522113056])
+                               34307989098523, 34304522113056]])
 
         self.assertIn('Omitted 6 suspicious objects', message)
         self.assertIn('4 had galactic_Av', message)
