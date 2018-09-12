@@ -36,6 +36,10 @@ class OptWF(object):
     def _stepK(self, **kwargs):
         return self.stepk
 
+    # galsim v1.60 version:
+    def _stepK(self, **kwargs):
+        return self.stepk
+
 
 class AtmosphericPSF(PSFbase):
     """Class representing an Atmospheric PSF.
