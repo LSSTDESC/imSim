@@ -27,8 +27,8 @@ def degrees_separation(ra0, dec0, ra, dec):
                                          np.radians(ra), np.radians(dec)))
 
 class Disaggregator:
-    """.
-    Class to disaggregate instance catalog object lines into per chip
+    """
+    Class to disaggregate instance catalog object lines per chip using
     acceptance cones.
     """
     def __init__(self, object_lines, trimmer):
@@ -170,13 +170,12 @@ class InstCatTrimmer(dict):
         for each sensor using the Disaggregator class to apply the
         acceptance cone cut centered on each sensor.
         """
-        num_lines = self._get_num_lines() if numRows is None else numRows
         self.update({sensor: [] for sensor in sensor_list})
         with desc.imsim.fopen(self.instcat_file, mode='rt') as fd:
             nread = 0
-            while nread < num_lines:
+            while numRows is None or nread < numRows:
                 object_lines = []
-                for _, line in zip(range(chunk_size), fd):
+                for ichunk, line in zip(range(chunk_size), fd):
                     nread += 1
                     if not line.startswith('object'):
                         continue
@@ -186,18 +185,8 @@ class InstCatTrimmer(dict):
                     obj_list = disaggregator.get_object_entries(sensor,
                                                                 radius=radius)
                     self[sensor].extend(obj_list)
-
-    def _get_num_lines(self):
-        """
-        Get the total number of lines in the instance catalog.
-        This is needed for the exit condition in the _process_objects
-        method.
-        """
-        num_lines = 0
-        with desc.imsim.fopen(self.instcat_file, mode='rt') as fd:
-            for _ in fd:
-                num_lines += 1
-        return num_lines
+                if ichunk < chunk_size - 1:
+                    break
 
     def _read_commands(self):
         """Read in the commands from the instance catalog."""
