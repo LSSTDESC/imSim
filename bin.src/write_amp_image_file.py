@@ -16,14 +16,22 @@ parser.add_argument("--log_level", type=str,
                     default='INFO', help='Logging level. Default: "INFO"')
 parser.add_argument("--opsim_db", default=None, type=str,
                     help="OpSim db file as alternative source of pointing info")
+parser.add_argument('--config_file', type=str, default=None,
+                    help="Config file. If None, the default config will be used.")
+
 args = parser.parse_args()
 
 desc.imsim.read_config()
 
 logger = desc.imsim.get_logger(args.log_level)
 
+config = desc.imsim.read_config(args.config_file)
+
 image_source = desc.imsim.ImageSource.create_from_eimage(args.eimage_file,
                                                          opsim_db=args.opsim_db,
                                                          logger=logger)
-outfile = os.path.basename(args.eimage_file).replace('lsst_e', 'lsst_a')
-image_source.write_fits_file(outfile)
+persist = config['persistence']
+outfile = os.path.basename(args.eimage_file).replace(persist['eimage_prefix'],
+                                                     persist['raw_file_prefix'])
+
+image_source.write_fits_file(outfile, compress=persist['raw_file_compress'])
