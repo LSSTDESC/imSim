@@ -14,7 +14,8 @@ from .optical_system import OpticalZernikes, mock_deviations
 class OptWF(object):
     def __init__(self, rng, wavelength, gsparams=None):
         u = galsim.UniformDeviate(rng)
-        self.deviations = mock_deviations(seed=int(u()*2**31))
+        deviationsFudgeFactor = 3.0
+        self.deviations = deviationsFudgeFactor*mock_deviations(seed=int(u()*2**31))
         self.oz = OpticalZernikes(self.deviations)
         self.dynamic = False
         self.reversible = True
