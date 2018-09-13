@@ -536,45 +536,6 @@ def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None):
                                          ([], gs_object_dict))
 
 
-class GsObjectDict:
-    """
-    Dictionary-like class to provide access to lists of
-    GalSimCelestialObjects from an instance catalog on a per-sensor
-    basis.  This class uses InstCatTrimmer to downselect the object
-    entries via acceptance cones centered on the sensor of interest
-    and to defer the creation of the GalSimCelestialObjects until
-    the data for the specified sensor are requested.
-    """
-    def __init__(self, instcat_trimmer, phot_params, radius=0.18):
-        """
-        Parameters
-        ----------
-        instcat_trimmer: InstCatTrimmer
-            This object manages the GalSimCelestialObject creation.
-        phot_params: PhotometricParameters
-            Photometric parameter info for the visit.
-        radius: float [0.18]
-            Acceptance cone radius, in degrees, for downselecting objects
-            for a single CCD.
-        """
-        self.instcat_trimmer = instcat_trimmer
-        self.phot_params = phot_params
-        self.radius = radius
-
-    def __iter__(self):
-        for detector in self.instcat_trimmer._camera:
-            yield detector.getName()
-
-    def __getitem__(self, chip_name):
-        object_lines \
-            = self.instcat_trimmer.get_object_entries(chip_name,
-                                                      radius=self.radius)
-        obs_md = self.instcat_trimmer.obs_md
-        file_name = self.instcat_trimmer.instcat_file
-        return GsObjectList(object_lines, obs_md, self.phot_params, file_name,
-                            chip_name=chip_name)
-
-
 class GsObjectList:
     """
     List-like class to provide access to lists of objects from an

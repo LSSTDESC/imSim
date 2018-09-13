@@ -1,6 +1,7 @@
 """
 Function to apply chip-centered acceptance cones on instance catalogs.
 """
+from collections import defaultdict
 import numpy as np
 import lsst.sims.coordUtils
 from lsst.sims.utils import _angularSeparation
@@ -94,22 +95,13 @@ class Disaggregator:
 
         Returns
         -------
-        list: list of object entries from the original instance catalog.
+        list, int: (list of object entries from the original instance catalog,
+                    number of sersic objects for minsource application)
 
-        Notes
-        -----
-        This function applies the 'minsource' criterion to the sersic
-        galaxies in the instance catalog if 'minsource' is included in
-        the instance catalog commands.
         """
         ra0, dec0 = self.compute_chip_center(chip_name)
         seps = degrees_separation(ra0, dec0, self._ra, self._dec)
         index = np.where(seps < radius)
-
-        if (self.trimmer.minsource is not None and
-                sum(self._sersic[index]) < self.trimmer.minsource):
-            # Apply the minsource criterion.
-            return []
 
         # Collect the selected objects.
         selected = [self.object_lines[i] for i in index[0]]
@@ -118,7 +110,7 @@ class Disaggregator:
             sorted_index = np.argsort(self._magnorm[index])
             selected = [selected[i] for i in sorted_index]
 
-        return selected
+        return selected, sum(self._sersic[index])
 
 class InstCatTrimmer(dict):
     """
@@ -137,7 +129,7 @@ class InstCatTrimmer(dict):
 
     """
     def __init__(self, instcat, sensor_list, chunk_size=int(3e5),
-                 radius=0.18, numRows=None):
+                 radius=0.18, numRows=None, minsource=None):
         """
         Parameters
         ----------
@@ -155,10 +147,15 @@ class InstCatTrimmer(dict):
             sensor.
         numRows: int [None]
             Maximum number of rows to read in from the instance catalog.
+        minsource: int [None]
+            Minimum number of galaxies in a given sensor acceptance cone.
+            If not None, this overrides the value in the instance catalog.
         """
         super(InstCatTrimmer, self).__init__()
         self.instcat_file = instcat
         self._read_commands()
+        if minsource is not None:
+            self.minsource = minsource
         self._process_objects(sensor_list, chunk_size, radius=radius,
                               numRows=numRows)
 
@@ -170,11 +167,13 @@ class InstCatTrimmer(dict):
         for each sensor using the Disaggregator class to apply the
         acceptance cone cut centered on each sensor.
         """
+        num_gals = defaultdict(lambda: 0)
         self.update({sensor: [] for sensor in sensor_list})
         with desc.imsim.fopen(self.instcat_file, mode='rt') as fd:
             nread = 0
             while numRows is None or nread < numRows:
                 object_lines = []
+                ichunk = 0
                 for ichunk, line in zip(range(chunk_size), fd):
                     nread += 1
                     if not line.startswith('object'):
@@ -182,11 +181,16 @@ class InstCatTrimmer(dict):
                     object_lines.append(line)
                 disaggregator = Disaggregator(object_lines, self)
                 for sensor in self:
-                    obj_list = disaggregator.get_object_entries(sensor,
-                                                                radius=radius)
+                    obj_list, nsersic = disaggregator\
+                        .get_object_entries(sensor, radius=radius)
                     self[sensor].extend(obj_list)
+                    num_gals[sensor] += nsersic
                 if ichunk < chunk_size - 1:
                     break
+        for sensor in self:
+            # Apply minsource criterion on galaxies.
+            if self.minsource is not None and num_gals[sensor] < self.minsource:
+                self[sensor] = []
 
     def _read_commands(self):
         """Read in the commands from the instance catalog."""
