@@ -35,5 +35,19 @@ class InstCatTrimmerTestCase(unittest.TestCase):
                                              chunk_size=chunk_size)
             self.assertEqual(len(objs[sensor]), 24)
 
+    def test_inf_filter(self):
+        """
+        Test filtering of the ` inf ` string (i.e., bracked by spaces)
+        appearing anywhere in the instance catalog entry to avoid
+        underflows, floating point exceptions, etc.. from badly formed
+        entries.
+        """
+        instcat = os.path.join(os.environ['IMSIM_DIR'], 'tests',
+                               'bad_instcat.txt')
+        sensor = 'R:2,2 S:1,1'
+        objs = desc.imsim.InstCatTrimmer(instcat, [sensor], minsource=10)
+        self.assertEqual(len(objs[sensor]), 26)
+
+
 if __name__ == '__main__':
     unittest.main()

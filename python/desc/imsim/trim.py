@@ -176,7 +176,8 @@ class InstCatTrimmer(dict):
                 ichunk = 0
                 for ichunk, line in zip(range(chunk_size), fd):
                     nread += 1
-                    if not line.startswith('object'):
+                    if (not line.startswith('object') or
+                        'inf' in line.split()):
                         continue
                     object_lines.append(line)
                 disaggregator = Disaggregator(object_lines, self)
