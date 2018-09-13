@@ -30,7 +30,8 @@ class OptWF(object):
 
     def _wavefront_gradient(self, u, v, t, theta):
         z = self.oz.cartesian_coeff(theta[0]/galsim.degrees, theta[1]/galsim.degrees)
-        Z = galsim.OpticalScreen(diam=8.36, obscuration=0.61, aberrations=[0]*4+list(z))
+        Z = galsim.OpticalScreen(diam=8.36, obscuration=0.61, aberrations=[0]*4+list(z),
+                                 annular_zernike=True)
         return Z._wavefront_gradient(u, v, t, theta)
 
     def _stepK(self, **kwargs):
