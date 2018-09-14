@@ -14,7 +14,13 @@ from .optical_system import OpticalZernikes, mock_deviations
 class OptWF(object):
     def __init__(self, rng, wavelength, gsparams=None):
         u = galsim.UniformDeviate(rng)
-        self.deviations = mock_deviations(seed=int(u()*2**31))
+        # Fudge factor below comes from an attempt to force the PSF ellipticity distribution to
+        # match more closely the targets in the SRD (not be too round).  (See the discussion at
+        # https://github.com/LSSTDESC/DC2-production/issues/259).  Since the values in the
+        # mock_deviations function currently rely on a small set of simulations (7), this was deemed
+        # reasonable.
+        deviationsFudgeFactor = 3.0
+        self.deviations = deviationsFudgeFactor*mock_deviations(seed=int(u()*2**31))
         self.oz = OpticalZernikes(self.deviations)
         self.dynamic = False
         self.reversible = True
@@ -29,8 +35,14 @@ class OptWF(object):
                 and self.stepk == rhs.stepk)
 
     def _wavefront_gradient(self, u, v, t, theta):
-        z = self.oz.cartesian_coeff(theta[0].rad, theta[1].rad)
-        Z = galsim.OpticalScreen(diam=8.36, obscuration=0.61, aberrations=[0]*4+list(z))
+        # remap theta to prevent extrapolation beyond a radius of 1.708 degrees, which is the
+        # radius of the outermost sampling point.
+        fudgeFactor = 1.708/2.04
+
+        z = self.oz.cartesian_coeff(theta[0]/galsim.degrees*fudgeFactor,
+                                    theta[1]/galsim.degrees*fudgeFactor)
+        Z = galsim.OpticalScreen(diam=8.36, obscuration=0.61, aberrations=[0]*4+list(z),
+                                 annular_zernike=True)
         return Z._wavefront_gradient(u, v, t, theta)
 
     def _stepK(self, **kwargs):

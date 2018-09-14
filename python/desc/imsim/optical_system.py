@@ -249,7 +249,7 @@ class OpticalZernikes:
         """
 
         x, y = self.cartesian_coords
-        basis = zernikeBasis(22, x, y)
+        basis = zernikeBasis(15, x, y)
 
         out = []
         for coefficient in self.sampling_coeff:
