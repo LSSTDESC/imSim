@@ -14,6 +14,11 @@ from .optical_system import OpticalZernikes, mock_deviations
 class OptWF(object):
     def __init__(self, rng, wavelength, gsparams=None):
         u = galsim.UniformDeviate(rng)
+        # Fudge factor below comes from an attempt to force the PSF ellipticity distribution to
+        # match more closely the targets in the SRD (not be too round).  (See the discussion at
+        # https://github.com/LSSTDESC/DC2-production/issues/259).  Since the values in the
+        # mock_deviations function currently rely on a small set of simulations (7), this was deemed
+        # reasonable.
         deviationsFudgeFactor = 3.0
         self.deviations = deviationsFudgeFactor*mock_deviations(seed=int(u()*2**31))
         self.oz = OpticalZernikes(self.deviations)
