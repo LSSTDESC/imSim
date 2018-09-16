@@ -25,7 +25,7 @@ catalog = default
 
 [checkpointing]
 nobj = 500
-cleanup = True
+cleanup = False
 
 [wl_params]
 gamma2_sign = -1
