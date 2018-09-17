@@ -201,7 +201,7 @@ class ImageSimulator:
         return os.path.join(self.outdir, prefix + '_'.join(
             (visit, detector.fileName, self.obs_md.bandpass + '.fits')))
 
-    def run(self, processes=1, wait_time=None):
+    def run(self, processes=1, wait_time=None, node_id=0):
         """
         Use multiprocessing module to simulate sensors in parallel.
         """
@@ -221,7 +221,7 @@ class ImageSimulator:
         if self.file_id is not None and CHECKPOINT_SUMMARY is None:
             visit = self.obs_md.OpsimMetaData['obshistID']
             CHECKPOINT_SUMMARY \
-                = CheckpointSummary(db_file='ckpt_{}.sqlite3'.format(visit))
+                = CheckpointSummary(db_file='ckpt_{}_{}.sqlite3'.format(visit, node_id))
 
         results = []
         if processes == 1:
@@ -367,7 +367,7 @@ class SimulateSensor:
         obsHistID = str(IMAGE_SIMULATOR.obs_md.OpsimMetaData['obshistID'])
         nameRoot = os.path.join(outdir, prefix) + obsHistID
         if not IMAGE_SIMULATOR.config['persistence']['eimage_skip']:
-            outfiles = gs_interpreter.writeImages(nameRoot=nameRoot)
+            outfiles = gs_interpreter.writeImages(nameRoot=name_root)
             if IMAGE_SIMULATOR.config['persistence']['eimage_compress']:
                 compress_files(outfiles)
         else:
