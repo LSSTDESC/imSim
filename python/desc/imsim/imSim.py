@@ -496,14 +496,15 @@ def phosim_obs_metadata(phosim_commands):
     # Set the OpsimMetaData attribute with the obshistID info.
     obs_md.OpsimMetaData = {'obshistID': phosim_commands['obshistid']}
     obs_md.OpsimMetaData['FWHMgeom'] = fwhm_geom
-    obs_md.OpsimMetaData['FWHMeff'] =  fwhm_eff
+    obs_md.OpsimMetaData['FWHMeff'] = fwhm_eff
     obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['seeing']
     obs_md.OpsimMetaData['altitude'] = phosim_commands['altitude']
     obs_md.OpsimMetaData['seed'] = phosim_commands['seed']
     return obs_md
 
 
-def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None):
+def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None,
+                            checkpoint_files=None):
     """
     Read a PhoSim instance catalog into a Pandas dataFrame. Then use
     the information that was read-in to build and return a command
@@ -511,13 +512,17 @@ def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None):
 
     Parameters
     ----------
-    fileName : str
+    fileName: str
         The instance catalog filename.
     sensor_list: list
         List of sensors for which to extract object lists.
-    numRows : int, optional
+    numRows: int [None]
         The number of rows to read from the instance catalog.
-        If None (the default), then all of the rows will be read in.
+        If None, then all of the rows will be read in.
+    checkpoint_files: dict [None]
+        Checkpoint files keyed by sensor name, e.g., "R:2,2 S:1,1".
+        The instance catalog lines corresponding to drawn_objects in
+        the checkpoint files will be skipped on ingest.
 
     Returns
     -------
@@ -526,11 +531,11 @@ def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None):
         original DataFrames containing the header lines and object
         lines
     """
-
     commands = metadata_from_file(fileName)
     obs_metadata = phosim_obs_metadata(commands)
     phot_params = photometricParameters(commands)
-    instcats = InstCatTrimmer(fileName, sensor_list, numRows=numRows)
+    instcats = InstCatTrimmer(fileName, sensor_list, numRows=numRows,
+                              checkpoint_files=checkpoint_files)
     gs_object_dict = {detname: GsObjectList(instcats[detname], instcats.obs_md,
                                             phot_params, instcats.instcat_file)
                       for detname in sensor_list}
@@ -758,8 +763,6 @@ def add_cosmic_rays(gs_interpreter, phot_params):
         crs.set_seed(CosmicRays.generate_seed(visit, name))
         gs_interpreter.detectorImages[name] = \
             galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
-
-    return None
 
 
 def add_treering_info(detectors, tr_filename=None):
