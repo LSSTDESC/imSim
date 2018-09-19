@@ -152,7 +152,8 @@ def metadata_from_file(file_name):
     return commands
 
 
-def sources_from_list(object_lines, obs_md, phot_params, file_name):
+def sources_from_list(object_lines, obs_md, phot_params, file_name,
+                      target_chip=None):
     camera = get_obs_lsstSim_camera()
     config = get_config()
 
@@ -378,6 +379,9 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
     out_obj_dict = {}
     for det in lsst_camera():
         chip_name = det.getName()
+        if target_chip is not None and chip_name != target_chip:
+            # Only consider the target_chip.
+            continue
         pixel_corners = getCornerPixels(chip_name, lsst_camera())
         x_min = pixel_corners[0][0]
         x_max = pixel_corners[2][0]
@@ -556,7 +560,8 @@ class GsObjectList:
         if self._gs_objects is None:
             obj_arr, obj_dict \
                 = sources_from_list(self.object_lines, self.obs_md,
-                                    self.phot_params, self.file_name)
+                                    self.phot_params, self.file_name,
+                                    target_chip=self.chip_name)
             if self.chip_name is not None:
                 try:
                     self._gs_objects = obj_dict[self.chip_name]
