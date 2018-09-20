@@ -54,4 +54,6 @@ for det in camera_wrapper.camera:
     my_flat = desc.imsim.make_flat(gs_det, counts_per_iter, niter, rng,
                                    logger=logger, wcs=wcs)
     ccd_id = "R{}_S{}".format(det_name[2:5:2], det_name[8:11:2])
-    my_flat.write('flat_{}_{}_{}.fits'.format(visit, ccd_id, obs_md.bandpass))
+    prefix = config['persistence']['eimage_prefix']
+    my_flat.write('{}_{}_{}_{}.fits'.format(prefix, visit, ccd_id,
+                                            obs_md.bandpass))
