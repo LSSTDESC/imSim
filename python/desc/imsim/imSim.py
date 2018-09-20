@@ -153,12 +153,15 @@ def metadata_from_file(file_name):
 
 
 def sources_from_list(object_lines, obs_md, phot_params, file_name,
-                      target_chip=None):
+                      target_chip=None, log_level='INFO'):
     camera = get_obs_lsstSim_camera()
     config = get_config()
+    logger = get_logger(log_level, name=(target_chip if target_chip is
+                                         not None else 'sources_from_list'))
 
     num_objects = len(object_lines)
 
+    logger.debug('allocating object arrays')
     # RA, Dec in the coordinate system expected by PhoSim
     ra_phosim = np.zeros(num_objects, dtype=float)
     dec_phosim = np.zeros(num_objects, dtype=float)
@@ -187,6 +190,7 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name,
     unique_id = [None]*num_objects
     object_type = np.zeros(num_objects, dtype=int)
 
+    logger.debug('looping over %s objects', num_objects)
     i_obj = -1
     for line in object_lines:
         params = line.strip().split()
@@ -309,6 +313,8 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name,
 
     my_sed_dirs = sed_dirs(file_name)
 
+    logger.debug('constructing GalSimCelestialObjects for %s objects',
+                 num_objects)
     gs_object_arr = []
     for i_obj in range(num_objects):
         if not object_is_valid[i_obj]:
@@ -376,6 +382,7 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name,
     assert len(x_pupil) == len(gs_object_arr)
     assert len(y_pupil) == len(gs_object_arr)
 
+    logger.debug('down-selecting by chip')
     out_obj_dict = {}
     for det in lsst_camera():
         chip_name = det.getName()
@@ -399,6 +406,8 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name,
 
         out_obj_dict[chip_name] = gs_object_arr[on_chip]
 
+    if target_chip is not None:
+        logger.debug('objects remaining %s', len(out_obj_dict[target_chip]))
     return gs_object_arr, out_obj_dict
 
 def get_image_dirs():
@@ -504,7 +513,7 @@ def phosim_obs_metadata(phosim_commands):
 
 
 def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None,
-                            checkpoint_files=None):
+                            checkpoint_files=None, log_level='INFO'):
     """
     Read a PhoSim instance catalog into a Pandas dataFrame. Then use
     the information that was read-in to build and return a command
@@ -523,6 +532,8 @@ def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None,
         Checkpoint files keyed by sensor name, e.g., "R:2,2 S:1,1".
         The instance catalog lines corresponding to drawn_objects in
         the checkpoint files will be skipped on ingest.
+    log_level: str ['INFO']
+        Logging level.
 
     Returns
     -------
@@ -531,13 +542,17 @@ def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None,
         original DataFrames containing the header lines and object
         lines
     """
+    logger = get_logger(log_level, 'parsePhoSimInstanceFile')
     commands = metadata_from_file(fileName)
     obs_metadata = phosim_obs_metadata(commands)
     phot_params = photometricParameters(commands)
+    logger.debug('creating InstCatTrimmer object')
     instcats = InstCatTrimmer(fileName, sensor_list, numRows=numRows,
                               checkpoint_files=checkpoint_files)
     gs_object_dict = {detname: GsObjectList(instcats[detname], instcats.obs_md,
-                                            phot_params, instcats.instcat_file)
+                                            phot_params, instcats.instcat_file,
+                                            chip_name=detname,
+                                            log_level=log_level)
                       for detname in sensor_list}
 
     return PhoSimInstanceCatalogContents(obs_metadata,
@@ -552,12 +567,13 @@ class GsObjectList:
     until items in the list are accessed.
     """
     def __init__(self, object_lines, obs_md, phot_params, file_name,
-                 chip_name=None):
+                 chip_name=None, log_level='INFO'):
         self.object_lines = object_lines
         self.obs_md = obs_md
         self.phot_params = phot_params
         self.file_name = file_name
         self.chip_name = chip_name
+        self.log_level = log_level
         self._gs_objects = None
 
     @property
@@ -566,7 +582,8 @@ class GsObjectList:
             obj_arr, obj_dict \
                 = sources_from_list(self.object_lines, self.obs_md,
                                     self.phot_params, self.file_name,
-                                    target_chip=self.chip_name)
+                                    target_chip=self.chip_name,
+                                    log_level=self.log_level)
             if self.chip_name is not None:
                 try:
                     self._gs_objects = obj_dict[self.chip_name]
@@ -692,8 +709,6 @@ def read_config(config_file=None):
         for key, value in cp.items(section):
             my_config.set_from_config(section, key, value)
     return my_config
-
-read_config()
 
 
 def get_logger(log_level, name=None):
