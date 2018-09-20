@@ -10,6 +10,7 @@ import desc.imsim
 
 __all__ = ['InstCatTrimmer']
 
+
 def degrees_separation(ra0, dec0, ra, dec):
     """
     Compute angular separation in degrees.
@@ -108,6 +109,8 @@ class Disaggregator:
             not_drawn = [not x in self.trimmer.drawn_objects[chip_name]
                          for x in self._ids]
             index = np.where((seps < radius) & not_drawn)
+            self.trimmer.logger.debug("avoiding drawn objects")
+            self.trimmer.logger.debug(index)
         else:
             index = np.where(seps < radius)
 
@@ -138,7 +141,7 @@ class InstCatTrimmer(dict):
     """
     def __init__(self, instcat, sensor_list, checkpoint_files=None,
                  chunk_size=int(3e5), radius=0.18, numRows=None,
-                 minsource=None):
+                 minsource=None, log_level='INFO'):
         """
         Parameters
         ----------
@@ -163,8 +166,11 @@ class InstCatTrimmer(dict):
         minsource: int [None]
             Minimum number of galaxies in a given sensor acceptance cone.
             If not None, this overrides the value in the instance catalog.
+        log_level: str ['INFO']
+            Logging level.
         """
         super(InstCatTrimmer, self).__init__()
+        self.logger = desc.imsim.get_logger(log_level, 'InstCatTrimmer')
         self.instcat_file = instcat
         self._read_commands()
         if minsource is not None:

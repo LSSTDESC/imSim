@@ -2,11 +2,13 @@
 """
 This is the imSim program, used to drive GalSim to simulate the LSST.  Written
 for the DESC collaboration and LSST project.  This version of the program can
-read phoSim instance files as is. It leverages the LSST Sims GalSim interface
+read phoSim instance files as is.  It leverages the LSST Sims GalSim interface
 code found in sims_GalSimInterface.
 """
 import os
 import argparse
+import warnings
+from astropy._erfa import ErfaWarning
 import desc.imsim
 
 parser = argparse.ArgumentParser()
@@ -72,16 +74,18 @@ sensor_list = args.sensors.split('^') if args.sensors is not None \
 
 apply_sensor_model = not args.disable_sensor_model
 
-image_simulator \
-    = desc.imsim.ImageSimulator(args.instcat, psf,
-                                numRows=args.numrows,
-                                config=args.config_file,
-                                seed=args.seed,
-                                outdir=args.outdir,
-                                sensor_list=sensor_list,
-                                apply_sensor_model=apply_sensor_model,
-                                create_centroid_file=args.create_centroid_file,
-                                file_id=args.file_id,
-                                log_level=args.log_level)
+with warnings.catch_warnings():
+    warnings.filterwarnings('ignore', 'ERFA', ErfaWarning)
+    image_simulator \
+        = desc.imsim.ImageSimulator(args.instcat, psf,
+                                    numRows=args.numrows,
+                                    config=args.config_file,
+                                    seed=args.seed,
+                                    outdir=args.outdir,
+                                    sensor_list=sensor_list,
+                                    apply_sensor_model=apply_sensor_model,
+                                    create_centroid_file=args.create_centroid_file,
+                                    file_id=args.file_id,
+                                    log_level=args.log_level)
 
-image_simulator.run(processes=args.processes)
+    image_simulator.run(processes=args.processes)
