@@ -103,6 +103,8 @@ class Disaggregator:
                     number of sersic objects for minsource application)
 
         """
+        self.trimmer.logger.debug("computing object offsets from %s center",
+                                  chip_name)
         ra0, dec0 = self.compute_chip_center(chip_name)
         seps = degrees_separation(ra0, dec0, self._ra, self._dec)
         if chip_name in self.trimmer.drawn_objects:
@@ -118,6 +120,7 @@ class Disaggregator:
         selected = [self.object_lines[i] for i in index[0]]
         if sort_magnorm:
             # Sort by magnorm.
+            self.trimmer.logger.debug('sorting by magnorm')
             sorted_index = np.argsort(self._magnorm[index])
             selected = [selected[i] for i in sorted_index]
 
@@ -208,12 +211,13 @@ class InstCatTrimmer(dict):
                 ichunk = 0
                 for ichunk, line in zip(range(chunk_size), fd):
                     nread += 1
-                    if (not line.startswith('object') or
-                            'inf' in line.split()):
+                    if (not line.startswith('object') or ' inf ' in line):
                         continue
                     object_lines.append(line)
+                self.logger.debug("read %d objects", nread)
                 disaggregator = Disaggregator(object_lines, self)
                 for sensor in self:
+                    self.logger.debug("getting objects for %s", sensor)
                     obj_list, nsersic = disaggregator\
                         .get_object_entries(sensor, radius=radius)
                     self[sensor].extend(obj_list)
