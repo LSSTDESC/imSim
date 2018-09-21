@@ -548,7 +548,8 @@ def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None,
     phot_params = photometricParameters(commands)
     logger.debug('creating InstCatTrimmer object')
     instcats = InstCatTrimmer(fileName, sensor_list, numRows=numRows,
-                              checkpoint_files=checkpoint_files)
+                              checkpoint_files=checkpoint_files,
+                              log_level=log_level)
     gs_object_dict = {detname: GsObjectList(instcats[detname], instcats.obs_md,
                                             phot_params, instcats.instcat_file,
                                             chip_name=detname,
