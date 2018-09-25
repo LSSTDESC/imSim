@@ -711,6 +711,8 @@ def read_config(config_file=None):
             my_config.set_from_config(section, key, value)
     return my_config
 
+read_config()
+
 
 def get_logger(log_level, name=None):
     """
