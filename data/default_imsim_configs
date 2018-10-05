@@ -29,3 +29,6 @@ cleanup = False
 
 [wl_params]
 gamma2_sign = -1
+
+[objects]
+sort_magnorm = False

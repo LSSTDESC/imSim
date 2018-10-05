@@ -144,7 +144,7 @@ class InstCatTrimmer(dict):
     """
     def __init__(self, instcat, sensor_list, checkpoint_files=None,
                  chunk_size=int(3e5), radius=0.18, numRows=None,
-                 minsource=None, log_level='INFO'):
+                 minsource=None, log_level='INFO', sort_magnorm=True):
         """
         Parameters
         ----------
@@ -171,6 +171,9 @@ class InstCatTrimmer(dict):
             If not None, this overrides the value in the instance catalog.
         log_level: str ['INFO']
             Logging level.
+        sort_magnorm: bool [True]
+            Sort the objects in each chunk by mag_norm to draw brighter
+            objects first.
         """
         super(InstCatTrimmer, self).__init__()
         self.logger = desc.imsim.get_logger(log_level, 'InstCatTrimmer')
@@ -180,7 +183,7 @@ class InstCatTrimmer(dict):
             self.minsource = minsource
         self._read_drawn_objects(checkpoint_files)
         self._process_objects(sensor_list, chunk_size, radius=radius,
-                              numRows=numRows)
+                              numRows=numRows, sort_magnorm=sort_magnorm)
 
     def _read_drawn_objects(self, checkpoint_files):
         """
@@ -195,7 +198,7 @@ class InstCatTrimmer(dict):
                 self.drawn_objects_dict[detname] = ckpt['drawn_objects']
 
     def _process_objects(self, sensor_list, chunk_size, radius=0.18,
-                         numRows=None):
+                         numRows=None, sort_magnorm=True):
         """
         Loop over chunks of lines from the instance catalog
         and disaggregate the entries into the separate object lists
@@ -219,7 +222,8 @@ class InstCatTrimmer(dict):
                 for sensor in self:
                     self.logger.debug("getting objects for %s", sensor)
                     obj_list, nsersic = disaggregator\
-                        .get_object_entries(sensor, radius=radius)
+                        .get_object_entries(sensor, radius=radius,
+                                            sort_magnorm=sort_magnorm)
                     self[sensor].extend(obj_list)
                     num_gals[sensor] += nsersic
                 if ichunk < chunk_size - 1:
