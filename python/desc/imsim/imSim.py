@@ -154,6 +154,41 @@ def metadata_from_file(file_name):
 
 def sources_from_list(object_lines, obs_md, phot_params, file_name,
                       target_chip=None, log_level='INFO'):
+    """.
+
+    Parse the object lines from a phosim-style instance catalog and
+    repackage as GalSimCelestialObjects after applying on-chip
+    selections and consistency cuts on mag_norm, extinction
+    parameters, and galaxy shape and knot parameters.
+
+    Parameters
+    ----------
+    object_lines: list
+        List of object line entries from the instance catalog.
+    obs_md: ObservationMetaData
+        Visit-specific metadata from the instance catalog.
+    phot_params: PhotometricParameters
+        Visit-specific photometric data needed for computing object
+        fluxes.
+    file_name: str
+        The filename path of the instance catalog, used for inferring
+        the location of the Dynamic SEDs used by the sprinkled objects.
+    target_chip: str [None]
+        For multiprocessing mode, this is the name of the chip
+        (e.g., "R:2,2 S:1,1") being simulated.  If None, then
+        of the object lines are partitioned among all 189 science
+        sensors in the LSST focalplane.  Since this is a costly
+        calculation, doing it only for the target chip saves a lot
+        of compute time.
+    log_level: str ['INFO']
+        Logging level.
+
+    Returns
+    -------
+    list, dict:  A list of all the GalSimCelestialObjects that pass
+        the focalplane-level selections and a dict of those objects keyed
+        by chip name.
+    """
     camera = get_obs_lsstSim_camera()
     config = get_config()
     logger = get_logger(log_level, name=(target_chip if target_chip is
