@@ -31,4 +31,4 @@ cleanup = False
 gamma2_sign = -1
 
 [objects]
-sort_magnorm = False
+sort_magnorm = True
