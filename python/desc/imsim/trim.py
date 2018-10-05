@@ -107,8 +107,8 @@ class Disaggregator:
                                   chip_name)
         ra0, dec0 = self.compute_chip_center(chip_name)
         seps = degrees_separation(ra0, dec0, self._ra, self._dec)
-        if chip_name in self.trimmer.drawn_objects:
-            not_drawn = [not x in self.trimmer.drawn_objects[chip_name]
+        if chip_name in self.trimmer.drawn_objects_dict:
+            not_drawn = [not x in self.trimmer.drawn_objects_dict[chip_name]
                          for x in self._ids]
             index = np.where((seps < radius) & not_drawn)
             self.trimmer.logger.debug("avoiding drawn objects")
@@ -186,13 +186,13 @@ class InstCatTrimmer(dict):
         """
         Read the drawn objects from the checkpoint files.
         """
-        self.drawn_objects = dict()
+        self.drawn_objects_dict = dict()
         if checkpoint_files is None:
             return
         for detname, ckpt_file in checkpoint_files.items():
             with open(ckpt_file, 'rb') as fd:
                 ckpt = pickle.load(fd)
-                self.drawn_objects[detname] = ckpt['drawn_objects']
+                self.drawn_objects_dict[detname] = ckpt['drawn_objects']
 
     def _process_objects(self, sensor_list, chunk_size, radius=0.18,
                          numRows=None):
