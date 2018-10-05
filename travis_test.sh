@@ -7,6 +7,7 @@ pip install coveralls
 pip install pylint
 git clone https://github.com/lsst/obs_lsstCam.git
 cd obs_lsstCam
+git checkout u/jchiang/imsim_crosstalk
 setup -r . -j
 scons
 cd ..
