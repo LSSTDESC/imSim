@@ -10,6 +10,7 @@ import gzip
 import shutil
 import sqlite3
 import numpy as np
+from astropy._erfa import ErfaWarning
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
 from lsst.sims.GalSimInterface import make_galsim_detector
@@ -88,14 +89,32 @@ class ImageSimulator:
         self.camera_wrapper = LSSTCameraWrapper()
         if sensor_list is None:
             sensor_list = self._get_all_sensors()
-        self.logger.debug("parsing instance catalog for %d sensors",
+        self.logger.debug("parsing instance catalog for %d sensor(s)",
                           len(sensor_list))
+        checkpoint_files = self._gather_checkpoint_files(sensor_list, file_id)
         self.obs_md, self.phot_params, sources \
-            = parsePhoSimInstanceFile(instcat, sensor_list, numRows=numRows)
+            = parsePhoSimInstanceFile(instcat, sensor_list, numRows=numRows,
+                                      checkpoint_files=checkpoint_files,
+                                      log_level=log_level)
         self.gs_obj_dict = sources[1]
         self.apply_sensor_model = apply_sensor_model
         self.file_id = file_id
         self._make_gs_interpreters(seed, sensor_list, file_id)
+
+    def _gather_checkpoint_files(self, sensor_list, file_id=None):
+        """
+        Gather any checkpoint files that have been created for the
+        desired sensors and return a dictionary with the discovered
+        filenames.
+        """
+        if file_id is None:
+            return None
+        checkpoint_files = dict()
+        for det_name in sensor_list:
+            filename = self.checkpoint_file(file_id, det_name)
+            if os.path.isfile(filename):
+                checkpoint_files[det_name] = filename
+        return checkpoint_files
 
     def _make_gs_interpreters(self, seed, sensor_list, file_id):
         """
@@ -106,9 +125,6 @@ class ImageSimulator:
         Also extract GsObjectLists from gs_obj_dict for only the
         sensors in sensor_list so that the memory in the underlying
         InstCatTrimmer object in gs_obj_dict can be recovered.
-
-        TODO: Find a good way to pass a different seed to each
-        gs_interpreter or have them share the random number generator.
         """
         bp_dict = BandpassDict.loadTotalBandpassesFromFiles(bandpassNames=self.obs_md.bandpass)
         noise_and_background \
@@ -216,7 +232,8 @@ class ImageSimulator:
         # Set the CHECKPOINT_SUMMARY variable so that the summary info
         # from the subprocesses can be persisted.
         global CHECKPOINT_SUMMARY
-        if self.file_id is not None and CHECKPOINT_SUMMARY is None:
+        if (self.file_id is not None and processes > 1 and
+            CHECKPOINT_SUMMARY is None):
             visit = self.obs_md.OpsimMetaData['obshistID']
             CHECKPOINT_SUMMARY \
                 = CheckpointSummary(db_file='ckpt_{}_{}.sqlite3'.format(visit, node_id))
@@ -329,14 +346,17 @@ class SimulateSensor:
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', 'Automatic n_photons',
                                     UserWarning)
+            warnings.filterwarnings('ignore', 'ERFA function', ErfaWarning)
             nan_fluxes = 0
+            starting_for_loop = True
             for gs_obj in gs_objects:
+                if starting_for_loop:
+                    logger.info("drawing %d objects", len(gs_objects))
+                    starting_for_loop = False
                 if gs_obj.uniqueId in gs_interpreter.drawn_objects:
                     continue
                 flux = gs_obj.flux(IMAGE_SIMULATOR.obs_md.bandpass)
                 if not np.isnan(flux):
-                    if not gs_interpreter.drawn_objects:
-                        logger.info("drawing %d objects", len(gs_objects))
                     logger.debug("%s  %s  %s", gs_obj.uniqueId, flux,
                                  gs_obj.galSimType)
                     gs_interpreter.drawObject(gs_obj)

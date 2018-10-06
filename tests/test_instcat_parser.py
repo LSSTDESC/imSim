@@ -426,7 +426,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         # these are the objects that should be omitted
         bad_unique_ids = set([str(x) for x in
                               [34307989098524, 811883374597,
-                              811883374596, 956090392580,
+                               811883374596, 956090392580,
                                34307989098523, 34304522113056]])
 
         self.assertIn('Omitted 6 suspicious objects', message)
@@ -435,7 +435,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertIn('1 had semi_major_axis', message)
         self.assertIn('1 had n_points', message)
 
-        self.assertEqual(len(my_objs), 35)
+        self.assertEqual(len(my_objs), 18)
         for obj in instcat_contents.sources[0]:
             self.assertNotIn(obj.uniqueId, bad_unique_ids)
 

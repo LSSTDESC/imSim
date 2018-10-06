@@ -2,12 +2,14 @@
 Function to apply chip-centered acceptance cones on instance catalogs.
 """
 from collections import defaultdict
+import pickle
 import numpy as np
 import lsst.sims.coordUtils
 from lsst.sims.utils import _angularSeparation
 import desc.imsim
 
 __all__ = ['InstCatTrimmer']
+
 
 def degrees_separation(ra0, dec0, ra, dec):
     """
@@ -46,12 +48,14 @@ class Disaggregator:
         self.trimmer = trimmer
 
         # Extract the ra, dec values for each object.
+        self._ids = []
         self._ra = np.zeros(len(object_lines), dtype=np.float)
         self._dec = np.zeros(len(object_lines), dtype=np.float)
         self._sersic = np.zeros(len(object_lines), dtype=np.int)
         self._magnorm = np.zeros(len(object_lines), dtype=np.float)
         for i, line in enumerate(object_lines):
             tokens = line.strip().split()
+            self._ids.append(tokens[1])
             self._ra[i] = np.float(tokens[2])
             self._dec[i] = np.float(tokens[3])
             if 'sersic2d' in line:
@@ -99,14 +103,24 @@ class Disaggregator:
                     number of sersic objects for minsource application)
 
         """
+        self.trimmer.logger.debug("computing object offsets from %s center",
+                                  chip_name)
         ra0, dec0 = self.compute_chip_center(chip_name)
         seps = degrees_separation(ra0, dec0, self._ra, self._dec)
-        index = np.where(seps < radius)
+        if chip_name in self.trimmer.drawn_objects_dict:
+            not_drawn = [not x in self.trimmer.drawn_objects_dict[chip_name]
+                         for x in self._ids]
+            index = np.where((seps < radius) & not_drawn)
+            self.trimmer.logger.debug("avoiding drawn objects")
+            self.trimmer.logger.debug(index)
+        else:
+            index = np.where(seps < radius)
 
         # Collect the selected objects.
         selected = [self.object_lines[i] for i in index[0]]
         if sort_magnorm:
             # Sort by magnorm.
+            self.trimmer.logger.debug('sorting by magnorm')
             sorted_index = np.argsort(self._magnorm[index])
             selected = [selected[i] for i in sorted_index]
 
@@ -128,8 +142,9 @@ class InstCatTrimmer(dict):
         to be simulated.
 
     """
-    def __init__(self, instcat, sensor_list, chunk_size=int(3e5),
-                 radius=0.18, numRows=None, minsource=None):
+    def __init__(self, instcat, sensor_list, checkpoint_files=None,
+                 chunk_size=int(3e5), radius=0.18, numRows=None,
+                 minsource=None, log_level='INFO', sort_magnorm=True):
         """
         Parameters
         ----------
@@ -139,6 +154,10 @@ class InstCatTrimmer(dict):
         sensor_list: list
             List of sensors, e.g., "R:2,2 S:1,1", for which to provide
             object lists.
+        checkpoint_files: dict [None]
+            Checkpoint files keyed by sensor name, e.g., "R:2,2 S:1,1".
+            The instance catalog lines corresponding to drawn_objects in
+            the checkpoint files will be skipped on ingest.
         chunk_size: int [int(1e5)]
             Number of lines to read in at a time from the instance catalogs
             to avoid excess memory usage.
@@ -150,17 +169,36 @@ class InstCatTrimmer(dict):
         minsource: int [None]
             Minimum number of galaxies in a given sensor acceptance cone.
             If not None, this overrides the value in the instance catalog.
+        log_level: str ['INFO']
+            Logging level.
+        sort_magnorm: bool [True]
+            Sort the objects in each chunk by mag_norm to draw brighter
+            objects first.
         """
         super(InstCatTrimmer, self).__init__()
+        self.logger = desc.imsim.get_logger(log_level, 'InstCatTrimmer')
         self.instcat_file = instcat
         self._read_commands()
         if minsource is not None:
             self.minsource = minsource
+        self._read_drawn_objects(checkpoint_files)
         self._process_objects(sensor_list, chunk_size, radius=radius,
-                              numRows=numRows)
+                              numRows=numRows, sort_magnorm=sort_magnorm)
+
+    def _read_drawn_objects(self, checkpoint_files):
+        """
+        Read the drawn objects from the checkpoint files.
+        """
+        self.drawn_objects_dict = dict()
+        if checkpoint_files is None:
+            return
+        for detname, ckpt_file in checkpoint_files.items():
+            with open(ckpt_file, 'rb') as fd:
+                ckpt = pickle.load(fd)
+                self.drawn_objects_dict[detname] = ckpt['drawn_objects']
 
     def _process_objects(self, sensor_list, chunk_size, radius=0.18,
-                         numRows=None):
+                         numRows=None, sort_magnorm=True):
         """
         Loop over chunks of lines from the instance catalog
         and disaggregate the entries into the separate object lists
@@ -176,14 +214,16 @@ class InstCatTrimmer(dict):
                 ichunk = 0
                 for ichunk, line in zip(range(chunk_size), fd):
                     nread += 1
-                    if (not line.startswith('object') or
-                        'inf' in line.split()):
+                    if (not line.startswith('object') or ' inf ' in line):
                         continue
                     object_lines.append(line)
+                self.logger.debug("read %d objects", nread)
                 disaggregator = Disaggregator(object_lines, self)
                 for sensor in self:
+                    self.logger.debug("getting objects for %s", sensor)
                     obj_list, nsersic = disaggregator\
-                        .get_object_entries(sensor, radius=radius)
+                        .get_object_entries(sensor, radius=radius,
+                                            sort_magnorm=sort_magnorm)
                     self[sensor].extend(obj_list)
                     num_gals[sensor] += nsersic
                 if ichunk < chunk_size - 1:
