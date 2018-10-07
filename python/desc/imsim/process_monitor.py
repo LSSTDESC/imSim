@@ -1,5 +1,5 @@
 """
-Module to record the RSS memory usage of subprocesses run using
+Module to record the RSS and USS memory usage of subprocesses that use
 the multiprocessing module.
 """
 import os
@@ -13,17 +13,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 import psutil
 
-__all__ = ['process_monitor', 'RssHistory', 'plot_rss_history']
+__all__ = ['process_monitor', 'RssHistory', 'plot_rss_history' ]
 
 class RssHistory:
-    """Class to contain the time history of the RSS memory for a process."""
+    """
+    Class to contain the time history of the RSS and USS memory for a
+    process.
+    """
     def __init__(self):
         self.time = []
         self.rss = []
-    def append(self, time, rss):
+        self.uss = []
+    def append(self, time, memory_full_info):
         """Append a time/RSS entry."""
         self.time.append(time)
-        self.rss.append(rss)
+        self.rss.append(memory_full_info.rss/1024.**3)
+        self.uss.append(memory_full_info.uss/1024.**3)
 
 def process_monitor(process_name=None, outfile=None, wait_time=30):
     """
@@ -68,21 +73,22 @@ def process_monitor(process_name=None, outfile=None, wait_time=30):
             if pid == my_pid:  # Skip the process for this function.
                 continue
             proc = psutil.Process(pid)
-            process_memories[pid].append(time.time(),
-                                         proc.memory_info().rss/1024.**3)
+            process_memories[pid].append(time.time(), proc.memory_full_info())
         time.sleep(wait_time)
         with open(outfile, 'wb') as output:
             pickle.dump(process_memories, output)
 
-def plot_rss_history(rss_info_file):
+def plot_rss_history(rss_info_file, uss=True):
     """
-    Plot the RSS history from the specified file.
+    Plot the RSS or USS history from the specified file.
 
     Parameters
     ----------
     rss_info_file: str
         The pickle file with the RSS vs time data for the monitored
         processes.
+    uss: bool [True]
+        Plot the unique set size memory.
 
     Return
     ------
@@ -94,10 +100,12 @@ def plot_rss_history(rss_info_file):
     for pid in data:
         if t0 is None:
             t0 = data[pid].time[0]
-        fig = plt.errorbar((np.array(data[pid].time) - t0)/60., data[pid].rss,
+        ydata = data[pid].uss if uss else data[pid].rss
+        fig = plt.errorbar((np.array(data[pid].time) - t0)/60., ydata,
                            fmt='-', label=str(pid))
     plt.xlabel('relative time (min)')
-    plt.ylabel('RSS memory (GB)')
+    ylabel = 'USS memory (GB)' if uss else 'RSS memory (GB)'
+    plt.ylabel(ylabel)
     plt.legend(loc=0, fontsize='x-small')
     return fig, data
 
