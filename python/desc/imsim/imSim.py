@@ -365,6 +365,7 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name,
 
     logger.debug('constructing GalSimCelestialObjects for %s objects; %s GB',
                  num_objects, uss_mem())
+    gs_object_ids = set()
     gs_object_arr = []
     out_obj_dict = defaultdict(list)
     for chip_name, on_chip in on_chip_dict.items():
@@ -409,7 +410,9 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name,
                                               gamma2=gamma2[i_obj],
                                               kappa=kappa[i_obj],
                                               uniqueId=unique_id[i_obj])
-            gs_object_arr.append(gs_object)
+            if gs_object.uniqueId not in gs_object_ids:
+                gs_object_ids.add(gs_object.uniqueId)
+                gs_object_arr.append(gs_object)
             out_obj_dict[chip_name].append(gs_object)
     gs_object_arr = np.array(gs_object_arr)
     if target_chip is not None:
