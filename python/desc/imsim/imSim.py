@@ -350,7 +350,14 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name,
         message += "    %d had n_points <= 0 \n" % n_bad_knots
         warnings.warn(message)
 
-    target_chips = [target_chip] if target_chip is not None else None
+    if target_chip is not None:
+        target_chips = [target_chip]
+    else:
+        # Set target_chips to None, in which case the _chip_downselect
+        # function will use all of the science sensors in the
+        # focalplane.
+        target_chips = None
+
     on_chip_dict = _chip_downselect(mag_norm, x_pupil, y_pupil, logger,
                                     target_chips)
 
@@ -413,7 +420,8 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name,
 def _chip_downselect(mag_norm, x_pupil, y_pupil, logger, target_chips=None):
     """
     Down-select objects based on focalplane location relative to chip
-    boundaries.
+    boundaries.  If target_chips is None, then the down-selection will
+    be made for all of the science sensors in the focalplane.
 
     Returns
     -------
