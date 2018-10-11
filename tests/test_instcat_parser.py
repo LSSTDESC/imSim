@@ -31,7 +31,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         cls.data_dir = os.path.join(os.environ['IMSIM_DIR'], 'tests', 'data')
         cls.scratch_dir = tempfile.mkdtemp(prefix=cls.data_dir)
 
-
     @classmethod
     def tearDownClass(cls):
         if os.path.exists(cls.scratch_dir):
@@ -165,6 +164,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         truth_data = np.genfromtxt(os.path.join(self.data_dir, 'truth_stars.txt'),
                                    dtype=truth_dtype, delimiter=';')
 
+        truth_data.sort()
+        id_arr = sorted(id_arr)
         np.testing.assert_array_equal(truth_data['uniqueId'], id_arr)
 
         ######## test that pupil coordinates are correct to within
@@ -178,8 +179,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                                        parallax=truth_data['parallax'],
                                                        obs_metadata=obs_md)
 
-        for i_obj, gs_obj in enumerate(gs_object_arr):
-            self.assertEqual(truth_data['uniqueId'][i_obj], gs_obj.uniqueId)
+        for gs_obj in gs_object_arr:
+            i_obj = np.where(truth_data['uniqueId'] == gs_obj.uniqueId)[0][0]
             dd = np.sqrt((x_pup_test[i_obj]-gs_obj.xPupilRadians)**2 +
                          (y_pup_test[i_obj]-gs_obj.yPupilRadians)**2)
             dd = arcsecFromRadians(dd)
@@ -192,7 +193,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         imsim_bp.imsimBandpass()
         phot_params = PhotometricParameters(nexp=1, exptime=30.0)
 
-        for i_obj, gs_obj in enumerate(gs_object_arr):
+        for gs_obj in gs_object_arr:
+            i_obj = np.where(truth_data['uniqueId'] == gs_obj.uniqueId)[0][0]
             sed = Sed()
             full_sed_name = os.path.join(os.environ['SIMS_SED_LIBRARY_DIR'],
                                          truth_data['sedFilename'][i_obj])
@@ -270,6 +272,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         truth_data = np.genfromtxt(os.path.join(self.data_dir, 'truth_galaxies.txt'),
                                    dtype=truth_dtype, delimiter=';')
 
+        truth_data.sort()
+        id_arr = sorted(id_arr)
         np.testing.assert_array_equal(truth_data['uniqueId'], id_arr)
 
         ######## test that galaxy parameters are correctly read in
@@ -277,7 +281,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         g1 = truth_data['gamma1']/(1.0-truth_data['kappa'])
         g2 = truth_data['gamma2']/(1.0-truth_data['kappa'])
         mu = 1.0/((1.0-truth_data['kappa'])**2 - (truth_data['gamma1']**2 + truth_data['gamma2']**2))
-        for i_obj, gs_obj in enumerate(gs_object_arr):
+        for gs_obj in gs_object_arr:
+            i_obj = np.where(truth_data['uniqueId'] == gs_obj.uniqueId)[0][0]
             self.assertAlmostEqual(gs_obj.mu/mu[i_obj], 1.0, 6)
             self.assertAlmostEqual(gs_obj.g1/g1[i_obj], 1.0, 6)
             self.assertAlmostEqual(gs_obj.g2/g2[i_obj], 1.0, 6)
@@ -303,8 +308,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                                        truth_data['decJ2000'],
                                                        obs_metadata=obs_md)
 
-        for i_obj, gs_obj in enumerate(gs_object_arr):
-            self.assertEqual(truth_data['uniqueId'][i_obj], gs_obj.uniqueId)
+        for gs_obj in gs_object_arr:
+            i_obj = np.where(truth_data['uniqueId'] == gs_obj.uniqueId)[0][0]
             dd = np.sqrt((x_pup_test[i_obj]-gs_obj.xPupilRadians)**2 +
                          (y_pup_test[i_obj]-gs_obj.yPupilRadians)**2)
             dd = arcsecFromRadians(dd)
@@ -317,7 +322,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         imsim_bp.imsimBandpass()
         phot_params = PhotometricParameters(nexp=1, exptime=30.0)
 
-        for i_obj, gs_obj in enumerate(gs_object_arr):
+        for gs_obj in gs_object_arr:
+            i_obj = np.where(truth_data['uniqueId'] == gs_obj.uniqueId)[0][0]
             sed = Sed()
             full_sed_name = os.path.join(os.environ['SIMS_SED_LIBRARY_DIR'],
                                          truth_data['sedFilename'][i_obj])
@@ -364,7 +370,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         self.assertGreater(valid, 10)
         self.assertGreater(len(valid_chip_names), 5)
-
 
     def test_parsePhoSimInstanceFile_warning(self):
         "Test the warnings emitted by the instance catalog parser."
