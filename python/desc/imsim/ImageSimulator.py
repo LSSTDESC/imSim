@@ -342,6 +342,8 @@ class SimulateSensor:
 
         # IMAGE_SIMULATOR must be a variable declared in the
         # outer scope and set to an ImageSimulator instance.
+        max_flux_simple = IMAGE_SIMULATOR.config['ccd']['max_flux_simple']
+        sensor_limit = IMAGE_SIMULATOR.config['ccd']['sensor_limit']
         gs_interpreter = IMAGE_SIMULATOR.gs_interpreters[self.sensor_name]
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', 'Automatic n_photons',
@@ -359,7 +361,9 @@ class SimulateSensor:
                 if not np.isnan(flux):
                     logger.debug("%s  %s  %s", gs_obj.uniqueId, flux,
                                  gs_obj.galSimType)
-                    gs_interpreter.drawObject(gs_obj)
+                    gs_interpreter.drawObject(gs_obj,
+                                              max_flux_simple=max_flux_simple,
+                                              sensor_limit=sensor_limit)
                     # Ensure the object's id is added to the drawn
                     # object set.
                     gs_interpreter.drawn_objects.add(gs_obj.uniqueId)
