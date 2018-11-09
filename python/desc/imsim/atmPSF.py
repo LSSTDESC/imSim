@@ -28,25 +28,39 @@ class OptWF(object):
         # Compute stepk once and store
         obj = galsim.Airy(lam=wavelength, diam=8.36, obscuration=0.61, gsparams=gsparams)
         self.stepk = obj.stepk
+        self._opt_screen = None
+        self._opt_screen_theta = None
 
     def __eq__(self, rhs):
         return (isinstance(rhs, OptWF)
                 and np.array_equal(self.deviations, rhs.deviations)
                 and self.stepk == rhs.stepk)
 
+    def _optical_screen(theta):
+        if theta != self._opt_screen_theta:
+            # remap theta to prevent extrapolation beyond a radius of 1.708 degrees, which is the
+            # radius of the outermost sampling point.
+            fudgeFactor = 1.708/2.04
+            z = self.oz.cartesian_coeff(theta[0]/galsim.degrees*fudgeFactor,
+                                        theta[1]/galsim.degrees*fudgeFactor)
+            Z = galsim.OpticalScreen(diam=8.36, obscuration=0.61, aberrations=[0]*4+list(z),
+                                     annular_zernike=True)
+            self._opt_screen_theta = theta
+            self._opt_screen = Z
+        return self._opt_screen
+
+    def _wavefront(self, u, v, t, theta):
+        return self._optical_screen(theta)._wavefront(u, v, t, theta)
+
     def _wavefront_gradient(self, u, v, t, theta):
-        # remap theta to prevent extrapolation beyond a radius of 1.708 degrees, which is the
-        # radius of the outermost sampling point.
-        fudgeFactor = 1.708/2.04
+        return self._optical_screen(theta)._wavefront_gradient(u, v, t, theta)
 
-        z = self.oz.cartesian_coeff(theta[0]/galsim.degrees*fudgeFactor,
-                                    theta[1]/galsim.degrees*fudgeFactor)
-        Z = galsim.OpticalScreen(diam=8.36, obscuration=0.61, aberrations=[0]*4+list(z),
-                                 annular_zernike=True)
-        return Z._wavefront_gradient(u, v, t, theta)
-
-    def _stepK(self, **kwargs):
+    def _stepK(self, **kwargs):  # For GalSim <= v1.6
         return self.stepk
+
+    def _getStepK(self, **kwargs):  # For GalSim >= v2.0
+        return self.stepk
+
 
 
 class AtmosphericPSF(PSFbase):
