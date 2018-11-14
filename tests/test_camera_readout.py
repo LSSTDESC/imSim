@@ -20,7 +20,12 @@ class ImageSourceTestCase(unittest.TestCase):
     image_source \
         = desc.imsim.ImageSource.create_from_eimage(eimage_file, 'R22_S11')
     def setUp(self):
-        pass
+        imsim_dir = lsstUtils.getPackageDir('imsim')
+        self.eimage_file = os.path.join(imsim_dir, 'tests', 'data',
+                                        'lsst_e_161899_R22_S11_r.fits.gz')
+        self.image_source \
+            = desc.imsim.ImageSource.create_from_eimage(self.eimage_file,
+                                                        'R22_S11')
 
     def tearDown(self):
         pass
