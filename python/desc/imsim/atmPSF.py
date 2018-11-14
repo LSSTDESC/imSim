@@ -45,6 +45,10 @@ class OptWF(object):
                                  annular_zernike=True)
         return Z._wavefront_gradient(u, v, t, theta)
 
+    def _getStepK(self, **kwargs):
+        return self.stepk
+
+    # galsim v1.60 version:
     def _stepK(self, **kwargs):
         return self.stepk
 

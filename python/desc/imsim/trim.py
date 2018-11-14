@@ -1,7 +1,6 @@
 """
 Function to apply chip-centered acceptance cones on instance catalogs.
 """
-import os
 import numpy as np
 import lsst.sims.coordUtils
 from lsst.sims.utils import _angularSeparation
@@ -27,81 +26,36 @@ def degrees_separation(ra0, dec0, ra, dec):
     return np.degrees(_angularSeparation(np.radians(ra0), np.radians(dec0),
                                          np.radians(ra), np.radians(dec)))
 
-class InstCatTrimmer:
+class Disaggregator:
+    """.
+    Class to disaggregate instance catalog object lines into per chip
+    acceptance cones.
     """
-    Class to trim instance catalogs for acceptance cones centered
-    on CCDs in the LSST focalplane.
-
-    Attributes
-    ----------
-    instcat_file: str
-        Instance catalog filename.
-    command_lines: list
-        PhoSim command entries.
-    object_lines: list
-        PhoSim object entries.
-    obs_md: ObservationMetadata
-        Observation metadata for the visit.
-    minsource: int
-        Minimum number of sersic objects to require for a sensor-visit
-        to be simulated.
-    """
-    def __init__(self, instcat, numRows=None):
+    def __init__(self, object_lines, trimmer):
         """
         Parameters
         ----------
-        instcat: str
-            Path to input instance catalog.  The file can have includeobj
-            entries.
-        numRows: int [None]
-            Number of rows to read from the instance catalog.  If None,
-            then read all rows.
+        object_lines: list
+            list of object entries from an instance catalog.
+        trimmer: InstCatTrimmer
+            An instance of the InstCatTrimmer class to provide
+            visit-level metadata.
         """
-        self.instcat_file = instcat
-
-        # Use .fopen to read in the command and object lines from the
-        # instance catalog.
-        with desc.imsim.fopen(instcat, mode='rt') as input_:
-            if numRows is None:
-                lines = [x for x in input_ if not x.startswith('#')]
-            else:
-                lines = [x for _, x in zip(range(numRows), input_)
-                         if not x.startswith('#')]
-
-        # Extract the phosim commands and create the
-        # ObservationMetadata object.
-        self.command_lines = []
-        phosim_commands = dict()
-        for line in lines:
-            if line.startswith('object'):
-                break
-            tokens = line.strip().split()
-            phosim_commands[tokens[0]] = float(tokens[1])
-            self.command_lines.append(line)
-        try:
-            self.minsource = phosim_commands['minsource']
-        except KeyError:
-            self.minsource = None
-
-        phosim_commands['bandpass'] = 'ugrizy'[int(phosim_commands['filter'])]
-        self.obs_md = desc.imsim.phosim_obs_metadata(phosim_commands)
-
-        # Save the object lines separately.
-        self.object_lines = lines[len(self.command_lines):]
+        self.object_lines = object_lines
+        self.trimmer = trimmer
 
         # Extract the ra, dec values for each object.
-        self._ra = np.zeros(len(self.object_lines), dtype=np.float)
-        self._dec = np.zeros(len(self.object_lines), dtype=np.float)
-        self._sersic = np.zeros(len(self.object_lines), dtype=np.int)
-        self._magnorm = np.zeros(len(self.object_lines), dtype=np.float)
-        for i, line in enumerate(self.object_lines):
+        self._ra = np.zeros(len(object_lines), dtype=np.float)
+        self._dec = np.zeros(len(object_lines), dtype=np.float)
+        self._sersic = np.zeros(len(object_lines), dtype=np.int)
+        self._magnorm = np.zeros(len(object_lines), dtype=np.float)
+        for i, line in enumerate(object_lines):
             tokens = line.strip().split()
             self._ra[i] = np.float(tokens[2])
             self._dec[i] = np.float(tokens[3])
             if 'sersic2d' in line:
                 self._sersic[i] = 1
             self._magnorm[i] = np.float(tokens[4])
-
         self._camera = desc.imsim.get_obs_lsstSim_camera()
 
     def compute_chip_center(self, chip_name):
@@ -121,7 +75,7 @@ class InstCatTrimmer:
         center_x, center_y = desc.imsim.get_chip_center(chip_name, self._camera)
         return lsst.sims.coordUtils.raDecFromPixelCoords(
             xPix=center_x, yPix=center_y, chipName=chip_name,
-            camera=self._camera, obs_metadata=self.obs_md, epoch=2000.0,
+            camera=self._camera, obs_metadata=self.trimmer.obs_md, epoch=2000.0,
             includeDistortion=True)
 
     def get_object_entries(self, chip_name, radius=0.18, sort_magnorm=True):
@@ -152,8 +106,8 @@ class InstCatTrimmer:
         seps = degrees_separation(ra0, dec0, self._ra, self._dec)
         index = np.where(seps < radius)
 
-        if (self.minsource is not None and
-            sum(self._sersic[index]) < self.minsource):
+        if (self.trimmer.minsource is not None and
+                sum(self._sersic[index]) < self.trimmer.minsource):
             # Apply the minsource criterion.
             return []
 
@@ -166,22 +120,103 @@ class InstCatTrimmer:
 
         return selected
 
-    def write_instcat(self, chip_name, outfile, radius=0.18):
-        """
-        Write an instance catalog with entries centered on the desired
-        CCD.
+class InstCatTrimmer(dict):
+    """
+    Subclass of dict to provide trimmed instance catalogs for
+    acceptance cones centered on CCDs in the LSST focalplane.
 
+    Attributes
+    ----------
+    instcat_file: str
+        Instance catalog filename.
+    obs_md: ObservationMetadata
+        Observation metadata for the visit.
+    minsource: int
+        Minimum number of sersic objects to require for a sensor-visit
+        to be simulated.
+
+    """
+    def __init__(self, instcat, sensor_list, chunk_size=int(3e5),
+                 radius=0.18, numRows=None):
+        """
         Parameters
         ----------
-        chip_name: str
-            Name of the CCD, e.g., "R:2,2 S:1,1".
-        outfile: str
-            Name of the output instance catalog file.
+        instcat: str
+            Path to input instance catalog.  The file can have includeobj
+            entries.
+        sensor_list: list
+            List of sensors, e.g., "R:2,2 S:1,1", for which to provide
+            object lists.
+        chunk_size: int [int(1e5)]
+            Number of lines to read in at a time from the instance catalogs
+            to avoid excess memory usage.
         radius: float [0.18]
-            Radius, in degrees, of the acceptance cone.
+            Radius in degrees for the acceptance cone to use for each
+            sensor.
+        numRows: int [None]
+            Maximum number of rows to read in from the instance catalog.
         """
-        with open(outfile, 'w') as output:
-            for line in self.command_lines:
-                output.write(line)
-            for line in self.get_object_entries(chip_name, radius=radius):
-                output.write(line)
+        super(InstCatTrimmer, self).__init__()
+        self.instcat_file = instcat
+        self._read_commands()
+        self._process_objects(sensor_list, chunk_size, radius=radius,
+                              numRows=numRows)
+
+    def _process_objects(self, sensor_list, chunk_size, radius=0.18,
+                         numRows=None):
+        """
+        Loop over chunks of lines from the instance catalog
+        and disaggregate the entries into the separate object lists
+        for each sensor using the Disaggregator class to apply the
+        acceptance cone cut centered on each sensor.
+        """
+        num_lines = self._get_num_lines() if numRows is None else numRows
+        self.update({sensor: [] for sensor in sensor_list})
+        with desc.imsim.fopen(self.instcat_file, mode='rt') as fd:
+            nread = 0
+            while nread < num_lines:
+                object_lines = []
+                for _, line in zip(range(chunk_size), fd):
+                    nread += 1
+                    if not line.startswith('object'):
+                        continue
+                    object_lines.append(line)
+                disaggregator = Disaggregator(object_lines, self)
+                for sensor in self:
+                    obj_list = disaggregator.get_object_entries(sensor,
+                                                                radius=radius)
+                    self[sensor].extend(obj_list)
+
+    def _get_num_lines(self):
+        """
+        Get the total number of lines in the instance catalog.
+        This is needed for the exit condition in the _process_objects
+        method.
+        """
+        num_lines = 0
+        with desc.imsim.fopen(self.instcat_file, mode='rt') as fd:
+            for _ in fd:
+                num_lines += 1
+        return num_lines
+
+    def _read_commands(self):
+        """Read in the commands from the instance catalog."""
+        max_lines = 50  # There should be fewer than 50, but put a hard
+                        # limit to avoid suspect catalogs.
+        self.command_lines = []
+        phosim_commands = dict()
+        with desc.imsim.fopen(self.instcat_file, mode='rt') as input_:
+            for line, _ in zip(input_, range(max_lines)):
+                if line.startswith('object'):
+                    break
+                if line.startswith('#'):
+                    continue
+                self.command_lines.append(line)
+                tokens = line.strip().split()
+                phosim_commands[tokens[0]] = float(tokens[1])
+        try:
+            self.minsource = phosim_commands['minsource']
+        except KeyError:
+            self.minsource = None
+        phosim_commands['bandpass'] = 'ugrizy'[int(phosim_commands['filter'])]
+        self.obs_md = desc.imsim.phosim_obs_metadata(phosim_commands)
