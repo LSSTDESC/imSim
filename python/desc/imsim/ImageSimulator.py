@@ -98,8 +98,6 @@ class ImageSimulator:
         self._make_gs_interpreters(seed, sensor_list, file_id)
         self.log_level = log_level
         self.logger = get_logger(self.log_level, name='ImageSimulator')
-        if not self.gs_obj_arr:
-            self.logger.warning("No object entries in %s", instcat)
 
     def _make_gs_interpreters(self, seed, sensor_list, file_id):
         """
@@ -414,10 +412,10 @@ class SimulateSensor:
             The dictionary attribute of the GalSimInterpreter object
             used to fill the galsim images with eimage data.
         """
-        persist = image_simulator.config['persistence']
+        persist = IMAGE_SIMULATOR.config['persistence']
         prefix = persist['raw_file_prefix']
-        obsHistID = str(image_simulator.obs_md.OpsimMetaData['obshistID'])
-        nameRoot = os.path.join(image_simulator.outdir, prefix) + obsHistID
+        obsHistID = str(IMAGE_SIMULATOR.obs_md.OpsimMetaData['obshistID'])
+        nameRoot = os.path.join(IMAGE_SIMULATOR.outdir, prefix) + obsHistID
         for name, gs_image in detector_images.items():
             raw = ImageSource.create_from_galsim_image(gs_image)
             outfile = '_'.join((nameRoot, name))
