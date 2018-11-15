@@ -445,25 +445,6 @@ class SimulateSensor:
             outfile = '_'.join((nameRoot, name))
             raw.write_fits_file(outfile, compress=persist['raw_file_compress'])
 
-    def write_raw_files(self, detector_images):
-        """
-        Write the raw files directly from galsim images.
-
-        Parameters
-        ----------
-        detector_images: dict
-            The dictionary attribute of the GalSimInterpreter object
-            used to fill the galsim images with eimage data.
-        """
-        persist = image_simulator.config['persistence']
-        prefix = persist['raw_file_prefix']
-        obsHistID = str(image_simulator.obs_md.OpsimMetaData['obshistID'])
-        nameRoot = os.path.join(image_simulator.outdir, prefix) + obsHistID
-        for name, gs_image in detector_images.items():
-            raw = ImageSource.create_from_galsim_image(gs_image)
-            outfile = '_'.join((nameRoot, name))
-            raw.write_fits_file(outfile, compress=persist['raw_file_compress'])
-
 def compress_files(file_list, remove_originals=True):
     """
     Use gzip to compress a list of files.
