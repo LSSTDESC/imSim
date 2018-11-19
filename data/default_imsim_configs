@@ -8,6 +8,13 @@ scti = 1e-6
 [ccd]
 full_well = 1e5
 bf_strength = 1.0
+# Use a flat SED approximation and omit sensor effects for objects
+# with fluxes below max_flux_simple.
+max_flux_simple = 100
+# If the existing flux in the postage stamp for the object to be drawn
+# is above sensor_limit, then use of the SiliconSensor model is
+# forced, no matter what the object flux is.
+sensor_limit = 200
 
 [persistence]
 eimage_prefix = lsst_e_
@@ -29,3 +36,6 @@ cleanup = True
 
 [wl_params]
 gamma2_sign = -1
+
+[objects]
+sort_magnorm = True

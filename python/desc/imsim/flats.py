@@ -41,7 +41,7 @@ def make_flat(gs_det, counts_per_iter, niter, rng, buf=2, logger=None,
     -------
     galsim.ImageF
     """
-    config = desc.imsim.read_config()
+    config = desc.imsim.get_config()
 
     if logger is None:
         logger = desc.imsim.get_logger('DEBUG', name='make_flat')

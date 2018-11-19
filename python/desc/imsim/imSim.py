@@ -10,6 +10,7 @@ import pickle
 import logging
 import gc
 import copy
+import psutil
 import galsim
 
 # python_future no longer handles configparser as of 0.16.
@@ -40,7 +41,6 @@ from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
 from lsst.sims.utils import defaultSpecMap
 from .tree_rings import TreeRings
 from .cosmic_rays import CosmicRays
-from .sed_wrapper import SedWrapper
 from .fopen import fopen
 from .trim import InstCatTrimmer
 from .sed_wrapper import SedWrapper
@@ -152,12 +152,57 @@ def metadata_from_file(file_name):
     return commands
 
 
-def sources_from_list(object_lines, obs_md, phot_params, file_name):
+def uss_mem():
+    """Return unique set size memory of current process in GB."""
+    my_process = psutil.Process(os.getpid())
+    return my_process.memory_full_info().uss/1024.**3
+
+
+def sources_from_list(object_lines, obs_md, phot_params, file_name,
+                      target_chip=None, log_level='INFO'):
+    """.
+
+    Parse the object lines from a phosim-style instance catalog and
+    repackage as GalSimCelestialObjects after applying on-chip
+    selections and consistency cuts on mag_norm, extinction
+    parameters, and galaxy shape and knot parameters.
+
+    Parameters
+    ----------
+    object_lines: list
+        List of object line entries from the instance catalog.
+    obs_md: ObservationMetaData
+        Visit-specific metadata from the instance catalog.
+    phot_params: PhotometricParameters
+        Visit-specific photometric data needed for computing object
+        fluxes.
+    file_name: str
+        The filename path of the instance catalog, used for inferring
+        the location of the Dynamic SEDs used by the sprinkled objects.
+    target_chip: str [None]
+        For multiprocessing mode, this is the name of the chip
+        (e.g., "R:2,2 S:1,1") being simulated.  If None, then
+        of the object lines are partitioned among all 189 science
+        sensors in the LSST focalplane.  Since this is a costly
+        calculation, doing it only for the target chip saves a lot
+        of compute time.
+    log_level: str ['INFO']
+        Logging level.
+
+    Returns
+    -------
+    list, dict:  A list of all the GalSimCelestialObjects that pass
+        the focalplane-level selections and a dict of those objects keyed
+        by chip name.
+    """
     camera = get_obs_lsstSim_camera()
     config = get_config()
+    logger = get_logger(log_level, name=(target_chip if target_chip is
+                                         not None else 'sources_from_list'))
 
     num_objects = len(object_lines)
 
+    logger.debug('allocating object arrays, %s GB', uss_mem())
     # RA, Dec in the coordinate system expected by PhoSim
     ra_phosim = np.zeros(num_objects, dtype=float)
     dec_phosim = np.zeros(num_objects, dtype=float)
@@ -186,6 +231,7 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
     unique_id = [None]*num_objects
     object_type = np.zeros(num_objects, dtype=int)
 
+    logger.debug('looping over %s objects; %s GB', num_objects, uss_mem())
     i_obj = -1
     for line in object_lines:
         params = line.strip().split()
@@ -256,6 +302,7 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
             raise RuntimeError("Do not know how to handle "
                                "object type: %s" % params[12])
 
+    logger.debug("computing pupil coords, %s GB", uss_mem())
     ra_appGeo, dec_appGeo \
         = PhoSimAstrometryBase._appGeoFromPhoSim(np.radians(ra_phosim),
                                                  np.radians(dec_phosim),
@@ -303,56 +350,88 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
         message += "    %d had n_points <= 0 \n" % n_bad_knots
         warnings.warn(message)
 
-    wav_int = None
-    wav_gal = None
+    if target_chip is not None:
+        target_chips = [target_chip]
+    else:
+        # Set target_chips to None, in which case the _chip_downselect
+        # function will use all of the science sensors in the
+        # focalplane.
+        target_chips = None
+
+    on_chip_dict = _chip_downselect(mag_norm, x_pupil, y_pupil, logger,
+                                    target_chips)
 
     my_sed_dirs = sed_dirs(file_name)
 
+    logger.debug('constructing GalSimCelestialObjects for %s objects; %s GB',
+                 num_objects, uss_mem())
+    gs_object_ids = set()
     gs_object_arr = []
-    for i_obj in range(num_objects):
-        if not object_is_valid[i_obj]:
-            continue
+    out_obj_dict = defaultdict(list)
+    for chip_name, on_chip in on_chip_dict.items():
+        i_obj_index = np.arange(num_objects)
+        for i_obj in i_obj_index[on_chip]:
+            if not object_is_valid[i_obj]:
+                continue
 
-        fits_file = None
-        if object_type[i_obj] == _POINT_SOURCE:
-            gs_type = 'pointSource'
-        elif object_type[i_obj] == _SERSIC_2D:
-            gs_type = 'sersic'
-        elif object_type[i_obj] == _RANDOM_WALK:
-            gs_type = 'RandomWalk'
-        elif object_type[i_obj] == _FITS_IMAGE:
-            gs_type = 'FitsImage'
-            fits_file = fits_image_file[i_obj]
+            fits_file = None
+            if object_type[i_obj] == _POINT_SOURCE:
+                gs_type = 'pointSource'
+            elif object_type[i_obj] == _SERSIC_2D:
+                gs_type = 'sersic'
+            elif object_type[i_obj] == _RANDOM_WALK:
+                gs_type = 'RandomWalk'
+            elif object_type[i_obj] == _FITS_IMAGE:
+                gs_type = 'FitsImage'
+                fits_file = fits_image_file[i_obj]
 
-        sed_obj = SedWrapper(find_file_path(sed_name[i_obj], my_sed_dirs),
-                             mag_norm[i_obj], redshift[i_obj],
-                             internal_av[i_obj], internal_rv[i_obj],
-                             galactic_av[i_obj], galactic_rv[i_obj],
-                             bp_dict)
+            sed_obj = SedWrapper(find_file_path(sed_name[i_obj], my_sed_dirs),
+                                 mag_norm[i_obj], redshift[i_obj],
+                                 internal_av[i_obj], internal_rv[i_obj],
+                                 galactic_av[i_obj], galactic_rv[i_obj],
+                                 bp_dict)
 
-        gs_object = GalSimCelestialObject(gs_type,
-                                          x_pupil[i_obj],
-                                          y_pupil[i_obj],
-                                          semi_major_radians[i_obj],
-                                          semi_minor_radians[i_obj],
-                                          semi_major_radians[i_obj],
-                                          position_angle_radians[i_obj],
-                                          sersic_index[i_obj],
-                                          sed_obj,
-                                          bp_dict,
-                                          phot_params,
-                                          npoints[i_obj],
-                                          fits_file,
-                                          pixel_scale[i_obj],
-                                          rotation_angle[i_obj],
-                                          gamma1=gamma1[i_obj],
-                                          gamma2=gamma2[i_obj],
-                                          kappa=kappa[i_obj],
-                                          uniqueId=unique_id[i_obj])
-
-        gs_object_arr.append(gs_object)
-
+            gs_object = GalSimCelestialObject(gs_type,
+                                              x_pupil[i_obj],
+                                              y_pupil[i_obj],
+                                              semi_major_radians[i_obj],
+                                              semi_minor_radians[i_obj],
+                                              semi_major_radians[i_obj],
+                                              position_angle_radians[i_obj],
+                                              sersic_index[i_obj],
+                                              sed_obj,
+                                              bp_dict,
+                                              phot_params,
+                                              npoints[i_obj],
+                                              fits_file,
+                                              pixel_scale[i_obj],
+                                              rotation_angle[i_obj],
+                                              gamma1=gamma1[i_obj],
+                                              gamma2=gamma2[i_obj],
+                                              kappa=kappa[i_obj],
+                                              uniqueId=unique_id[i_obj])
+            if gs_object.uniqueId not in gs_object_ids:
+                gs_object_ids.add(gs_object.uniqueId)
+                gs_object_arr.append(gs_object)
+            out_obj_dict[chip_name].append(gs_object)
     gs_object_arr = np.array(gs_object_arr)
+    if target_chip is not None:
+        logger.debug('objects remaining %s', len(out_obj_dict[target_chip]))
+    logger.debug("about to return from sources_from_list, %s GB", uss_mem())
+    return gs_object_arr, out_obj_dict
+
+def _chip_downselect(mag_norm, x_pupil, y_pupil, logger, target_chips=None):
+    """
+    Down-select objects based on focalplane location relative to chip
+    boundaries.  If target_chips is None, then the down-selection will
+    be made for all of the science sensors in the focalplane.
+
+    Returns
+    -------
+    dict: Dictionary of np.where indexes keyed by chip name
+    """
+    if target_chips is None:
+        target_chips = [det.getName() for det in lsst_camera()]
 
     # how close to the edge of the detector a source has
     # to be before we will just simulate it anyway
@@ -363,21 +442,11 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
     # detectors, just in case light scatters onto them.
     max_mag = 16.0
 
-    # down-select mag_norm, x_pupil, and y_pupil
-    # to only contain those objects that were
-    # deemed to be valid above
-    valid = np.where(object_is_valid)
-    mag_norm = mag_norm[valid]
-    x_pupil = x_pupil[valid]
-    y_pupil = y_pupil[valid]
-
-    assert len(mag_norm) == len(gs_object_arr)
-    assert len(x_pupil) == len(gs_object_arr)
-    assert len(y_pupil) == len(gs_object_arr)
-
-    out_obj_dict = {}
-    for det in lsst_camera():
-        chip_name = det.getName()
+    # Down-select by object location in focalplane relative to chip
+    # boundaries.
+    logger.debug('down-selecting by chip, %s GB', uss_mem())
+    on_chip_dict = {}
+    for chip_name in target_chips:
         pixel_corners = getCornerPixels(chip_name, lsst_camera())
         x_min = pixel_corners[0][0]
         x_max = pixel_corners[2][0]
@@ -393,9 +462,8 @@ def sources_from_list(object_lines, obs_md, phot_params, file_name):
                            np.logical_and(ypix>y_min-pix_tol,
                                           ypix<y_max+pix_tol)))))
 
-        out_obj_dict[chip_name] = gs_object_arr[on_chip]
-
-    return gs_object_arr, out_obj_dict
+        on_chip_dict[chip_name] = on_chip
+    return on_chip_dict
 
 def get_image_dirs():
     """
@@ -492,14 +560,15 @@ def phosim_obs_metadata(phosim_commands):
     # Set the OpsimMetaData attribute with the obshistID info.
     obs_md.OpsimMetaData = {'obshistID': phosim_commands['obshistid']}
     obs_md.OpsimMetaData['FWHMgeom'] = fwhm_geom
-    obs_md.OpsimMetaData['FWHMeff'] =  fwhm_eff
+    obs_md.OpsimMetaData['FWHMeff'] = fwhm_eff
     obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['seeing']
     obs_md.OpsimMetaData['altitude'] = phosim_commands['altitude']
     obs_md.OpsimMetaData['seed'] = phosim_commands['seed']
     return obs_md
 
 
-def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None):
+def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None,
+                            checkpoint_files=None, log_level='INFO'):
     """
     Read a PhoSim instance catalog into a Pandas dataFrame. Then use
     the information that was read-in to build and return a command
@@ -507,13 +576,19 @@ def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None):
 
     Parameters
     ----------
-    fileName : str
+    fileName: str
         The instance catalog filename.
     sensor_list: list
         List of sensors for which to extract object lists.
-    numRows : int, optional
+    numRows: int [None]
         The number of rows to read from the instance catalog.
-        If None (the default), then all of the rows will be read in.
+        If None, then all of the rows will be read in.
+    checkpoint_files: dict [None]
+        Checkpoint files keyed by sensor name, e.g., "R:2,2 S:1,1".
+        The instance catalog lines corresponding to drawn_objects in
+        the checkpoint files will be skipped on ingest.
+    log_level: str ['INFO']
+        Logging level.
 
     Returns
     -------
@@ -522,57 +597,25 @@ def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None):
         original DataFrames containing the header lines and object
         lines
     """
-
+    logger = get_logger(log_level, 'parsePhoSimInstanceFile')
+    config = get_config()
     commands = metadata_from_file(fileName)
     obs_metadata = phosim_obs_metadata(commands)
     phot_params = photometricParameters(commands)
-    instcats = InstCatTrimmer(fileName, sensor_list, numRows=numRows)
+    logger.debug('creating InstCatTrimmer object')
+    sort_magnorm = config['objects']['sort_magnorm']
+    instcats = InstCatTrimmer(fileName, sensor_list, numRows=numRows,
+                              checkpoint_files=checkpoint_files,
+                              log_level=log_level, sort_magnorm=sort_magnorm)
     gs_object_dict = {detname: GsObjectList(instcats[detname], instcats.obs_md,
-                                            phot_params, instcats.instcat_file)
+                                            phot_params, instcats.instcat_file,
+                                            chip_name=detname,
+                                            log_level=log_level)
                       for detname in sensor_list}
 
     return PhoSimInstanceCatalogContents(obs_metadata,
                                          phot_params,
                                          ([], gs_object_dict))
-
-
-class GsObjectDict:
-    """
-    Dictionary-like class to provide access to lists of
-    GalSimCelestialObjects from an instance catalog on a per-sensor
-    basis.  This class uses InstCatTrimmer to downselect the object
-    entries via acceptance cones centered on the sensor of interest
-    and to defer the creation of the GalSimCelestialObjects until
-    the data for the specified sensor are requested.
-    """
-    def __init__(self, instcat_trimmer, phot_params, radius=0.18):
-        """
-        Parameters
-        ----------
-        instcat_trimmer: InstCatTrimmer
-            This object manages the GalSimCelestialObject creation.
-        phot_params: PhotometricParameters
-            Photometric parameter info for the visit.
-        radius: float [0.18]
-            Acceptance cone radius, in degrees, for downselecting objects
-            for a single CCD.
-        """
-        self.instcat_trimmer = instcat_trimmer
-        self.phot_params = phot_params
-        self.radius = radius
-
-    def __iter__(self):
-        for detector in self.instcat_trimmer._camera:
-            yield detector.getName()
-
-    def __getitem__(self, chip_name):
-        object_lines \
-            = self.instcat_trimmer.get_object_entries(chip_name,
-                                                      radius=self.radius)
-        obs_md = self.instcat_trimmer.obs_md
-        file_name = self.instcat_trimmer.instcat_file
-        return GsObjectList(object_lines, obs_md, self.phot_params, file_name,
-                            chip_name=chip_name)
 
 
 class GsObjectList:
@@ -582,12 +625,13 @@ class GsObjectList:
     until items in the list are accessed.
     """
     def __init__(self, object_lines, obs_md, phot_params, file_name,
-                 chip_name=None):
+                 chip_name=None, log_level='INFO'):
         self.object_lines = object_lines
         self.obs_md = obs_md
         self.phot_params = phot_params
         self.file_name = file_name
         self.chip_name = chip_name
+        self.log_level = log_level
         self._gs_objects = None
 
     @property
@@ -595,7 +639,9 @@ class GsObjectList:
         if self._gs_objects is None:
             obj_arr, obj_dict \
                 = sources_from_list(self.object_lines, self.obs_md,
-                                    self.phot_params, self.file_name)
+                                    self.phot_params, self.file_name,
+                                    target_chip=self.chip_name,
+                                    log_level=self.log_level)
             if self.chip_name is not None:
                 try:
                     self._gs_objects = obj_dict[self.chip_name]
@@ -792,8 +838,6 @@ def add_cosmic_rays(gs_interpreter, phot_params):
         crs.set_seed(CosmicRays.generate_seed(visit, name))
         gs_interpreter.detectorImages[name] = \
             galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
-
-    return None
 
 
 def add_treering_info(detectors, tr_filename=None):
