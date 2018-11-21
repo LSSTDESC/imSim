@@ -1,16 +1,18 @@
 """
-Class to encapsulate info from obs_lsstCam.LsstCamMapper().camera.
+Class to encapsulate info from lsst.obs.lsst.imsim.ImsimMapper().camera.
 """
 import lsst.afw.geom as afw_geom
-import lsst.obs.lsstCam as obs_lsstCam
+from lsst.obs.lsst.imsim import ImsimMapper
 
 __all__ = ['CameraInfo']
 
 
 class CameraInfo:
+    """
+    Class to encapsulate info from lsst.obs.lsst.imsim.ImsimMapper().camera.
+    """
     def __init__(self):
-        self.det_catalog = {det.getName(): det for det in
-                            obs_lsstCam.LsstCamMapper().camera}
+        self.det_catalog = {det.getName(): det for det in ImsimMapper().camera}
 
     def get_amp_names(self, det_name):
         """
