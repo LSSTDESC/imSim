@@ -5,9 +5,8 @@ setup lsst_sims
 pip install nose
 pip install coveralls
 pip install pylint
-git clone https://github.com/lsst/obs_lsstCam.git
-cd obs_lsstCam
-git checkout imsim-0.1.0
+git clone https://github.com/lsst/obs_lsst.git
+cd obs_lsst
 setup -r . -j
 scons
 cd ..
