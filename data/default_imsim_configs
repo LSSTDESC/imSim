@@ -16,6 +16,10 @@ max_flux_simple = 100
 # forced, no matter what the object flux is.
 sensor_limit = 200
 
+# If the peak pixel value is > fft_sb_thresh, then transition to fft rendering.
+# This value should be at least as large as full_well.  2xfull_well is conservative.
+fft_sb_thresh = 2e5
+
 [persistence]
 eimage_prefix = lsst_e_
 eimage_compress = True
