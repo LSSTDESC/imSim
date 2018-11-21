@@ -57,7 +57,7 @@ class ImageSource(object):
         Dictionary of amplifier images.
     camera_info: CameraInfo object
         Object containing the readout properties of the sensors in the
-        focal plane, provided by obs_lsstCam.ImsimMapper().camera.
+        focal plane, provided by lsst.obs.lsst.imsim.ImsimMapper().camera.
     '''
     def __init__(self, image_array, exptime, sensor_id, visit=42, logger=None):
         """
@@ -340,7 +340,7 @@ class ImageSource(object):
     def _apply_crosstalk(self):
         """
         Apply intra-CCD crosstalk using the cross-talk matrix
-        from obs_lsstCam.  This should be run only once and
+        from obs_lsst.  This should be run only once and
         only after ._make_amp_image has been run for each amplifier.
         """
         if not self.camera_info.det_catalog[self.sensor_id].hasCrosstalk():
@@ -349,7 +349,10 @@ class ImageSource(object):
         amp_names = self.camera_info.get_amp_names(self.sensor_id)
         imarrs = np.array([self.amp_images[amp_name].getArray()
                            for amp_name in amp_names])
-        for amp_name, xtalk_row in zip(amp_names, xtalk):
+        for amp_index, amp_name, row in zip(range(len(amp_names)),
+                                            amp_names, xtalk):
+            xtalk_row = list(row)
+            xtalk_row[amp_index] = 1.
             self.amp_images[amp_name].getArray()[:, :] \
                 = sum([x*y for x, y in zip(imarrs, xtalk_row)])
 
@@ -470,7 +473,7 @@ class ImageSource(object):
         output[0].header['SENSNAME'] = ccd
         output[0].header['OUTFILE'] = os.path.basename(outfile)
         # Add boresight pointing angles and rotskypos (angle of sky
-        # relative to Camera coordinates) from which obs_lsstCam can
+        # relative to Camera coordinates) from which obs_lsst can
         # infer the CCD-wide WCS.
         output[0].header['RATEL'] = self.ratel
         output[0].header['DECTEL'] = self.dectel
