@@ -349,12 +349,11 @@ class ImageSource(object):
         amp_names = self.camera_info.get_amp_names(self.sensor_id)
         imarrs = np.array([self.amp_images[amp_name].getArray()
                            for amp_name in amp_names])
-        for amp_index, amp_name, row in zip(range(len(amp_names)),
-                                            amp_names, xtalk):
-            xtalk_row = list(row)
-            xtalk_row[amp_index] = 1.
+        for amp_index, amp_name, xtalk_row in zip(range(len(amp_names)),
+                                                  amp_names, xtalk):
             self.amp_images[amp_name].getArray()[:, :] \
-                = sum([x*y for x, y in zip(imarrs, xtalk_row)])
+                = (imarrs[amp_index] +
+                   sum([x*y for x, y in zip(imarrs, xtalk_row)]))
 
     def get_amplifier_hdu(self, amp_name, compress=True):
         """
