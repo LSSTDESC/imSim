@@ -6,7 +6,7 @@ import os
 import itertools
 import unittest
 import astropy.io.fits as fits
-import lsst.obs.lsstCam as obs_lsstCam
+from lsst.obs.lsst.imsim import ImsimMapper
 import lsst.utils as lsstUtils
 import desc.imsim
 
@@ -50,7 +50,7 @@ class ImageSourceTestCase(unittest.TestCase):
 
     def test_get_amp_image(self):
         "Test the .get_amp_image method."
-        camera = obs_lsstCam.LsstCamMapper().camera
+        camera = ImsimMapper().camera
         det = camera['R22_S11']
         amp_info_record = desc.imsim.set_itl_bboxes(det['C03'])
         image = self.image_source.get_amp_image(amp_info_record)
