@@ -86,6 +86,8 @@ class ImageSource(object):
         self.sensor_id = sensor_id
         self.visit = visit
 
+        self._seed = None
+
         self.camera_info = CameraInfo()
 
         self._make_amp_images()
@@ -288,10 +290,7 @@ class ImageSource(object):
         # Add dark current.
         dark_current = config['electronics_readout']['dark_current']
         imaging_arr = imaging_segment.getArray()
-        # Generate a seed from the visit number and sensor_id so that
-        # the dark current noise is deterministic.
-        seed = CosmicRays.generate_seed(self.visit, self.sensor_id)
-        rng = galsim.PoissonDeviate(seed, dark_current*self.exptime)
+        rng = galsim.PoissonDeviate(self.seed, dark_current*self.exptime)
         dc_data = np.zeros(np.prod(imaging_arr.shape))
         rng.generate(dc_data)
         imaging_arr += dc_data.reshape(imaging_arr.shape)
@@ -327,15 +326,22 @@ class ImageSource(object):
         """
         amp_info = self.camera_info.get_amp_info(amp_name)
         full_arr = self.amp_images[amp_name].getArray()
-
-        # Generate a seed from the visit number and sensor_id so that
-        # the read noise is deterministic.
-        seed = CosmicRays.generate_seed(self.visit, self.sensor_id)
-        rng = galsim.GaussianDeviate(seed, amp_info.getReadNoise())
+        rng = galsim.GaussianDeviate(self.seed, amp_info.getReadNoise())
         rn_data = np.zeros(np.prod(full_arr.shape))
         rng.generate(rn_data)
         full_arr += rn_data.reshape(full_arr.shape)
         full_arr += config['electronics_readout']['bias_level']
+
+    @property
+    def seed(self):
+        """
+        Random seed derived from visit and sensor id.  This is used as
+        the seed for both the read noise and dark current
+        calculations.
+        """
+        if self._seed is None:
+            self._seed = CosmicRays.generate_seed(self.visit, self.sensor_id)
+        return self._seed
 
     def _apply_crosstalk(self):
         """
@@ -477,6 +483,8 @@ class ImageSource(object):
         output[0].header['RATEL'] = self.ratel
         output[0].header['DECTEL'] = self.dectel
         output[0].header['ROTANGLE'] = self.rotangle
+        # Write the seed used by the read noise and dark current.
+        output[0].header['RN_SEED'] = self.seed
         # Use seg_ids to write the image extensions in the order
         # specified by LCA-10140.
         seg_ids = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()

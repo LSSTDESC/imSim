@@ -563,6 +563,7 @@ def phosim_obs_metadata(phosim_commands):
     obs_md.OpsimMetaData['FWHMeff'] = fwhm_eff
     obs_md.OpsimMetaData['rawSeeing'] = phosim_commands['seeing']
     obs_md.OpsimMetaData['altitude'] = phosim_commands['altitude']
+    obs_md.OpsimMetaData['airmass'] = airmass(phosim_commands['altitude'])
     obs_md.OpsimMetaData['seed'] = phosim_commands['seed']
     return obs_md
 
@@ -830,14 +831,17 @@ def add_cosmic_rays(gs_interpreter, phot_params):
 
     # Retrieve the visit number for the random seeds.
     visit = gs_interpreter.obs_metadata.OpsimMetaData['obshistID']
+    band = gs_interpreter.obs_metadata.bandpass
 
     exptime = phot_params.nexp*phot_params.exptime
     for name, image in gs_interpreter.detectorImages.items():
         imarr = copy.deepcopy(image.array)
         # Set the random number seed for painting the CRs.
-        crs.set_seed(CosmicRays.generate_seed(visit, name))
+        cr_seed = CosmicRays.generate_seed(visit, name)
+        crs.set_seed(cr_seed)
         gs_interpreter.detectorImages[name] = \
             galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
+        image.wcs.fitsHeader.set('CR_SEED', cr_seed)
 
 
 def add_treering_info(detectors, tr_filename=None):
