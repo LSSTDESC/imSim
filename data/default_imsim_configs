@@ -19,9 +19,11 @@ sensor_limit = 200
 [persistence]
 eimage_prefix = lsst_e_
 eimage_compress = True
-eimage_skip = True
+make_eimage = False
 raw_file_prefix = lsst_a_
 raw_file_compress = True
+make_raw_file = True
+overwrite = False
 centroid_prefix = centroid_
 
 [cosmic_rays]

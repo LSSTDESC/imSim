@@ -86,6 +86,7 @@ class ImageSimulator:
         self.create_centroid_file = create_centroid_file
         self.psf = psf
         self.outdir = outdir
+        self.camera_wrapper = LSSTCameraWrapper()
         if sensor_list is None:
             sensor_list = self._get_all_sensors()
         self.logger.debug("parsing instance catalog for %d sensor(s)",
@@ -96,7 +97,6 @@ class ImageSimulator:
                                       checkpoint_files=checkpoint_files,
                                       log_level=log_level)
         self.gs_obj_dict = sources[1]
-        self.camera_wrapper = LSSTCameraWrapper()
         self.apply_sensor_model = apply_sensor_model
         self.file_id = file_id
         self._make_gs_interpreters(seed, sensor_list, file_id)
@@ -197,22 +197,25 @@ class ImageSimulator:
         return '-'.join(('checkpoint', file_id,
                          re.sub('[:, ]', '_', det_name))) + '.ckpt'
 
-    def eimage_file(self, det_name):
+    def output_file(self, det_name, raw=True):
         """
-        The path of the eimage file that the GalSimInterpreter object
-        writes to.
+        Generate the path of the output FITS file for either raw or
+        eimage files.
 
         Parameters
         ----------
         det_name: str
             Detector slot name following DM conventions, e.g., 'R:2,2 S:1,1'.
+        raw: bool [True]
+            Generate a raw filename.
 
         Returns
         -------
-        str: The eimage file path.
+        str: The output file path.
         """
+        prefix_key = 'raw_file_prefix' if raw else 'eimage_prefix'
         detector = self.gs_interpreters[det_name].detectors[0]
-        prefix = self.config['persistence']['eimage_prefix']
+        prefix = self.config['persistence'][prefix_key]
         visit = str(self.obs_md.OpsimMetaData['obshistID'])
         return os.path.join(self.outdir, prefix + '_'.join(
             (visit, detector.fileName, self.obs_md.bandpass + '.fits')))
@@ -244,7 +247,7 @@ class ImageSimulator:
         if processes == 1:
             # Don't need multiprocessing, so just run serially.
             for det_name in self.gs_interpreters:
-                if self._outfile_exists(det_name):
+                if self._outfiles_exist(det_name):
                     continue
                 simulate_sensor = SimulateSensor(det_name, self.log_level)
                 results.append(simulate_sensor(self.gs_obj_dict[det_name]))
@@ -258,7 +261,7 @@ class ImageSimulator:
                                             dict(wait_time=wait_time)))
         for det_name in self.gs_interpreters:
             gs_objects = self.gs_obj_dict[det_name]
-            if self._outfile_exists(det_name) or not gs_objects:
+            if self._outfiles_exist(det_name) or not gs_objects:
                 continue
 
             # If we are checkpointing, create the connections between
@@ -296,14 +299,33 @@ class ImageSimulator:
         pool.join()
         return [res.get() for res in results]
 
-    def _outfile_exists(self, det_name):
-        eimage_file = self.eimage_file(det_name)
-        if self.config['persistence']['eimage_compress']:
-            eimage_file += '.gz'
-        if os.path.exists(eimage_file):
-            self.logger.info("%s already exists, skipping.", eimage_file)
-            return True
-        return False
+    def _outfiles_exist(self, det_name):
+        """
+        Check if requested output files (raw or eimage) exist.  If
+        either do not, then return False.  Otherwise, return True.
+
+        However, if the overwrite flag in the config is True, then
+        return False so that any existing files are overwritten.
+        """
+        persist = self.config['persistence']
+
+        if persist['overwrite']:
+            return False
+
+        if persist['make_eimage']:
+            eimage_file = self.output_file(det_name, raw=False)
+            if persist['eimage_compress']:
+                eimage_file += '.gz'
+            if not os.path.isfile(eimage_file):
+                return False
+
+        if persist['make_raw_file']:
+            raw_file = self.output_file(det_name, raw=True)
+            if not os.path.isfile(raw_file):
+                return False
+
+        self.logger.info("%s output files already exists, skipping.", det_name)
+        return True
 
 
 class SimulateSensor:
@@ -387,15 +409,10 @@ class SimulateSensor:
         outdir = IMAGE_SIMULATOR.outdir
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
-        prefix = IMAGE_SIMULATOR.config['persistence']['eimage_prefix']
-        obsHistID = str(IMAGE_SIMULATOR.obs_md.OpsimMetaData['obshistID'])
-        nameRoot = os.path.join(outdir, prefix) + obsHistID
-        if not IMAGE_SIMULATOR.config['persistence']['eimage_skip']:
-            outfiles = gs_interpreter.writeImages(nameRoot=name_root)
-            if IMAGE_SIMULATOR.config['persistence']['eimage_compress']:
-                compress_files(outfiles)
-        else:
-            self.write_raw_files(gs_interpreter.detectorImages)
+        if IMAGE_SIMULATOR.config['persistence']['make_eimage']:
+            self.write_eimage_files(gs_interpreter)
+        if IMAGE_SIMULATOR.config['persistence']['make_raw_file']:
+            self.write_raw_files(gs_interpreter)
 
         # Write out the centroid files if they were made.
         gs_interpreter.write_centroid_files()
@@ -425,25 +442,42 @@ class SimulateSensor:
             self.sender.send((nobjs, self.sensor_name, num_objects,
                               gs_interpreter.nobj_checkpoint))
 
-
-    def write_raw_files(self, detector_images):
+    def write_raw_files(self, gs_interpreter):
         """
         Write the raw files directly from galsim images.
 
         Parameters
         ----------
-        detector_images: dict
-            The dictionary attribute of the GalSimInterpreter object
-            used to fill the galsim images with eimage data.
+        gs_interpreter: GalSimInterpreter object
         """
         persist = IMAGE_SIMULATOR.config['persistence']
-        prefix = persist['raw_file_prefix']
+        band = IMAGE_SIMULATOR.obs_md.bandpass
+        for detector in gs_interpreter.detectors:
+            filename = gs_interpreter._getFileName(detector, band)
+            try:
+                gs_image = gs_interpreter.detectorImages[filename]
+            except KeyError:
+                continue
+            else:
+                raw = ImageSource.create_from_galsim_image(gs_image)
+                outfile = IMAGE_SIMULATOR.output_file(detector.name, raw=True)
+                raw.write_fits_file(outfile,
+                                    compress=persist['raw_file_compress'])
+
+    def write_eimage_files(self, gs_interpreter):
+        """
+        Write the eimage files.
+
+        Parameters
+        ----------
+        gs_interpreter: GalSimInterpreter object
+        """
+        prefix = IMAGE_SIMULATOR.config['persistence']['eimage_prefix']
         obsHistID = str(IMAGE_SIMULATOR.obs_md.OpsimMetaData['obshistID'])
         nameRoot = os.path.join(IMAGE_SIMULATOR.outdir, prefix) + obsHistID
-        for name, gs_image in detector_images.items():
-            raw = ImageSource.create_from_galsim_image(gs_image)
-            outfile = '_'.join((nameRoot, name))
-            raw.write_fits_file(outfile, compress=persist['raw_file_compress'])
+        outfiles = gs_interpreter.writeImages(nameRoot=nameRoot)
+        if IMAGE_SIMULATOR.config['persistence']['eimage_compress']:
+            compress_files(outfiles)
 
 def compress_files(file_list, remove_originals=True):
     """
