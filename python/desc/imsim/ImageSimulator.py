@@ -479,7 +479,7 @@ class SimulateSensor:
         if IMAGE_SIMULATOR.config['persistence']['eimage_compress']:
             compress_files(outfiles)
 
-def compress_files(file_list, remove_originals=True):
+def compress_files(file_list, remove_originals=True, compresslevel=1):
     """
     Use gzip to compress a list of files.
 
@@ -489,6 +489,8 @@ def compress_files(file_list, remove_originals=True):
         A list of the names of files to compress.
     remove_originals: bool [True]
         Flag to remove original files.
+    compresslevel: int [1]
+        Compression level for gzip.  1 is fastest, 9 is slowest.
 
     Notes
     -----
@@ -497,7 +499,8 @@ def compress_files(file_list, remove_originals=True):
     """
     for infile in file_list:
         outfile = infile + '.gz'
-        with open(infile, 'rb') as src, gzip.open(outfile, 'wb') as output:
+        with open(infile, 'rb') as src, \
+             gzip.open(outfile, 'wb', compresslevel) as output:
             shutil.copyfileobj(src, output)
         if remove_originals:
             os.remove(infile)
