@@ -38,10 +38,10 @@ class CCMmodel:
         """
         if (self.wavelen[ext_type] is None or
             not np.array_equal(sed_obj.wavelen, self.wavelen[ext_type])):
-            self.a[ext_type], self.b[ext_type] = sed_obj.setupCCMab()
+            self.a[ext_type], self.b[ext_type] = sed_obj.setupCCM_ab()
             self.wavelen[ext_type] = copy.deepcopy(sed_obj.wavelen)
-        sed_obj.addCCMDust(self.a[ext_type], self.b[ext_type],
-                           A_v=Av, R_v=Rv)
+        sed_obj.addDust(self.a[ext_type], self.b[ext_type],
+                        A_v=Av, R_v=Rv)
 
 
 class SedWrapper:
