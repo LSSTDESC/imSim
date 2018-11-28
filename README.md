@@ -16,7 +16,7 @@ program.  It requires a working LSST software stack to build and run.
 
 Communication with the imSim development team should take place through the
 [imSim GitHub repository](https://github.com/LSSTDESC/imSim) which is part of the
-DESC GitHub organization.  Other question can be directed to Chris Walter at Duke University.
+DESC GitHub organization.  Other questions can be directed to Chris Walter at Duke University.
 
 ## imSim models
 
