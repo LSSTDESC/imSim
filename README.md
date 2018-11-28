@@ -88,8 +88,8 @@ optional arguments:
                         created and saved to that filename.
   --image_path IMAGE_PATH
                         search path for FITS postage stamp images.This will be
-                        prepended to any existing IMSIM_IMAGE_PATHenvironment
-                        variable, for which $CWD is included bydefault.
+                        prepended to any existing IMSIM_IMAGE_PATH environment
+                        variable, for which $CWD is included by default.
 ```
 
 ## Release Status
