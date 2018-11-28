@@ -14,6 +14,10 @@ imSim calls the [GalSim](https://github.com/GalSim-developers/GalSim "GalSim Git
 LSST and LSST Simulation Group software environment.  It is not a stand alone
 program.  It requires a working LSST software stack to build and run.
 
+Communication with the imSim development team should take place through the
+[imSim GitHub repository](https://github.com/LSSTDESC/imSim) which is part of the
+DESC GitHub organization.  Other question can be directed to Chris Walter at Duke University.
+
 ## imSim models
 
 Details on the models implemented by imSim including their validations can be found in the [imSim Feature Matrix](https://github.com/LSSTDESC/imSim/wiki/Feature-Matrix).
