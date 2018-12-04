@@ -473,7 +473,7 @@ class ImageSource(object):
         output[0].header['LSST_NUM'] = lsst_num
         output[0].header['TESTTYPE'] = 'IMSIM'
         output[0].header['IMGTYPE'] = 'SKYEXP'
-        output[0].header['OBSTYPE'] = 'SKYEXP'
+        output[0].header['OBSTYPE'] = output[0].header['IMGTYPE']
         output[0].header['MONOWL'] = -1
         raft, ccd = output[0].header['CHIPID'].split('_')
         output[0].header['RAFTNAME'] = raft
