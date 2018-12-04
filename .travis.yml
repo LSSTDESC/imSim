@@ -7,7 +7,7 @@ dist: trusty
 compiler: gcc
 
 env:
-  - OS_TYPE=centos OS_VERSION=7 DOCKER_IMAGE=lsstdesc/stack-sims:w_2018_39-sims_2_11_1
+  - OS_TYPE=centos OS_VERSION=7 DOCKER_IMAGE=lsstdesc/stack-sims:w_2018_48-sims_2_13_0
 
 services:
   - docker
