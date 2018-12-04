@@ -98,5 +98,7 @@ def getHourAngle(observatory, mjd, ra):
                              location=observatory.getLocation())
     # Get the local apparent sidereal time.
     last = time.sidereal_time('apparent').degree
-    ha = last - ra
+    ha = (last - ra) % 360.
+    if ha > 180:
+        ha -= 360.
     return ha
