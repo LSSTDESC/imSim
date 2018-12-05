@@ -19,7 +19,7 @@ from collections import namedtuple, OrderedDict
 import sqlite3
 import numpy as np
 import scipy
-import astropy.io.fits as fits
+from astropy.io import fits
 import astropy.time
 import galsim
 import lsst.afw.geom as afwGeom
@@ -28,9 +28,11 @@ import lsst.utils as lsstUtils
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
     from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
-    from lsst.sims.utils import getRotSkyPos
-from .camera_info import CameraInfo
-from .imSim import get_logger, get_config
+    from lsst.sims.utils import \
+        getRotSkyPos, ObservationMetaData, altAzPaFromRaDec
+    from lsst.sims.GalSimInterface import LsstObservatory
+from .camera_info import CameraInfo, getHourAngle
+from .imSim import get_logger, get_config, airmass
 from .cosmic_rays import CosmicRays
 
 __all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
@@ -467,11 +469,11 @@ class ImageSource(object):
             run_number = self.visit
         output[0].header['RUNNUM'] = str(run_number)
         output[0].header['DARKTIME'] = output[0].header['EXPTIME']
-        mjd_obs = astropy.time.Time(output[0].header['MJD-OBS'], format='mjd')
-        output[0].header['DATE-OBS'] = mjd_obs.isot
+        output[0].header['TIMESYS'] = 'TAI'
         output[0].header['LSST_NUM'] = lsst_num
         output[0].header['TESTTYPE'] = 'IMSIM'
         output[0].header['IMGTYPE'] = 'SKYEXP'
+        output[0].header['OBSTYPE'] = output[0].header['IMGTYPE']
         output[0].header['MONOWL'] = -1
         raft, ccd = output[0].header['CHIPID'].split('_')
         output[0].header['RAFTNAME'] = raft
@@ -483,6 +485,28 @@ class ImageSource(object):
         output[0].header['RATEL'] = self.ratel
         output[0].header['DECTEL'] = self.dectel
         output[0].header['ROTANGLE'] = self.rotangle
+
+        # Add various keywords needed for jointcal, including  hour angle
+        # and airmass values at the start and end of the observation.
+        mjd_obs = output[0].header['MJD-OBS']
+        mjd_end = astropy.time.Time(output[0].header['DATE-END'], format='isot',
+                                    scale='tai').mjd
+        observatory = LsstObservatory()
+        output[0].header['HASTART'] \
+            = getHourAngle(observatory, mjd_obs, self.ratel)
+        output[0].header['HAEND'] \
+            = getHourAngle(observatory, mjd_end, self.ratel)
+
+        # Set the airmass from the start of the observation using the
+        # opsim db value and compute the airmass from the altitude at
+        # the end of the observation.
+        output[0].header['AMSTART'] = output[0].header['AIRMASS']
+        obs_md = ObservationMetaData(mjd=mjd_end, pointingRA=self.ratel,
+                                     pointingDec=self.dectel,
+                                     rotSkyPos=self.rotangle)
+        alt_end, _, _ = altAzPaFromRaDec(self.ratel, self.dectel, obs_md)
+        output[0].header['AMEND'] = airmass(alt_end)
+
         # Write the seed used by the read noise and dark current.
         output[0].header['RN_SEED'] = self.seed
         # Use seg_ids to write the image extensions in the order

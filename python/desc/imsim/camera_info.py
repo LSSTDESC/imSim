@@ -1,10 +1,11 @@
 """
 Class to encapsulate info from lsst.obs.lsst.imsim.ImsimMapper().camera.
 """
+import astropy.time
 import lsst.afw.geom as afw_geom
 from lsst.obs.lsst.imsim import ImsimMapper
 
-__all__ = ['CameraInfo']
+__all__ = ['CameraInfo', 'getHourAngle']
 
 
 class CameraInfo:
@@ -73,3 +74,31 @@ class CameraInfo:
         ymin = 0 if yseg == 1 else height
         return afw_geom.Box2I(afw_geom.Point2I(xmin, ymin),
                               afw_geom.Extent2I(width, height))
+
+
+def getHourAngle(observatory, mjd, ra):
+    """
+    Compute the local hour angle of an object for the specified
+    MJD and RA.
+
+    Parameters
+    ----------
+    observatory: lsst.sims.GalSimInterface.LsstObservatory
+        Extension of lsst.afw.coord.Observatory object.
+    mjd: float
+        Modified Julian Date of the observation.
+    ra: float
+        Right Ascension (in degrees) of the object.
+
+    Returns
+    -------
+    float: hour angle in degrees
+    """
+    time = astropy.time.Time(mjd, format='mjd',
+                             location=observatory.getLocation())
+    # Get the local apparent sidereal time.
+    last = time.sidereal_time('apparent').degree
+    ha = (last - ra) % 360.
+    if ha > 180:
+        ha -= 360.
+    return ha

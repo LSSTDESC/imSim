@@ -30,12 +30,13 @@ class RawFileOutputTestCase(unittest.TestCase):
         """
         camera_wrapper = sims_gsi.LSSTCameraWrapper()
         phot_params = PhotometricParameters()
-        obs_md = ObservationMetaData(pointingRA=23.0,
-                                     pointingDec=12.0,
-                                     rotSkyPos=13.2,
-                                     mjd=59580.,
+        obs_md = ObservationMetaData(pointingRA=31.1133844,
+                                     pointingDec=-10.0970060,
+                                     rotSkyPos=69.0922930,
+                                     mjd=59797.2854090,
                                      bandpassName='r')
-        obs_md.OpsimMetaData = {'obshistID': 219976}
+        obs_md.OpsimMetaData = {'obshistID': 161899,
+                                'airmass': desc.imsim.airmass(43.6990272)}
         detname = "R:2,2 S:1,1"
         chipid = 'R{}_S{}'.format(detname[2:5:2], detname[8:11:2])
         detector = sims_gsi.make_galsim_detector(camera_wrapper, detname,
@@ -46,11 +47,20 @@ class RawFileOutputTestCase(unittest.TestCase):
         self.outfile = 'lsst_a_{}_r.fits'.format(chipid)
         raw_image.write_fits_file(self.outfile, overwrite=True)
         # Test some keywords.
-        raw_file = fits.open(self.outfile)
-        self.assertAlmostEqual(raw_file[0].header['RATEL'], obs_md.pointingRA)
-        self.assertAlmostEqual(raw_file[0].header['DECTEL'], obs_md.pointingDec)
-        self.assertAlmostEqual(raw_file[0].header['ROTANGLE'], obs_md.rotSkyPos)
-        self.assertEqual(raw_file[0].header['CHIPID'], chipid)
+        with fits.open(self.outfile) as raw_file:
+            hdr = raw_file[0].header
+            self.assertAlmostEqual(hdr['RATEL'], obs_md.pointingRA)
+            self.assertAlmostEqual(hdr['DECTEL'], obs_md.pointingDec)
+            self.assertAlmostEqual(hdr['ROTANGLE'], obs_md.rotSkyPos)
+            self.assertEqual(hdr['CHIPID'], chipid)
+
+            # Ensure the following keywords are set.
+            self.assertNotEqual(hdr['AMSTART'], hdr['AMEND'])
+            self.assertNotEqual(hdr['HASTART'], hdr['HAEND'])
+            self.assertEqual(hdr['DATE-OBS'], '2022-08-06T06:50:59.338')
+            self.assertEqual(hdr['DATE-END'], '2022-08-06T06:51:29.338')
+            self.assertEqual(hdr['TIMESYS'], 'TAI')
+            self.assertEqual(hdr['OBSTYPE'], 'SKYEXP')
 
 
 if __name__ == '__main__':
