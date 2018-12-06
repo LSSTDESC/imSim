@@ -202,9 +202,9 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             fnorm = sed.calcFluxNorm(truth_data['magNorm'][i_obj], imsim_bp)
             sed.multiplyFluxNorm(fnorm)
             sed.resampleSED(wavelen_match=bp_dict.wavelenMatch)
-            a_x, b_x = sed.setupCCMab()
-            sed.addCCMDust(a_x, b_x, A_v=truth_data['Av'][i_obj],
-                           R_v=truth_data['Rv'][i_obj])
+            a_x, b_x = sed.setupCCM_ab()
+            sed.addDust(a_x, b_x, A_v=truth_data['Av'][i_obj],
+                        R_v=truth_data['Rv'][i_obj])
 
             for bp in ('u', 'g', 'r', 'i', 'z', 'y'):
                 flux = sed.calcADU(bp_dict[bp], phot_params)*phot_params.gain
@@ -331,15 +331,15 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             fnorm = sed.calcFluxNorm(truth_data['magNorm'][i_obj], imsim_bp)
             sed.multiplyFluxNorm(fnorm)
 
-            a_x, b_x = sed.setupCCMab()
-            sed.addCCMDust(a_x, b_x, A_v=truth_data['internalAv'][i_obj],
-                           R_v=truth_data['internalRv'][i_obj])
+            a_x, b_x = sed.setupCCM_ab()
+            sed.addDust(a_x, b_x, A_v=truth_data['internalAv'][i_obj],
+                        R_v=truth_data['internalRv'][i_obj])
 
             sed.redshiftSED(truth_data['redshift'][i_obj], dimming=True)
             sed.resampleSED(wavelen_match=bp_dict.wavelenMatch)
-            a_x, b_x = sed.setupCCMab()
-            sed.addCCMDust(a_x, b_x, A_v=truth_data['galacticAv'][i_obj],
-                           R_v=truth_data['galacticRv'][i_obj])
+            a_x, b_x = sed.setupCCM_ab()
+            sed.addDust(a_x, b_x, A_v=truth_data['galacticAv'][i_obj],
+                        R_v=truth_data['galacticRv'][i_obj])
 
             for bp in ('u', 'g', 'r', 'i', 'z', 'y'):
                 flux = sed.calcADU(bp_dict[bp], phot_params)*phot_params.gain
