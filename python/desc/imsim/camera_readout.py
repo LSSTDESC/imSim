@@ -80,6 +80,11 @@ class ImageSource(object):
             logging.Logger object to use. If None, then a logger with level
             INFO will be used.
         """
+        if logger is None:
+            self.logger = get_logger('INFO')
+        else:
+            self.logger = logger
+
         self.eimage = fits.HDUList()
         self.eimage.append(fits.PrimaryHDU(image_array))
         self.eimage_data = self.eimage[0].data.transpose()
@@ -88,16 +93,12 @@ class ImageSource(object):
         self.sensor_id = sensor_id
         self.visit = visit
 
-        self._seed = None
+        self._rng = None
+        self.seed = None
 
         self.camera_info = CameraInfo()
 
         self._make_amp_images()
-
-        if logger is None:
-            self.logger = get_logger('INFO')
-        else:
-            self.logger = logger
 
         self.ratel = 0
         self.dectel = 0
@@ -290,12 +291,14 @@ class ImageSource(object):
         imaging_segment.getArray()[:] = data
 
         # Add dark current.
-        dark_current = config['electronics_readout']['dark_current']
-        imaging_arr = imaging_segment.getArray()
-        rng = galsim.PoissonDeviate(self.seed, dark_current*self.exptime)
-        dc_data = np.zeros(np.prod(imaging_arr.shape))
-        rng.generate(dc_data)
-        imaging_arr += dc_data.reshape(imaging_arr.shape)
+        if self.exptime > 0:
+            dark_current = config['electronics_readout']['dark_current']
+            imaging_arr = imaging_segment.getArray()
+            rng = galsim.PoissonDeviate(seed=self.rng,
+                                        mean=dark_current*self.exptime)
+            dc_data = np.zeros(np.prod(imaging_arr.shape))
+            rng.generate(dc_data)
+            imaging_arr += dc_data.reshape(imaging_arr.shape)
 
         # Add defects.
 
@@ -328,22 +331,25 @@ class ImageSource(object):
         """
         amp_info = self.camera_info.get_amp_info(amp_name)
         full_arr = self.amp_images[amp_name].getArray()
-        rng = galsim.GaussianDeviate(self.seed, amp_info.getReadNoise())
+        rng = galsim.GaussianDeviate(seed=self.rng,
+                                     sigma=amp_info.getReadNoise())
         rn_data = np.zeros(np.prod(full_arr.shape))
         rng.generate(rn_data)
         full_arr += rn_data.reshape(full_arr.shape)
         full_arr += config['electronics_readout']['bias_level']
 
     @property
-    def seed(self):
+    def rng(self):
         """
-        Random seed derived from visit and sensor id.  This is used as
-        the seed for both the read noise and dark current
-        calculations.
+        galsim.BaseDeviate seeded with an integer derived from a hash
+        of the visit and sensor id.  This is used as the underlying
+        random number generator for both the read noise and dark
+        current calculations.
         """
-        if self._seed is None:
-            self._seed = CosmicRays.generate_seed(self.visit, self.sensor_id)
-        return self._seed
+        if self._rng is None:
+            self.seed = CosmicRays.generate_seed(self.visit, self.sensor_id)
+            self._rng = galsim.BaseDeviate(self.seed)
+        return self._rng
 
     def _apply_crosstalk(self):
         """
