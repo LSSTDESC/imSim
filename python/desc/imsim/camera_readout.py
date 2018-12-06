@@ -80,6 +80,11 @@ class ImageSource(object):
             logging.Logger object to use. If None, then a logger with level
             INFO will be used.
         """
+        if logger is None:
+            self.logger = get_logger('INFO')
+        else:
+            self.logger = logger
+
         self.eimage = fits.HDUList()
         self.eimage.append(fits.PrimaryHDU(image_array))
         self.eimage_data = self.eimage[0].data.transpose()
@@ -93,11 +98,6 @@ class ImageSource(object):
         self.camera_info = CameraInfo()
 
         self._make_amp_images()
-
-        if logger is None:
-            self.logger = get_logger('INFO')
-        else:
-            self.logger = logger
 
         self.ratel = 0
         self.dectel = 0
@@ -290,12 +290,14 @@ class ImageSource(object):
         imaging_segment.getArray()[:] = data
 
         # Add dark current.
-        dark_current = config['electronics_readout']['dark_current']
-        imaging_arr = imaging_segment.getArray()
-        rng = galsim.PoissonDeviate(self.seed, dark_current*self.exptime)
-        dc_data = np.zeros(np.prod(imaging_arr.shape))
-        rng.generate(dc_data)
-        imaging_arr += dc_data.reshape(imaging_arr.shape)
+        if self.exptime > 0:
+            dark_current = config['electronics_readout']['dark_current']
+            imaging_arr = imaging_segment.getArray()
+            rng = galsim.PoissonDeviate(seed=self.seed,
+                                        mean=dark_current*self.exptime)
+            dc_data = np.zeros(np.prod(imaging_arr.shape))
+            rng.generate(dc_data)
+            imaging_arr += dc_data.reshape(imaging_arr.shape)
 
         # Add defects.
 
@@ -328,7 +330,8 @@ class ImageSource(object):
         """
         amp_info = self.camera_info.get_amp_info(amp_name)
         full_arr = self.amp_images[amp_name].getArray()
-        rng = galsim.GaussianDeviate(self.seed, amp_info.getReadNoise())
+        rng = galsim.GaussianDeviate(seed=self.seed,
+                                     sigma=amp_info.getReadNoise())
         rn_data = np.zeros(np.prod(full_arr.shape))
         rng.generate(rn_data)
         full_arr += rn_data.reshape(full_arr.shape)
