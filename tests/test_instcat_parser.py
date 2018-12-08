@@ -112,28 +112,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertAlmostEqual(obs.mjd.TAI, metadata['mjd'], 7)
         self.assertEqual(obs.bandpass, 'r')
 
-        # make sure that the relationship between Alt, Az and RA, Dec
-        # is correct
-
-        mjd = metadata['mjd'] - 16.5/86400.0
-        # the adjustment to mjd is because altitude is reckoned at the start of
-        # the observation, but mjd is reported at the middle of the observation
-
-        alt, az, pa = altAzPaFromRaDec(metadata['rightascension'],
-                                       metadata['declination'],
-                                       ObservationMetaData(mjd=mjd),
-                                       includeRefraction=False)
-        dd = angularSeparation(metadata['azimuth'], metadata['altitude'],
-                               az, alt)
-
-        # This test is more lax than we want; there appears
-        # to be an instability in PALPY that causes the
-        # transformation from RA, Dec to Alt, Az to vary
-        # by a few 0.01 arcsec depending on the machine
-        # being run.  We will make the tolerance on this
-        # test more stringent when that gets fixed.
-        self.assertLess(3600.0*dd, 1.)
-
     def test_object_extraction_stars(self):
         """
         Test that method to get GalSimCelestialObjects from
