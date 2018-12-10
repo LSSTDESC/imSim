@@ -7,12 +7,11 @@ It produces simulated images from the 3.25 Gigapixel camera which are suitable
 to be processed through the LSST Data Management pipeline. imSim takes as an
 input a catalog of astronomical sources along with information about how the light
 is distorted on the way to Earth including lensing and extinction information.  The
-images which are produced include the the systematic effects of the atmosphere,
+images which are produced include the systematic effects of the atmosphere,
 optics and sensors on the observed PSF.
 
 imSim calls the [GalSim](https://github.com/GalSim-developers/GalSim "GalSim GitHub Page") library for astronomical object rendering and is designed to be used inside of the
-LSST and LSST Simulation Group software environment.  It is not a stand alone
-program.  It requires a working LSST software stack to build and run.
+LSST Data Management and LSST Simulation Group software environment.  It is not a stand alone program.  It requires a working LSST software stack to build and run.
 
 Communication with the imSim development team should take place through the
 [imSim GitHub repository](https://github.com/LSSTDESC/imSim) which is part of the
