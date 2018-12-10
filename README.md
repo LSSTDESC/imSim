@@ -96,9 +96,7 @@ optional arguments:
 ```
 
 ## Release Status
-The list of released versions of this package can be found [here](https://github.com/LSSTDESC/imSim/releases), with the master branch
-including the most recent (non-released) development.  imSim is currently
-still considered beta code.
+imSim is currently still considered beta code. A list of tagged versions and pre-releases of this package can be found [here](https://github.com/LSSTDESC/imSim/releases), with the master branch including the most recent (non-tagged) development.  
 
 ## Licensing and ownership
 This software was developed within the LSST DESC using LSST DESC resources, and
