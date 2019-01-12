@@ -71,12 +71,20 @@ class AtmosphericPSF(PSFbase):
     @param exptime      Exposure time in seconds.  default: 30.
     @param kcrit        Critical Fourier mode at which to split first and second kicks
                         in units of (1/r0).  default: 0.2
+    @param gaussianFWHM FWHM of additional Gaussian profile by which to convolve.
+                        This is useful to represent contributions of physical effects
+                        not otherwise explicitly modeled.  The default value of 0.3
+                        arcsec is set assuming that doOpt=True and that the sensor
+                        physics is enabled.  If this is not the case, then it may be
+                        appropriate to increase this value to account for the missing
+                        contribution of these effects.
     @param screen_size  Size of the phase screens in meters.  default: 819.2
     @param screen_scale Size of phase screen "pixels" in meters.  default: 0.1
     @param doOpt        Add in optical phase screens?  default: True
     @param logger       Optional logger.  default: None
     """
-    def __init__(self, airmass, rawSeeing, band, rng, t0=0.0, exptime=30.0, kcrit=0.2,
+    def __init__(self, airmass, rawSeeing, band, rng,
+                 t0=0.0, exptime=30.0, kcrit=0.2, gaussianFWHM=0.3,
                  screen_size=819.2, screen_scale=0.1, doOpt=True, logger=None):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
@@ -110,6 +118,10 @@ class AtmosphericPSF(PSFbase):
 
         if doOpt:
             self.atm.append(OptWF(rng, self.wlen_eff))
+
+        if logger and gaussianFWHM > 0:
+            logger.debug("Convolving in Gaussian with FWHM = {}".format(gaussianFWHM))
+        self.gaussianFWHM = gaussianFWHM
 
     def __eq__(self, rhs):
         return (isinstance(rhs, AtmosphericPSF)
@@ -216,4 +228,9 @@ class AtmosphericPSF(PSFbase):
             t0=self.t0,
             exptime=self.exptime,
             gsparams=gsparams)
+        if self.gaussianFWHM > 0.0:
+            psf = galsim.Convolve(
+                psf,
+                galsim.Gaussian(fwhm=self.gaussianFWHM, gsparams=gsparams)
+            )
         return psf
