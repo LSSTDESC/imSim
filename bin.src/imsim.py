@@ -47,8 +47,8 @@ parser.add_argument('--psf_file', type=str, default=None,
                     "if not, a PSF will be created and saved to that filename.")
 parser.add_argument('--image_path', type=str, default=None,
                     help="search path for FITS postage stamp images."
-                    "This will be prepended to any existing IMSIM_IMAGE_PATH"
-                    "environment variable, for which $CWD is included by"
+                    "This will be prepended to any existing IMSIM_IMAGE_PATH "
+                    "environment variable, for which $CWD is included by "
                     "default.")
 
 args = parser.parse_args()
