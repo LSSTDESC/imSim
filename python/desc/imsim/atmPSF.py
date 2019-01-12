@@ -3,7 +3,7 @@ GalSim realistic atmospheric PSF class
 """
 
 import numpy as np
-from scipy.optimize import fsolve
+from scipy.optimize import bisect
 
 import galsim
 from lsst.sims.GalSimInterface import PSFbase
@@ -102,7 +102,11 @@ class AtmosphericPSF(PSFbase):
         r0_500 = self.atm.r0_500_effective
         r0 = r0_500 * (self.wlen_eff/500.0)**(6./5)
         kmax = kcrit / r0
+        if logger:
+            logger.info("Building atmosphere")
         self.atm.instantiate(kmax=kmax, check='phot')
+        if logger:
+            logger.info("Finished building atmosphere")
 
         if doOpt:
             self.atm.append(OptWF(rng, self.wlen_eff))
@@ -118,23 +122,28 @@ class AtmosphericPSF(PSFbase):
                 and self.aper == rhs.aper)
 
     @staticmethod
-    def _seeing_resid(r0_500, wavelength, L0, target):
-        """Residual function to use with `_r0_500` below."""
-        r0_500 = np.atleast_1d(r0_500)
-        resids = np.empty_like(r0_500)
-        for i, this_r0_500 in enumerate(r0_500):
-            kolm_seeing = galsim.Kolmogorov(r0_500=this_r0_500, lam=wavelength).fwhm
-            r0 = this_r0_500 * (wavelength/500)**1.2
-            factor = np.sqrt(1. - 2.183*(r0/L0)**0.356)
-            resids[i] = kolm_seeing*factor - target
-        return resids
+    def _vkSeeing(r0_500, wavelength, L0):
+        kolm_seeing = galsim.Kolmogorov(r0_500=r0_500, lam=wavelength).fwhm
+        r0 = r0_500 * (wavelength/500)**1.2
+        arg = 1. - 2.183*(r0/L0)**0.356
+        factor = np.sqrt(arg) if arg > 0.0 else 0.0
+        return kolm_seeing*factor
 
     @staticmethod
-    def _r0_500(wavelength, L0, seeing):
+    def _seeingResid(r0_500, wavelength, L0, targetSeeing):
+        return AtmosphericPSF._vkSeeing(r0_500, wavelength, L0) - targetSeeing
+
+    @staticmethod
+    def _r0_500(wavelength, L0, targetSeeing):
         """Returns r0_500 to use to get target seeing."""
-        guess = wavelength*1e-9/(seeing/206265)*0.976
-        result = fsolve(AtmosphericPSF._seeing_resid, guess, (wavelength, L0, seeing))
-        return result[0]
+        r0_500_max = min(1.0, L0*(1./2.183)**(-0.356)*(wavelength/500.)**1.2)
+        r0_500_min = 0.01
+        return bisect(
+            AtmosphericPSF._seeingResid,
+            r0_500_min,
+            r0_500_max,
+            args=(wavelength, L0, targetSeeing)
+        )
 
     def _getAtmKwargs(self):
         ud = galsim.UniformDeviate(self.rng)
@@ -158,10 +167,17 @@ class AtmosphericPSF(PSFbase):
             L0 = np.exp(gd() * 0.6 + np.log(25.0))
         # Given the desired seeing500 and randomly selected L0, determine appropriate
         # r0_500
+        if self.logger:
+            self.logger.debug("target seeing500: {}".format(self.seeing500))
         r0_500 = AtmosphericPSF._r0_500(500.0, L0, self.seeing500)
+        if self.logger:
+            self.logger.debug("Found r0_500: {}".format(r0_500))
+            self.logger.debug(
+                "delivered seeing500: {}".format(
+                    AtmosphericPSF._vkSeeing(r0_500, 500.0, L0)))
 
         # Broadcast common outer scale across all layers
-        L0 = [L0 for _ in range(6)]
+        L0 = [L0]*6
 
         # Uniformly draw layer speeds between 0 and max_speed.
         maxSpeed = 20.0
