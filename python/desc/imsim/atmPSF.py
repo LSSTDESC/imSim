@@ -84,7 +84,7 @@ class AtmosphericPSF(PSFbase):
         self.wlen_eff = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
         # wlen_eff is from Table 2 of LSE-40 (y=y2)
 
-        self.seeing500 = rawSeeing * airmass ** 0.6
+        self.targetFWHM = rawSeeing * airmass**0.6 * (self.wlen_eff/500)**(-0.3)
 
         self.rng = rng
         self.t0 = t0
@@ -123,6 +123,7 @@ class AtmosphericPSF(PSFbase):
 
     @staticmethod
     def _vkSeeing(r0_500, wavelength, L0):
+        # von Karman profile FWHM from Tokovinin fitting formula
         kolm_seeing = galsim.Kolmogorov(r0_500=r0_500, lam=wavelength).fwhm
         r0 = r0_500 * (wavelength/500)**1.2
         arg = 1. - 2.183*(r0/L0)**0.356
@@ -165,16 +166,16 @@ class AtmosphericPSF(PSFbase):
         L0 = 0
         while L0 < 10.0 or L0 > 100:
             L0 = np.exp(gd() * 0.6 + np.log(25.0))
-        # Given the desired seeing500 and randomly selected L0, determine appropriate
+        # Given the desired targetFWHM and randomly selected L0, determine appropriate
         # r0_500
         if self.logger:
-            self.logger.debug("target seeing500: {}".format(self.seeing500))
-        r0_500 = AtmosphericPSF._r0_500(500.0, L0, self.seeing500)
+            self.logger.debug("target FWHM: {}".format(self.targetFWHM))
+        r0_500 = AtmosphericPSF._r0_500(self.wlen_eff, L0, self.targetFWHM)
         if self.logger:
-            self.logger.debug("Found r0_500: {}".format(r0_500))
+            self.logger.debug("Found r0_500, L0: {}, {}".format(r0_500, L0))
             self.logger.debug(
-                "delivered seeing500: {}".format(
-                    AtmosphericPSF._vkSeeing(r0_500, 500.0, L0)))
+                "yields vonKarman FWHM: {}".format(
+                    AtmosphericPSF._vkSeeing(r0_500, self.wlen_eff, L0)))
 
         # Broadcast common outer scale across all layers
         L0 = [L0]*6
@@ -187,7 +188,6 @@ class AtmosphericPSF(PSFbase):
 
         if self.logger:
             self.logger.debug("airmass = {}".format(self.airmass))
-            self.logger.debug("seeing500 = {}".format(self.seeing500))
             self.logger.debug("wlen_eff = {}".format(self.wlen_eff))
             self.logger.debug("r0_500 = {}".format(r0_500))
             self.logger.debug("L0 = {}".format(L0))
