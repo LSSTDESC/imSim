@@ -469,6 +469,8 @@ class ImageSource(object):
             Run number.  If None, then the visit number is used.
         compress: bool [True]
             Use RICE_1 compression for each image HDU.
+        image_type str ['SKYEXP']
+            Image type to write to the `OBSTYPE` and `IMGTYPE` keywords.
         """
         output = fits.HDUList(fits.PrimaryHDU())
         output[0].header = self.eimage[0].header
