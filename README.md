@@ -34,14 +34,14 @@ execute the `setup imsim` command, and that command can be issued from
 any directory.  The `scons` build step needs only to be re-run if a
 new command line executable is added to the `bin.src` folder.
 
-### obs_lsstCam
+### obs_lsst
 The CCD pixel and LSST focalplane geometries are obtained from the
-lsst/obs_lsstCam package, which is not yet part of the standard LSST
+lsst/obs_lsst package, which is not yet part of the standard LSST
 distribution.  Until it is, you'll need to clone a copy, set it up,
 and build:
 ```
-$ git clone https://github.com/lsst/obs_lsstCam.git
-$ cd obs_lsstCam
+$ git clone https://github.com/lsst/obs_lsst.git
+$ cd obs_lsst
 $ setup -r . -j
 $ scons
 ```
