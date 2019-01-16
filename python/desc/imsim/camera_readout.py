@@ -454,7 +454,8 @@ class ImageSource(object):
         output.writeto(outfile, overwrite=overwrite)
 
     def write_fits_file(self, outfile, overwrite=True, run_number=None,
-                        lsst_num='LCA-11021_RTM-000', compress=True):
+                        lsst_num='LCA-11021_RTM-000', compress=True,
+                        image_type='SKYEXP'):
         """
         Write the processed eimage data as a multi-extension FITS file.
 
@@ -478,7 +479,7 @@ class ImageSource(object):
         output[0].header['TIMESYS'] = 'TAI'
         output[0].header['LSST_NUM'] = lsst_num
         output[0].header['TESTTYPE'] = 'IMSIM'
-        output[0].header['IMGTYPE'] = 'SKYEXP'
+        output[0].header['IMGTYPE'] = image_type
         output[0].header['OBSTYPE'] = output[0].header['IMGTYPE']
         output[0].header['MONOWL'] = -1
         raft, ccd = output[0].header['CHIPID'].split('_')
