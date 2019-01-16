@@ -8,7 +8,7 @@ pip install pylint
 git clone https://github.com/lsst/obs_lsst.git
 cd obs_lsst
 setup -r . -j
-scons
+scons lib python shebang examples doc policy
 cd ..
 eups declare imsim -r ${TRAVIS_BUILD_DIR} -t current
 setup imsim
