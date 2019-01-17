@@ -841,7 +841,7 @@ def add_cosmic_rays(gs_interpreter, phot_params):
         crs.set_seed(cr_seed)
         gs_interpreter.detectorImages[name] = \
             galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
-        image.wcs.fitsHeader.set('CR_SEED', cr_seed)
+        image.wcs.fitsHeader.set('CR_SEED', str(cr_seed))
 
 
 def add_treering_info(detectors, tr_filename=None):
