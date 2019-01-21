@@ -230,7 +230,7 @@ class AtmosphericPSF(PSFbase):
             gsparams=gsparams)
         if self.gaussianFWHM > 0.0:
             psf = galsim.Convolve(
-                psf,
-                galsim.Gaussian(fwhm=self.gaussianFWHM, gsparams=gsparams)
+                galsim.Gaussian(fwhm=self.gaussianFWHM, gsparams=gsparams),
+                psf
             )
         return psf
