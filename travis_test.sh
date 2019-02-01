@@ -11,7 +11,7 @@ setup -r . -j
 
 # Checkout a specific tag known to work with imSim and the
 # lsst_distrib version pulled from Dockerhub in .travis.yaml.
-git checkout w.2018.39-run1.2-v3
+git checkout imsim-dc2-run2.1-test
 
 # Build the obs_lsst package, but avoid the time consuming and lengthy
 # output from the 'tests' target.  The version module is built by the
