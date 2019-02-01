@@ -39,7 +39,7 @@ class PsfTestCase(unittest.TestCase):
     def test_atm_psf_config(self):
         """
         Test that the psf delivered by make_psf correctly applies the
-        config file value for gaussianPSF for the AtmosphericPSF.
+        config file value for gaussianFWHM as input to the AtmosphericPSF.
         """
         config = desc.imsim.get_config()
         psf_name = 'Atmospheric'
