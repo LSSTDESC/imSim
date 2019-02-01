@@ -986,6 +986,11 @@ def make_psf(psf_name, obs_md, log_level='WARN', rng=None, **kwds):
             # Use the 'seed' value from the instance catalog for the rng
             # used by the atmospheric PSF.
             rng = galsim.UniformDeviate(obs_md.OpsimMetaData['seed'])
+        if 'gaussianFWHM' not in kwds:
+            # Retrieve the additional instrumental PSF FWHM from the
+            # imSim config file.
+            config = get_config()
+            kwds['gaussianFWHM'] = config['psf']['gaussianFWHM']
         logger = get_logger(log_level, 'psf')
         psf = AtmosphericPSF(airmass=my_airmass,
                              rawSeeing=rawSeeing,

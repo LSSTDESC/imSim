@@ -131,7 +131,8 @@ class AtmosphericPSF(PSFbase):
                 and self.t0 == rhs.t0
                 and self.exptime == rhs.exptime
                 and self.atm == rhs.atm
-                and self.aper == rhs.aper)
+                and self.aper == rhs.aper
+                and self.gaussianFWHM == rhs.gaussianFWHM)
 
     @staticmethod
     def _vkSeeing(r0_500, wavelength, L0):
