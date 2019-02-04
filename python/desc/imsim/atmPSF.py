@@ -3,7 +3,7 @@ GalSim realistic atmospheric PSF class
 """
 
 import numpy as np
-from scipy.optimize import fsolve
+from scipy.optimize import bisect
 
 import galsim
 from lsst.sims.GalSimInterface import PSFbase
@@ -71,12 +71,20 @@ class AtmosphericPSF(PSFbase):
     @param exptime      Exposure time in seconds.  default: 30.
     @param kcrit        Critical Fourier mode at which to split first and second kicks
                         in units of (1/r0).  default: 0.2
+    @param gaussianFWHM FWHM of additional Gaussian profile by which to convolve.
+                        This is useful to represent contributions of physical effects
+                        not otherwise explicitly modeled.  The default value of 0.3
+                        arcsec is set assuming that doOpt=True and that the sensor
+                        physics is enabled.  If this is not the case, then it may be
+                        appropriate to increase this value to account for the missing
+                        contribution of these effects.
     @param screen_size  Size of the phase screens in meters.  default: 819.2
     @param screen_scale Size of phase screen "pixels" in meters.  default: 0.1
     @param doOpt        Add in optical phase screens?  default: True
     @param logger       Optional logger.  default: None
     """
-    def __init__(self, airmass, rawSeeing, band, rng, t0=0.0, exptime=30.0, kcrit=0.2,
+    def __init__(self, airmass, rawSeeing, band, rng,
+                 t0=0.0, exptime=30.0, kcrit=0.2, gaussianFWHM=0.3,
                  screen_size=819.2, screen_scale=0.1, doOpt=True, logger=None):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
@@ -84,7 +92,7 @@ class AtmosphericPSF(PSFbase):
         self.wlen_eff = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
         # wlen_eff is from Table 2 of LSE-40 (y=y2)
 
-        self.seeing500 = rawSeeing * airmass ** 0.6
+        self.targetFWHM = rawSeeing * airmass**0.6 * (self.wlen_eff/500)**(-0.3)
 
         self.rng = rng
         self.t0 = t0
@@ -102,10 +110,18 @@ class AtmosphericPSF(PSFbase):
         r0_500 = self.atm.r0_500_effective
         r0 = r0_500 * (self.wlen_eff/500.0)**(6./5)
         kmax = kcrit / r0
+        if logger:
+            logger.info("Building atmosphere")
         self.atm.instantiate(kmax=kmax, check='phot')
+        if logger:
+            logger.info("Finished building atmosphere")
 
         if doOpt:
             self.atm.append(OptWF(rng, self.wlen_eff))
+
+        if logger and gaussianFWHM > 0:
+            logger.debug("Convolving in Gaussian with FWHM = {}".format(gaussianFWHM))
+        self.gaussianFWHM = gaussianFWHM
 
     def __eq__(self, rhs):
         return (isinstance(rhs, AtmosphericPSF)
@@ -115,26 +131,33 @@ class AtmosphericPSF(PSFbase):
                 and self.t0 == rhs.t0
                 and self.exptime == rhs.exptime
                 and self.atm == rhs.atm
-                and self.aper == rhs.aper)
+                and self.aper == rhs.aper
+                and self.gaussianFWHM == rhs.gaussianFWHM)
 
     @staticmethod
-    def _seeing_resid(r0_500, wavelength, L0, target):
-        """Residual function to use with `_r0_500` below."""
-        r0_500 = np.atleast_1d(r0_500)
-        resids = np.empty_like(r0_500)
-        for i, this_r0_500 in enumerate(r0_500):
-            kolm_seeing = galsim.Kolmogorov(r0_500=this_r0_500, lam=wavelength).fwhm
-            r0 = this_r0_500 * (wavelength/500)**1.2
-            factor = np.sqrt(1. - 2.183*(r0/L0)**0.356)
-            resids[i] = kolm_seeing*factor - target
-        return resids
+    def _vkSeeing(r0_500, wavelength, L0):
+        # von Karman profile FWHM from Tokovinin fitting formula
+        kolm_seeing = galsim.Kolmogorov(r0_500=r0_500, lam=wavelength).fwhm
+        r0 = r0_500 * (wavelength/500)**1.2
+        arg = 1. - 2.183*(r0/L0)**0.356
+        factor = np.sqrt(arg) if arg > 0.0 else 0.0
+        return kolm_seeing*factor
 
     @staticmethod
-    def _r0_500(wavelength, L0, seeing):
+    def _seeingResid(r0_500, wavelength, L0, targetSeeing):
+        return AtmosphericPSF._vkSeeing(r0_500, wavelength, L0) - targetSeeing
+
+    @staticmethod
+    def _r0_500(wavelength, L0, targetSeeing):
         """Returns r0_500 to use to get target seeing."""
-        guess = wavelength*1e-9/(seeing/206265)*0.976
-        result = fsolve(AtmosphericPSF._seeing_resid, guess, (wavelength, L0, seeing))
-        return result[0]
+        r0_500_max = min(1.0, L0*(1./2.183)**(-0.356)*(wavelength/500.)**1.2)
+        r0_500_min = 0.01
+        return bisect(
+            AtmosphericPSF._seeingResid,
+            r0_500_min,
+            r0_500_max,
+            args=(wavelength, L0, targetSeeing)
+        )
 
     def _getAtmKwargs(self):
         ud = galsim.UniformDeviate(self.rng)
@@ -156,12 +179,19 @@ class AtmosphericPSF(PSFbase):
         L0 = 0
         while L0 < 10.0 or L0 > 100:
             L0 = np.exp(gd() * 0.6 + np.log(25.0))
-        # Given the desired seeing500 and randomly selected L0, determine appropriate
+        # Given the desired targetFWHM and randomly selected L0, determine appropriate
         # r0_500
-        r0_500 = AtmosphericPSF._r0_500(500.0, L0, self.seeing500)
+        if self.logger:
+            self.logger.debug("target FWHM: {}".format(self.targetFWHM))
+        r0_500 = AtmosphericPSF._r0_500(self.wlen_eff, L0, self.targetFWHM)
+        if self.logger:
+            self.logger.debug("Found r0_500, L0: {}, {}".format(r0_500, L0))
+            self.logger.debug(
+                "yields vonKarman FWHM: {}".format(
+                    AtmosphericPSF._vkSeeing(r0_500, self.wlen_eff, L0)))
 
         # Broadcast common outer scale across all layers
-        L0 = [L0 for _ in range(6)]
+        L0 = [L0]*6
 
         # Uniformly draw layer speeds between 0 and max_speed.
         maxSpeed = 20.0
@@ -171,7 +201,6 @@ class AtmosphericPSF(PSFbase):
 
         if self.logger:
             self.logger.debug("airmass = {}".format(self.airmass))
-            self.logger.debug("seeing500 = {}".format(self.seeing500))
             self.logger.debug("wlen_eff = {}".format(self.wlen_eff))
             self.logger.debug("r0_500 = {}".format(r0_500))
             self.logger.debug("L0 = {}".format(L0))
@@ -200,4 +229,9 @@ class AtmosphericPSF(PSFbase):
             t0=self.t0,
             exptime=self.exptime,
             gsparams=gsparams)
+        if self.gaussianFWHM > 0.0:
+            psf = galsim.Convolve(
+                galsim.Gaussian(fwhm=self.gaussianFWHM, gsparams=gsparams),
+                psf
+            )
         return psf
