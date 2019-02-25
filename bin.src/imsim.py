@@ -53,6 +53,9 @@ parser.add_argument('--image_path', type=str, default=None,
 
 args = parser.parse_args()
 
+# Read in the config
+desc.imsim.read_config(args.config_file)
+
 # Prepend any additional paths to IMSIM_IMAGE_PATH.
 if args.image_path is not None:
     os.environ['IMSIM_IMAGE_PATH']\
