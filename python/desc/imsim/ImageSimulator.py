@@ -194,8 +194,8 @@ class ImageSimulator:
         -------
         str: The checkpoint file name.
         """
-        return '-'.join(('checkpoint', file_id,
-                         re.sub('[:, ]', '_', det_name))) + '.ckpt'
+        my_detname = "R{}{}_S{}{}".format(*[_ for _ in det_name if _.isdigit()])
+        return '-'.join(('checkpoint', file_id, my_detname)) + '.ckpt'
 
     def output_file(self, det_name, raw=True):
         """
