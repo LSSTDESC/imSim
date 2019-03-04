@@ -8,6 +8,7 @@ import warnings
 from collections import namedtuple, defaultdict
 import pickle
 import logging
+import traceback
 import gc
 import copy
 import psutil
@@ -61,7 +62,7 @@ __all__ = ['PhosimInstanceCatalogParseError',
            '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK', '_FITS_IMAGE',
            'parsePhoSimInstanceFile',
            'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom', 'make_psf',
-           'save_psf', 'load_psf']
+           'save_psf', 'load_psf', 'TracebackDecorator']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -1022,3 +1023,29 @@ def load_psf(psf_file, log_level='INFO'):
         psf.logger = get_logger(log_level, 'psf')
 
     return psf
+
+class TracebackDecorator:
+    """
+    Decorator class for printing exception traceback messages from
+    call-back functions executed in a multiprocessing pool subprocess.
+    """
+    def __init__(self, func):
+        """
+        Parameters
+        ----------
+        func: function
+            The call-back function to decorate.
+        """
+        self.func = func
+
+    def __call__(self, *args, **kwds):
+        """
+        Enclose the underlying function call in a try/except block,
+        and print the exception info via `traceback.print_exc()`,
+        re-raising the exception.
+        """
+        try:
+            return self.func(*args, **kwds)
+        except Exception as eobj:
+            traceback.print_exc()
+            raise eobj

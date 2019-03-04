@@ -17,7 +17,7 @@ from lsst.sims.GalSimInterface import make_galsim_detector
 from lsst.sims.GalSimInterface import make_gs_interpreter
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from .imSim import read_config, parsePhoSimInstanceFile, add_cosmic_rays,\
-    add_treering_info, get_logger
+    add_treering_info, get_logger, TracebackDecorator
 from .bleed_trails import apply_channel_bleeding
 from .skyModel import make_sky_model
 from .process_monitor import process_monitor
@@ -256,8 +256,8 @@ class ImageSimulator:
         pool = multiprocessing.Pool(processes=processes)
         receivers = []
         if wait_time is not None:
-            results.append(pool.apply_async(process_monitor, (),
-                                            dict(wait_time=wait_time)))
+            results.append(pool.apply_async(TracebackDecorator(process_monitor),
+                                            (), dict(wait_time=wait_time)))
         for det_name in self.gs_interpreters:
             gs_objects = self.gs_obj_dict[det_name]
             if self._outfiles_exist(det_name) or not gs_objects:
@@ -279,7 +279,8 @@ class ImageSimulator:
             simulate_sensor = SimulateSensor(det_name, self.log_level, sender)
 
             # Add it to the processing pool.
-            results.append(pool.apply_async(simulate_sensor, (gs_objects,)))
+            results.append(pool.apply_async(TracebackDecorator(simulate_sensor),
+                                            (gs_objects,)))
         pool.close()
 
         if CHECKPOINT_SUMMARY is not None:
@@ -287,7 +288,8 @@ class ImageSimulator:
             # checkpoint_aggregator.
             agg_pool = multiprocessing.Pool(processes=1)
             aggregator \
-                = agg_pool.apply_async(checkpoint_aggregator, (receivers,))
+                = agg_pool.apply_async(TracebackDecorator(checkpoint_aggregator),
+                                       (receivers,))
             agg_pool.close()
             agg_pool.join()
             aggregator.get()
