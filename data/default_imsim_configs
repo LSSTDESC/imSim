@@ -50,4 +50,4 @@ sort_magnorm = True
 # FWHM in arcsec of the Gaussian to convolve with the baseline
 # AtmosphericPSF + OptWF PSF to account for additional instrumental
 # effects.
-gaussianFWHM = 0.3
+gaussianFWHM = 0.4
