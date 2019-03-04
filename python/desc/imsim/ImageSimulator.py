@@ -239,9 +239,8 @@ class ImageSimulator:
         global CHECKPOINT_SUMMARY
         if (self.file_id is not None and processes > 1 and
             CHECKPOINT_SUMMARY is None):
-            visit = self.obs_md.OpsimMetaData['obshistID']
-            CHECKPOINT_SUMMARY \
-                = CheckpointSummary(db_file='ckpt_{}_{}.sqlite3'.format(visit, node_id))
+            db_file = 'ckpt_{}_{}.sqlite3'.format(self.file_id, node_id)
+            CHECKPOINT_SUMMARY = CheckpointSummary(db_file=db_file)
 
         results = []
         if processes == 1:
