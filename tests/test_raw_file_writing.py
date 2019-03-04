@@ -45,7 +45,14 @@ class RawFileOutputTestCase(unittest.TestCase):
         gs_image = gs_interpreter.blankImage(detector)
         raw_image = desc.imsim.ImageSource.create_from_galsim_image(gs_image)
         self.outfile = 'lsst_a_{}_r.fits'.format(chipid)
-        raw_image.write_fits_file(self.outfile, overwrite=True)
+
+        # Add keyword values via an optional dict.
+        added_keywords = {'GAUSFWHM': 0.4,
+                          'FOOBAR': 'hello, world'}
+
+        raw_image.write_fits_file(self.outfile, overwrite=True,
+                                  added_keywords=added_keywords)
+
         # Test some keywords.
         with fits.open(self.outfile) as raw_file:
             hdr = raw_file[0].header
@@ -61,6 +68,10 @@ class RawFileOutputTestCase(unittest.TestCase):
             self.assertEqual(hdr['DATE-END'], '2022-08-06T06:51:29.338')
             self.assertEqual(hdr['TIMESYS'], 'TAI')
             self.assertEqual(hdr['OBSTYPE'], 'SKYEXP')
+
+            # Test the added_keywords.
+            for key, value in added_keywords.items():
+                self.assertEqual(hdr[key], value)
 
 
 if __name__ == '__main__':

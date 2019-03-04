@@ -455,7 +455,7 @@ class ImageSource(object):
 
     def write_fits_file(self, outfile, overwrite=True, run_number=None,
                         lsst_num='LCA-11021_RTM-000', compress=True,
-                        image_type='SKYEXP'):
+                        image_type='SKYEXP', added_keywords=None):
         """
         Write the processed eimage data as a multi-extension FITS file.
 
@@ -469,8 +469,12 @@ class ImageSource(object):
             Run number.  If None, then the visit number is used.
         compress: bool [True]
             Use RICE_1 compression for each image HDU.
-        image_type str ['SKYEXP']
+        image_type: str ['SKYEXP']
             Image type to write to the `OBSTYPE` and `IMGTYPE` keywords.
+        added_keywords: dict [None]
+            Python dict of key/value pairs to add to the primary HDU.
+            These will be set just before writing the FITS file, so
+            they will override any existing keywords.
         """
         output = fits.HDUList(fits.PrimaryHDU())
         output[0].header = self.eimage[0].header
@@ -515,6 +519,11 @@ class ImageSource(object):
                                      rotSkyPos=self.rotangle)
         alt_end, _, _ = altAzPaFromRaDec(self.ratel, self.dectel, obs_md)
         output[0].header['AMEND'] = airmass(alt_end)
+
+        # Write the added_keywords.
+        if added_keywords is not None:
+            for key, value in added_keywords.items():
+                output[0].header[key] = value
 
         # Write the seed used by the read noise and dark current.
         output[0].header['RN_SEED'] = self.seed
