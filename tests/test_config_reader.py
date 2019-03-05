@@ -43,6 +43,14 @@ class ImSimConfigurationTestCase(unittest.TestCase):
         desc.imsim.read_config(self.test_config_file)
         self.assertAlmostEqual(config['electronics_readout']['readout_time'], 2.)
 
+        # Check that specifying a non-existent config file raises a
+        # FileNotFoundError.
+        temp_file = 'config_reader_test_file.txt'
+        if os.path.isfile(temp_file):
+            os.remove(temp_file)
+        self.assertRaises(FileNotFoundError, desc.imsim.read_config,
+                          (temp_file,))
+
     def test_get_config(self):
         "Test the get_config function."
         # Read the default config.

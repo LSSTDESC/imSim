@@ -764,7 +764,10 @@ def read_config(config_file=None):
     if config_file is None:
         config_file = os.path.join(lsstUtils.getPackageDir('imsim'),
                                    'data', 'default_imsim_configs')
-    cp.read(config_file)
+
+    if not cp.read(config_file):
+        raise FileNotFoundError("Config file {} not found".format(config_file))
+
     for section in cp.sections():
         for key, value in cp.items(section):
             my_config.set_from_config(section, key, value)
