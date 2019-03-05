@@ -22,6 +22,7 @@ from .bleed_trails import apply_channel_bleeding
 from .skyModel import make_sky_model
 from .process_monitor import process_monitor
 from .camera_readout import ImageSource
+from .atmPSF import AtmosphericPSF
 
 __all__ = ['ImageSimulator', 'compress_files']
 
@@ -464,8 +465,10 @@ class SimulateSensor:
             else:
                 raw = ImageSource.create_from_galsim_image(gs_image)
                 outfile = IMAGE_SIMULATOR.output_file(detector.name, raw=True)
-                gaussianFWHM = IMAGE_SIMULATOR.config['psf']['gaussianFWHM']
-                added_keywords = {'GAUSFWHM': gaussianFWHM}
+                added_keywords = dict()
+                if isinstance(IMAGE_SIMULATOR.psf, AtmosphericPSF):
+                    gaussianFWHM = IMAGE_SIMULATOR.config['psf']['gaussianFWHM']
+                    added_keywords['GAUSFWHM'] = gaussianFWHM
                 raw.write_fits_file(outfile,
                                     compress=persist['raw_file_compress'],
                                     added_keywords=added_keywords)
