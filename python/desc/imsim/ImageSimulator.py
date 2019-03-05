@@ -464,8 +464,11 @@ class SimulateSensor:
             else:
                 raw = ImageSource.create_from_galsim_image(gs_image)
                 outfile = IMAGE_SIMULATOR.output_file(detector.name, raw=True)
+                gaussianFWHM = IMAGE_SIMULATOR.config['psf']['gaussianFWHM']
+                added_keywords = {'GAUSFWHM': gaussianFWHM}
                 raw.write_fits_file(outfile,
-                                    compress=persist['raw_file_compress'])
+                                    compress=persist['raw_file_compress'],
+                                    added_keywords=added_keywords)
 
     def write_eimage_files(self, gs_interpreter):
         """
