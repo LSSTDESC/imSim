@@ -17,11 +17,12 @@ from lsst.sims.GalSimInterface import make_galsim_detector
 from lsst.sims.GalSimInterface import make_gs_interpreter
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from .imSim import read_config, parsePhoSimInstanceFile, add_cosmic_rays,\
-    add_treering_info, get_logger
+    add_treering_info, get_logger, TracebackDecorator
 from .bleed_trails import apply_channel_bleeding
 from .skyModel import make_sky_model
 from .process_monitor import process_monitor
 from .camera_readout import ImageSource
+from .atmPSF import AtmosphericPSF
 
 __all__ = ['ImageSimulator', 'compress_files']
 
@@ -194,8 +195,8 @@ class ImageSimulator:
         -------
         str: The checkpoint file name.
         """
-        return '-'.join(('checkpoint', file_id,
-                         re.sub('[:, ]', '_', det_name))) + '.ckpt'
+        my_detname = "R{}{}_S{}{}".format(*[_ for _ in det_name if _.isdigit()])
+        return '-'.join(('checkpoint', file_id, my_detname)) + '.ckpt'
 
     def output_file(self, det_name, raw=True):
         """
@@ -239,9 +240,8 @@ class ImageSimulator:
         global CHECKPOINT_SUMMARY
         if (self.file_id is not None and processes > 1 and
             CHECKPOINT_SUMMARY is None):
-            visit = self.obs_md.OpsimMetaData['obshistID']
-            CHECKPOINT_SUMMARY \
-                = CheckpointSummary(db_file='ckpt_{}_{}.sqlite3'.format(visit, node_id))
+            db_file = 'ckpt_{}_{}.sqlite3'.format(self.file_id, node_id)
+            CHECKPOINT_SUMMARY = CheckpointSummary(db_file=db_file)
 
         results = []
         if processes == 1:
@@ -257,8 +257,8 @@ class ImageSimulator:
         pool = multiprocessing.Pool(processes=processes)
         receivers = []
         if wait_time is not None:
-            results.append(pool.apply_async(process_monitor, (),
-                                            dict(wait_time=wait_time)))
+            results.append(pool.apply_async(TracebackDecorator(process_monitor),
+                                            (), dict(wait_time=wait_time)))
         for det_name in self.gs_interpreters:
             gs_objects = self.gs_obj_dict[det_name]
             if self._outfiles_exist(det_name) or not gs_objects:
@@ -280,7 +280,8 @@ class ImageSimulator:
             simulate_sensor = SimulateSensor(det_name, self.log_level, sender)
 
             # Add it to the processing pool.
-            results.append(pool.apply_async(simulate_sensor, (gs_objects,)))
+            results.append(pool.apply_async(TracebackDecorator(simulate_sensor),
+                                            (gs_objects,)))
         pool.close()
 
         if CHECKPOINT_SUMMARY is not None:
@@ -288,7 +289,8 @@ class ImageSimulator:
             # checkpoint_aggregator.
             agg_pool = multiprocessing.Pool(processes=1)
             aggregator \
-                = agg_pool.apply_async(checkpoint_aggregator, (receivers,))
+                = agg_pool.apply_async(TracebackDecorator(checkpoint_aggregator),
+                                       (receivers,))
             agg_pool.close()
             agg_pool.join()
             aggregator.get()
@@ -463,8 +465,13 @@ class SimulateSensor:
             else:
                 raw = ImageSource.create_from_galsim_image(gs_image)
                 outfile = IMAGE_SIMULATOR.output_file(detector.name, raw=True)
+                added_keywords = dict()
+                if isinstance(IMAGE_SIMULATOR.psf, AtmosphericPSF):
+                    gaussianFWHM = IMAGE_SIMULATOR.config['psf']['gaussianFWHM']
+                    added_keywords['GAUSFWHM'] = gaussianFWHM
                 raw.write_fits_file(outfile,
-                                    compress=persist['raw_file_compress'])
+                                    compress=persist['raw_file_compress'],
+                                    added_keywords=added_keywords)
 
     def write_eimage_files(self, gs_interpreter):
         """
