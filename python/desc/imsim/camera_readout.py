@@ -16,6 +16,7 @@ from __future__ import print_function, absolute_import, division
 import os
 import warnings
 from collections import namedtuple, OrderedDict
+import tempfile
 import sqlite3
 import numpy as np
 import scipy
@@ -24,7 +25,6 @@ import astropy.time
 import galsim
 import lsst.afw.geom as afwGeom
 import lsst.afw.image as afwImage
-import lsst.utils as lsstUtils
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
     from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
@@ -436,23 +436,6 @@ class ImageSource(object):
 
         return hdu
 
-    def write_amplifier_image(self, amp_name, outfile, overwrite=True):
-        """
-        Write the pixel data for the specified amplifier as FITS image.
-
-        Parameters
-        ----------
-        amp_name: str
-            Amplifier id, e.g., "R22_S11_C00".
-        outfile: str
-            Filename of the FITS file to be written.
-        overwrite: bool [True]
-            Flag whether to overwrite an existing output file.
-        """
-        output = fits.HDUList(fits.PrimaryHDU())
-        output.append(self.get_amplifier_hdu(amp_name))
-        output.writeto(outfile, overwrite=overwrite)
-
     def write_fits_file(self, outfile, overwrite=True, run_number=None,
                         lsst_num='LCA-11021_RTM-000', compress=True,
                         image_type='SKYEXP', added_keywords=None):
@@ -534,7 +517,34 @@ class ImageSource(object):
             amp_name = '_C'.join((self.sensor_id, seg_id))
             output.append(self.get_amplifier_hdu(amp_name, compress=compress))
             output[-1].header['EXTNAME'] = 'Segment%s' % seg_id
-        output.writeto(outfile, overwrite=overwrite)
+        self.fits_atomic_write(output, outfile, overwrite=overwrite)
+
+    @staticmethod
+    def fits_atomic_write(hdulist, outfile, overwrite=True):
+        """
+        Perform an atomic write of a FITS file using astropy.io.fits by
+        writing to a temporary file then renaming to the final filename.
+
+        Parameters
+        ----------
+        hdulist: astropy.io.HDUList
+            HDU list object to write as a FITS file.
+        outfile: str
+            Destination filename.
+        overwrite: bool [True]
+            Flag to overwrite an existing output file.  If False and the
+            file already exisits, this function will raise a RuntimeError.
+        """
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False,
+                                         dir='.') as tmp:
+            hdulist.writeto(tmp)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+            os.chmod(tmp.name, 0o660)
+        if not overwrite and os.path.isfile(outfile):
+            raise RuntimeError(
+                'File {} exists already. Cannot overwrite.'.format(outfile))
+        os.rename(tmp.name, outfile)
 
     @staticmethod
     def _noao_section_keyword(bbox, flipx=False, flipy=False):
