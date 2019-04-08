@@ -436,23 +436,6 @@ class ImageSource(object):
 
         return hdu
 
-    def write_amplifier_image(self, amp_name, outfile, overwrite=True):
-        """
-        Write the pixel data for the specified amplifier as FITS image.
-
-        Parameters
-        ----------
-        amp_name: str
-            Amplifier id, e.g., "R22_S11_C00".
-        outfile: str
-            Filename of the FITS file to be written.
-        overwrite: bool [True]
-            Flag whether to overwrite an existing output file.
-        """
-        output = fits.HDUList(fits.PrimaryHDU())
-        output.append(self.get_amplifier_hdu(amp_name))
-        self.fits_atomic_write(output, outfile, overwrite=overwrite)
-
     def write_fits_file(self, outfile, overwrite=True, run_number=None,
                         lsst_num='LCA-11021_RTM-000', compress=True,
                         image_type='SKYEXP', added_keywords=None):
