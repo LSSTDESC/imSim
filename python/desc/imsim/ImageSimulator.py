@@ -15,7 +15,7 @@ from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
 from lsst.sims.GalSimInterface import make_galsim_detector
 from lsst.sims.GalSimInterface import make_gs_interpreter
-from lsst.sims.GalSimInterface import LSSTCameraWrapper
+from lsst.sims.GalSimInterface import LSSTCameraWrapper, LsstObservatory
 from .imSim import read_config, parsePhoSimInstanceFile, add_cosmic_rays,\
     add_treering_info, get_logger, TracebackDecorator
 from .bleed_trails import apply_channel_bleeding
@@ -100,6 +100,10 @@ class ImageSimulator:
         self.gs_obj_dict = sources[1]
         self.apply_sensor_model = apply_sensor_model
         self.file_id = file_id
+        # Create an LsstObservatory object to be shared among the
+        # GalSimInterpeter objects to avoid the computational cost in
+        # making one for each.
+        self.lsstObservatory = LsstObservatory()
         self._make_gs_interpreters(seed, sensor_list, file_id)
         self.log_level = log_level
         self.logger = get_logger(self.log_level, name='ImageSimulator')
@@ -150,6 +154,7 @@ class ImageSimulator:
                                       apply_sensor_model=self.apply_sensor_model,
                                       bf_strength=self.config['ccd']['bf_strength'])
 
+            self.gs_interpreters[det_name]._observatory = self.lsstObservatory
             self.gs_interpreters[det_name].sky_bg_per_pixel \
                 = noise_and_background.sky_counts(det_name)
             self.gs_interpreters[det_name].setPSF(PSF=self.psf)
