@@ -461,6 +461,12 @@ class ImageSource(object):
         """
         output = fits.HDUList(fits.PrimaryHDU())
         output[0].header = self.eimage[0].header
+        # Re-insert the WCSAXES keyword to precede any other WCS
+        # keywords as stipulated in the FITS Standard, version 4.0,
+        # section 8.2.
+        wcsaxes = output[0].header['WCSAXES']
+        del output[0].header['WCSAXES']
+        output[0].header.insert(5, ('WCSAXES', wcsaxes, ''))
         if run_number is None:
             run_number = self.visit
         output[0].header['RUNNUM'] = str(run_number)
