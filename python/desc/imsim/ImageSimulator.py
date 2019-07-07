@@ -130,9 +130,11 @@ class ImageSimulator:
         InstCatTrimmer object in gs_obj_dict can be recovered.
         """
         bp_dict = BandpassDict.loadTotalBandpassesFromFiles(bandpassNames=self.obs_md.bandpass)
+        disable_sky_model = self.config['sky_model']['disable_sky_model']
         noise_and_background \
             = make_sky_model(self.obs_md, self.phot_params, seed=seed,
-                             apply_sensor_model=self.apply_sensor_model)
+                             apply_sensor_model=self.apply_sensor_model,
+                             disable_sky_model=disable_sky_model)
         self.gs_interpreters = dict()
         for det in self.camera_wrapper.camera:
             det_type = det.getType()

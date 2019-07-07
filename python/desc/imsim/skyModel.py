@@ -19,8 +19,10 @@ __all__ = ['make_sky_model', 'get_chip_center', 'SkyCountsPerSec',
 
 def make_sky_model(obs_metadata, photParams, seed=None, bandpassDict=None,
                    addNoise=True, addBackground=True, apply_sensor_model=False,
-                   logger=None, fast_silicon=True):
+                   logger=None, fast_silicon=True, disable_sky_model=False):
     "Function to provide ESOSkyModel object."
+    if disable_sky_model:
+        return NullSkyModel()
     if apply_sensor_model:
         if fast_silicon:
             return FastSiliconSkyModel(obs_metadata, photParams,
@@ -117,6 +119,18 @@ def get_chip_center(chip_name, camera):
 
     return center_x, center_y
 
+class NullSkyModel(NoiseAndBackgroundBase):
+    def __init__(self):
+        pass
+
+    def addNoiseAndBackground(self, image, **kwds):
+        return image
+
+    def getNoiseModel(self, **kwds):
+        raise NotImplementedError("This should not be called.")
+
+    def sky_counts(self, chipName):
+        return 0
 
 class ESOSkyModel(NoiseAndBackgroundBase):
     """

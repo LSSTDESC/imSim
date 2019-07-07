@@ -38,7 +38,6 @@ from .cosmic_rays import CosmicRays
 __all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
            'set_phosim_bboxes', 'set_noao_keywords', 'cte_matrix']
 
-config = get_config()
 class ImageSource(object):
     '''
     Class to create single segment images based on the pixel geometry
@@ -84,6 +83,8 @@ class ImageSource(object):
             self.logger = get_logger('INFO')
         else:
             self.logger = logger
+
+        self.config = get_config()
 
         self.eimage = fits.HDUList()
         self.eimage.append(fits.PrimaryHDU(image_array))
@@ -259,6 +260,9 @@ class ImageSource(object):
         for amp_name in amp_names:
             self._make_amp_image(amp_name)
         self._apply_crosstalk()
+        if self.config['electronics_readout']\
+           ['disable_readnoise_bias_darkcurrent']:
+            return
         for amp_name in amp_names:
             self._add_read_noise_and_bias(amp_name)
 
@@ -291,8 +295,9 @@ class ImageSource(object):
         imaging_segment.getArray()[:] = data
 
         # Add dark current.
-        if self.exptime > 0:
-            dark_current = config['electronics_readout']['dark_current']
+        if (self.exptime > 0 and not self.config['electronics_readout']
+            ['disable_readnoise_bias_darkcurrent']):
+            dark_current = self.config['electronics_readout']['dark_current']
             imaging_arr = imaging_segment.getArray()
             rng = galsim.PoissonDeviate(seed=self.rng,
                                         mean=dark_current*self.exptime)
@@ -304,12 +309,12 @@ class ImageSource(object):
 
         # Apply CTE.
         full_arr = full_segment.getArray()
-        pcti = config['electronics_readout']['pcti']
+        pcti = self.config['electronics_readout']['pcti']
         pcte_matrix = cte_matrix(full_arr.shape[0], pcti)
         for col in range(0, full_arr.shape[1]):
             full_arr[:, col] = np.dot(pcte_matrix, full_arr[:, col])
 
-        scti = config['electronics_readout']['scti']
+        scti = self.config['electronics_readout']['scti']
         scte_matrix = cte_matrix(full_arr.shape[1], scti)
         for row in range(0, full_arr.shape[0]):
             full_arr[row, :] = np.dot(scte_matrix, full_arr[row, :])
@@ -336,7 +341,7 @@ class ImageSource(object):
         rn_data = np.zeros(np.prod(full_arr.shape))
         rng.generate(rn_data)
         full_arr += rn_data.reshape(full_arr.shape)
-        full_arr += config['electronics_readout']['bias_level']
+        full_arr += self.config['electronics_readout']['bias_level']
 
     @property
     def rng(self):
