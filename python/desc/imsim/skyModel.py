@@ -119,17 +119,25 @@ def get_chip_center(chip_name, camera):
 
     return center_x, center_y
 
+
 class NullSkyModel(NoiseAndBackgroundBase):
+    """
+    Class to disable the sky model entirely. Can be used to produce
+    FITS file for object injection or for testing individual object
+    rendering.
+    """
     def __init__(self):
         pass
 
     def addNoiseAndBackground(self, image, **kwds):
+        """
+        Return the image as-is, i.e., without adding any sky background
+        photons.
+        """
         return image
 
-    def getNoiseModel(self, **kwds):
-        raise NotImplementedError("This should not be called.")
-
     def sky_counts(self, chipName):
+        """Return zero sky background counts."""
         return 0
 
 class ESOSkyModel(NoiseAndBackgroundBase):
