@@ -56,6 +56,14 @@ class ImageSourceTestCase(unittest.TestCase):
         image = self.image_source.get_amp_image(amp_info_record)
         self.assertTupleEqual(image.getArray().shape, (2048, 544))
 
+    def test_raw_file_headers(self):
+        "Test contents of raw file headers."
+        outfile = 'raw_file_test.fits'
+        self.image_source.write_fits_file(outfile)
+        with fits.open(outfile) as hdus:
+            self.assertEqual(hdus[0].header['IMSIMVER'], desc.imsim.__version__)
+        os.remove(outfile)
+
 
 class NoaoKeywordTestCase(unittest.TestCase):
     "TestCase class for raft-level NOAO mosaicking keywords"

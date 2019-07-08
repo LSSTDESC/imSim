@@ -34,6 +34,7 @@ with warnings.catch_warnings():
 from .camera_info import CameraInfo, getHourAngle
 from .imSim import get_logger, get_config, airmass
 from .cosmic_rays import CosmicRays
+from .version import __version__ as imsim_version
 
 __all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
            'set_phosim_bboxes', 'set_noao_keywords', 'cte_matrix']
@@ -475,6 +476,7 @@ class ImageSource(object):
         output[0].header.insert(5, ('WCSAXES', wcsaxes, ''))
         if run_number is None:
             run_number = self.visit
+        output[0].header['IMSIMVER'] = imsim_version
         output[0].header['RUNNUM'] = str(run_number)
         output[0].header['DARKTIME'] = output[0].header['EXPTIME']
         output[0].header['TIMESYS'] = 'TAI'
