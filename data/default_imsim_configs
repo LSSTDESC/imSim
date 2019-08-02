@@ -4,6 +4,10 @@ dark_current = 0.02
 bias_level = 1000.
 pcti = 1e-6
 scti = 1e-6
+disable_readnoise_bias_darkcurrent = False
+
+[sky_model]
+disable_sky_model = False
 
 [ccd]
 full_well = 1e5

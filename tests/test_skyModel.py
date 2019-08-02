@@ -171,5 +171,18 @@ class SkyModelTestCase(unittest.TestCase):
         skycounts_persec_u = skycounts_persec('u', 24)
         self.assertAlmostEqual(skycounts_persec_u.value, self.zp_u)
 
+    def test_NullSkyModel(self):
+        """Test that the NullSkyModel adds zero photons."""
+        commands = copy.deepcopy(self.commands)
+        photParams = desc.imsim.photometricParameters(commands)
+        null_sky_model = desc.imsim.make_sky_model(self.obs_md, photParams,
+                                                   disable_sky_model=True)
+        nx, ny = 30, 30
+        image = galsim.Image(nx, ny)
+        image = null_sky_model.addNoiseAndBackground(image,
+                                                     photParams=photParams,
+                                                     detector=self.detector())
+        self.assertEqual(0, np.sum(image.array.ravel()))
+
 if __name__ == '__main__':
     unittest.main()
