@@ -49,7 +49,8 @@ class ImageSimulator:
     """
     def __init__(self, instcat, psf, numRows=None, config=None, seed=267,
                  outdir='fits', sensor_list=None, apply_sensor_model=True,
-                 create_centroid_file=False, file_id=None, log_level='WARN'):
+                 create_centroid_file=False, file_id=None, log_level='WARN',
+                 ckpt_archive_dir=None):
         """
         Parameters
         ----------
@@ -80,6 +81,12 @@ class ImageSimulator:
             If None, then no checkpoint file will be used
         log_level: str ['WARN']
             Logging level ('DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL').
+        ckpt_archive_dir: str [None]
+            If this is not None, then after a sensor-visit has written
+            its output FITS file(s), the associated checkpoint file will
+            be moved to this directory instead of deleted.  If set to
+            `None`, then delete the checkpoint file (assuming the
+            `checkpointing.cleanup` config parameter is True).
         """
         self.config = read_config(config)
         self.log_level = log_level
@@ -103,6 +110,10 @@ class ImageSimulator:
         self._make_gs_interpreters(seed, sensor_list, file_id)
         self.log_level = log_level
         self.logger = get_logger(self.log_level, name='ImageSimulator')
+        self.ckpt_archive_dir = ckpt_archive_dir
+        if (self.ckpt_archive_dir is not None and
+            not os.path.isdir(self.ckpt_archive_dir)):
+            os.makedirs(self.ckpt_archive_dir)
 
     def _gather_checkpoint_files(self, sensor_list, file_id=None):
         """
@@ -423,13 +434,19 @@ class SimulateSensor:
         # Write out the centroid files if they were made.
         gs_interpreter.write_centroid_files()
 
-        # The image for the sensor-visit has been drawn, so delete any
-        # existing checkpoint file if the config says to do so.
+        # The image for the sensor-visit has been drawn, so delete or
+        # move to the archive area any existing checkpoint file if the
+        # config says perform the cleanup.
         if (gs_interpreter.checkpoint_file is not None
                 and os.path.isfile(gs_interpreter.checkpoint_file)
                 and IMAGE_SIMULATOR.config['checkpointing']['cleanup']):
-            os.remove(gs_interpreter.checkpoint_file)
-
+            if IMAGE_SIMULATOR.ckpt_archive_dir is None:
+                os.remove(gs_interpreter.checkpoint_file)
+            else:
+                src_file = gs_interpreter.checkpoint_file
+                dest_file = os.path.join(IMAGE_SIMULATOR.ckpt_archive_dir,
+                                         os.path.basename(src_file))
+                shutil.move(src_file, dest_file)
         # Remove reference to gs_interpreter in order to recover the
         # memory associated with that object.
         IMAGE_SIMULATOR.gs_interpreters[self.sensor_name] = None
