@@ -8,6 +8,7 @@ import multiprocessing
 import warnings
 import gzip
 import shutil
+import tempfile
 import sqlite3
 import numpy as np
 from astropy._erfa import ErfaWarning
@@ -444,9 +445,13 @@ class SimulateSensor:
                 os.remove(gs_interpreter.checkpoint_file)
             else:
                 src_file = gs_interpreter.checkpoint_file
-                dest_file = os.path.join(IMAGE_SIMULATOR.ckpt_archive_dir,
-                                         os.path.basename(src_file))
-                shutil.move(src_file, dest_file)
+                dest_dir = os.path.abspath(IMAGE_SIMULATOR.ckpt_archive_dir)
+                dest_file = os.path.join(dest_dir, os.path.basename(src_file))
+                with tempfile.NamedTemporaryFile(mode='wb', delete=False,
+                                                 dir=dest_dir) as tmp:
+                    shutil.copy(src_file, tmp.name)
+                    os.rename(tmp.name, dest_file)
+                os.remove(src_file)
         # Remove reference to gs_interpreter in order to recover the
         # memory associated with that object.
         IMAGE_SIMULATOR.gs_interpreters[self.sensor_name] = None
