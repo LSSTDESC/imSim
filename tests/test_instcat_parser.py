@@ -400,10 +400,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                 desired_warning_dex = i_ww
                 break
 
-        if desired_warning_dex<0:
-            raise RuntimeError("Expected warning about bad sources "
-                               "not issued")
-
         message = wa[desired_warning_dex].message.args[0]
 
         # these are the objects that should be omitted
@@ -411,12 +407,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                               [34307989098524, 811883374597,
                                811883374596, 956090392580,
                                34307989098523, 34304522113056]])
-
-        self.assertIn('Omitted 6 suspicious objects', message)
-        self.assertIn('4 had galactic_Av', message)
-        self.assertIn('1 had mag_norm', message)
-        self.assertIn('1 had semi_major_axis', message)
-        self.assertIn('1 had n_points', message)
 
         self.assertEqual(len(my_objs), 18)
         for obj in instcat_contents.sources[0]:
