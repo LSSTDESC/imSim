@@ -389,18 +389,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             my_objs = set()
             for sensor in sensors:
                 [my_objs.add(x) for x in instcat_contents.sources[1][sensor]]
-        self.assertGreater(len(wa), 0)
-
-        # we must detect which warning is the warning we are actually
-        # testing, because PALPY keeps raising ERFAWarnings over our
-        # request for dates in the future
-        desired_warning_dex = -1
-        for i_ww, ww in enumerate(wa):
-            if 'Omitted 6 suspicious objects' in ww.message.args[0]:
-                desired_warning_dex = i_ww
-                break
-
-        message = wa[desired_warning_dex].message.args[0]
 
         # these are the objects that should be omitted
         bad_unique_ids = set([str(x) for x in
