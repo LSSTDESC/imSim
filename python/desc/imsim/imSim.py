@@ -611,67 +611,184 @@ def parsePhoSimInstanceFile(fileName, sensor_list, numRows=None,
                               log_level=log_level, sort_magnorm=sort_magnorm)
     gs_object_dict = {detname: GsObjectList(instcats[detname], instcats.obs_md,
                                             phot_params, instcats.instcat_file,
-                                            chip_name=detname,
-                                            log_level=log_level)
+                                            detname, log_level=log_level)
                       for detname in sensor_list}
 
     return PhoSimInstanceCatalogContents(obs_metadata,
                                          phot_params,
                                          ([], gs_object_dict))
 
-
 class GsObjectList:
-    """
-    List-like class to provide access to lists of objects from an
-    instance catalog, deferring creation of GalSimCelestialObjects
-    until items in the list are accessed.
-    """
-    def __init__(self, object_lines, obs_md, phot_params, file_name,
-                 chip_name=None, log_level='INFO'):
-        self.object_lines = object_lines
+    def __init__(self, object_lines, obs_md, phot_params, instcat_file,
+                 chip_name, log_level='INFO'):
         self.obs_md = obs_md
+        self.logger = get_logger(log_level, name=chip_name)
+        self._find_objects_on_chip(object_lines, chip_name)
         self.phot_params = phot_params
-        self.file_name = file_name
-        self.chip_name = chip_name
-        self.log_level = log_level
-        self._gs_objects = None
+        self.sed_dirs = sed_dirs(instcat_file)
+        config = get_config()
+        self.gamma2_sign = config['wl_params']['gamma2_sign']
 
-    @property
-    def gs_objects(self):
-        if self._gs_objects is None:
-            obj_arr, obj_dict \
-                = sources_from_list(self.object_lines, self.obs_md,
-                                    self.phot_params, self.file_name,
-                                    target_chip=self.chip_name,
-                                    log_level=self.log_level)
-            if self.chip_name is not None:
-                try:
-                    self._gs_objects = obj_dict[self.chip_name]
-                except KeyError:
-                    self._gs_objects = []
-            else:
-                self._gs_objects = obj_arr
-        return self._gs_objects
+    def _find_objects_on_chip(self, object_lines, chip_name):
+        num_lines = len(object_lines)
+        ra_phosim = np.zeros(num_lines, dtype=float)
+        dec_phosim = np.zeros(num_lines, dtype=float)
+        mag_norm = 55.*np.ones(num_lines, dtype=float)
+        for i, line in enumerate(object_lines):
+            if not line.startswith('object'):
+                raise RuntimeError('Trying to process non-object entry from '
+                                   'the instance catalog.')
+            tokens = line.split()
+            ra_phosim[i] = float(tokens[2])
+            dec_phosim[i] = float(tokens[3])
+            mag_norm[i] = float(tokens[4])
+        ra_appGeo, dec_appGeo \
+            = PhoSimAstrometryBase._appGeoFromPhoSim(np.radians(ra_phosim),
+                                                     np.radians(dec_phosim),
+                                                     self.obs_md)
+        ra_obs_rad, dec_obs_rad \
+            = _observedFromAppGeo(ra_appGeo, dec_appGeo,
+                                  obs_metadata=self.obs_md,
+                                  includeRefraction=True)
+        x_pupil, y_pupil = _pupilCoordsFromObserved(ra_obs_rad, dec_obs_rad,
+                                                    self.obs_md)
+        on_chip_dict = _chip_downselect(mag_norm, x_pupil, y_pupil,
+                                        self.logger, [chip_name])
+        index = on_chip_dict[chip_name]
+        self.object_lines = []
+        for i in index[0]:
+            self.object_lines.append(object_lines[i])
+        self.x_pupil = list(x_pupil[index])
+        self.y_pupil = list(y_pupil[index])
+        self.bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
 
     def reset(self):
-        """
-        Reset the ._gs_objects attribute to None in order to recover
-        memory devoted to the GalSimCelestialObject instances.
-        """
-        self._gs_objects = None
+        pass
 
     def __len__(self):
-        try:
-            return len(self._gs_objects)
-        except TypeError:
-            return len(self.object_lines)
+        return len(self.object_lines)
 
     def __iter__(self):
-        for gs_obj in self.gs_objects:
-            yield gs_obj
+        return self
 
-    def __getitem__(self, index):
-        return self.gs_objects[index]
+    def __next__(self):
+        try:
+            while True:
+                gs_obj = self._make_gs_object(self.object_lines.pop(0),
+                                              self.x_pupil.pop(0),
+                                              self.y_pupil.pop(0))
+                if gs_obj is not None:
+                    return gs_obj
+        except IndexError:
+            raise StopIteration()
+
+    def _make_gs_object(self, object_line, x_pupil, y_pupil):
+        params = object_line.strip().split()
+        unique_id = params[1]
+        ra_phosim = float(params[2])
+        dec_phosim = float(params[3])
+        mag_norm = float(params[4])
+        sed_name = params[5]
+        redshift = float(params[6])
+        gamma1 = float(params[7])
+        gamma2 = self.gamma2_sign*float(params[8])
+        kappa = float(params[9])
+        internal_av = 0
+        internal_rv = 0
+        galactic_av = 0
+        galactic_rv = 0
+        fits_file = None
+        pixel_scale = 0
+        rotation_angle = 0
+        npoints = 0
+        semi_major_arcsec = 0
+        semi_minor_arcsec = 0
+        position_angle_degrees = 0
+        sersic_index = 0
+        if params[12].lower() == 'point':
+            gs_type = 'pointSource'
+            i_gal_dust_model = 14
+            if params[13].lower() != 'none':
+                i_gal_dust_model = 16
+                internal_av = float(params[14])
+                internal_rv =float(params[15])
+            if params[i_gal_dust_model].lower() != 'none':
+                galactic_av = float(params[i_gal_dust_model+1])
+                galactic_rv = float(params[i_gal_dust_model+2])
+        elif params[12].lower() == 'sersic2d':
+            gs_type = 'sersic'
+            semi_major_arcsec = float(params[13])
+            semi_minor_arcsec = float(params[14])
+            position_angle_degrees = float(params[15])
+            sersic_index = float(params[16])
+            i_gal_dust_model = 18
+            if params[17].lower() != 'none':
+                i_gal_dust_model = 20
+                internal_av = float(params[18])
+                internal_rv = float(params[19])
+            if params[i_gal_dust_model].lower() != 'none':
+                galactic_av = float(params[i_gal_dust_model+1])
+                galactic_rv = float(params[i_gal_dust_model+2])
+        elif params[12].lower() == 'knots':
+            gs_type = 'RandomWalk'
+            semi_major_arcsec = float(params[13])
+            semi_minor_arcsec = float(params[14])
+            position_angle_degrees = float(params[15])
+            npoints = int(params[16])
+            i_gal_dust_model = 18
+            if params[17].lower() != 'none':
+                i_gal_dust_model = 20
+                internal_av = float(params[18])
+                internal_rv = float(params[19])
+            if params[i_gal_dust_model].lower() != 'none':
+                galactic_av = float(params[i_gal_dust_model+1])
+                galactic_rv = float(params[i_gal_dust_model+2])
+        elif (params[12].endswith('.fits') or params[12].endswith('.fits.gz')):
+            gs_type = 'FitsImage'
+            fits_file = find_file_path(params[12], get_image_dirs())
+            pixel_scale = float(params[13])
+            rotation_angle = float(params[14])
+            i_gal_dust_model = 16
+            if params[15].lower() != 'none':
+                i_gal_dust_model = 18
+                internal_av = float(params[16])
+                internal_rv = float(params[17])
+            if params[i_gal_dust_model].lower() != 'none':
+                galactic_av = float(params[i_gal_dust_model+1])
+                galactic_rv = float(params[i_gal_dust_model+2])
+        else:
+            raise RuntimeError("Do not know how to handle "
+                               "object type: %s" % params[12])
+
+        object_is_valid = (mag_norm < 50.0 and
+                           (galactic_av != 0 or galactic_rv != 0) and
+                           not (gs_type == 'sersic' and
+                                semi_major_arcsec < semi_minor_arcsec) and
+                           not (gs_type == 'RandomWalk' and npoints <=0))
+        if not object_is_valid:
+            return None
+        sed_obj = SedWrapper(find_file_path(sed_name, self.sed_dirs),
+                             mag_norm, redshift, internal_av, internal_rv,
+                             galactic_av, galactic_rv, self.bp_dict)
+        position_angle_radians = np.radians(360 - position_angle_degrees)
+        gs_object = GalSimCelestialObject(gs_type, x_pupil, y_pupil,
+                                          radiansFromArcsec(semi_major_arcsec),
+                                          radiansFromArcsec(semi_minor_arcsec),
+                                          radiansFromArcsec(semi_major_arcsec),
+                                          position_angle_radians,
+                                          sersic_index,
+                                          sed_obj,
+                                          self.bp_dict,
+                                          self.phot_params,
+                                          npoints,
+                                          fits_file,
+                                          pixel_scale,
+                                          rotation_angle,
+                                          gamma1=gamma1,
+                                          gamma2=gamma2,
+                                          kappa=kappa,
+                                          uniqueId=unique_id)
+        return gs_object
 
 
 class ImSimConfiguration(object):
