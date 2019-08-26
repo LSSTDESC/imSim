@@ -50,6 +50,10 @@ parser.add_argument('--image_path', type=str, default=None,
                     "This will be prepended to any existing IMSIM_IMAGE_PATH "
                     "environment variable, for which $CWD is included by "
                     "default.")
+parser.add_argument('--ckpt_archive_dir', type=str, default=None,
+                    help="Archive directory for checkpoint files. "
+                    "If None, then delete them (if the checkpointing.cleanup "
+                    "configuration is True).")
 
 args = parser.parse_args()
 
@@ -89,6 +93,7 @@ with warnings.catch_warnings():
                                     apply_sensor_model=apply_sensor_model,
                                     create_centroid_file=args.create_centroid_file,
                                     file_id=args.file_id,
-                                    log_level=args.log_level)
+                                    log_level=args.log_level,
+                                    ckpt_archive_dir=args.ckpt_archive_dir)
 
     image_simulator.run(processes=args.processes)
