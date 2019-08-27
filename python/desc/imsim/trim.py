@@ -207,6 +207,8 @@ class InstCatTrimmer(dict):
         """
         num_gals = defaultdict(lambda: 0)
         self.update({sensor: [] for sensor in sensor_list})
+        if numRows is not None:
+            chunk_size = min(chunk_size, numRows)
         with desc.imsim.fopen(self.instcat_file, mode='rt') as fd:
             nread = 0
             while numRows is None or nread < numRows:
