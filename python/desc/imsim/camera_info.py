@@ -2,7 +2,7 @@
 Class to encapsulate info from lsst.obs.lsst.imsim.ImsimMapper().camera.
 """
 import astropy.time
-import lsst.afw.geom as afw_geom
+import lsst.geom as lsst_geom
 from lsst.obs.lsst.imsim import ImsimMapper
 
 __all__ = ['CameraInfo', 'getHourAngle']
@@ -65,15 +65,15 @@ class CameraInfo:
 
         Returns
         -------
-        lsst.afw.geom.Box2I
+        lsst.geom.Box2I
         """
         yseg, xseg = (int(x) for x in amp_info.getName()[-2:])
         width = amp_info.getBBox().getWidth()
         height = amp_info.getBBox().getHeight()
         xmin = xseg*width
         ymin = 0 if yseg == 1 else height
-        return afw_geom.Box2I(afw_geom.Point2I(xmin, ymin),
-                              afw_geom.Extent2I(width, height))
+        return lsst_geom.Box2I(lsst_geom.Point2I(xmin, ymin),
+                               lsst_geom.Extent2I(width, height))
 
 
 def getHourAngle(observatory, mjd, ra):
