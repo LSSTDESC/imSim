@@ -54,7 +54,6 @@ _FITS_IMAGE = 4
 
 __all__ = ['PhosimInstanceCatalogParseError',
            'photometricParameters', 'phosim_obs_metadata',
-           'sources_from_list',
            'metadata_from_file',
            'read_config', 'get_config', 'get_logger', 'get_image_dirs',
            'get_obs_lsstSim_camera',
@@ -62,7 +61,7 @@ __all__ = ['PhosimInstanceCatalogParseError',
            '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK', '_FITS_IMAGE',
            'parsePhoSimInstanceFile',
            'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom', 'make_psf',
-           'save_psf', 'load_psf', 'TracebackDecorator']
+           'save_psf', 'load_psf', 'TracebackDecorator', 'GsObjectList']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -158,268 +157,6 @@ def uss_mem():
     my_process = psutil.Process(os.getpid())
     return my_process.memory_full_info().uss/1024.**3
 
-
-def sources_from_list(object_lines, obs_md, phot_params, file_name,
-                      target_chip=None, log_level='INFO'):
-    """.
-
-    Parse the object lines from a phosim-style instance catalog and
-    repackage as GalSimCelestialObjects after applying on-chip
-    selections and consistency cuts on mag_norm, extinction
-    parameters, and galaxy shape and knot parameters.
-
-    Parameters
-    ----------
-    object_lines: list
-        List of object line entries from the instance catalog.
-    obs_md: ObservationMetaData
-        Visit-specific metadata from the instance catalog.
-    phot_params: PhotometricParameters
-        Visit-specific photometric data needed for computing object
-        fluxes.
-    file_name: str
-        The filename path of the instance catalog, used for inferring
-        the location of the Dynamic SEDs used by the sprinkled objects.
-    target_chip: str [None]
-        For multiprocessing mode, this is the name of the chip
-        (e.g., "R:2,2 S:1,1") being simulated.  If None, then
-        of the object lines are partitioned among all 189 science
-        sensors in the LSST focalplane.  Since this is a costly
-        calculation, doing it only for the target chip saves a lot
-        of compute time.
-    log_level: str ['INFO']
-        Logging level.
-
-    Returns
-    -------
-    list, dict:  A list of all the GalSimCelestialObjects that pass
-        the focalplane-level selections and a dict of those objects keyed
-        by chip name.
-    """
-    camera = get_obs_lsstSim_camera()
-    config = get_config()
-    logger = get_logger(log_level, name=(target_chip if target_chip is
-                                         not None else 'sources_from_list'))
-
-    num_objects = len(object_lines)
-
-    logger.debug('allocating object arrays, %s GB', uss_mem())
-    # RA, Dec in the coordinate system expected by PhoSim
-    ra_phosim = np.zeros(num_objects, dtype=float)
-    dec_phosim = np.zeros(num_objects, dtype=float)
-
-    sed_name = [None]*num_objects
-    mag_norm = 55.0*np.ones(num_objects, dtype=float)
-    gamma1 = np.zeros(num_objects, dtype=float)
-    gamma2 = np.zeros(num_objects, dtype=float)
-    gamma2_sign = config['wl_params']['gamma2_sign']
-    kappa = np.zeros(num_objects, dtype=float)
-
-    internal_av = np.zeros(num_objects, dtype=float)
-    internal_rv = np.zeros(num_objects, dtype=float)
-    galactic_av = np.zeros(num_objects, dtype=float)
-    galactic_rv = np.zeros(num_objects, dtype=float)
-    semi_major_arcsec = np.zeros(num_objects, dtype=float)
-    semi_minor_arcsec = np.zeros(num_objects, dtype=float)
-    position_angle_degrees = np.zeros(num_objects, dtype=float)
-    sersic_index = np.zeros(num_objects, dtype=float)
-    npoints = np.zeros(num_objects, dtype=int)
-    redshift = np.zeros(num_objects, dtype=float)
-    pixel_scale = np.zeros(num_objects, dtype=float)
-    rotation_angle = np.zeros(num_objects, dtype=float)
-    fits_image_file = dict()
-
-    unique_id = [None]*num_objects
-    object_type = np.zeros(num_objects, dtype=int)
-
-    logger.debug('looping over %s objects; %s GB', num_objects, uss_mem())
-    i_obj = -1
-    for line in object_lines:
-        params = line.strip().split()
-        if params[0] != 'object':
-            continue
-        i_obj += 1
-        unique_id[i_obj] = params[1]
-        ra_phosim[i_obj] = float(params[2])
-        dec_phosim[i_obj] = float(params[3])
-        mag_norm[i_obj] = float(params[4])
-        sed_name[i_obj] = params[5]
-        redshift[i_obj] = float(params[6])
-        gamma1[i_obj] = float(params[7])
-        gamma2[i_obj] = gamma2_sign*float(params[8])
-        kappa[i_obj] = float(params[9])
-        if params[12].lower() == 'point':
-            object_type[i_obj] = _POINT_SOURCE
-            i_gal_dust_model = 14
-            if params[13].lower() != 'none':
-                i_gal_dust_model = 16
-                internal_av[i_obj] = float(params[14])
-                internal_rv[i_obj] =float(params[15])
-            if params[i_gal_dust_model].lower() != 'none':
-                galactic_av[i_obj] = float(params[i_gal_dust_model+1])
-                galactic_rv[i_obj] = float(params[i_gal_dust_model+2])
-        elif params[12].lower() == 'sersic2d':
-            object_type[i_obj] = _SERSIC_2D
-            semi_major_arcsec[i_obj] = float(params[13])
-            semi_minor_arcsec[i_obj] = float(params[14])
-            position_angle_degrees[i_obj] = float(params[15])
-            sersic_index[i_obj] = float(params[16])
-            i_gal_dust_model = 18
-            if params[17].lower() != 'none':
-                i_gal_dust_model = 20
-                internal_av[i_obj] = float(params[18])
-                internal_rv[i_obj] = float(params[19])
-            if params[i_gal_dust_model].lower() != 'none':
-                galactic_av[i_obj] = float(params[i_gal_dust_model+1])
-                galactic_rv[i_obj] =float(params[i_gal_dust_model+2])
-        elif params[12].lower() == 'knots':
-            object_type[i_obj] = _RANDOM_WALK
-            semi_major_arcsec[i_obj] = float(params[13])
-            semi_minor_arcsec[i_obj] = float(params[14])
-            position_angle_degrees[i_obj] = float(params[15])
-            npoints[i_obj] = int(params[16])
-            i_gal_dust_model = 18
-            if params[17].lower() != 'none':
-                i_gal_dust_model = 20
-                internal_av[i_obj] = float(params[18])
-                internal_rv[i_obj] = float(params[19])
-            if params[i_gal_dust_model].lower() != 'none':
-                galactic_av[i_obj] = float(params[i_gal_dust_model+1])
-                galactic_rv[i_obj] = float(params[i_gal_dust_model+2])
-        elif (params[12].endswith('.fits') or params[12].endswith('.fits.gz')):
-            object_type[i_obj] = _FITS_IMAGE
-            fits_image_file[i_obj] = find_file_path(params[12], get_image_dirs())
-            pixel_scale[i_obj] = float(params[13])
-            rotation_angle[i_obj] = float(params[14])
-            i_gal_dust_model = 16
-            if params[15].lower() != 'none':
-                i_gal_dust_model = 18
-                internal_av[i_obj] = float(params[16])
-                internal_rv[i_obj] = float(params[17])
-            if params[i_gal_dust_model].lower() != 'none':
-                galactic_av[i_obj] = float(params[i_gal_dust_model+1])
-                galactic_rv[i_obj] = float(params[i_gal_dust_model+2])
-        else:
-            raise RuntimeError("Do not know how to handle "
-                               "object type: %s" % params[12])
-
-    logger.debug("computing pupil coords, %s GB", uss_mem())
-    ra_appGeo, dec_appGeo \
-        = PhoSimAstrometryBase._appGeoFromPhoSim(np.radians(ra_phosim),
-                                                 np.radians(dec_phosim),
-                                                 obs_md)
-
-    ra_obs_rad, dec_obs_rad \
-        = _observedFromAppGeo(ra_appGeo, dec_appGeo,
-                              obs_metadata=obs_md,
-                              includeRefraction=True)
-
-    semi_major_radians = radiansFromArcsec(semi_major_arcsec)
-    semi_minor_radians = radiansFromArcsec(semi_minor_arcsec)
-    # Account for PA sign difference wrt phosim convention.
-    position_angle_radians = np.radians(360. - position_angle_degrees)
-
-    x_pupil, y_pupil = _pupilCoordsFromObserved(ra_obs_rad,
-                                                dec_obs_rad,
-                                                obs_md)
-
-    bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
-
-    object_is_valid = np.array([True]*num_objects)
-
-    invalid_objects = np.where(np.logical_or(np.logical_or(
-                                    mag_norm>50.0,
-                                    np.logical_and(galactic_av==0.0, galactic_rv==0.0)),
-                               np.logical_or(
-                                    np.logical_and(object_type==_SERSIC_2D,
-                                                 semi_major_arcsec<semi_minor_arcsec),
-                                    np.logical_and(object_type==_RANDOM_WALK,npoints<=0))))
-
-    object_is_valid[invalid_objects] = False
-
-    if len(invalid_objects[0]) > 0:
-        message = "\nOmitted %d suspicious objects from " % len(invalid_objects[0])
-        message += "the instance catalog:\n"
-        n_bad_mag_norm = len(np.where(mag_norm>50.0)[0])
-        message += "    %d had mag_norm > 50.0\n" % n_bad_mag_norm
-        n_bad_av = len(np.where(np.logical_and(galactic_av==0.0, galactic_rv==0.0))[0])
-        message += "    %d had galactic_Av == galactic_Rv == 0\n" % n_bad_av
-        n_bad_axes = len(np.where(np.logical_and(object_type==_SERSIC_2D,
-                                                 semi_major_arcsec<semi_minor_arcsec))[0])
-        message += "    %d had semi_major_axis < semi_minor_axis\n" % n_bad_axes
-        n_bad_knots = len(np.where(np.logical_and(object_type==_RANDOM_WALK,npoints<=0))[0])
-        message += "    %d had n_points <= 0 \n" % n_bad_knots
-        warnings.warn(message)
-
-    if target_chip is not None:
-        target_chips = [target_chip]
-    else:
-        # Set target_chips to None, in which case the _chip_downselect
-        # function will use all of the science sensors in the
-        # focalplane.
-        target_chips = None
-
-    on_chip_dict = _chip_downselect(mag_norm, x_pupil, y_pupil, logger,
-                                    target_chips)
-
-    my_sed_dirs = sed_dirs(file_name)
-
-    logger.debug('constructing GalSimCelestialObjects for %s objects; %s GB',
-                 num_objects, uss_mem())
-    gs_object_ids = set()
-    gs_object_arr = []
-    out_obj_dict = defaultdict(list)
-    for chip_name, on_chip in on_chip_dict.items():
-        i_obj_index = np.arange(num_objects)
-        for i_obj in i_obj_index[on_chip]:
-            if not object_is_valid[i_obj]:
-                continue
-
-            fits_file = None
-            if object_type[i_obj] == _POINT_SOURCE:
-                gs_type = 'pointSource'
-            elif object_type[i_obj] == _SERSIC_2D:
-                gs_type = 'sersic'
-            elif object_type[i_obj] == _RANDOM_WALK:
-                gs_type = 'RandomWalk'
-            elif object_type[i_obj] == _FITS_IMAGE:
-                gs_type = 'FitsImage'
-                fits_file = fits_image_file[i_obj]
-
-            sed_obj = SedWrapper(find_file_path(sed_name[i_obj], my_sed_dirs),
-                                 mag_norm[i_obj], redshift[i_obj],
-                                 internal_av[i_obj], internal_rv[i_obj],
-                                 galactic_av[i_obj], galactic_rv[i_obj],
-                                 bp_dict)
-
-            gs_object = GalSimCelestialObject(gs_type,
-                                              x_pupil[i_obj],
-                                              y_pupil[i_obj],
-                                              semi_major_radians[i_obj],
-                                              semi_minor_radians[i_obj],
-                                              semi_major_radians[i_obj],
-                                              position_angle_radians[i_obj],
-                                              sersic_index[i_obj],
-                                              sed_obj,
-                                              bp_dict,
-                                              phot_params,
-                                              npoints[i_obj],
-                                              fits_file,
-                                              pixel_scale[i_obj],
-                                              rotation_angle[i_obj],
-                                              gamma1=gamma1[i_obj],
-                                              gamma2=gamma2[i_obj],
-                                              kappa=kappa[i_obj],
-                                              uniqueId=unique_id[i_obj])
-            if gs_object.uniqueId not in gs_object_ids:
-                gs_object_ids.add(gs_object.uniqueId)
-                gs_object_arr.append(gs_object)
-            out_obj_dict[chip_name].append(gs_object)
-    gs_object_arr = np.array(gs_object_arr)
-    if target_chip is not None:
-        logger.debug('objects remaining %s', len(out_obj_dict[target_chip]))
-    logger.debug("about to return from sources_from_list, %s GB", uss_mem())
-    return gs_object_arr, out_obj_dict
 
 def _chip_downselect(mag_norm, x_pupil, y_pupil, logger, target_chips=None):
     """
@@ -655,6 +392,7 @@ class GsObjectList:
         on_chip_dict = _chip_downselect(mag_norm, x_pupil, y_pupil,
                                         self.logger, [chip_name])
         index = on_chip_dict[chip_name]
+
         self.object_lines = []
         for i in index[0]:
             self.object_lines.append(object_lines[i])
