@@ -400,9 +400,6 @@ class GsObjectList:
         self.y_pupil = list(y_pupil[index])
         self.bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
 
-    def reset(self):
-        pass
-
     def __len__(self):
         return len(self.object_lines)
 
