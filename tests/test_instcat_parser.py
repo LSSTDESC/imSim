@@ -22,13 +22,20 @@ from lsst.sims.coordUtils import chipNameFromPupilCoordsLSST
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 
 def sources_from_list(lines, obs_md, phot_params, file_name):
+    """Return a two-item tuple containing
+       * a list of GalSimCelestialObjects for each object entry in `lines`
+       * a dictionary of these objects disaggregated by chip_name.
+    """
     target_chips = [det.getName() for det in lsst_camera()]
+    gs_object_dict = dict()
     out_obj_dict = dict()
     for chip_name in target_chips:
         out_obj_dict[chip_name] \
-            = desc.imsim.GsObjectList(lines, obs_md, phot_params, file_name,
-                                      chip_name)
-    return out_obj_dict
+            = [_ for _ in desc.imsim.GsObjectList(lines, obs_md, phot_params,
+                                                  file_name, chip_name)]
+        for gsobj in out_obj_dict[chip_name]:
+            gs_object_dict[gsobj.uniqueId] = gsobj
+    return list(gs_object_dict.values()), out_obj_dict
 
 class InstanceCatalogParserTestCase(unittest.TestCase):
     """
@@ -143,11 +150,61 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                    dtype=truth_dtype, delimiter=';')
 
         truth_data.sort()
+
+        gs_object_arr, gs_object_dict \
+            = sources_from_list(lines, obs_md, phot_params, self.phosim_file)
+
+        id_arr = [None]*len(gs_object_arr)
+        for i_obj in range(len(gs_object_arr)):
+            id_arr[i_obj] = gs_object_arr[i_obj].uniqueId
+        id_arr = sorted(id_arr)
+        np.testing.assert_array_equal(truth_data['uniqueId'], id_arr)
+
+        ######## test that pupil coordinates are correct to within
+        ######## half a milliarcsecond
+
+        x_pup_test, y_pup_test = _pupilCoordsFromRaDec(truth_data['raJ2000'],
+                                                       truth_data['decJ2000'],
+                                                       pm_ra=truth_data['pmRA'],
+                                                       pm_dec=truth_data['pmDec'],
+                                                       v_rad=truth_data['v_rad'],
+                                                       parallax=truth_data['parallax'],
+                                                       obs_metadata=obs_md)
+
+        for gs_obj in gs_object_arr:
+            i_obj = np.where(truth_data['uniqueId'] == gs_obj.uniqueId)[0][0]
+            dd = np.sqrt((x_pup_test[i_obj]-gs_obj.xPupilRadians)**2 +
+                         (y_pup_test[i_obj]-gs_obj.yPupilRadians)**2)
+            dd = arcsecFromRadians(dd)
+            self.assertLess(dd, 0.0005)
+
+        ######## test that fluxes are correctly calculated
+
+        bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
+        imsim_bp = Bandpass()
+        imsim_bp.imsimBandpass()
+        phot_params = PhotometricParameters(nexp=1, exptime=30.0)
+
+        for gs_obj in gs_object_arr:
+            i_obj = np.where(truth_data['uniqueId'] == gs_obj.uniqueId)[0][0]
+            sed = Sed()
+            full_sed_name = os.path.join(os.environ['SIMS_SED_LIBRARY_DIR'],
+                                         truth_data['sedFilename'][i_obj])
+            sed.readSED_flambda(full_sed_name)
+            fnorm = sed.calcFluxNorm(truth_data['magNorm'][i_obj], imsim_bp)
+            sed.multiplyFluxNorm(fnorm)
+            sed.resampleSED(wavelen_match=bp_dict.wavelenMatch)
+            a_x, b_x = sed.setupCCM_ab()
+            sed.addDust(a_x, b_x, A_v=truth_data['Av'][i_obj],
+                        R_v=truth_data['Rv'][i_obj])
+
+            for bp in ('u', 'g', 'r', 'i', 'z', 'y'):
+                flux = sed.calcADU(bp_dict[bp], phot_params)*phot_params.gain
+                self.assertAlmostEqual(flux/gs_obj.flux(bp), 1.0, 10)
+
         ######## test that objects are assigned to the right chip in
         ######## gs_object_dict
 
-        gs_object_dict = sources_from_list(lines, obs_md, phot_params,
-                                           self.phosim_file)
         unique_id_dict = {}
         for chip_name in gs_object_dict:
             local_unique_id_list = []
@@ -200,11 +257,87 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         truth_data.sort()
 
+        gs_object_arr, gs_object_dict \
+            = sources_from_list(lines, obs_md, phot_params, galaxy_phosim_file)
+
+        id_arr = [None]*len(gs_object_arr)
+        for i_obj in range(len(gs_object_arr)):
+            id_arr[i_obj] = gs_object_arr[i_obj].uniqueId
+        id_arr = sorted(id_arr)
+        np.testing.assert_array_equal(truth_data['uniqueId'], id_arr)
+
+        ######## test that galaxy parameters are correctly read in
+
+        g1 = truth_data['gamma1']/(1.0-truth_data['kappa'])
+        g2 = truth_data['gamma2']/(1.0-truth_data['kappa'])
+        mu = 1.0/((1.0-truth_data['kappa'])**2 - (truth_data['gamma1']**2 + truth_data['gamma2']**2))
+        for gs_obj in gs_object_arr:
+            i_obj = np.where(truth_data['uniqueId'] == gs_obj.uniqueId)[0][0]
+            self.assertAlmostEqual(gs_obj.mu/mu[i_obj], 1.0, 6)
+            self.assertAlmostEqual(gs_obj.g1/g1[i_obj], 1.0, 6)
+            self.assertAlmostEqual(gs_obj.g2/g2[i_obj], 1.0, 6)
+            self.assertGreater(np.abs(gs_obj.mu), 0.0)
+            self.assertGreater(np.abs(gs_obj.g1), 0.0)
+            self.assertGreater(np.abs(gs_obj.g2), 0.0)
+
+            self.assertAlmostEqual(gs_obj.halfLightRadiusRadians,
+                                   truth_data['majorAxis'][i_obj], 13)
+            self.assertAlmostEqual(gs_obj.minorAxisRadians,
+                                   truth_data['minorAxis'][i_obj], 13)
+            self.assertAlmostEqual(gs_obj.majorAxisRadians,
+                                   truth_data['majorAxis'][i_obj], 13)
+            self.assertAlmostEqual(2.*np.pi - gs_obj.positionAngleRadians,
+                                   truth_data['positionAngle'][i_obj], 7)
+            self.assertAlmostEqual(gs_obj.sindex,
+                                   truth_data['sindex'][i_obj], 10)
+
+        ######## test that pupil coordinates are correct to within
+        ######## half a milliarcsecond
+
+        x_pup_test, y_pup_test = _pupilCoordsFromRaDec(truth_data['raJ2000'],
+                                                       truth_data['decJ2000'],
+                                                       obs_metadata=obs_md)
+
+        for gs_obj in gs_object_arr:
+            i_obj = np.where(truth_data['uniqueId'] == gs_obj.uniqueId)[0][0]
+            dd = np.sqrt((x_pup_test[i_obj]-gs_obj.xPupilRadians)**2 +
+                         (y_pup_test[i_obj]-gs_obj.yPupilRadians)**2)
+            dd = arcsecFromRadians(dd)
+            self.assertLess(dd, 0.0005)
+
+        ######## test that fluxes are correctly calculated
+
+        bp_dict = BandpassDict.loadTotalBandpassesFromFiles()
+        imsim_bp = Bandpass()
+        imsim_bp.imsimBandpass()
+        phot_params = PhotometricParameters(nexp=1, exptime=30.0)
+
+        for gs_obj in gs_object_arr:
+            i_obj = np.where(truth_data['uniqueId'] == gs_obj.uniqueId)[0][0]
+            sed = Sed()
+            full_sed_name = os.path.join(os.environ['SIMS_SED_LIBRARY_DIR'],
+                                         truth_data['sedFilename'][i_obj])
+            sed.readSED_flambda(full_sed_name)
+            fnorm = sed.calcFluxNorm(truth_data['magNorm'][i_obj], imsim_bp)
+            sed.multiplyFluxNorm(fnorm)
+
+            a_x, b_x = sed.setupCCM_ab()
+            sed.addDust(a_x, b_x, A_v=truth_data['internalAv'][i_obj],
+                        R_v=truth_data['internalRv'][i_obj])
+
+            sed.redshiftSED(truth_data['redshift'][i_obj], dimming=True)
+            sed.resampleSED(wavelen_match=bp_dict.wavelenMatch)
+            a_x, b_x = sed.setupCCM_ab()
+            sed.addDust(a_x, b_x, A_v=truth_data['galacticAv'][i_obj],
+                        R_v=truth_data['galacticRv'][i_obj])
+
+            for bp in ('u', 'g', 'r', 'i', 'z', 'y'):
+                flux = sed.calcADU(bp_dict[bp], phot_params)*phot_params.gain
+                self.assertAlmostEqual(flux/gs_obj.flux(bp), 1.0, 6)
+
         ######## test that objects are assigned to the right chip in
         ######## gs_object_dict
 
-        gs_object_dict = sources_from_list(lines, obs_md, phot_params,
-                                           galaxy_phosim_file)
         unique_id_dict = {}
         for chip_name in gs_object_dict:
             local_unique_id_list = []
