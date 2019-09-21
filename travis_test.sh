@@ -1,7 +1,7 @@
 #!/bin/bash
 source scl_source enable devtoolset-6
 source loadLSST.bash
-setup lsst_sims
+setup -t current lsst_sims
 pip install nose
 pip install coveralls
 pip install pylint
@@ -16,6 +16,14 @@ setup -r . -j
 scons lib python shebang examples doc policy python/lsst/obs/lsst/version.py
 
 cd ..
+
+# Clone sims_GalSimInterface and set up master to suppress
+# lsst.afw.geom deprecation warnings.
+git clone https://github.com/lsst/sims_GalSimInterface.git
+cd sims_GalSimInterface
+setup -r . -j
+cd ..
+
 eups declare imsim -r ${TRAVIS_BUILD_DIR} -t current
 setup imsim
 cd ${TRAVIS_BUILD_DIR}

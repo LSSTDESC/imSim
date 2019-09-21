@@ -417,9 +417,6 @@ class SimulateSensor:
             if nan_fluxes > 0:
                 logger.info("%s objects had nan fluxes", nan_fluxes)
 
-        # Recover the memory devoted to the GalSimCelestialObject instances.
-        gs_objects.reset()
-
         add_cosmic_rays(gs_interpreter, IMAGE_SIMULATOR.phot_params)
         full_well = int(IMAGE_SIMULATOR.config['ccd']['full_well'])
         apply_channel_bleeding(gs_interpreter, full_well)

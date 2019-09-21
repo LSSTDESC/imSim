@@ -23,7 +23,7 @@ import scipy
 from astropy.io import fits
 import astropy.time
 import galsim
-import lsst.afw.geom as afwGeom
+import lsst.geom as lsst_geom
 import lsst.afw.image as afwImage
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
@@ -567,7 +567,7 @@ class ImageSource(object):
 
         Parameters
         ----------
-        bbox : lsst.afw.geom.Box2I
+        bbox : lsst.geom.Box2I
             Bounding box.
         flipx : bool
             Flag to indicate that data should be flipped in the x-direction.
@@ -598,16 +598,16 @@ def set_itl_bboxes(amp):
     lsst.afw.table.tableLib.AmpInfoRecord
         The updated AmpInfoRecord.
     """
-    amp.setRawBBox(afwGeom.Box2I(afwGeom.Point2I(0, 0),
-                                 afwGeom.Extent2I(544, 2048)))
-    amp.setRawDataBBox(afwGeom.Box2I(afwGeom.Point2I(3, 0),
-                                     afwGeom.Extent2I(509, 2000)))
-    amp.setRawHorizontalOverscanBBox(afwGeom.Box2I(afwGeom.Point2I(512, 0),
-                                                   afwGeom.Extent2I(48, 2000)))
-    amp.setRawVerticalOverscanBBox(afwGeom.Box2I(afwGeom.Point2I(0, 2000),
-                                                 afwGeom.Extent2I(544, 48)))
-    amp.setRawPrescanBBox(afwGeom.Box2I(afwGeom.Point2I(0, 0),
-                                        afwGeom.Extent2I(3, 2000)))
+    amp.setRawBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
+                                   lsst_geom.Extent2I(544, 2048)))
+    amp.setRawDataBBox(lsst_geom.Box2I(lsst_geom.Point2I(3, 0),
+                                       lsst_geom.Extent2I(509, 2000)))
+    amp.setRawHorizontalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(512, 0),
+                                                     lsst_geom.Extent2I(48, 2000)))
+    amp.setRawVerticalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 2000),
+                                                   lsst_geom.Extent2I(544, 48)))
+    amp.setRawPrescanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
+                                          lsst_geom.Extent2I(3, 2000)))
     return amp
 
 
@@ -626,16 +626,16 @@ def set_e2v_bboxes(amp):
     lsst.afw.table.tableLib.AmpInfoRecord
         The updated AmpInfoRecord.
     """
-    amp.setRawBBox(afwGeom.Box2I(afwGeom.Point2I(0, 0),
-                                 afwGeom.Extent2I(542, 2022)))
-    amp.setRawDataBBox(afwGeom.Box2I(afwGeom.Point2I(10, 0),
-                                     afwGeom.Extent2I(522, 2002)))
-    amp.setRawHorizontalOverscanBBox(afwGeom.Box2I(afwGeom.Point2I(522, 0),
-                                                   afwGeom.Extent2I(20, 2002)))
-    amp.setRawVerticalOverscanBBox(afwGeom.Box2I(afwGeom.Point2I(0, 2002),
-                                                 afwGeom.Extent2I(542, 20)))
-    amp.setRawPrescanBBox(afwGeom.Box2I(afwGeom.Point2I(0, 0),
-                                        afwGeom.Extent2I(10, 2002)))
+    amp.setRawBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
+                                   lsst_geom.Extent2I(542, 2022)))
+    amp.setRawDataBBox(lsst_geom.Box2I(lsst_geom.Point2I(10, 0),
+                                       lsst_geom.Extent2I(522, 2002)))
+    amp.setRawHorizontalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(522, 0),
+                                                     lsst_geom.Extent2I(20, 2002)))
+    amp.setRawVerticalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 2002),
+                                                   lsst_geom.Extent2I(542, 20)))
+    amp.setRawPrescanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
+                                          lsst_geom.Extent2I(10, 2002)))
     return amp
 
 
@@ -654,16 +654,16 @@ def set_phosim_bboxes(amp):
     lsst.afw.table.tableLib.AmpInfoRecord
         The updated AmpInfoRecord.
     """
-    amp.setRawBBox(afwGeom.Box2I(afwGeom.Point2I(0, 0),
-                                 afwGeom.Extent2I(519, 2001)))
-    amp.setRawDataBBox(afwGeom.Box2I(afwGeom.Point2I(4, 1),
-                                     afwGeom.Extent2I(509, 2000)))
-    amp.setRawHorizontalOverscanBBox(afwGeom.Box2I(afwGeom.Point2I(513, 1),
-                                                   afwGeom.Extent2I(6, 2000)))
-    amp.setRawVerticalOverscanBBox(afwGeom.Box2I(afwGeom.Point2I(0, 2001),
-                                                 afwGeom.Extent2I(519, 0)))
-    amp.setRawPrescanBBox(afwGeom.Box2I(afwGeom.Point2I(0, 1),
-                                        afwGeom.Extent2I(4, 2000)))
+    amp.setRawBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
+                                   lsst_geom.Extent2I(519, 2001)))
+    amp.setRawDataBBox(lsst_geom.Box2I(lsst_geom.Point2I(4, 1),
+                                       lsst_geom.Extent2I(509, 2000)))
+    amp.setRawHorizontalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(513, 1),
+                                                     lsst_geom.Extent2I(6, 2000)))
+    amp.setRawVerticalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 2001),
+                                                   lsst_geom.Extent2I(519, 0)))
+    amp.setRawPrescanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 1),
+                                          lsst_geom.Extent2I(4, 2000)))
     return amp
 
 PixelParameters = namedtuple('PixelParameters',

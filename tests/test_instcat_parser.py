@@ -10,6 +10,7 @@ import shutil
 import numpy as np
 import desc.imsim
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
+from lsst.sims.coordUtils import lsst_camera
 from lsst.sims.utils import _pupilCoordsFromRaDec
 from lsst.sims.utils import altAzPaFromRaDec
 from lsst.sims.utils import angularSeparation
@@ -20,6 +21,21 @@ from lsst.sims.photUtils import Bandpass, PhotometricParameters
 from lsst.sims.coordUtils import chipNameFromPupilCoordsLSST
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 
+def sources_from_list(lines, obs_md, phot_params, file_name):
+    """Return a two-item tuple containing
+       * a list of GalSimCelestialObjects for each object entry in `lines`
+       * a dictionary of these objects disaggregated by chip_name.
+    """
+    target_chips = [det.getName() for det in lsst_camera()]
+    gs_object_dict = dict()
+    out_obj_dict = dict()
+    for chip_name in target_chips:
+        out_obj_dict[chip_name] \
+            = [_ for _ in desc.imsim.GsObjectList(lines, obs_md, phot_params,
+                                                  file_name, chip_name)]
+        for gsobj in out_obj_dict[chip_name]:
+            gs_object_dict[gsobj.uniqueId] = gsobj
+    return list(gs_object_dict.values()), out_obj_dict
 
 class InstanceCatalogParserTestCase(unittest.TestCase):
     """
@@ -121,16 +137,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         obs_md = desc.imsim.phosim_obs_metadata(commands)
         phot_params = desc.imsim.photometricParameters(commands)
         with desc.imsim.fopen(self.phosim_file, mode='rt') as input_:
-            lines = [x for x in input_]
-        (gs_object_arr,
-         gs_object_dict) = desc.imsim.sources_from_list(lines,
-                                                        obs_md,
-                                                        phot_params,
-                                                        self.phosim_file)
-
-        id_arr = [None]*len(gs_object_arr)
-        for i_obj in range(len(gs_object_arr)):
-            id_arr[i_obj] = gs_object_arr[i_obj].uniqueId
+            lines = [x for x in input_ if x.startswith('object')]
 
         truth_dtype = np.dtype([('uniqueId', str, 200), ('x_pupil', float), ('y_pupil', float),
                                 ('sedFilename', str, 200), ('magNorm', float),
@@ -143,6 +150,13 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                    dtype=truth_dtype, delimiter=';')
 
         truth_data.sort()
+
+        gs_object_arr, gs_object_dict \
+            = sources_from_list(lines, obs_md, phot_params, self.phosim_file)
+
+        id_arr = [None]*len(gs_object_arr)
+        for i_obj in range(len(gs_object_arr)):
+            id_arr[i_obj] = gs_object_arr[i_obj].uniqueId
         id_arr = sorted(id_arr)
         np.testing.assert_array_equal(truth_data['uniqueId'], id_arr)
 
@@ -226,16 +240,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         obs_md = desc.imsim.phosim_obs_metadata(commands)
         phot_params = desc.imsim.photometricParameters(commands)
         with desc.imsim.fopen(galaxy_phosim_file, mode='rt') as input_:
-            lines = [x for x in input_]
-        (gs_object_arr,
-         gs_object_dict) = desc.imsim.sources_from_list(lines,
-                                                        obs_md,
-                                                        phot_params,
-                                                        galaxy_phosim_file)
-
-        id_arr = [None]*len(gs_object_arr)
-        for i_obj in range(len(gs_object_arr)):
-            id_arr[i_obj] = gs_object_arr[i_obj].uniqueId
+            lines = [x for x in input_ if x.startswith('object')]
 
         truth_dtype = np.dtype([('uniqueId', str, 200), ('x_pupil', float), ('y_pupil', float),
                                 ('sedFilename', str, 200), ('magNorm', float),
@@ -251,6 +256,13 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                    dtype=truth_dtype, delimiter=';')
 
         truth_data.sort()
+
+        gs_object_arr, gs_object_dict \
+            = sources_from_list(lines, obs_md, phot_params, galaxy_phosim_file)
+
+        id_arr = [None]*len(gs_object_arr)
+        for i_obj in range(len(gs_object_arr)):
+            id_arr[i_obj] = gs_object_arr[i_obj].uniqueId
         id_arr = sorted(id_arr)
         np.testing.assert_array_equal(truth_data['uniqueId'], id_arr)
 
@@ -349,20 +361,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertGreater(valid, 10)
         self.assertGreater(len(valid_chip_names), 5)
 
-    def test_parsePhoSimInstanceFile_warning(self):
-        "Test the warnings emitted by the instance catalog parser."
-        commands = desc.imsim.metadata_from_file(self.extra_commands)
-        obs_md = desc.imsim.phosim_obs_metadata(commands)
-        phot_params = desc.imsim.photometricParameters(commands)
-        with desc.imsim.fopen(self.extra_commands, mode='rt') as input_:
-            lines = [x for x in input_]
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            self.assertRaises(UserWarning,
-                              desc.imsim.sources_from_list,
-                              lines, obs_md, phot_params,
-                              self.extra_commands)
-
     def test_photometricParameters(self):
         "Test the photometricParameters function."
         commands = desc.imsim.metadata_from_file(self.phosim_file)
@@ -389,34 +387,12 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             my_objs = set()
             for sensor in sensors:
                 [my_objs.add(x) for x in instcat_contents.sources[1][sensor]]
-        self.assertGreater(len(wa), 0)
-
-        # we must detect which warning is the warning we are actually
-        # testing, because PALPY keeps raising ERFAWarnings over our
-        # request for dates in the future
-        desired_warning_dex = -1
-        for i_ww, ww in enumerate(wa):
-            if 'Omitted 6 suspicious objects' in ww.message.args[0]:
-                desired_warning_dex = i_ww
-                break
-
-        if desired_warning_dex<0:
-            raise RuntimeError("Expected warning about bad sources "
-                               "not issued")
-
-        message = wa[desired_warning_dex].message.args[0]
 
         # these are the objects that should be omitted
         bad_unique_ids = set([str(x) for x in
                               [34307989098524, 811883374597,
                                811883374596, 956090392580,
                                34307989098523, 34304522113056]])
-
-        self.assertIn('Omitted 6 suspicious objects', message)
-        self.assertIn('4 had galactic_Av', message)
-        self.assertIn('1 had mag_norm', message)
-        self.assertIn('1 had semi_major_axis', message)
-        self.assertIn('1 had n_points', message)
 
         self.assertEqual(len(my_objs), 18)
         for obj in instcat_contents.sources[0]:
