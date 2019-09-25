@@ -105,7 +105,7 @@ class AtmosphericPSF(PSFbase):
         self.logger = logger
 
         ctx = multiprocessing.get_context('spawn')
-        self.atm = galsim.Atmosphere(**self._getAtmKwargs(), mp_context=ctx)
+        self.atm = galsim.Atmosphere(mp_context=ctx, **self._getAtmKwargs())
         self.aper = galsim.Aperture(diam=8.36, obscuration=0.61,
                                     lam=self.wlen_eff, screen_list=self.atm)
 
@@ -119,11 +119,6 @@ class AtmosphericPSF(PSFbase):
 
         with ctx.Pool(nproc, initializer=galsim.phase_screens.initWorker,
                       initargs=galsim.phase_screens.initWorkerArgs()) as pool:
-            dummyPSF = self.atm.makePSF(self.wlen_eff,
-                                        aper=self.aper,
-                                        t0=self.t0,
-                                        exptime=self.exptime)
-            kmax = dummyPSF.screen_kmax
             self.atm.instantiate(pool=pool, kmax=kmax, check='phot')
 
         if logger:
