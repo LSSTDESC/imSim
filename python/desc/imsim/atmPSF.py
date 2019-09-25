@@ -104,7 +104,7 @@ class AtmosphericPSF(PSFbase):
         self.screen_scale = screen_scale
         self.logger = logger
 
-        ctx = multiprocessing.get_context('spawn')
+        ctx = multiprocessing.get_context('fork')
         self.atm = galsim.Atmosphere(mp_context=ctx, **self._getAtmKwargs())
         self.aper = galsim.Aperture(diam=8.36, obscuration=0.61,
                                     lam=self.wlen_eff, screen_list=self.atm)
