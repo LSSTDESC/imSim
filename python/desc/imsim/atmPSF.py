@@ -2,6 +2,7 @@
 GalSim realistic atmospheric PSF class
 """
 
+import multiprocessing
 import numpy as np
 from scipy.optimize import bisect
 
@@ -82,10 +83,12 @@ class AtmosphericPSF(PSFbase):
     @param screen_scale Size of phase screen "pixels" in meters.  default: 0.1
     @param doOpt        Add in optical phase screens?  default: True
     @param logger       Optional logger.  default: None
+    @param nproc        Number of processes to use in creating screens. default: 4
     """
     def __init__(self, airmass, rawSeeing, band, rng,
                  t0=0.0, exptime=30.0, kcrit=0.2, gaussianFWHM=0.3,
-                 screen_size=819.2, screen_scale=0.1, doOpt=True, logger=None):
+                 screen_size=819.2, screen_scale=0.1, doOpt=True, logger=None,
+                 nproc=4):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
 
@@ -101,7 +104,8 @@ class AtmosphericPSF(PSFbase):
         self.screen_scale = screen_scale
         self.logger = logger
 
-        self.atm = galsim.Atmosphere(**self._getAtmKwargs())
+        ctx = multiprocessing.get_context('spawn')
+        self.atm = galsim.Atmosphere(**self._getAtmKwargs(), mp_context=ctx)
         self.aper = galsim.Aperture(diam=8.36, obscuration=0.61,
                                     lam=self.wlen_eff, screen_list=self.atm)
 
@@ -112,7 +116,16 @@ class AtmosphericPSF(PSFbase):
         kmax = kcrit / r0
         if logger:
             logger.info("Building atmosphere")
-        self.atm.instantiate(kmax=kmax, check='phot')
+
+        with ctx.Pool(nproc, initializer=galsim.phase_screens.initWorker,
+                      initargs=galsim.phase_screens.initWorkerArgs()) as pool:
+            dummyPSF = self.atm.makePSF(self.wlen_eff,
+                                        aper=self.aper,
+                                        t0=self.t0,
+                                        exptime=self.exptime)
+            kmax = dummyPSF.screen_kmax
+            self.atm.instantiate(pool=pool, kmax=kmax, check='phot')
+
         if logger:
             logger.info("Finished building atmosphere")
 
