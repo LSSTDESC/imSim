@@ -83,12 +83,14 @@ class AtmosphericPSF(PSFbase):
     @param screen_scale Size of phase screen "pixels" in meters.  default: 0.1
     @param doOpt        Add in optical phase screens?  default: True
     @param logger       Optional logger.  default: None
-    @param nproc        Number of processes to use in creating screens. default: 4
+    @param nproc        Number of processes to use in creating screens. If None (default),
+                        then allocate one process per phase screen, of which there are 6,
+                        nominally.
     """
     def __init__(self, airmass, rawSeeing, band, rng,
                  t0=0.0, exptime=30.0, kcrit=0.2, gaussianFWHM=0.3,
                  screen_size=819.2, screen_scale=0.1, doOpt=True, logger=None,
-                 nproc=4):
+                 nproc=None):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
 
@@ -116,6 +118,11 @@ class AtmosphericPSF(PSFbase):
         kmax = kcrit / r0
         if logger:
             logger.info("Building atmosphere")
+
+        if nproc is None:
+            nproc = len(self.atm)
+        if logger:
+            logger.info(f"Using {nproc} processes to build the phase screens")
 
         with ctx.Pool(nproc, initializer=galsim.phase_screens.initWorker,
                       initargs=galsim.phase_screens.initWorkerArgs()) as pool:
