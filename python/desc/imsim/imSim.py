@@ -13,6 +13,7 @@ import gc
 import copy
 import psutil
 import galsim
+import eups
 
 # python_future no longer handles configparser as of 0.16.
 # This is needed for PY2/3 compatibility.
@@ -61,7 +62,8 @@ __all__ = ['PhosimInstanceCatalogParseError',
            '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK', '_FITS_IMAGE',
            'parsePhoSimInstanceFile',
            'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom', 'make_psf',
-           'save_psf', 'load_psf', 'TracebackDecorator', 'GsObjectList']
+           'save_psf', 'load_psf', 'TracebackDecorator', 'GsObjectList',
+           'get_stack_products']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -611,7 +613,7 @@ def read_config(config_file=None):
         config_file.
     """
     my_config = ImSimConfiguration()
-    cp = configparser.ConfigParser()
+    cp = configparser.ConfigParser(allow_no_value=True)
     cp.optionxform = str
     if config_file is None:
         config_file = os.path.join(lsstUtils.getPackageDir('imsim'),
@@ -904,3 +906,24 @@ class TracebackDecorator:
         except Exception as eobj:
             traceback.print_exc()
             raise eobj
+
+def get_stack_products(product_names=None):
+    """
+    Get the LSST Stack products corresponding to a list of product
+    names.
+
+    Parameters
+    ----------
+    product_names: list-like [None]
+        A list of LSST Stack package names for which to get the
+        corresponding set up eups.Product. If None, then return the
+        products listed in the config file.
+
+    Returns
+    -------
+    dict of eups.Products keyed by package name.
+    """
+    config = get_config()
+    stack_packages = set(config['stack_packages'].keys())
+    eupsenv = eups.Eups()
+    return {_: eupsenv.getSetupProducts(_)[0] for _ in stack_packages}

@@ -32,7 +32,7 @@ with warnings.catch_warnings():
         getRotSkyPos, ObservationMetaData, altAzPaFromRaDec
     from lsst.sims.GalSimInterface import LsstObservatory
 from .camera_info import CameraInfo, getHourAngle
-from .imSim import get_logger, get_config, airmass
+from .imSim import get_logger, get_config, airmass, get_stack_products
 from .cosmic_rays import CosmicRays
 from .version import __version__ as imsim_version
 
@@ -476,7 +476,6 @@ class ImageSource(object):
         output[0].header.insert(5, ('WCSAXES', wcsaxes, ''))
         if run_number is None:
             run_number = self.visit
-        output[0].header['IMSIMVER'] = imsim_version
         output[0].header['RUNNUM'] = str(run_number)
         output[0].header['DARKTIME'] = output[0].header['EXPTIME']
         output[0].header['TIMESYS'] = 'TAI'
@@ -531,6 +530,18 @@ class ImageSource(object):
             amp_name = '_C'.join((self.sensor_id, seg_id))
             output.append(self.get_amplifier_hdu(amp_name, compress=compress))
             output[-1].header['EXTNAME'] = 'Segment%s' % seg_id
+
+        # Set the imSim version and LSST Stack product versions and
+        # tags in the primary HDU.
+        output[0].header['IMSIMVER'] = imsim_version
+        products = get_stack_products()
+        for iprod, (product_name, product) in enumerate(products.items()):
+            output[0].header[f'PKG{iprod:05d}'] = product_name
+            output[0].header[f'VER{iprod:05d}'] = product.version
+            # Use the "first" semantically meaningful tag.
+            tag = sorted([_ for _ in product.tags if _ != 'current'])[0]
+            output[0].header[f'TAG{iprod:05d}'] = tag
+
         self.fits_atomic_write(output, outfile, overwrite=overwrite)
 
     @staticmethod

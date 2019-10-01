@@ -55,3 +55,8 @@ sort_magnorm = True
 # AtmosphericPSF + OptWF PSF to account for additional instrumental
 # effects.
 gaussianFWHM = 0.4
+
+[stack_packages]
+lsst_sims
+throughputs
+sims_skybrightness_data
