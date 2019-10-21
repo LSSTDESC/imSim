@@ -57,6 +57,6 @@ sort_magnorm = True
 gaussianFWHM = 0.4
 
 [stack_packages]
-lsst_sims
+lsst_sims = metapackage
 throughputs
 sims_skybrightness_data

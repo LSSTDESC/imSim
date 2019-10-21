@@ -537,11 +537,11 @@ class ImageSource(object):
         products = get_stack_products()
         for iprod, (product_name, product) in enumerate(products.items()):
             output[0].header[f'PKG{iprod:05d}'] = product_name
-            output[0].header[f'VER{iprod:05d}'] = product.version
-            # Use the "first" semantically meaningful tag.
-            tag = sorted([_ for _ in product.tags if _ != 'current'])[0]
-            output[0].header[f'TAG{iprod:05d}'] = tag
-
+            if product.type == 'metapackage':
+                tag = [_ for _ in product.tags if _ != 'current'][0]
+                output[0].header[f'TAG{iprod:05d}'] = tag
+            else:
+                output[0].header[f'VER{iprod:05d}'] = product.version
         self.fits_atomic_write(output, outfile, overwrite=overwrite)
 
     @staticmethod
