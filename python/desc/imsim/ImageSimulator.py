@@ -12,13 +12,14 @@ import tempfile
 import sqlite3
 import numpy as np
 from astropy._erfa import ErfaWarning
+import galsim
 from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
 from lsst.sims.photUtils import BandpassDict
 from lsst.sims.GalSimInterface import make_galsim_detector
 from lsst.sims.GalSimInterface import make_gs_interpreter
 from lsst.sims.GalSimInterface import LSSTCameraWrapper
 from .imSim import read_config, parsePhoSimInstanceFile, add_cosmic_rays,\
-    add_treering_info, get_logger, TracebackDecorator
+    add_treering_info, get_logger, TracebackDecorator, get_version_keywords
 from .bleed_trails import apply_channel_bleeding
 from .skyModel import make_sky_model
 from .process_monitor import process_monitor
@@ -502,6 +503,12 @@ class SimulateSensor:
         ----------
         gs_interpreter: GalSimInterpreter object
         """
+        # Add version keywords to eimage headers
+        version_keywords = get_version_keywords()
+        for image in gs_interpreter.detectorImages.values():
+            image.header = galsim.FitsHeader(header=version_keywords)
+
+        # Write the eimage files using filenames containing the visit number.
         prefix = IMAGE_SIMULATOR.config['persistence']['eimage_prefix']
         obsHistID = str(IMAGE_SIMULATOR.obs_md.OpsimMetaData['obshistID'])
         nameRoot = os.path.join(IMAGE_SIMULATOR.outdir, prefix) + obsHistID

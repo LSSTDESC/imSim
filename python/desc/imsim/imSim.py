@@ -47,6 +47,7 @@ from .fopen import fopen
 from .trim import InstCatTrimmer
 from .sed_wrapper import SedWrapper
 from .atmPSF import AtmosphericPSF
+from .version import __version__ as imsim_version
 
 _POINT_SOURCE = 1
 _SERSIC_2D = 2
@@ -63,7 +64,7 @@ __all__ = ['PhosimInstanceCatalogParseError',
            'parsePhoSimInstanceFile',
            'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom', 'make_psf',
            'save_psf', 'load_psf', 'TracebackDecorator', 'GsObjectList',
-           'get_stack_products']
+           'get_stack_products', 'get_version_keywords']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -908,29 +909,45 @@ class TracebackDecorator:
             raise eobj
 
 def get_stack_products(product_names=None):
-    """
-    Get the LSST Stack products corresponding to a list of product
+    """Get the LSST Stack products corresponding to a set of product
     names.
 
     Parameters
     ----------
-    product_names: list-like [None]
-        A list of LSST Stack package names for which to get the
-        corresponding set up eups.Product. If None, then return the
-        products listed in the config file.
+    product_names: dict [None]
+        A dict with LSST Stack package names as keys and either
+        'metapackage' or None as values. The setup eups.Product
+        corresponding to each of these packages will be returned in a
+        dictionary.  If None, then use the products listed in the
+        config file.
 
     Returns
     -------
     dict of eups.Products keyed by package name.
+
     """
     config = get_config()
-    if product_names is not None:
-        stack_packages = {_: None for _ in product_names}
-    else:
-        stack_packages = config['stack_packages']
+    stack_packages = config['stack_packages'] if product_names is None \
+                     else product_names
     eupsenv = eups.Eups()
     products = dict()
     for product_name, product_type in stack_packages.items():
         products[product_name] = eupsenv.getSetupProducts(product_name)[0]
         products[product_name].type = product_type
     return products
+
+def get_version_keywords():
+    """
+    Return a dictionary of header keywords containing eups tagging and
+    version information.
+    """
+    keywords = {'IMSIMVER': imsim_version}
+    products = get_stack_products()
+    for iprod, (product_name, product) in enumerate(products.items()):
+        keywords[f'PKG{iprod:05d}'] = product_name
+        if product.type == 'metapackage':
+            tag = [_ for _ in product.tags if _ != 'current'][0]
+            keywords[f'TAG{iprod:05d}'] = tag
+        else:
+            keywords[f'VER{iprod:05d}'] = product.version
+    return keywords

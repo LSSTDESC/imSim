@@ -32,9 +32,8 @@ with warnings.catch_warnings():
         getRotSkyPos, ObservationMetaData, altAzPaFromRaDec
     from lsst.sims.GalSimInterface import LsstObservatory
 from .camera_info import CameraInfo, getHourAngle
-from .imSim import get_logger, get_config, airmass, get_stack_products
+from .imSim import get_logger, get_config, airmass, get_version_keywords
 from .cosmic_rays import CosmicRays
-from .version import __version__ as imsim_version
 
 __all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
            'set_phosim_bboxes', 'set_noao_keywords', 'cte_matrix']
@@ -533,15 +532,9 @@ class ImageSource(object):
 
         # Set the imSim version and LSST Stack product versions and
         # tags in the primary HDU.
-        output[0].header['IMSIMVER'] = imsim_version
-        products = get_stack_products()
-        for iprod, (product_name, product) in enumerate(products.items()):
-            output[0].header[f'PKG{iprod:05d}'] = product_name
-            if product.type == 'metapackage':
-                tag = [_ for _ in product.tags if _ != 'current'][0]
-                output[0].header[f'TAG{iprod:05d}'] = tag
-            else:
-                output[0].header[f'VER{iprod:05d}'] = product.version
+        version_keywords = get_version_keywords()
+        for key, value in version_keywords.items():
+            output[0].header[key] = value
         self.fits_atomic_write(output, outfile, overwrite=overwrite)
 
     @staticmethod
