@@ -18,20 +18,23 @@ class GetStackProductsTestCase(unittest.TestCase):
 
     def test_get_stack_products(self):
         """Test the get_stack_products function."""
-        targets = 'lsst_sims throughputs sims_skybrightness_data'.split()
-        products = get_stack_products(targets)
+        target_lists = [None, 'afw sims_photUtils sims_utils'.split()]
 
-        for target in targets:
-            # Test result against eups command line result.
-            command = f'eups list {target} -s'
-            line = subprocess.check_output(command, shell=True)
-            tokens = line.decode('utf-8').strip().split()
-            version = tokens[0]
-            tags = set(tokens[1:])
-            tags.remove('setup')
+        for targets in target_lists:
+            products = get_stack_products(targets)
+            if targets is not None:
+                self.assertEqual(set(products.keys()), set(targets))
+            for target in products:
+                # Test result against eups command line result.
+                command = f'eups list {target} -s'
+                line = subprocess.check_output(command, shell=True)
+                tokens = line.decode('utf-8').strip().split()
+                version = tokens[0]
+                tags = set(tokens[1:])
+                tags.remove('setup')
 
-            self.assertEqual(products[target].version, version)
-            self.assertEqual(set(products[target].tags), tags)
+                self.assertEqual(products[target].version, version)
+                self.assertEqual(set(products[target].tags), tags)
 
 
 if __name__ == '__main__':

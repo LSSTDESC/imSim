@@ -924,6 +924,13 @@ def get_stack_products(product_names=None):
     dict of eups.Products keyed by package name.
     """
     config = get_config()
-    stack_packages = set(config['stack_packages'].keys())
+    if product_names is not None:
+        stack_packages = {_: None for _ in product_names}
+    else:
+        stack_packages = config['stack_packages']
     eupsenv = eups.Eups()
-    return {_: eupsenv.getSetupProducts(_)[0] for _ in stack_packages}
+    products = dict()
+    for product_name, product_type in stack_packages.items():
+        products[product_name] = eupsenv.getSetupProducts(product_name)[0]
+        products[product_name].type = product_type
+    return products
