@@ -532,9 +532,7 @@ class ImageSource(object):
 
         # Set the imSim version and LSST Stack product versions and
         # tags in the primary HDU.
-        version_keywords = get_version_keywords()
-        for key, value in version_keywords.items():
-            output[0].header[key] = value
+        output[0].header.update(get_version_keywords())
         self.fits_atomic_write(output, outfile, overwrite=overwrite)
 
     @staticmethod
