@@ -1,7 +1,7 @@
 #!/bin/bash
-source scl_source enable devtoolset-6
+source scl_source enable devtoolset-8
 source loadLSST.bash
-setup -t current lsst_sims
+setup -t sims_w_2019_42 lsst_sims
 pip install nose
 pip install coveralls
 pip install pylint
