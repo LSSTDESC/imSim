@@ -13,6 +13,7 @@ import gc
 import copy
 import psutil
 import galsim
+import eups
 
 # python_future no longer handles configparser as of 0.16.
 # This is needed for PY2/3 compatibility.
@@ -46,6 +47,7 @@ from .fopen import fopen
 from .trim import InstCatTrimmer
 from .sed_wrapper import SedWrapper
 from .atmPSF import AtmosphericPSF
+from .version import __version__ as imsim_version
 
 _POINT_SOURCE = 1
 _SERSIC_2D = 2
@@ -61,7 +63,8 @@ __all__ = ['PhosimInstanceCatalogParseError',
            '_POINT_SOURCE', '_SERSIC_2D', '_RANDOM_WALK', '_FITS_IMAGE',
            'parsePhoSimInstanceFile',
            'add_treering_info', 'airmass', 'FWHMeff', 'FWHMgeom', 'make_psf',
-           'save_psf', 'load_psf', 'TracebackDecorator', 'GsObjectList']
+           'save_psf', 'load_psf', 'TracebackDecorator', 'GsObjectList',
+           'get_stack_products', 'get_version_keywords']
 
 
 class PhosimInstanceCatalogParseError(RuntimeError):
@@ -611,7 +614,7 @@ def read_config(config_file=None):
         config_file.
     """
     my_config = ImSimConfiguration()
-    cp = configparser.ConfigParser()
+    cp = configparser.ConfigParser(allow_no_value=True)
     cp.optionxform = str
     if config_file is None:
         config_file = os.path.join(lsstUtils.getPackageDir('imsim'),
@@ -904,3 +907,47 @@ class TracebackDecorator:
         except Exception as eobj:
             traceback.print_exc()
             raise eobj
+
+def get_stack_products(product_names=None):
+    """Get the LSST Stack products corresponding to a set of product
+    names.
+
+    Parameters
+    ----------
+    product_names: dict [None]
+        A dict with LSST Stack package names as keys and either
+        'metapackage' or None as values. The setup eups.Product
+        corresponding to each of these packages will be returned in a
+        dictionary.  If None, then use the products listed in the
+        config file.
+
+    Returns
+    -------
+    dict of eups.Products keyed by package name.
+
+    """
+    config = get_config()
+    stack_packages = config['stack_packages'] if product_names is None \
+                     else product_names
+    eupsenv = eups.Eups()
+    products = dict()
+    for product_name, product_type in stack_packages.items():
+        products[product_name] = eupsenv.getSetupProducts(product_name)[0]
+        products[product_name].type = product_type
+    return products
+
+def get_version_keywords():
+    """
+    Return a dictionary of header keywords containing eups tagging and
+    version information.
+    """
+    keywords = {'IMSIMVER': imsim_version}
+    products = get_stack_products()
+    for iprod, (product_name, product) in enumerate(products.items()):
+        keywords[f'PKG{iprod:05d}'] = product_name
+        if product.type == 'metapackage':
+            tag = [_ for _ in product.tags if _ != 'current'][0]
+            keywords[f'TAG{iprod:05d}'] = tag
+        else:
+            keywords[f'VER{iprod:05d}'] = product.version
+    return keywords
