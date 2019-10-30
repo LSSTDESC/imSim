@@ -58,8 +58,6 @@ class ImageSourceTestCase(unittest.TestCase):
 
     def test_raw_file_headers(self):
         "Test contents of raw file headers."
-        from astropy.utils import iers
-        iers.conf.auto_max_age = None
         outfile = 'raw_file_test.fits'
         self.image_source.write_fits_file(outfile)
         with fits.open(outfile) as hdus:
