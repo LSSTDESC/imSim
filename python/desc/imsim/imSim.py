@@ -647,6 +647,8 @@ def read_config(config_file=None):
         for key, value in cp.items(section):
             my_config.set_from_config(section, key, value)
 
+    # Disable remote downloading of the IERS data if so specified in
+    # the config file.
     _disable_iers_download(my_config)
 
     return my_config
