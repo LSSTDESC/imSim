@@ -60,3 +60,7 @@ gaussianFWHM = 0.4
 lsst_sims = metapackage
 throughputs
 sims_skybrightness_data
+
+[iers_download]
+disable = True
+iers_file = 19-10-30-finals2000A.all

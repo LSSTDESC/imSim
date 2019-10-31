@@ -595,6 +595,26 @@ def get_config():
     return ImSimConfiguration()
 
 
+def _disable_iers_download(config):
+    """
+    Disable the remote IERS file download by setting the download url
+    to point at a local file specified in the config.  Also, set the
+    maximum age to None, so that astropy doesn't try to update from
+    the remote mirror.
+    """
+    from astropy.utils import iers
+    if not config['iers_download']['disable']:
+        return
+    iers.conf.auto_max_age = None
+
+    local_iers_file = config['iers_download']['iers_file']
+    if not os.path.isfile(local_iers_file):
+        # Assume the file must be in the `data` folder in this repo.
+        local_iers_file = os.path.join(os.environ['IMSIM_DIR'], 'data',
+                                       local_iers_file)
+    iers.conf.iers_auto_url = 'file:' + os.path.abspath(local_iers_file)
+
+
 def read_config(config_file=None):
     """
     Read the configuration parameters for the simulation that are not
@@ -626,6 +646,11 @@ def read_config(config_file=None):
     for section in cp.sections():
         for key, value in cp.items(section):
             my_config.set_from_config(section, key, value)
+
+    # Disable remote downloading of the IERS data if so specified in
+    # the config file.
+    _disable_iers_download(my_config)
+
     return my_config
 
 read_config()
