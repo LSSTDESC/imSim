@@ -6,7 +6,10 @@ import os
 import sys
 import warnings
 from collections import namedtuple, defaultdict
-import pickle
+try:
+    import cPickle as pickle
+except:
+    import pickle
 import logging
 import traceback
 import gc

@@ -6,7 +6,10 @@ import os
 import sys
 import pwd
 import time
-import pickle
+try:
+    import cPickle as pickle
+except:
+    import pickle
 import subprocess
 from collections import defaultdict
 import numpy as np
