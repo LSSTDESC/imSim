@@ -886,7 +886,7 @@ def make_psf(psf_name, obs_md, log_level='WARN', rng=None, **kwds):
                              logger=logger, **kwds)
     return psf
 
-def save_psf(psf, outfile):
+def save_psf(psf, outfile, screen_file=None):
     """
     Save the psf as a pickle file.
     """
@@ -895,11 +895,15 @@ def save_psf(psf, outfile):
         psf.logger = None
     with open(outfile, 'wb') as output:
         pickle.dump(psf, output)
+    if screen_file:
+        galsim.phase_screens.writeScreenShare(screen_file)
 
-def load_psf(psf_file, log_level='INFO'):
+def load_psf(psf_file, screen_file=None, log_level='INFO'):
     """
     Load a psf from a pickle file.
     """
+    if screen_file:
+        galsim.phase_screens.readScreenShare(screen_file)
     with open(psf_file, 'rb') as fd:
         psf = pickle.load(fd)
 
