@@ -45,10 +45,6 @@ parser.add_argument('--psf_file', type=str, default=None,
                     "If the file exists, the psf will be loaded from that "
                     "file, ignoring the --psf option; "
                     "if not, a PSF will be created and saved to that filename.")
-parser.add_argument('--psf_screen_file', type=str, default=None,
-                    help="File containing shared memory portion of "
-                    "AtmosphericPSF.  Required if reading/writing psf_file and "
-                    "the psf type is Atmospheric.")
 parser.add_argument('--image_path', type=str, default=None,
                     help="search path for FITS postage stamp images."
                     "This will be prepended to any existing IMSIM_IMAGE_PATH "
@@ -76,10 +72,9 @@ obs_md = desc.imsim.phosim_obs_metadata(commands)
 if args.psf_file is None or not os.path.isfile(args.psf_file):
     psf = desc.imsim.make_psf(args.psf, obs_md, log_level=args.log_level)
     if args.psf_file is not None:
-        desc.imsim.save_psf(psf, args.psf_file, args.psf_screen_file)
+        desc.imsim.save_psf(psf, args.psf_file)
 else:
-    psf = desc.imsim.load_psf(args.psf_file, args.psf_screen_file,
-                              log_level=args.log_level)
+    psf = desc.imsim.load_psf(args.psf_file, log_level=args.log_level)
 
 sensor_list = args.sensors.split('^') if args.sensors is not None \
     else args.sensors

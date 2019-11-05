@@ -30,16 +30,11 @@ class PsfTestCase(unittest.TestCase):
         correctly.
         """
         for psf_name in ("DoubleGaussian", "Kolmogorov", "Atmospheric"):
-            if psf_name == 'Atmospheric':
-                screen_file = os.path.join(self.test_dir, "screens.pkl")
-            else:
-                screen_file = None
             psf = desc.imsim.make_psf(psf_name, self.obs_md, screen_scale=6.4)
             psf_file = os.path.join(self.test_dir, '{}.pkl'.format(psf_name))
-            desc.imsim.save_psf(psf, psf_file, screen_file)
-            psf_retrieved = desc.imsim.load_psf(psf_file, screen_file)
+            desc.imsim.save_psf(psf, psf_file)
+            psf_retrieved = desc.imsim.load_psf(psf_file)
             self.assertEqual(psf, psf_retrieved)
-
 
     def test_atm_psf_config(self):
         """
