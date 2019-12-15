@@ -43,6 +43,7 @@ catalog = default
 [checkpointing]
 nobj = 500
 cleanup = True
+do_summary = False
 
 [wl_params]
 gamma2_sign = -1
