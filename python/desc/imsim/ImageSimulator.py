@@ -253,8 +253,10 @@ class ImageSimulator:
         # Set the CHECKPOINT_SUMMARY variable so that the summary info
         # from the subprocesses can be persisted.
         global CHECKPOINT_SUMMARY
+        do_checkpoint_summary = self.config['checkpointing']['do_summary']
+
         if (self.file_id is not None and processes > 1 and
-            CHECKPOINT_SUMMARY is None):
+            CHECKPOINT_SUMMARY is None and do_checkpoint_summary):
             db_file = 'ckpt_{}_{}.sqlite3'.format(self.file_id, node_id)
             CHECKPOINT_SUMMARY = CheckpointSummary(db_file=db_file)
 

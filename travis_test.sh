@@ -9,6 +9,7 @@ pip install coveralls
 pip install pylint
 git clone https://github.com/lsst/obs_lsst.git
 cd obs_lsst
+git checkout dc2/run2.1
 setup -r . -j
 
 # Build the obs_lsst package, but avoid the time consuming and lengthy
