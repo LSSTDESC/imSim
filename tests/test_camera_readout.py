@@ -12,6 +12,7 @@ import desc.imsim
 
 desc.imsim.read_config()
 
+
 class ImageSourceTestCase(unittest.TestCase):
     "TestCase class for ImageSource."
     imsim_dir = lsstUtils.getPackageDir('imsim')
@@ -19,6 +20,7 @@ class ImageSourceTestCase(unittest.TestCase):
                                'lsst_e_161899_R22_S11_r.fits.gz')
     image_source \
         = desc.imsim.ImageSource.create_from_eimage(eimage_file, 'R22_S11')
+
     def setUp(self):
         imsim_dir = lsstUtils.getPackageDir('imsim')
         self.eimage_file = os.path.join(imsim_dir, 'tests', 'data',
