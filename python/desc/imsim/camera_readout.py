@@ -12,7 +12,6 @@ electronics readout effects.
  * Add read noise and bias offset
  * Write FITS file for each amplifier
 """
-from __future__ import print_function, absolute_import, division
 import os
 import warnings
 from collections import namedtuple, OrderedDict
