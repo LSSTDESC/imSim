@@ -53,7 +53,6 @@ class ImageSourceTestCase(unittest.TestCase):
         "Test the .get_amp_image method."
         camera = ImsimMapper().camera
         det = camera['R22_S11']
-        print(type(det))
         amp_info_record = desc.imsim.set_itl_bboxes(det['C03'])
         image = self.image_source.get_amp_image(amp_info_record)
         self.assertTupleEqual(image.getArray().shape, (2048, 544))
