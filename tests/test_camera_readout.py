@@ -49,13 +49,6 @@ class ImageSourceTestCase(unittest.TestCase):
         self.assertEqual(hdu.header['DATASEC'], "[4:512,1:2000]")
         self.assertEqual(hdu.header['DETSEC'], "[4072:3564,1:2000]")
 
-    def test_get_amp_image(self):
-        "Test the .get_amp_image method."
-        camera = ImsimMapper().camera
-        det = camera['R22_S11']
-        amp_info_record = desc.imsim.set_itl_bboxes(det['C03'])
-        image = self.image_source.get_amp_image(amp_info_record)
-        self.assertTupleEqual(image.getArray().shape, (2048, 544))
 
     def test_raw_file_headers(self):
         "Test contents of raw file headers."

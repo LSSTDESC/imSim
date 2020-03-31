@@ -34,8 +34,7 @@ from .camera_info import CameraInfo, getHourAngle
 from .imSim import get_logger, get_config, airmass, get_version_keywords
 from .cosmic_rays import CosmicRays
 
-__all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
-           'set_phosim_bboxes', 'set_noao_keywords', 'cte_matrix']
+__all__ = ['ImageSource', 'set_noao_keywords', 'cte_matrix']
 
 class ImageSource(object):
     '''
@@ -583,89 +582,6 @@ class ImageSource(object):
             ymin, ymax = ymax, ymin
         return '[%i:%i,%i:%i]' % (xmin, xmax, ymin, ymax)
 
-
-def set_itl_bboxes(amp):
-    """
-    Function to apply realistic pixel geometry for ITL sensors.
-
-    Parameters
-    ----------
-    amp : lsst.afw.table.tableLib.AmpInfoRecord
-        Data structure containing the amplifier information such as
-        pixel geometry, gain, noise, etc..
-
-    Returns
-    -------
-    lsst.afw.table.tableLib.AmpInfoRecord
-        The updated AmpInfoRecord.
-    """
-    amp.setRawBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
-                                   lsst_geom.Extent2I(544, 2048)))
-    amp.setRawDataBBox(lsst_geom.Box2I(lsst_geom.Point2I(3, 0),
-                                       lsst_geom.Extent2I(509, 2000)))
-    amp.setRawHorizontalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(512, 0),
-                                                     lsst_geom.Extent2I(48, 2000)))
-    amp.setRawVerticalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 2000),
-                                                   lsst_geom.Extent2I(544, 48)))
-    amp.setRawPrescanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
-                                          lsst_geom.Extent2I(3, 2000)))
-    return amp
-
-
-def set_e2v_bboxes(amp):
-    """
-    Function to apply realistic pixel geometry for e2v sensors.
-
-    Parameters
-    ----------
-    amp : lsst.afw.table.tableLib.AmpInfoRecord
-        Data structure containing the amplifier information such as
-        pixel geometry, gain, noise, etc..
-
-    Returns
-    -------
-    lsst.afw.table.tableLib.AmpInfoRecord
-        The updated AmpInfoRecord.
-    """
-    amp.setRawBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
-                                   lsst_geom.Extent2I(542, 2022)))
-    amp.setRawDataBBox(lsst_geom.Box2I(lsst_geom.Point2I(10, 0),
-                                       lsst_geom.Extent2I(522, 2002)))
-    amp.setRawHorizontalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(522, 0),
-                                                     lsst_geom.Extent2I(20, 2002)))
-    amp.setRawVerticalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 2002),
-                                                   lsst_geom.Extent2I(542, 20)))
-    amp.setRawPrescanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
-                                          lsst_geom.Extent2I(10, 2002)))
-    return amp
-
-
-def set_phosim_bboxes(amp):
-    """
-    Function to apply the segmentation.txt geometry.
-
-    Parameters
-    ----------
-    amp : lsst.afw.table.tableLib.AmpInfoRecord
-        Data structure containing the amplifier information such as
-        pixel geometry, gain, noise, etc..
-
-    Returns
-    -------
-    lsst.afw.table.tableLib.AmpInfoRecord
-        The updated AmpInfoRecord.
-    """
-    amp.setRawBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
-                                   lsst_geom.Extent2I(519, 2001)))
-    amp.setRawDataBBox(lsst_geom.Box2I(lsst_geom.Point2I(4, 1),
-                                       lsst_geom.Extent2I(509, 2000)))
-    amp.setRawHorizontalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(513, 1),
-                                                     lsst_geom.Extent2I(6, 2000)))
-    amp.setRawVerticalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 2001),
-                                                   lsst_geom.Extent2I(519, 0)))
-    amp.setRawPrescanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 1),
-                                          lsst_geom.Extent2I(4, 2000)))
-    return amp
 
 PixelParameters = namedtuple('PixelParameters',
                              ('''dimv dimh ccdax ccday ccdpx ccdpy gap_inx
