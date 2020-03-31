@@ -204,7 +204,7 @@ class ImageSource(object):
         obs_md.pointingDec = dec
         self.rotangle = getRotSkyPos(ra, dec, obs_md, rottelpos)
 
-    def get_amp_image(self, amp_info_record, imageFactory=afwImage.ImageI):
+    def get_amp_image(self, amp_info, imageFactory=afwImage.ImageI):
         """
         Return an amplifier afwImage.Image object with electronics
         readout effects applied.  This method is only provided so that
@@ -213,7 +213,7 @@ class ImageSource(object):
 
         Parameters
         ----------
-        amp_info_record : lsst.afw.table.tableLib.AmpInfoRecord
+        amp_info : lsst.afw.cameraGeom.amplifier.amplifier.Amplifier
             Data structure used by cameraGeom to contain the amplifier
             information such as pixel geometry, gain, noise, etc..
         imageFactory : lsst.afw.image.Image[DFIU], optional
@@ -224,23 +224,23 @@ class ImageSource(object):
         lsst.afw.Image[DFIU]
             The image object containing the pixel data.
         """
-        amp_name = self.amp_name(amp_info_record)
+        amp_name = self.amp_name(amp_info)
         float_image = self.amp_images[amp_name]
         if imageFactory == afwImage.ImageF:
             return float_image
         # Return image as the type given by imageFactory.
-        output_image = imageFactory(amp_info_record.getRawBBox())
+        output_image = imageFactory(amp_info.getRawBBox())
         output_image.getArray()[:] = float_image.getArray()
         return output_image
 
     def amp_name(self, amp_info):
         """
         The ampifier name derived from a
-        lsst.afw.table.ampInfo.ampInfo.AmpInfoRecord.
+        lsst.afw.cameraGeom.amplifier.amplifier.Amplifier.
 
         Parameters
         ----------
-        amp_info: lsst.afw.table.ampInfo.ampInfo.AmpInfoRecord.
+        amp_info: lsst.afw.cameraGeom.amplifier.amplifier.Amplifier.
 
         Returns
         -------

@@ -36,7 +36,7 @@ class CameraInfo:
 
     def get_amp_info(self, amp_name):
         """
-        Get the AmpInfoRecord object for the desired amplifier.
+        Get the Amplifier object for the desired amplifier.
 
         Parameters
         ----------
@@ -45,7 +45,7 @@ class CameraInfo:
 
         Returns
         -------
-        lsst.afw.table.ampInfo.ampInfo.AmpInfoRecord
+        lsst.afw.cameraGeom.amplifier.amplifier.Amplifier
         """
         det_name = '_'.join(amp_name.split('_')[:2])
         channel_name = amp_name[-3:]
@@ -61,7 +61,7 @@ class CameraInfo:
 
         Parameters
         ----------
-        amp_info: lsst.afw.table.ampInfo.ampInfo.AmpInfoRecord
+        amp_info: lsst.afw.cameraGeom.amplifier.amplifier.Amplifier
 
         Returns
         -------
