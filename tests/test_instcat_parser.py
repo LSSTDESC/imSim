@@ -1,7 +1,6 @@
 """
 Unit tests for instance catalog parsing code.
 """
-from __future__ import absolute_import, print_function
 import os
 import unittest
 import warnings
@@ -9,7 +8,7 @@ import tempfile
 import shutil
 import numpy as np
 import desc.imsim
-from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
+from lsst.afw.cameraGeom import DetectorType
 from lsst.sims.coordUtils import lsst_camera
 from lsst.sims.utils import _pupilCoordsFromRaDec
 from lsst.sims.utils import altAzPaFromRaDec
@@ -380,7 +379,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         camera = LSSTCameraWrapper().camera
         sensors = [det.getName() for det in camera
-                   if det.getType() not in (WAVEFRONT, GUIDER)]
+                   if det.getType() not in (DetectorType.WAVEFRONT, DetectorType.GUIDER)]
         with warnings.catch_warnings(record=True) as wa:
             instcat_contents \
                 = desc.imsim.parsePhoSimInstanceFile(cat_file, sensors)

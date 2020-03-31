@@ -1,7 +1,6 @@
 """
 Unit tests for electronics readout simulation code.
 """
-from __future__ import absolute_import, print_function
 import os
 import itertools
 import unittest
@@ -12,6 +11,7 @@ import desc.imsim
 
 desc.imsim.read_config()
 
+
 class ImageSourceTestCase(unittest.TestCase):
     "TestCase class for ImageSource."
     imsim_dir = lsstUtils.getPackageDir('imsim')
@@ -19,6 +19,7 @@ class ImageSourceTestCase(unittest.TestCase):
                                'lsst_e_161899_R22_S11_r.fits.gz')
     image_source \
         = desc.imsim.ImageSource.create_from_eimage(eimage_file, 'R22_S11')
+
     def setUp(self):
         imsim_dir = lsstUtils.getPackageDir('imsim')
         self.eimage_file = os.path.join(imsim_dir, 'tests', 'data',
@@ -48,13 +49,6 @@ class ImageSourceTestCase(unittest.TestCase):
         self.assertEqual(hdu.header['DATASEC'], "[4:512,1:2000]")
         self.assertEqual(hdu.header['DETSEC'], "[4072:3564,1:2000]")
 
-    def test_get_amp_image(self):
-        "Test the .get_amp_image method."
-        camera = ImsimMapper().camera
-        det = camera['R22_S11']
-        amp_info_record = desc.imsim.set_itl_bboxes(det['C03'])
-        image = self.image_source.get_amp_image(amp_info_record)
-        self.assertTupleEqual(image.getArray().shape, (2048, 544))
 
     def test_raw_file_headers(self):
         "Test contents of raw file headers."

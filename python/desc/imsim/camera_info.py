@@ -30,13 +30,13 @@ class CameraInfo:
         str
         """
         amp_names = []
-        for amp_info in self.det_catalog[det_name].getAmpInfoCatalog():
-            amp_names.append('_'.join((det_name, amp_info.getName())))
+        for amp in self.det_catalog[det_name]:
+            amp_names.append('_'.join((det_name, amp.getName())))
         return amp_names
 
     def get_amp_info(self, amp_name):
         """
-        Get the AmpInfoRecord object for the desired amplifier.
+        Get the Amplifier object for the desired amplifier.
 
         Parameters
         ----------
@@ -45,11 +45,11 @@ class CameraInfo:
 
         Returns
         -------
-        lsst.afw.table.ampInfo.ampInfo.AmpInfoRecord
+        lsst.afw.cameraGeom.amplifier.amplifier.Amplifier
         """
         det_name = '_'.join(amp_name.split('_')[:2])
         channel_name = amp_name[-3:]
-        for amp_info in self.det_catalog[det_name].getAmpInfoCatalog():
+        for amp_info in self.det_catalog[det_name]:
             if amp_info.getName() == channel_name:
                 return amp_info
 
@@ -61,7 +61,7 @@ class CameraInfo:
 
         Parameters
         ----------
-        amp_info: lsst.afw.table.ampInfo.ampInfo.AmpInfoRecord
+        amp_info: lsst.afw.cameraGeom.amplifier.amplifier.Amplifier
 
         Returns
         -------

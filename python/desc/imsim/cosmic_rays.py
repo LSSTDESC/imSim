@@ -3,7 +3,6 @@ Code to add cosmic rays to LSST CCDs.  The cosmic ray hits are
 harvested from real CCD dark frames taken for Camera electro-optical
 testing.
 """
-from __future__ import print_function
 from collections import namedtuple, defaultdict
 import hashlib
 import numpy as np

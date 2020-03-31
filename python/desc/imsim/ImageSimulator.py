@@ -13,7 +13,7 @@ import sqlite3
 import numpy as np
 from astropy._erfa import ErfaWarning
 import galsim
-from lsst.afw.cameraGeom import WAVEFRONT, GUIDER
+from lsst.afw.cameraGeom import DetectorType
 from lsst.sims.photUtils import BandpassDict
 from lsst.sims.GalSimInterface import make_galsim_detector
 from lsst.sims.GalSimInterface import make_gs_interpreter
@@ -154,7 +154,7 @@ class ImageSimulator:
             det_name = det.getName()
             if sensor_list is not None and det_name not in sensor_list:
                 continue
-            if det_type in (WAVEFRONT, GUIDER):
+            if det_type in (DetectorType.WAVEFRONT, DetectorType.GUIDER):
                 continue
             gs_det = make_galsim_detector(self.camera_wrapper, det_name,
                                           self.phot_params, self.obs_md)
@@ -190,7 +190,7 @@ class ImageSimulator:
     def _get_all_sensors(self):
         """Get a list of all of the science sensors."""
         return [det.getName() for det in self.camera_wrapper.camera
-                if det.getType() not in (WAVEFRONT, GUIDER)]
+                if det.getType() not in (DetectorType.WAVEFRONT, DetectorType.GUIDER)]
 
     @staticmethod
     def checkpoint_file(file_id, det_name):

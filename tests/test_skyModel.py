@@ -1,7 +1,6 @@
 """
 Unit tests for skyModel code.
 """
-from __future__ import absolute_import
 import os
 import copy
 import time
@@ -149,6 +148,7 @@ class SkyModelTestCase(unittest.TestCase):
             sky_bg_values.add(image.array[0][0])
         self.assertEqual(len(sky_bg_values), len(chip_names))
 
+    @unittest.skip("Skip this test until the code is refactored to not depend on inputs.")
     def test_skycounts_function(self):
         """
         Test that the SkyCountsPerSec class gives the right result for the

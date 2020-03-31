@@ -1,7 +1,6 @@
 """
 Test the setting of the logging configuration.
 """
-from __future__ import absolute_import, print_function
 import unittest
 import desc.imsim
 

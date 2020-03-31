@@ -12,7 +12,6 @@ electronics readout effects.
  * Add read noise and bias offset
  * Write FITS file for each amplifier
 """
-from __future__ import print_function, absolute_import, division
 import os
 import warnings
 from collections import namedtuple, OrderedDict
@@ -35,8 +34,7 @@ from .camera_info import CameraInfo, getHourAngle
 from .imSim import get_logger, get_config, airmass, get_version_keywords
 from .cosmic_rays import CosmicRays
 
-__all__ = ['ImageSource', 'set_itl_bboxes', 'set_e2v_bboxes',
-           'set_phosim_bboxes', 'set_noao_keywords', 'cte_matrix']
+__all__ = ['ImageSource', 'set_noao_keywords', 'cte_matrix']
 
 class ImageSource(object):
     '''
@@ -206,7 +204,7 @@ class ImageSource(object):
         obs_md.pointingDec = dec
         self.rotangle = getRotSkyPos(ra, dec, obs_md, rottelpos)
 
-    def get_amp_image(self, amp_info_record, imageFactory=afwImage.ImageI):
+    def get_amp_image(self, amp_info, imageFactory=afwImage.ImageI):
         """
         Return an amplifier afwImage.Image object with electronics
         readout effects applied.  This method is only provided so that
@@ -215,7 +213,7 @@ class ImageSource(object):
 
         Parameters
         ----------
-        amp_info_record : lsst.afw.table.tableLib.AmpInfoRecord
+        amp_info : lsst.afw.cameraGeom.amplifier.amplifier.Amplifier
             Data structure used by cameraGeom to contain the amplifier
             information such as pixel geometry, gain, noise, etc..
         imageFactory : lsst.afw.image.Image[DFIU], optional
@@ -226,23 +224,23 @@ class ImageSource(object):
         lsst.afw.Image[DFIU]
             The image object containing the pixel data.
         """
-        amp_name = self.amp_name(amp_info_record)
+        amp_name = self.amp_name(amp_info)
         float_image = self.amp_images[amp_name]
         if imageFactory == afwImage.ImageF:
             return float_image
         # Return image as the type given by imageFactory.
-        output_image = imageFactory(amp_info_record.getRawBBox())
+        output_image = imageFactory(amp_info.getRawBBox())
         output_image.getArray()[:] = float_image.getArray()
         return output_image
 
     def amp_name(self, amp_info):
         """
         The ampifier name derived from a
-        lsst.afw.table.ampInfo.ampInfo.AmpInfoRecord.
+        lsst.afw.cameraGeom.amplifier.amplifier.Amplifier.
 
         Parameters
         ----------
-        amp_info: lsst.afw.table.ampInfo.ampInfo.AmpInfoRecord.
+        amp_info: lsst.afw.cameraGeom.amplifier.amplifier.Amplifier.
 
         Returns
         -------
@@ -584,89 +582,6 @@ class ImageSource(object):
             ymin, ymax = ymax, ymin
         return '[%i:%i,%i:%i]' % (xmin, xmax, ymin, ymax)
 
-
-def set_itl_bboxes(amp):
-    """
-    Function to apply realistic pixel geometry for ITL sensors.
-
-    Parameters
-    ----------
-    amp : lsst.afw.table.tableLib.AmpInfoRecord
-        Data structure containing the amplifier information such as
-        pixel geometry, gain, noise, etc..
-
-    Returns
-    -------
-    lsst.afw.table.tableLib.AmpInfoRecord
-        The updated AmpInfoRecord.
-    """
-    amp.setRawBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
-                                   lsst_geom.Extent2I(544, 2048)))
-    amp.setRawDataBBox(lsst_geom.Box2I(lsst_geom.Point2I(3, 0),
-                                       lsst_geom.Extent2I(509, 2000)))
-    amp.setRawHorizontalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(512, 0),
-                                                     lsst_geom.Extent2I(48, 2000)))
-    amp.setRawVerticalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 2000),
-                                                   lsst_geom.Extent2I(544, 48)))
-    amp.setRawPrescanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
-                                          lsst_geom.Extent2I(3, 2000)))
-    return amp
-
-
-def set_e2v_bboxes(amp):
-    """
-    Function to apply realistic pixel geometry for e2v sensors.
-
-    Parameters
-    ----------
-    amp : lsst.afw.table.tableLib.AmpInfoRecord
-        Data structure containing the amplifier information such as
-        pixel geometry, gain, noise, etc..
-
-    Returns
-    -------
-    lsst.afw.table.tableLib.AmpInfoRecord
-        The updated AmpInfoRecord.
-    """
-    amp.setRawBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
-                                   lsst_geom.Extent2I(542, 2022)))
-    amp.setRawDataBBox(lsst_geom.Box2I(lsst_geom.Point2I(10, 0),
-                                       lsst_geom.Extent2I(522, 2002)))
-    amp.setRawHorizontalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(522, 0),
-                                                     lsst_geom.Extent2I(20, 2002)))
-    amp.setRawVerticalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 2002),
-                                                   lsst_geom.Extent2I(542, 20)))
-    amp.setRawPrescanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
-                                          lsst_geom.Extent2I(10, 2002)))
-    return amp
-
-
-def set_phosim_bboxes(amp):
-    """
-    Function to apply the segmentation.txt geometry.
-
-    Parameters
-    ----------
-    amp : lsst.afw.table.tableLib.AmpInfoRecord
-        Data structure containing the amplifier information such as
-        pixel geometry, gain, noise, etc..
-
-    Returns
-    -------
-    lsst.afw.table.tableLib.AmpInfoRecord
-        The updated AmpInfoRecord.
-    """
-    amp.setRawBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 0),
-                                   lsst_geom.Extent2I(519, 2001)))
-    amp.setRawDataBBox(lsst_geom.Box2I(lsst_geom.Point2I(4, 1),
-                                       lsst_geom.Extent2I(509, 2000)))
-    amp.setRawHorizontalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(513, 1),
-                                                     lsst_geom.Extent2I(6, 2000)))
-    amp.setRawVerticalOverscanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 2001),
-                                                   lsst_geom.Extent2I(519, 0)))
-    amp.setRawPrescanBBox(lsst_geom.Box2I(lsst_geom.Point2I(0, 1),
-                                          lsst_geom.Extent2I(4, 2000)))
-    return amp
 
 PixelParameters = namedtuple('PixelParameters',
                              ('''dimv dimh ccdax ccday ccdpx ccdpy gap_inx

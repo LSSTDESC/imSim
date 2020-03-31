@@ -1,7 +1,6 @@
 """
 Base module for the imSim package.
 """
-from __future__ import absolute_import, print_function, division
 import os
 import sys
 import warnings
@@ -14,14 +13,7 @@ import copy
 import psutil
 import galsim
 import eups
-
-# python_future no longer handles configparser as of 0.16.
-# This is needed for PY2/3 compatibility.
-try:
-    import configparser
-except ImportError:
-    # python 2 backwards-compatibility
-    import ConfigParser as configparser
+import configparser
 
 import numpy as np
 import lsst.log as lsstLog
