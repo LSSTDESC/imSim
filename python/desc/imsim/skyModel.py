@@ -4,7 +4,6 @@ Note that this extends the default classes located in
 sims_GalSimInterface/python/lsst/sims/GalSimInterface/galSimNoiseAndBackground.py
 '''
 import numpy as np
-import astropy.units as u
 import galsim
 import lsst.sims.coordUtils
 from lsst.sims.photUtils import BandpassDict, Sed
@@ -12,7 +11,7 @@ import lsst.sims.skybrightness as skybrightness
 from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
 from .imSim import get_config, get_logger, get_obs_lsstSim_camera
 
-__all__ = ['make_sky_model', 'get_chip_center', 'SkyCountsPerSec',
+__all__ = ['make_sky_model', 'get_chip_center', 'sky_counts_per_sec',
            'ESOSkyModel', 'ESOSiliconSkyModel', 'FastSiliconSkyModel']
 
 
@@ -37,53 +36,35 @@ def make_sky_model(obs_metadata, photParams, seed=None, bandpassDict=None,
                        addBackground=addBackground, logger=logger)
 
 
-class SkyCountsPerSec(object):
+def sky_counts_per_sec(skyModel, photParams, bandpass, magNorm=None):
+    """Compute the sky background counts per pixel per second.
+
+    Parameters
+    ----------
+    skyModel: lsst.sims.skybrightness.SkyModel
+        Model of the sky for the current epoch.
+    photParams: lsst.sims.photUtils.PhotometricParameters
+        Object containing parameters of the photometric response of the
+        telescope, including pixel scale, gain, effective area, exposure
+        time, number of exposures, etc.
+    bandpass: lsst.sims.photUtils.Bandpass
+        Instrumental throughput for a particular passband.
+    magNorm: float [None]
+        If not None, then renormalize the sky SED to have monochromatic
+        magnitude at 500nm.  Otherwise, use the default skyModel normalization.
+
+    Returns
+    -------
+    counts per second per pixel
     """
-    This is a class that is used to calculate the number of sky counts per
-    second.
-    """
-    def __init__(self, skyModel, photParams, bandpassdic):
-        """
-
-        @param [in] skyModel is an instantation of the skybrightness.SkyModel
-        class that carries information about the sky for the current conditions.
-
-        @photParams [in] is an instantiation of the
-        PhotometricParameters class that carries details about the
-        photometric response of the telescope.
-
-        @bandpassdic [in] is an instantation of the Bandpassdict class that
-        holds the bandpasses.
-        """
-
-        self.skyModel = skyModel
-        self.photParams = photParams
-        self.bandpassdic = bandpassdic
-
-    def __call__(self, filter_name='u', magNorm=None):
-        """
-        This method calls the SkyCountsPerSec object and calculates the sky
-        counts.
-
-        @param [in] filter_name is a string that indicates the name of the filter
-        for which to make the calculation.
-
-        @param [in] magNorm is an option to calculate the sky counts for a given
-        magnitude.  When calculating the counts from just the information in skyModel
-        this should be set as MagNorm=None.
-        """
-
-        bandpass = self.bandpassdic[filter_name]
-        wave, spec = self.skyModel.returnWaveSpec()
-        skymodel_Sed = Sed(wavelen=wave, flambda=spec[0, :])
-        if magNorm:
-            skymodel_fluxNorm = skymodel_Sed.calcFluxNorm(magNorm, bandpass)
-            skymodel_Sed.multiplyFluxNorm(skymodel_fluxNorm)
-        sky_counts = skymodel_Sed.calcADU(bandpass=bandpass, photParams=self.photParams)
-        expTime = self.photParams.nexp * self.photParams.exptime * u.s
-        sky_counts_persec = sky_counts * 0.2**2 / expTime
-
-        return sky_counts_persec
+    wave, spec = skyModel.returnWaveSpec()
+    sed = Sed(wavelen=wave, flambda=spec[0, :])
+    if magNorm is not None:
+        flux_norm = sed.calcFluxNorm(magNorm, bandpass)
+        sed.multiplyFluxNorm(flux_norm)
+    countrate_per_arcsec = sed.calcADU(bandpass=bandpass, photParams=photParams)
+    exptime = photParams.nexp*photParams.exptime
+    return countrate_per_arcsec*photParams.platescale**2/exptime
 
 
 def get_chip_center(chip_name, camera):
@@ -262,16 +243,16 @@ class ESOSkyModel(NoiseAndBackgroundBase):
         mjd = self.obs_metadata.mjd.TAI
         self.skyModel.setRaDecMjd(ra, dec, mjd, degrees=True)
 
-        bandPassName = self.obs_metadata.bandpass
+        bandpass = self.bandpassDict[self.obs_metadata.bandpass]
 
         # Since we are only producing one eimage, account for cases
         # where nsnap > 1 with an effective exposure time for the
         # visit as a whole.  TODO: Undo this change when we write
         # separate images per exposure.
         exposureTime = self.photParams.nexp*self.photParams.exptime
-        skycounts_persec = SkyCountsPerSec(self.skyModel, self.photParams,
-                                           self.bandpassDict)
-        return float(skycounts_persec(bandPassName)*exposureTime*u.s)
+        return exposureTime*sky_counts_per_sec(self.skyModel, self.photParams,
+                                               bandpass)
+
 
 class FastSiliconSkyModel(ESOSkyModel):
     """
@@ -380,7 +361,7 @@ class ESOSiliconSkyModel(ESOSkyModel):
     sky brightness model.
     """
     def __init__(self, obs_metadata, photParams, seed=None, bandpassDict=None,
-                 logger=None):
+                 addNoise=True, addBackground=True, logger=None):
         """
         Parameters
         ----------

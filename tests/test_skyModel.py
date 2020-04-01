@@ -173,13 +173,13 @@ class SkyModelTestCase(unittest.TestCase):
         _, phot_params, _ = desc.imsim.parsePhoSimInstanceFile(instcat_file, ())
         with open(os.path.join(os.environ['IMSIM_DIR'], 'data',
                                'bp_dict.pkl'), 'rb') as fd:
-            bandPassdic = pickle.load(fd)
+            bp_dict = pickle.load(fd)
         skyModel = DC2SkyModel()
 
-        skycounts_persec = desc.imsim.skyModel.SkyCountsPerSec(skyModel, phot_params, bandPassdic)
-
-        skycounts_persec_u = skycounts_persec('u', 24)
-        self.assertAlmostEqual(skycounts_persec_u.value, self.zp_u)
+        bandpass = bp_dict['u']
+        countrate = desc.imsim.skyModel.sky_counts_per_sec(skyModel, phot_params,
+                                                           bandpass, magNorm=24)
+        self.assertAlmostEqual(countrate, self.zp_u)
 
     def test_NullSkyModel(self):
         """Test that the NullSkyModel adds zero photons."""
