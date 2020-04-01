@@ -17,7 +17,7 @@ class DC2SkyModel:
     """
     Minimal SkyModel class to provide the sky SED evaluated at
     skyModel.setRaDecMjd(0., 90., 58000, azAlt=True, degrees=True)
-    using the DC2Production sims_skybrightness_data tag.
+    using data from the DC2Production sims_skybrightness_data tag.
     """
     def __init__(self):
         # Read the SED associated with the persisted DC2Production
@@ -27,7 +27,7 @@ class DC2SkyModel:
             self.wave, self.spec = pickle.load(fd)
 
     def returnWaveSpec(self):
-        """Return the SED for use by the SkyCountsPerSec class."""
+        """Return the SED for use by the sky_counts_per_sec function."""
         return self.wave, self.spec
 
 
