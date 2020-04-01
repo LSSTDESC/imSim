@@ -37,7 +37,10 @@ def make_sky_model(obs_metadata, photParams, seed=None, bandpassDict=None,
 
 
 def sky_counts_per_sec(skyModel, photParams, bandpass, magNorm=None):
-    """Compute the sky background counts per pixel per second.
+    """
+    Compute the sky background counts per pixel per second.  Note that
+    the gain in photParams is applied to the return value such that
+    "counts" are in units of ADU.
 
     Parameters
     ----------
@@ -50,12 +53,13 @@ def sky_counts_per_sec(skyModel, photParams, bandpass, magNorm=None):
     bandpass: lsst.sims.photUtils.Bandpass
         Instrumental throughput for a particular passband.
     magNorm: float [None]
-        If not None, then renormalize the sky SED to have monochromatic
-        magnitude at 500nm.  Otherwise, use the default skyModel normalization.
+        If not None, then renormalize the sky SED to have a monochromatic
+        magnitude of magNorm at 500nm.  Otherwise, use the default
+        skyModel normalization.
 
     Returns
     -------
-    counts per second per pixel
+    ADUs per second per pixel
     """
     wave, spec = skyModel.returnWaveSpec()
     sed = Sed(wavelen=wave, flambda=spec[0, :])

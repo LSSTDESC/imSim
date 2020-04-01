@@ -20,10 +20,10 @@ class DC2SkyModel:
     using the DC2Production sims_skybrightness_data tag.
     """
     def __init__(self):
-        # Read the SED from the DC2Production dataset from the
-        # persisted pickle file.
+        # Read the SED associated with the persisted DC2Production
+        # dataset from the pickle file.
         with open(os.path.join(os.environ['IMSIM_DIR'], 'data',
-                               'sky_model_sed.pkl'), 'rb') as fd:
+                               'sky_model_sed_DC2Production.pkl'), 'rb') as fd:
             self.wave, self.spec = pickle.load(fd)
 
     def returnWaveSpec(self):
@@ -172,7 +172,7 @@ class SkyModelTestCase(unittest.TestCase):
                                     'tiny_instcat.txt')
         _, phot_params, _ = desc.imsim.parsePhoSimInstanceFile(instcat_file, ())
         with open(os.path.join(os.environ['IMSIM_DIR'], 'data',
-                               'bp_dict.pkl'), 'rb') as fd:
+                               'bp_dict_DC2Production.pkl'), 'rb') as fd:
             bp_dict = pickle.load(fd)
         skyModel = DC2SkyModel()
 
