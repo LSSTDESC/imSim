@@ -3,21 +3,33 @@ Unit tests for skyModel code.
 """
 import os
 import copy
-import time
 import unittest
-from collections import namedtuple
-try:
-    import configparser
-except ImportError:
-    # python 2 backwards-compatibility
-    import ConfigParser as configparser
+import pickle
+import configparser
 import numpy as np
 import numpy.random as random
 import galsim
-import lsst.sims.skybrightness as skybrightness
 from lsst.sims.GalSimInterface import make_galsim_detector, LSSTCameraWrapper
-from lsst.sims.photUtils import BandpassDict
 import desc.imsim
+
+
+class DC2SkyModel:
+    """
+    Minimal SkyModel class to provide the sky SED evaluated at
+    skyModel.setRaDecMjd(0., 90., 58000, azAlt=True, degrees=True)
+    using the DC2Production sims_skybrightness_data tag.
+    """
+    def __init__(self):
+        # Read the SED from the DC2Production dataset from the
+        # persisted pickle file.
+        with open(os.path.join(os.environ['IMSIM_DIR'], 'data',
+                               'sky_model_sed.pkl'), 'rb') as fd:
+            self.wave, self.spec = pickle.load(fd)
+
+    def returnWaveSpec(self):
+        """Return the SED for use by the SkyCountsPerSec class."""
+        return self.wave, self.spec
+
 
 class SkyModelTestCase(unittest.TestCase):
     """
@@ -95,7 +107,6 @@ class SkyModelTestCase(unittest.TestCase):
                                               addBackground=True,
                                               apply_sensor_model=False)
 
-        t0 = time.time()
         image_2 = galsim.Image(nx, ny)
         image_2 = skymodel2.addNoiseAndBackground(image_2,
                                                   photParams=photPars_2,
@@ -104,7 +115,6 @@ class SkyModelTestCase(unittest.TestCase):
         image_1 = skymodel1.addNoiseAndBackground(image_1,
                                                   photParams=photPars_1,
                                                   detector=self.detector())
-        dt_fast = time.time() - t0
         self._apply_sky_background_tests(image_1, image_2)
 
         # Test with sensor effects turned on, using fast silicon model.
@@ -148,7 +158,6 @@ class SkyModelTestCase(unittest.TestCase):
             sky_bg_values.add(image.array[0][0])
         self.assertEqual(len(sky_bg_values), len(chip_names))
 
-    @unittest.skip("Skip this test until the code is refactored to not depend on inputs.")
     def test_skycounts_function(self):
         """
         Test that the SkyCountsPerSec class gives the right result for the
@@ -162,10 +171,11 @@ class SkyModelTestCase(unittest.TestCase):
         instcat_file = os.path.join(os.environ['IMSIM_DIR'], 'tests',
                                     'tiny_instcat.txt')
         _, phot_params, _ = desc.imsim.parsePhoSimInstanceFile(instcat_file, ())
-        skyModel = skybrightness.SkyModel(mags=False)
-        skyModel.setRaDecMjd(0., 90., 58000, azAlt=True, degrees=True)
+        with open(os.path.join(os.environ['IMSIM_DIR'], 'data',
+                               'bp_dict.pkl'), 'rb') as fd:
+            bandPassdic = pickle.load(fd)
+        skyModel = DC2SkyModel()
 
-        bandPassdic = BandpassDict.loadTotalBandpassesFromFiles(['u', 'g', 'r', 'i', 'z', 'y'])
         skycounts_persec = desc.imsim.skyModel.SkyCountsPerSec(skyModel, phot_params, bandPassdic)
 
         skycounts_persec_u = skycounts_persec('u', 24)
