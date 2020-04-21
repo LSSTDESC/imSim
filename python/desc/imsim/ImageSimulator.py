@@ -276,9 +276,10 @@ class ImageSimulator:
         if wait_time is not None:
             results.append(pool.apply_async(TracebackDecorator(process_monitor),
                                             (), dict(wait_time=wait_time)))
-        for det_name in self.gs_interpreters:
+        for det_name, gs_interpreter in self.gs_interpreters.items():
             gs_objects = self.gs_obj_dict[det_name]
-            if self._outfiles_exist(det_name) or not gs_objects:
+            if (self._outfiles_exist(det_name) or
+                (not gs_objects and not gs_interpreter.drawn_objects)):
                 continue
 
             # If we are checkpointing, create the connections between
@@ -378,7 +379,8 @@ class SimulateSensor:
             The list of objects to draw.  This should be restricted to
             the objects for the corresponding sensor.
         """
-        if not gs_objects:
+        gs_interpreter = IMAGE_SIMULATOR.gs_interpreters[self.sensor_name]
+        if not gs_objects and not gs_interpreter.drawn_objects:
             return
 
         logger = get_logger(self.log_level, name=self.sensor_name)
@@ -388,7 +390,6 @@ class SimulateSensor:
         max_flux_simple = IMAGE_SIMULATOR.config['ccd']['max_flux_simple']
         sensor_limit = IMAGE_SIMULATOR.config['ccd']['sensor_limit']
         fft_sb_thresh = IMAGE_SIMULATOR.config['ccd'].get('fft_sb_thresh',None)
-        gs_interpreter = IMAGE_SIMULATOR.gs_interpreters[self.sensor_name]
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', 'Automatic n_photons',
                                     UserWarning)
