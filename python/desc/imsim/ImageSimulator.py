@@ -15,9 +15,9 @@ from astropy._erfa import ErfaWarning
 import galsim
 from lsst.afw.cameraGeom import DetectorType
 from lsst.sims.photUtils import BandpassDict
-from lsst.sims.GalSimInterface import make_galsim_detector
-from lsst.sims.GalSimInterface import make_gs_interpreter
-from lsst.sims.GalSimInterface import LSSTCameraWrapper
+from .sims_GalSimInterface import make_galsim_detector
+from .sims_GalSimInterface import make_gs_interpreter
+from .sims_GalSimInterface import LSSTCameraWrapper
 from .imSim import read_config, parsePhoSimInstanceFile, add_cosmic_rays,\
     add_treering_info, get_logger, TracebackDecorator, get_version_keywords
 from .bleed_trails import apply_channel_bleeding

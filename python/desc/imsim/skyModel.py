@@ -8,7 +8,7 @@ import galsim
 import lsst.sims.coordUtils
 from lsst.sims.photUtils import BandpassDict, Sed
 import lsst.sims.skybrightness as skybrightness
-from lsst.sims.GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
+from .sims_GalSimInterface.galSimNoiseAndBackground import NoiseAndBackgroundBase
 from .imSim import get_config, get_logger, get_obs_lsstSim_camera
 
 __all__ = ['make_sky_model', 'get_chip_center', 'sky_counts_per_sec',

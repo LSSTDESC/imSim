@@ -5,9 +5,9 @@ import os
 import unittest
 import numpy as np
 import lsst.utils as lsstUtils
-from lsst.sims.GalSimInterface import make_galsim_detector
-from lsst.sims.GalSimInterface import LSSTCameraWrapper
-from lsst.sims.GalSimInterface import GalSimInterpreter
+from desc.imsim.sims_GalSimInterface import make_galsim_detector
+from desc.imsim.sims_GalSimInterface import LSSTCameraWrapper
+from desc.imsim.sims_GalSimInterface import GalSimInterpreter
 import desc.imsim
 
 

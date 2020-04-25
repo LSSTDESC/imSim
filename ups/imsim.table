@@ -1,3 +1,15 @@
+setupRequired(galsim)
+setupRequired(astropy)
+setupRequired(meas_astrom)
+setupRequired(afw)
+setupRequired(geom)
+setupRequired(sims_utils)
+setupRequired(sims_coordUtils)
+setupRequired(sims_catalogs)
+setupRequired(sims_catUtils)
+
+setupOptional(obs_lsstSim)
+
 envPrepend(PATH, ${PRODUCT_DIR}/bin)
 
 envPrepend(LD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)

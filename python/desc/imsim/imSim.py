@@ -29,10 +29,10 @@ from lsst.sims.catUtils.mixins import PhoSimAstrometryBase
 from lsst.sims.utils import _pupilCoordsFromObserved
 from lsst.sims.utils import _observedFromAppGeo
 from lsst.sims.utils import radiansFromArcsec
-from lsst.sims.GalSimInterface import GalSimCelestialObject, SNRdocumentPSF,\
-    Kolmogorov_and_Gaussian_PSF
 from lsst.sims.photUtils import BandpassDict, Sed, getImsimFluxNorm
 from lsst.sims.utils import defaultSpecMap
+from .sims_GalSimInterface import GalSimCelestialObject, SNRdocumentPSF,\
+    Kolmogorov_and_Gaussian_PSF
 from .tree_rings import TreeRings
 from .cosmic_rays import CosmicRays
 from .fopen import fopen

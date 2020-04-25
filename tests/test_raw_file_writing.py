@@ -4,7 +4,7 @@ Unit test code for raw file writing.
 import os
 import unittest
 from astropy.io import fits
-import lsst.sims.GalSimInterface as sims_gsi
+import desc.imsim.sims_GalSimInterface as sims_gsi
 from lsst.sims.photUtils import PhotometricParameters
 from lsst.sims.utils import ObservationMetaData
 import desc.imsim

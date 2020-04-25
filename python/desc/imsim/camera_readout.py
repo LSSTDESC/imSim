@@ -29,7 +29,7 @@ with warnings.catch_warnings():
     from lsst.sims.catUtils.utils import ObservationMetaDataGenerator
     from lsst.sims.utils import \
         getRotSkyPos, ObservationMetaData, altAzPaFromRaDec
-    from lsst.sims.GalSimInterface import LsstObservatory
+    from .sims_GalSimInterface import LsstObservatory
 from .camera_info import CameraInfo, getHourAngle
 from .imSim import get_logger, get_config, airmass, get_version_keywords
 from .cosmic_rays import CosmicRays
