@@ -31,7 +31,8 @@ class GalSim_afw_TanSipWCS(galsim.wcs.CelestialWCS):
     http://fits.gsfc.nasa.gov/registry/sip/SIP_distortion_v1_0.pdf
     """
 
-    def __init__(self, detectorName, cameraWrapper, obs_metadata, epoch, photParams=None, wcs=None):
+    def __init__(self, detectorName, cameraWrapper, obs_metadata, epoch,
+                 photParams=None, wcs=None):
         """
         @param [in] detectorName is the name of the detector as stored
         by afw
@@ -52,12 +53,14 @@ class GalSim_afw_TanSipWCS(galsim.wcs.CelestialWCS):
         """
 
         if not isinstance(cameraWrapper, GalSimCameraWrapper):
-            raise RuntimeError("You must pass GalSim_afw_TanSipWCS an instantiation "
+            raise RuntimeError("You must pass GalSim_afw_TanSipWCS "
+                               "an instantiation "
                                "of GalSimCameraWrapper or one of its daughter "
                                "classes")
 
         if wcs is None:
-            self._tanSipWcs = tanSipWcsFromDetector(detectorName, cameraWrapper, obs_metadata, epoch)
+            self._tanSipWcs = tanSipWcsFromDetector(
+                detectorName, cameraWrapper, obs_metadata, epoch)
         else:
             self._tanSipWcs = wcs
 
@@ -151,9 +154,9 @@ class GalSim_afw_TanSipWCS(galsim.wcs.CelestialWCS):
         if type(x) is np.ndarray:
             chipNameList = chipNameList * len(x)
 
-        ra, dec = self.cameraWrapper._raDecFromPixelCoords(x + self.afw_crpix1, y + self.afw_crpix2, chipNameList,
-                                                           obs_metadata=self.obs_metadata,
-                                                           epoch=self.epoch)
+        ra, dec = self.cameraWrapper._raDecFromPixelCoords(
+            x + self.afw_crpix1, y + self.afw_crpix2, chipNameList,
+            obs_metadata=self.obs_metadata, epoch=self.epoch)
 
         if type(x) is np.ndarray:
             return (ra, dec)
@@ -164,7 +167,8 @@ class GalSim_afw_TanSipWCS(galsim.wcs.CelestialWCS):
         """
         This is a method required by the GalSim WCS API
 
-        Convert ra, dec in radians into x, y in pixel space with crpix subtracted.
+        Convert ra, dec in radians into x, y in pixel space with crpix
+        subtracted.
         """
 
         chipNameList = [self.detectorName]
@@ -172,9 +176,9 @@ class GalSim_afw_TanSipWCS(galsim.wcs.CelestialWCS):
         if type(ra) is np.ndarray:
             chipNameList = chipNameList * len(ra)
 
-        xx, yy = self.cameraWrapper._pixelCoordsFromRaDec(ra=ra, dec=dec, chipName=chipNameList,
-                                                          obs_metadata=self.obs_metadata,
-                                                          epoch=self.epoch)
+        xx, yy = self.cameraWrapper._pixelCoordsFromRaDec(
+            ra=ra, dec=dec, chipName=chipNameList,
+            obs_metadata=self.obs_metadata, epoch=self.epoch)
 
         if type(ra) is np.ndarray:
             return (xx-self.crpix1, yy-self.crpix2)
@@ -183,12 +187,13 @@ class GalSim_afw_TanSipWCS(galsim.wcs.CelestialWCS):
 
     def _newOrigin(self, origin):
         """
-        This is a method required by the GalSim WCS API.  It returns
-        a copy of self, but with the pixel-space origin translated to a new
-        position.
+        This is a method required by the GalSim WCS API.  It returns a
+        copy of self, but with the pixel-space origin translated to a
+        new position.
 
-        @param [in] origin is an instantiation of a galsim.PositionD representing
-        the a point in pixel space to which you want to move the origin of the WCS
+        @param [in] origin is an instantiation of a galsim.PositionD
+        representing the a point in pixel space to which you want to
+        move the origin of the WCS
 
         @param [out] _newWcs is a WCS identical to self, but with the origin
         in pixel space moved to the specified origin
@@ -212,21 +217,25 @@ TreeRingInfo = namedtuple('TreeRingInfo', ['center', 'func'])
 
 class GalSimDetector(object):
     """
-    This class stores information about individual detectors for use by the GalSimInterpreter
+    This class stores information about individual detectors for use
+    by the GalSimInterpreter
     """
 
-    def __init__(self, detectorName, cameraWrapper, obs_metadata, epoch, photParams=None):
+    def __init__(self, detectorName, cameraWrapper, obs_metadata, epoch,
+                 photParams=None):
         """
         @param [in] detectorName is the name of the detector as stored
         by afw
 
         @param [in] cameraWrapper is an instantionat of a GalSimCameraWrapper
 
-        @param [in] photParams is an instantiation of the PhotometricParameters class that carries
-        details about the photometric response of the telescope.
+        @param [in] photParams is an instantiation of the
+        PhotometricParameters class that carries details about the
+        photometric response of the telescope.
 
-        This class will generate its own internal variable self.fileName which is
-        the name of the detector as it will appear in the output FITS files
+        This class will generate its own internal variable
+        self.fileName which is the name of the detector as it will
+        appear in the output FITS files
         """
 
         if not isinstance(cameraWrapper, GalSimCameraWrapper):
@@ -235,12 +244,15 @@ class GalSimDetector(object):
                                "classes")
 
         if detectorName not in cameraWrapper.camera:
-            raise RuntimeError("detectorName needs to be in the camera wrapped by "
-                               "cameraWrapper when instantiating a GalSimDetector\n"
-                               "%s is not in your cameraWrapper.camera" % detectorName)
+            raise RuntimeError("detectorName needs to be in the camera "
+                               " wrapped by cameraWrapper when instantiating "
+                               "a GalSimDetector\n"
+                               "%s is not in your cameraWrapper.camera"
+                               % detectorName)
 
         if photParams is None:
-            raise RuntimeError("You need to specify an instantiation of PhotometricParameters " +
+            raise RuntimeError("You need to specify an instantiation "
+                               "of PhotometricParameters "
                                "when constructing a GalSimDetector")
 
         self._wcs = None  # this will be created when it is actually called for
@@ -277,7 +289,8 @@ class GalSimDetector(object):
         self._xMaxArcsec = None
         self._yMaxArcsec = None
 
-        for cameraPointPupil in self._cameraWrapper.getCornerPupilList(self._name):
+        for cameraPointPupil in \
+            self._cameraWrapper.getCornerPupilList(self._name):
 
             xx = arcsecFromRadians(cameraPointPupil.getX())
             yy = arcsecFromRadians(cameraPointPupil.getY())
@@ -335,17 +348,16 @@ class GalSimDetector(object):
         """
         Convert pupil coordinates into pixel coordinates on this detector
 
-        @param [in] xPupil is a numpy array or a float indicating x pupil coordinates
-        in radians
+        @param [in] xPupil is a numpy array or a float indicating x
+        pupil coordinates in radians
 
-        @param [in] yPupil a numpy array or a float indicating y pupil coordinates
-        in radians
+        @param [in] yPupil a numpy array or a float indicating y pupil
+        coordinates in radians
 
         @param [out] xPix is a numpy array indicating the x pixel coordinate
 
         @param [out] yPix is a numpy array indicating the y pixel coordinate
         """
-
         nameList = [self._name]
         if type(xPupil) is np.ndarray:
             nameList = nameList*len(xPupil)
@@ -355,7 +367,8 @@ class GalSimDetector(object):
             xp = np.array([xPupil])
             yp = np.array([yPupil])
 
-        xPix, yPix = self._cameraWrapper.pixelCoordsFromPupilCoords(xp, yp, nameList, self.obs_metadata)
+        xPix, yPix = self._cameraWrapper.pixelCoordsFromPupilCoords(
+            xp, yp, nameList, self.obs_metadata)
 
         return xPix, yPix
 
@@ -380,14 +393,14 @@ class GalSimDetector(object):
         """
         Does a given set of pupil coordinates fall on this detector?
 
-        @param [in] xPupil is a numpy array or a float indicating x pupil coordinates
-        in radians
+        @param [in] xPupil is a numpy array or a float indicating x
+        pupil coordinates in radians
 
-        @param [in] yPupuil is a numpy array or a float indicating y pupil coordinates
-        in radians
+        @param [in] yPupuil is a numpy array or a float indicating y
+        pupil coordinates in radians
 
-        @param [out] answer is an array of booleans indicating whether or not
-        the corresponding RA, Dec pair falls on this detector
+        @param [out] answer is an array of booleans indicating whether
+        or not the corresponding RA, Dec pair falls on this detector
         """
         xPix, yPix = self.pixelCoordinatesFromPupilCoordinates(xPupil, yPupil)
         points = [LsstGeom.Point2D(xx, yy) for xx, yy in zip(xPix, yPix)]
@@ -582,7 +595,8 @@ class GalSimDetector(object):
                                              photParams=self.photParams)
 
             if re.match('R[0-9][0-9]_S[0-9][0-9]', self.fileName) is not None:
-                # This is an LSST camera; format the FITS header to feed through DM code
+                # This is an LSST camera; format the FITS header to
+                # feed through DM code
 
                 wcsName = self.fileName
 
@@ -592,17 +606,20 @@ class GalSimDetector(object):
 
                 if self.obs_metadata.OpsimMetaData is not None:
                     if 'obshistID' in self.obs_metadata.OpsimMetaData:
-                        self._wcs.fitsHeader.set("OBSID",
-                                                 self.obs_metadata.OpsimMetaData['obshistID'])
+                        self._wcs.fitsHeader.set(
+                            "OBSID",
+                            self.obs_metadata.OpsimMetaData['obshistID'])
                         obshistid = self.obs_metadata.OpsimMetaData['obshistID']
 
                 bp = self.obs_metadata.bandpass
                 if not isinstance(bp, list) and not isinstance(bp, np.ndarray):
-                    filt_num = {'u': 0, 'g': 1, 'r': 2, 'i': 3, 'z': 4, 'y': 5}[bp]
+                    filt_num = {'u': 0, 'g': 1, 'r': 2, 'i': 3,
+                                'z': 4, 'y': 5}[bp]
                 else:
                     filt_num = 2
 
-                out_name = 'lsst_e_%d_f%d_%s_E000' % (obshistid, filt_num, wcsName)
+                out_name = 'lsst_e_%d_f%d_%s_E000' % (obshistid, filt_num,
+                                                      wcsName)
                 self._wcs.fitsHeader.set("OUTFILE", out_name)
 
         return self._wcs
@@ -653,13 +670,13 @@ def make_galsim_detector(camera_wrapper, detname, phot_params,
     centerPupil = camera_wrapper.getCenterPupil(detname)
     centerPixel = camera_wrapper.getCenterPixel(detname)
 
-    translationPupil = camera_wrapper.pupilCoordsFromPixelCoords(centerPixel.getX()+1,
-                                                                 centerPixel.getY()+1,
-                                                                 detname,
-                                                                 obs_metadata)
+    translationPupil = camera_wrapper.pupilCoordsFromPixelCoords(
+        centerPixel.getX()+1, centerPixel.getY()+1,
+        detname, obs_metadata)
 
-    plateScale = np.sqrt(np.power(translationPupil[0]-centerPupil.getX(), 2) +
-                         np.power(translationPupil[1]-centerPupil.getY(), 2))/np.sqrt(2.0)
+    plateScale = (np.sqrt(np.power(translationPupil[0]-centerPupil.getX(), 2) +
+                          np.power(translationPupil[1]-centerPupil.getY(), 2))
+                  /np.sqrt(2.0))
 
     plateScale = 3600.0*np.degrees(plateScale)
 
