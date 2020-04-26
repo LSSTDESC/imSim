@@ -76,6 +76,11 @@ class GalSimCameraWrapper:
         camera is an instantiation of an afwCameraGeom camera
         """
         self._camera = camera
+        self._focal_to_field = None
+        self._center_pixel_cache = {}
+        self._corner_pupil_cache = {}
+        self._center_pupil_cache = {}
+        self._tan_pixel_bounds_cache = {}
 
     @property
     def camera(self):
@@ -86,7 +91,7 @@ class GalSimCameraWrapper:
         """
         Transformation to go from FOCAL_PLANE to FIELD_ANGLE
         """
-        if not hasattr(self, '_focal_to_field'):
+        if self._focal_to_field is None:
             self._focal_to_field \
                 = self.camera.getTransformMap().getTransform(FOCAL_PLANE,
                                                              FIELD_ANGLE)
@@ -102,9 +107,6 @@ class GalSimCameraWrapper:
          """
          Return the central pixel for the detector named by detector_name
          """
-         if not hasattr(self, '_center_pixel_cache'):
-             self._center_pixel_cache = {}
-
          if detector_name not in self._center_pixel_cache:
              centerPoint = self._camera[detector_name].getCenter(FOCAL_PLANE)
              centerPixel = self._camera[detector_name]\
@@ -119,9 +121,6 @@ class GalSimCameraWrapper:
         Return the pupil coordinates of the center of the named detector
         as an LsstGeom.Point2D
         """
-        if not hasattr(self, '_center_pupil_cache'):
-            self._center_pupil_cache = {}
-
         if detector_name not in self._center_pupil_cache:
             dd = self._camera[detector_name]
             centerPoint = dd.getCenter(FOCAL_PLANE)
@@ -135,9 +134,6 @@ class GalSimCameraWrapper:
         Return a list of the pupil coordinates of the corners of the named
         detector as a list of LsstGeom.Point2D objects
         """
-        if not hasattr(self, '_corner_pupil_cache'):
-            self._corner_pupil_cache = {}
-
         if detector_name not in self._corner_pupil_cache:
             dd = self._camera[detector_name]
             cornerPointList = dd.getCorners(FOCAL_PLANE)
@@ -160,9 +156,6 @@ class GalSimCameraWrapper:
         -------
         xmin, xmax, ymin, ymax pixel values
         """
-        if not hasattr(self, '_tan_pixel_bounds_cache'):
-            self._tan_pixel_bounds_cache = {}
-
         if detector_name not in self._tan_pixel_bounds_cache:
             afwDetector = self._camera[detector_name]
             focal_to_tan_pix = afwDetector.getTransform(FOCAL_PLANE, TAN_PIXELS)
@@ -500,6 +493,9 @@ class GalSimCameraWrapper:
 
 class LSSTCameraWrapper(coordUtils.DMtoCameraPixelTransformer,
                         GalSimCameraWrapper):
+    def __init__(self):
+        super(LSSTCameraWrapper, self).__init__()
+        GalSimCameraWrapper.__init__(self, coordUtils.lsst_camera())
 
     def getTanPixelBounds(self, detector_name):
         """
@@ -565,7 +561,7 @@ class LSSTCameraWrapper(coordUtils.DMtoCameraPixelTransformer,
         and the second row is the y pixel coordinate.  These pixel coordinates
         are defined in the Camera team system, rather than the DM system.
         """
-        (dm_x_pix, dm_y_pix) = coordUtils.pixelCoordsFromPupilCoordsLSST(
+        dm_x_pix, dm_y_pix = coordUtils.pixelCoordsFromPupilCoordsLSST(
             xPupil, yPupil, chipName=chipName,
             band=obs_metadata.bandpass, includeDistortion=includeDistortion)
 
@@ -627,7 +623,7 @@ class LSSTCameraWrapper(coordUtils.DMtoCameraPixelTransformer,
         if isinstance(chipName, list) or isinstance(chipName, np.ndarray):
             dm_yPix = np.zeros(len(xPix))
             for ix, (det_name, xx) in enumerate(zip(chipName, xPix)):
-                came_center_pix = self.getCenterPixel(det_name)
+                cam_center_pix = self.getCenterPixel(det_name)
                 dm_yPix[ix] = 2.0*cam_center_pix.getX()-xPix[ix]
         else:
             cam_center_pix = self.getCenterPixel(chipName)
