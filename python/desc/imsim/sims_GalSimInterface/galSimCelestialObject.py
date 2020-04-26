@@ -1,10 +1,9 @@
-from builtins import object
 import numpy as np
 from lsst.sims.utils import arcsecFromRadians
 
 __all__ = ["GalSimCelestialObject"]
 
-class GalSimCelestialObject(object):
+class GalSimCelestialObject:
     """
     This is a class meant to carry around all of the data required by
     the GalSimInterpreter to draw an image of a single object.  The idea
@@ -26,13 +25,15 @@ class GalSimCelestialObject(object):
 
         @param [in] yPupil is the y pupil coordinate of the object in radians
 
-        @param [in] halfLightRadius is the halfLightRadius of the object in radians
+        @param [in] halfLightRadius is the halfLightRadius of the
+        object in radians
 
         @param [in] minorAxis is the semi-minor axis of the object in radians
 
         @param [in] majorAxis is the semi-major axis of the object in radians
 
-        @param [in] positionAngle is the position angle of the object in radians
+        @param [in] positionAngle is the position angle of the object
+        in radians
 
         @param [in] sindex is the sersic index of the object
 
@@ -40,8 +41,9 @@ class GalSimCelestialObject(object):
         representing the SED of the object (with all normalization,
         dust extinction, redshifting, etc. applied)
 
-        @param [in] bp_dict is an instantiation of lsst.sims.photUtils.BandpassDict
-        representing the bandpasses of this telescope
+        @param [in] bp_dict is an instantiation of
+        lsst.sims.photUtils.BandpassDict representing the bandpasses
+        of this telescope
 
         @param [in] photParams is an instantioation of
         lsst.sims.photUtils.PhotometricParameters representing the physical
@@ -66,7 +68,8 @@ class GalSimCelestialObject(object):
 
         @param [in] kappa is the WL convergence parameter
 
-        @param [in] uniqueId is an int storing a unique identifier for this object
+        @param [in] uniqueId is an int storing a unique identifier for
+        this object
         """
         self._uniqueId = uniqueId
         self._galSimType = galSimType
@@ -86,32 +89,35 @@ class GalSimCelestialObject(object):
         self._bp_dict = bp_dict
         self._photParams = photParams
 
-        # Put all the float values into a numpy array for better memory usage.
-        # (Otherwise, python allocates a shared pointer for each one of these 15 values, which
-        # adds up to a significant memory overhead.)
-        self._float_values = np.array([
-                                        xPupil,                     # xPupilRadians, 0
-                                        arcsecFromRadians(xPupil),  # xPupilArcsec, 1
-                                        yPupil,                     # yPupilRadians, 2
-                                        arcsecFromRadians(yPupil),  # yPupilArcsec, 3
-                                        halfLightRadius,            # halfLightRadiusRadians, 4
-                                        arcsecFromRadians(halfLightRadius), # halfLightRadiusArcsec, 5
-                                        minorAxis,                  # minorAxisRadians, 6
-                                        majorAxis,                  # majorAxisRadians, 7
-                                        positionAngle,              # positionAngleRadians, 8
-                                        sindex,                     # sindex, 9
-                                        pixel_scale,                # pixel_scale, 10
-                                        rotation_angle,             # rotation_angle, 11
-                                        g1,                         # g1, 12
-                                        g2,                         # g2, 13
-                                        mu,                         # mu, 14
-                                        npoints                     # npoints, 15
-                                      ], dtype=float)
+        # Put all the float values into a numpy array for better
+        # memory usage.  (Otherwise, python allocates a shared pointer
+        # for each one of these 15 values, which adds up to a
+        # significant memory overhead.)
+        self._float_values = np.array(
+            [
+                xPupil,                     # xPupilRadians, 0
+                arcsecFromRadians(xPupil),  # xPupilArcsec, 1
+                yPupil,                     # yPupilRadians, 2
+                arcsecFromRadians(yPupil),  # yPupilArcsec, 3
+                halfLightRadius,            # halfLightRadiusRadians, 4
+                arcsecFromRadians(halfLightRadius), # halfLightRadiusArcsec, 5
+                minorAxis,                  # minorAxisRadians, 6
+                majorAxis,                  # majorAxisRadians, 7
+                positionAngle,              # positionAngleRadians, 8
+                sindex,                     # sindex, 9
+                pixel_scale,                # pixel_scale, 10
+                rotation_angle,             # rotation_angle, 11
+                g1,                         # g1, 12
+                g2,                         # g2, 13
+                mu,                         # mu, 14
+                npoints                     # npoints, 15
+            ], dtype=float)
 
-        # XXX: We could probably get away with np.float32 for these, but the main
-        #      advantage is from only allocating the actual memory, and not the python
-        #      pointers to the memory.  So not so much more gain to be had from switching
-        #      to single precision.
+        # XXX: We could probably get away with np.float32 for these,
+        #      but the main advantage is from only allocating the
+        #      actual memory, and not the python pointers to the
+        #      memory.  So not so much more gain to be had from
+        #      switching to single precision.
 
     #
     # First properties for all the non-float values.
@@ -125,9 +131,9 @@ class GalSimCelestialObject(object):
     def uniqueId(self):
         return self._uniqueId
 
-    # XXX: I'd recommend removing all these setters and just let python raise an
-    #      AttributeError if people try to set the values, rather than raising a
-    #      RuntimeError manually.  -- MJ
+    # XXX: I'd recommend removing all these setters and just let
+    #      python raise an AttributeError if people try to set the
+    #      values, rather than raising a RuntimeError manually.  -- MJ
     @uniqueId.setter
     def uniqueId(self, value):
         raise RuntimeError("You should not be setting the unique id on the fly; " \
@@ -162,7 +168,8 @@ class GalSimCelestialObject(object):
 
 
     #
-    # The float values are accessed from the numpy array called self._float_values.
+    # The float values are accessed from the numpy array called
+    # self._float_values.
     #
 
     @property
@@ -298,9 +305,8 @@ class GalSimCelestialObject(object):
 
     @g2.setter
     def g2(self, value):
-        raise RuntimeError("You should not be setting g2 on the fly; " \
-        + "just instantiate a new GalSimCelestialObject")
-
+        raise RuntimeError("You should not be setting g2 on the fly; "
+                           "just instantiate a new GalSimCelestialObject")
 
     @property
     def mu(self):
@@ -308,10 +314,8 @@ class GalSimCelestialObject(object):
 
     @mu.setter
     def mu(self, value):
-        raise RuntimeError("You should not be setting mu on the fly; " \
-        + "just instantiate a new GalSimCelestialObject")
-
-
+        raise RuntimeError("You should not be setting mu on the fly; "
+                           "just instantiate a new GalSimCelestialObject")
 
     def flux(self, band):
         """
@@ -320,7 +324,8 @@ class GalSimCelestialObject(object):
         @param [out] the ADU in that bandpass, as stored in self._fluxDict
         """
         if band not in self._bp_dict:
-            raise RuntimeError("Asked GalSimCelestialObject for flux in %s; that band does not exist" % band)
+            raise RuntimeError("Asked GalSimCelestialObject for flux"
+                               "in %s; that band does not exist" % band)
 
         if band not in self._fluxDict:
             adu = self.sed.calcADU(self._bp_dict[band], self._photParams)

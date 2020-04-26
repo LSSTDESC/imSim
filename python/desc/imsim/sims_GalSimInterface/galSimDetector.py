@@ -338,9 +338,10 @@ class GalSimDetector(object):
             raLocal = np.array([ra])
             decLocal = np.array([dec])
 
-        xPix, yPix = self._cameraWrapper._pixelCoordsFromRaDec(raLocal, decLocal, chipName=nameList,
-                                                               obs_metadata=self._obs_metadata,
-                                                               epoch=self._epoch)
+        xPix, yPix = self._cameraWrapper._pixelCoordsFromRaDec(
+            raLocal, decLocal, chipName=nameList,
+            obs_metadata=self._obs_metadata,
+            epoch=self._epoch)
 
         return xPix, yPix
 

@@ -2,27 +2,26 @@
 This file defines the model classes that wrap noise models from
 galsim into the CatSim interface
 """
-
 from builtins import object
 import numpy
 import galsim
-from lsst.sims.photUtils import calcSkyCountsPerPixelForM5, PhotometricParameters, \
-                                LSSTdefaults
+from lsst.sims.photUtils import calcSkyCountsPerPixelForM5,\
+    PhotometricParameters, LSSTdefaults
 
 __all__ = ["ExampleCCDNoise"]
 
 class NoiseAndBackgroundBase(object):
     """
-    This is the base class for all wrappers of sky background
-    and noise in the GalSim interface.  Daughters of this class
-    are meant to be included as the noise_and_background
-    class member variable of GalSim InstanceCatalog classes.
-    To implement a new noise model, users should write a new class
-    that inherits from this one.  That new class should only define
-    a method getNoiseModel() that takes as arguments skyLevel, and an
-    instantiation of the PhotometricParameters class defined in sims_photUtils
-    (this will carry gain and readnoise information).  See the docstring
-    for getNoiseModel() for further details.
+    This is the base class for all wrappers of sky background and
+    noise in the GalSim interface.  Daughters of this class are meant
+    to be included as the noise_and_background class member variable
+    of GalSim InstanceCatalog classes.  To implement a new noise
+    model, users should write a new class that inherits from this one.
+    That new class should only define a method getNoiseModel() that
+    takes as arguments skyLevel, and an instantiation of the
+    PhotometricParameters class defined in sims_photUtils (this will
+    carry gain and readnoise information).  See the docstring for
+    getNoiseModel() for further details.
     """
 
     def __init__(self, seed=None, addNoise=True, addBackground=True):
@@ -61,7 +60,6 @@ class NoiseAndBackgroundBase(object):
         will just set the noise level based on the intensity in each pixel
         and there is no need to add an additional skyLevel.  If the sky
         background is still included in the image, set skyLevel equal to zero.
-
         @param [in] photParams is an instantiation of the
         PhotometricParameters class that carries details about the
         photometric response of the telescope.  Defaults to None.
@@ -70,7 +68,8 @@ class NoiseAndBackgroundBase(object):
         specified by the particular wrapper class to which this method belongs.
         """
 
-        raise NotImplementedError("There is no noise model for NoiseAndBackgroundBase")
+        raise NotImplementedError("There is no noise model for "
+                                  "NoiseAndBackgroundBase")
 
 
     def addNoiseAndBackground(self, image, bandpass=None, m5=None,
@@ -87,8 +86,9 @@ class NoiseAndBackgroundBase(object):
         @param [in] image is the GalSim image object to which the background
         and noise are being added.
 
-        @param [in] bandpass is a CatSim bandpass object (not a GalSim bandpass
-        object) characterizing the filter through which the image is being taken.
+        @param [in] bandpass is a CatSim bandpass object (not a GalSim
+        bandpass object) characterizing the filter through which the
+        image is being taken.
 
         @param [in] FWHMeff is the FWHMeff in arcseconds
 
@@ -99,11 +99,9 @@ class NoiseAndBackgroundBase(object):
         @param [in] detector is the GalSimDetector corresponding to the image.
         Defaults to None.
 
-        @param [out] the input image with the background and noise model added to it.
-
+        @param [out] the input image with the background and noise
+        model added to it.
         """
-
-
         #calculate the sky background to be added to each pixel
         skyCounts = calcSkyCountsPerPixelForM5(m5, bandpass, FWHMeff=FWHMeff, photParams=photParams)
 
@@ -111,16 +109,19 @@ class NoiseAndBackgroundBase(object):
 
         if self.addBackground:
             image += skyCounts
-            skyLevel = 0.0 #if we are adding the skyCounts to the image,there is no need
-                           #to pass a skyLevel parameter to the noise model.  skyLevel is
-                           #just used to calculate the level of Poisson noise.  If the
-                           #sky background is included in the image, the Poisson noise
-                           #will be calculated from the actual image brightness.
+            # if we are adding the skyCounts to the image,there is no
+            # need to pass a skyLevel parameter to the noise model.
+            # skyLevel is just used to calculate the level of Poisson
+            # noise.  If the sky background is included in the image,
+            # the Poisson noise will be calculated from the actual
+            # image brightness.
+            skyLevel = 0.0
         else:
             skyLevel = skyCounts*photParams.gain
 
         if self.addNoise:
-            noiseModel = self.getNoiseModel(skyLevel=skyLevel, photParams=photParams)
+            noiseModel = self.getNoiseModel(skyLevel=skyLevel,
+                                            photParams=photParams)
             image.addNoise(noiseModel)
 
         return image
@@ -159,6 +160,7 @@ class ExampleCCDNoise(NoiseAndBackgroundBase):
         """
 
         return galsim.CCDNoise(self.randomNumbers, sky_level=skyLevel,
-                               gain=photParams.gain, read_noise=photParams.readnoise)
+                               gain=photParams.gain,
+                               read_noise=photParams.readnoise)
 
 

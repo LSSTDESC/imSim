@@ -59,26 +59,21 @@ def tanWcsFromDetector(detector_name, camera_wrapper, obs_metadata, epoch):
     xPixList = np.array(xPixList)
     yPixList = np.array(yPixList)
 
-    raList, decList = camera_wrapper._raDecFromPixelCoords(xPixList,
-                                                           yPixList,
-                                                           nameList,
-                                                           obs_metadata=obs_metadata,
-                                                           epoch=epoch,
-                                                           includeDistortion=False)
+    raList, decList = camera_wrapper._raDecFromPixelCoords(
+        xPixList, yPixList, nameList, obs_metadata=obs_metadata,
+        epoch=epoch, includeDistortion=False)
 
-    crPix1, crPix2 = camera_wrapper._pixelCoordsFromRaDec(obs_metadata._pointingRA,
-                                                          obs_metadata._pointingDec,
-                                                          chipName=detector_name,
-                                                          obs_metadata=obs_metadata,
-                                                          epoch=epoch,
-                                                          includeDistortion=False)
+    crPix1, crPix2 = camera_wrapper._pixelCoordsFromRaDec(
+        obs_metadata._pointingRA, obs_metadata._pointingDec,
+        chipName=detector_name, obs_metadata=obs_metadata,
+        epoch=epoch, includeDistortion=False)
 
     lonList, latList = _nativeLonLatFromPointing(raList, decList,
                                                  obs_metadata._pointingRA,
                                                  obs_metadata._pointingDec)
 
-    # convert from native longitude and latitude to intermediate world coordinates
-    # according to equations (12), (13), (54) and (55) of
+    # convert from native longitude and latitude to intermediate world
+    # coordinates according to equations (12), (13), (54) and (55) of
     #
     # Calabretta and Greisen (2002), A&A 395, p. 1077
     #
@@ -114,8 +109,10 @@ def tanWcsFromDetector(detector_name, camera_wrapper, obs_metadata, epoch):
     fitsHeader.set("EQUINOX", epoch)
     fitsHeader.set("CRVAL1", obs_metadata.pointingRA)
     fitsHeader.set("CRVAL2", obs_metadata.pointingDec)
-    fitsHeader.set("CRPIX1", crPix1+1)  # the +1 is because LSST uses 0-indexed images
-    fitsHeader.set("CRPIX2", crPix2+1)  # FITS files use 1-indexed images
+    # add +1 because LSST uses 0-indexed images
+    # and FITS files use 1-indexed images:
+    fitsHeader.set("CRPIX1", crPix1+1)
+    fitsHeader.set("CRPIX2", crPix2+1)
     fitsHeader.set("CTYPE1", "RA---TAN")
     fitsHeader.set("CTYPE2", "DEC--TAN")
     fitsHeader.setDouble("CD1_1", coeffs[0])
@@ -166,15 +163,15 @@ def tanSipWcsFromDetector(detector_name, camera_wrapper, obs_metadata, epoch,
 
     bbox = camera_wrapper.getBBox(detector_name)
 
-    tanWcs = tanWcsFromDetector(detector_name, camera_wrapper, obs_metadata, epoch)
+    tanWcs = tanWcsFromDetector(detector_name, camera_wrapper, obs_metadata,
+                                epoch)
 
-    tanSipWcs = approximateWcs(tanWcs,
-                               order=order,
-                               skyTolerance=skyToleranceArcSec*LsstGeom.arcseconds,
-                               pixelTolerance=pixelTolerance,
-                               detector_name=detector_name,
-                               camera_wrapper=camera_wrapper,
-                               obs_metadata=obs_metadata)
+    tanSipWcs = approximateWcs(
+        tanWcs, order=order,
+        skyTolerance=skyToleranceArcSec*LsstGeom.arcseconds,
+        pixelTolerance=pixelTolerance,
+        detector_name=detector_name,
+        camera_wrapper=camera_wrapper,
+        obs_metadata=obs_metadata)
 
     return tanSipWcs
-

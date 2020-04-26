@@ -37,26 +37,31 @@ from lsst.sims.coordUtils import raDecFromPixelCoords
 
 __all__ = ["approximateWcs"]
 
-def approximateWcs(wcs, camera_wrapper=None, detector_name=None, obs_metadata=None,
+def approximateWcs(wcs, camera_wrapper=None, detector_name=None,
+                   obs_metadata=None,
                    order=3, nx=20, ny=20, iterations=3,
                    skyTolerance=0.001*LsstGeom.arcseconds, pixelTolerance=0.02):
-    """Approximate an existing WCS as a TAN-SIP WCS
+    """
+    Approximate an existing WCS as a TAN-SIP WCS
 
-    The fit is performed by evaluating the WCS at a uniform grid of points within a bounding box.
+    The fit is performed by evaluating the WCS at a uniform grid of
+    points within a bounding box.
 
     @param[in] wcs  wcs to approximate
     @param[in] camera_wrapper is an instantiation of GalSimCameraWrapper
     @param[in] detector_name is the name of the detector
-    @param[in] obs_metadata is an ObservationMetaData characterizing the telescope pointing
+    @param[in] obs_metadata is an ObservationMetaData characterizing
+    the telescope pointing
     @param[in] order  order of SIP fit
     @param[in] nx  number of grid points along x
     @param[in] ny  number of grid points along y
     @param[in] iterations number of times to iterate over fitting
-    @param[in] skyTolerance maximum allowed difference in world coordinates between
-               input wcs and approximate wcs (default is 0.001 arcsec)
-    @param[in] pixelTolerance maximum allowed difference in pixel coordinates between
-               input wcs and approximate wcs (default is 0.02 pixels)
-    @return the fit TAN-SIP WCS
+    @param[in] skyTolerance maximum allowed difference in world
+               coordinates between input wcs and approximate wcs
+               (default is 0.001 arcsec)
+    @param[in] pixelTolerance maximum allowed difference in pixel
+               coordinates between input wcs and approximate wcs
+               (default is 0.02 pixels) @return the fit TAN-SIP WCS
     """
     tanWcs = wcs
 
@@ -86,11 +91,12 @@ def approximateWcs(wcs, camera_wrapper=None, detector_name=None, obs_metadata=No
         for y in np.linspace(bboxd.getMinY(), bboxd.getMaxY(), ny):
             pixelPos = LsstGeom.Point2D(x, y)
 
-            ra, dec = camera_wrapper.raDecFromPixelCoords(np.array([x]), np.array([y]),
-                                                          detector_name,
-                                                          obs_metadata=obs_metadata,
-                                                          epoch=2000.0,
-                                                          includeDistortion=True)
+            ra, dec = camera_wrapper.raDecFromPixelCoords(
+                np.array([x]), np.array([y]),
+                detector_name,
+                obs_metadata=obs_metadata,
+                epoch=2000.0,
+                includeDistortion=True)
 
             skyCoord = LsstGeom.SpherePoint(ra[0], dec[0], LsstGeom.degrees)
 
@@ -102,7 +108,8 @@ def approximateWcs(wcs, camera_wrapper=None, detector_name=None, obs_metadata=No
 
             matchList.append(afwTable.ReferenceMatch(refObj, source, 0.0))
 
-    # The TAN-SIP fitter is fitting x and y separately, so we have to iterate to make it converge
+    # The TAN-SIP fitter is fitting x and y separately, so we have to
+    # iterate to make it converge
     for indx in range(iterations) :
         sipObject = makeCreateWcsWithSip(matchList, tanWcs, order, bbox)
         tanWcs = sipObject.getNewWcs()
