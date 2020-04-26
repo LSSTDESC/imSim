@@ -12,10 +12,8 @@ import numpy as np
 import lsst.geom as LsstGeom
 from lsst.obs.lsstSim import LsstSimMapper
 from lsst.sims.utils import arcsecFromRadians
-#from lsst.sims.GalSimInterface.wcsUtils import tanSipWcsFromDetector
-#from lsst.sims.GalSimInterface import GalSimCameraWrapper
-from .wcsUtils import tanSipWcsFromDetector
 from . import GalSimCameraWrapper
+from .wcsUtils import tanSipWcsFromDetector
 from lsst.sims.photUtils import PhotometricParameters
 
 __all__ = ["GalSimDetector", "make_galsim_detector", "LsstObservatory"]

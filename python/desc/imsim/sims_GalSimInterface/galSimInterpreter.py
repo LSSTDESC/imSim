@@ -1,16 +1,11 @@
 """
 This file defines the following classes:
 
-GalSimInterpreter -- a class which takes objects passed by a GalSim Instance Catalog
-(see galSimCatalogs.py) and uses GalSim to write them to FITS images.
-
-GalSimDetector -- a class which stored information about a detector in a way that
-GalSimInterpreter expects.
+GalSimInterpreter -- a class which takes objects passed by a GalSim
+Instance Catalog (see galSimCatalogs.py) and uses GalSim to write them
+to FITS images.
 """
-from __future__ import print_function
-
 import math
-from builtins import object
 import os
 import pickle
 import tempfile
@@ -19,31 +14,32 @@ import numpy as np
 import astropy
 import galsim
 from lsst.sims.utils import radiansFromArcsec, observedFromPupilCoords
-#from lsst.sims.GalSimInterface import make_galsim_detector, SNRdocumentPSF, \
-#    Kolmogorov_and_Gaussian_PSF, LsstObservatory
 from . import make_galsim_detector, SNRdocumentPSF, \
     Kolmogorov_and_Gaussian_PSF, LsstObservatory
 
-__all__ = ["make_gs_interpreter", "GalSimInterpreter", "GalSimSiliconInterpreter",
-           "ObjectFlags"]
-
+__all__ = ["make_gs_interpreter", "GalSimInterpreter",
+           "GalSimSiliconInterpreter", "ObjectFlags"]
 
 def make_gs_interpreter(obs_md, detectors, bandpassDict, noiseWrapper,
                         epoch=None, seed=None, apply_sensor_model=False,
                         bf_strength=1):
     if apply_sensor_model:
-        return GalSimSiliconInterpreter(obs_metadata=obs_md, detectors=detectors,
-                                       bandpassDict=bandpassDict, noiseWrapper=noiseWrapper,
-                                       epoch=epoch, seed=seed, bf_strength=bf_strength)
+        return GalSimSiliconInterpreter(obs_metadata=obs_md,
+                                        detectors=detectors,
+                                        bandpassDict=bandpassDict,
+                                        noiseWrapper=noiseWrapper,
+                                        epoch=epoch, seed=seed,
+                                        bf_strength=bf_strength)
 
     return GalSimInterpreter(obs_metadata=obs_md, detectors=detectors,
-                             bandpassDict=bandpassDict, noiseWrapper=noiseWrapper,
+                             bandpassDict=bandpassDict,
+                             noiseWrapper=noiseWrapper,
                              epoch=epoch, seed=seed)
 
-class GalSimInterpreter(object):
+class GalSimInterpreter:
     """
-    This is the class which actually takes the objects contained in the GalSim
-    InstanceCatalog and converts them into FITS images.
+    This is the class which actually takes the objects contained in
+    the GalSim InstanceCatalog and converts them into FITS images.
     """
     _observatory = LsstObservatory()
 
@@ -52,20 +48,25 @@ class GalSimInterpreter(object):
                  epoch=None, seed=None):
 
         """
-        @param [in] obs_metadata is an instantiation of the ObservationMetaData class which
-        carries data about this particular observation (telescope site and pointing information)
+        @param [in] obs_metadata is an instantiation of the
+        ObservationMetaData class which carries data about this
+        particular observation (telescope site and pointing
+        information)
 
-        @param [in] detectors is a list of GalSimDetectors for which we are drawing FITS images
+        @param [in] detectors is a list of GalSimDetectors for which
+        we are drawing FITS images
 
-        @param [in] bandpassDict is a BandpassDict containing all of the bandpasses for which we are
-        generating images
+        @param [in] bandpassDict is a BandpassDict containing all of
+        the bandpasses for which we are generating images
 
-        @param [in] noiseWrapper is an instantiation of a NoiseAndBackgroundBase
-        class which tells the interpreter how to add sky noise to its images.
+        @param [in] noiseWrapper is an instantiation of a
+        NoiseAndBackgroundBase class which tells the interpreter how
+        to add sky noise to its images.
 
-        @param [in] seed is an integer that will use to seed the random number generator
-        used when drawing images (if None, GalSim will automatically create a random number
-        generator seeded with the system clock)
+        @param [in] seed is an integer that will use to seed the
+        random number generator used when drawing images (if None,
+        GalSim will automatically create a random number generator
+        seeded with the system clock)
         """
 
         self.obs_metadata = obs_metadata
@@ -79,79 +80,98 @@ class GalSimInterpreter(object):
             self._rng = None
 
         if detectors is None:
-            raise RuntimeError("Will not create images; you passed no detectors to the GalSimInterpreter")
+            raise RuntimeError("Will not create images; you passed no "
+                               "detectors to the GalSimInterpreter")
 
         self.detectors = detectors
 
-        self.detectorImages = {}  # this dict will contain the FITS images (as GalSim images)
+        # This dict will contain the FITS images (as GalSim images)
+        self.detectorImages = {}
         self.bandpassDict = bandpassDict
-        self.blankImageCache = {}  # this dict will cache blank images associated with specific detectors.
-                                   # It turns out that calling the image's constructor is more
-                                   # time-consuming than returning a deep copy
+        # This dict will cache blank images associated with specific
+        # detectors.  It turns out that calling the image's
+        # constructor is more time-consuming than returning a deep
+        # copy
+        self.blankImageCache = {}
         self.checkpoint_file = None
         self.drawn_objects = set()
         self.nobj_checkpoint = 1000
-
         self.centroid_base_name = None
-        self.centroid_handles = {}  # This dict will contain the file handles for each
-                                    # centroid file where sources are found.
-        self.centroid_list = []  # This is a list of the centroid objects which
-                                 # will be written to the file.
+        # This dict will contain the file handles for each centroid
+        # file where sources are found.
+        self.centroid_handles = {}
+        # This is a list of the centroid objects which will be written
+        # to the file.
+        self.centroid_list = []
 
     def setPSF(self, PSF=None):
         """
         Set the PSF wrapper for this GalSimInterpreter
 
-        @param [in] PSF is an instantiation of a class which inherits from PSFbase and defines _getPSF()
+        @param [in] PSF is an instantiation of a class which inherits
+        from PSFbase and defines _getPSF()
         """
         self.PSF = PSF
 
     def _getFileName(self, detector=None, bandpassName=None):
         """
-        Given a detector and a bandpass name, return the name of the FITS file to be written
+        Given a detector and a bandpass name, return the name of the
+        FITS file to be written
 
         @param [in] detector is an instantiation of GalSimDetector
 
-        @param [in] bandpassName is a string i.e. 'u' denoting the filter being drawn
+        @param [in] bandpassName is a string i.e. 'u' denoting the
+        filter being drawn
 
         The resulting filename will be detectorName_bandpassName.fits
         """
-        return detector.fileName+'_'+bandpassName+'.fits'
+        return detector.fileName + '_' + bandpassName + '.fits'
 
-    def _doesObjectImpingeOnDetector(self, xPupil=None, yPupil=None, detector=None,
-                                     imgScale=None, nonZeroPixels=None):
+    def _doesObjectImpingeOnDetector(self, xPupil=None, yPupil=None,
+                                     detector=None, imgScale=None,
+                                     nonZeroPixels=None):
+        """.
+        Compare an astronomical object to a detector and determine
+        whether or not that object will cast any light on that
+        detector (in case the object is near the edge of a detector
+        and will cast some incidental light onto it).
+
+        This method is called by the method findAllDetectors.
+        findAllDetectors will generate a test image of an astronomical
+        object.  It will find all of the pixels in that test image
+        with flux above a certain threshold and pass that list of
+        pixels into this method along with data characterizing the
+        detector in question.  This method compares the pupil
+        coordinates of those pixels with the pupil coordinate domain
+        of the detector. If some of those pixels fall inside the
+        detector, then this method returns True (signifying that the
+        astronomical object does cast light on the detector).  If not,
+        this method returns False.
+
+        @param [in] xPupil the x pupil coordinate of the image's
+        origin in arcseconds
+
+        @param [in] yPupil the y pupil coordinate of the image's
+        origin in arcseconds
+
+        @param [in] detector an instantiation of GalSimDetector.  This
+        is the detector against which we will compare the object.
+
+        @param [in] nonZeroPixels is a numpy array of non-zero pixels
+        from the test image referenced above.  nonZeroPixels[0] is
+        their x coordinate (in pixel value).  nonZeroPixels[1] is ther
+        y coordinate.
+
+        @param [in] imgScale is the platescale of the test image in
+        arcseconds per pixel
         """
-        Compare an astronomical object to a detector and determine whether or not that object will cast any
-        light on that detector (in case the object is near the edge of a detector and will cast some
-        incidental light onto it).
-
-        This method is called by the method findAllDetectors.  findAllDetectors will generate a test image
-        of an astronomical object.  It will find all of the pixels in that test image with flux above
-        a certain threshold and pass that list of pixels into this method along with data characterizing
-        the detector in question.  This method compares the pupil coordinates of those pixels with the pupil
-        coordinate domain of the detector. If some of those pixels fall inside the detector, then this method
-        returns True (signifying that the astronomical object does cast light on the detector).  If not, this
-        method returns False.
-
-        @param [in] xPupil the x pupil coordinate of the image's origin in arcseconds
-
-        @param [in] yPupil the y pupil coordinate of the image's origin in arcseconds
-
-        @param [in] detector an instantiation of GalSimDetector.  This is the detector against
-        which we will compare the object.
-
-        @param [in] nonZeroPixels is a numpy array of non-zero pixels from the test image referenced
-        above.  nonZeroPixels[0] is their x coordinate (in pixel value).  nonZeroPixels[1] is
-        ther y coordinate.
-
-        @param [in] imgScale is the platescale of the test image in arcseconds per pixel
-        """
-
         if detector is None:
             return False
 
-        xPupilList = radiansFromArcsec(np.array([xPupil + ix*imgScale for ix in nonZeroPixels[0]]))
-        yPupilList = radiansFromArcsec(np.array([yPupil + iy*imgScale for iy in nonZeroPixels[1]]))
+        xPupilList = radiansFromArcsec(np.array([xPupil + ix*imgScale
+                                                 for ix in nonZeroPixels[0]]))
+        yPupilList = radiansFromArcsec(np.array([yPupil + iy*imgScale
+                                                 for iy in nonZeroPixels[1]]))
 
         answer = detector.containsPupilCoordinates(xPupilList, yPupilList)
 
@@ -162,37 +182,45 @@ class GalSimInterpreter(object):
 
     def findAllDetectors(self, gsObject, conservative_factor=10.):
         """
-        Find all of the detectors on which a given astronomical object might cast light.
+        Find all of the detectors on which a given astronomical object
+        might cast light.
 
-        Note: This is a bit conservative.  Later, once we actually have the real flux, we
-        can figure out a better estimate for the stamp size to use, at which point some objects
-        might not get drawn.  For now, we just use the nominal stamp size from GalSim, scaled
-        up by the factor `conservative_factor` (default=10).
+        Note: This is a bit conservative.  Later, once we actually
+        have the real flux, we can figure out a better estimate for
+        the stamp size to use, at which point some objects might not
+        get drawn.  For now, we just use the nominal stamp size from
+        GalSim, scaled up by the factor `conservative_factor`
+        (default=10).
 
-        @param [in] gsObject is an instantiation of the GalSimCelestialObject class
-        carrying information about the object whose image is to be drawn
+        @param [in] gsObject is an instantiation of the
+        GalSimCelestialObject class carrying information about the
+        object whose image is to be drawn
 
-        @param [in] conservative_factor is a factor (should be > 1) by which we scale up the
-        nominal stamp size.  Brighter objects should use larger factors, but the default value
-        of 10 should be fairly conservative and not waste too many cycles on things off the
-        edges of detectors.
+        @param [in] conservative_factor is a factor (should be > 1) by
+        which we scale up the nominal stamp size.  Brighter objects
+        should use larger factors, but the default value of 10 should
+        be fairly conservative and not waste too many cycles on things
+        off the edges of detectors.
 
-        @param [out] outputString is a string indicating which chips the object illumines
-        (suitable for the GalSim InstanceCatalog classes)
+        @param [out] outputString is a string indicating which chips
+        the object illumines (suitable for the GalSim InstanceCatalog
+        classes)
 
-        @param [out] outputList is a list of detector instantiations indicating which
-        detectors the object illumines
+        @param [out] outputList is a list of detector instantiations
+        indicating which detectors the object illumines
 
-        @param [out] centeredObj is a GalSim GSObject centered on the chip
+        @param [out] centeredObj is a GalSim GSObject centered on the
+        chip
 
-        Note: parameters that only apply to Sersic profiles will be ignored in the case of
-        pointSources, etc.
+        Note: parameters that only apply to Sersic profiles will be
+        ignored in the case of pointSources, etc.
         """
 
         # create a GalSim Object centered on the chip.
         centeredObj = self.createCenteredObject(gsObject)
 
-        sizeArcsec = centeredObj.getGoodImageSize(1.0)  # pixel_scale = 1.0 means size is in arcsec.
+        # pixel_scale = 1.0 means size is in arcsec.
+        sizeArcsec = centeredObj.getGoodImageSize(1.0)
         sizeArcsec *= conservative_factor
         xmax = gsObject.xPupilArcsec + sizeArcsec/2.
         xmin = gsObject.xPupilArcsec - sizeArcsec/2.
@@ -222,43 +250,49 @@ class GalSimInterpreter(object):
 
     def blankImage(self, detector=None):
         """
-        Draw a blank image associated with a specific detector.  The image will have the correct size
-        for the given detector.
+        Draw a blank image associated with a specific detector.  The
+        image will have the correct size for the given detector.
 
         param [in] detector is an instantiation of GalSimDetector
         """
 
-        # in order to speed up the code (by a factor of ~2), this method
-        # only draws a new blank image the first time it is called on a
-        # given detector.  It then caches the blank images it has drawn and
-        # uses GalSim's copy() method to return copies of cached blank images
-        # whenever they are called for again.
+        # in order to speed up the code (by a factor of ~2), this
+        # method only draws a new blank image the first time it is
+        # called on a given detector.  It then caches the blank images
+        # it has drawn and uses GalSim's copy() method to return
+        # copies of cached blank images whenever they are called for
+        # again.
 
         if detector.name in self.blankImageCache:
             return self.blankImageCache[detector.name].copy()
-        else:
-            image = galsim.Image(detector.xMaxPix-detector.xMinPix+1, detector.yMaxPix-detector.yMinPix+1,
-                                 wcs=detector.wcs)
+        image = galsim.Image(detector.xMaxPix-detector.xMinPix+1,
+                             detector.yMaxPix-detector.yMinPix+1,
+                             wcs=detector.wcs)
 
-            self.blankImageCache[detector.name] = image
-            return image.copy()
+        self.blankImageCache[detector.name] = image
+        return image.copy()
 
-    def drawObject(self, gsObject, max_flux_simple=0, sensor_limit=0, fft_sb_thresh=None):
+    def drawObject(self, gsObject, max_flux_simple=0, sensor_limit=0,
+                   fft_sb_thresh=None):
         """
         Draw an astronomical object on all of the relevant FITS files.
 
-        @param [in] gsObject is an instantiation of the GalSimCelestialObject
-        class carrying all of the information for the object whose image
-        is to be drawn
+        @param [in] gsObject is an instantiation of the
+        GalSimCelestialObject class carrying all of the information
+        for the object whose image is to be drawn
 
-        @param [in] max_flux_simple is ignored here. (Used by GalSimSiliconInterpreter)
+        @param [in] max_flux_simple is ignored here. (Used by
+        GalSimSiliconInterpreter)
 
-        @param [in] sensor_limit is ignored here.  (Used by GalSimSiliconInterpreter)
+        @param [in] sensor_limit is ignored here.  (Used by
+        GalSimSiliconInterpreter)
 
-        @param [in] fft_sb_thresh is ignored here.  (Used by GalSimSiliconInterpreter)
+        @param [in] fft_sb_thresh is ignored here.  (Used by
+        GalSimSiliconInterpreter)
 
-        @param [out] outputString is a string denoting which detectors the astronomical
-        object illumines, suitable for output in the GalSim InstanceCatalog
+        @param [out] outputString is a string denoting which detectors
+        the astronomical object illumines, suitable for output in the
+        GalSim InstanceCatalog
         """
         object_flags = ObjectFlags()
         object_flags.set_flag('no_silicon')
@@ -274,8 +308,10 @@ class GalSimInterpreter(object):
 
         # Compute the realized object fluxes for each band and return
         # if all values are zero in order to save compute.
-        fluxes = [gsObject.flux(bandpassName) for bandpassName in self.bandpassDict]
-        realized_fluxes = [galsim.PoissonDeviate(self._rng, mean=f)() for f in fluxes]
+        fluxes = [gsObject.flux(bandpassName) for bandpassName
+                  in self.bandpassDict]
+        realized_fluxes = [galsim.PoissonDeviate(self._rng, mean=f)()
+                           for f in fluxes]
         if all([f == 0 for f in realized_fluxes]):
             object_flags.set_flag('skipped')
             self._store_zero_flux_centroid_info(detectorList, fluxes, gsObject,
@@ -288,15 +324,14 @@ class GalSimInterpreter(object):
 
         self._addNoiseAndBackground(detectorList)
 
-        for bandpassName, realized_flux, flux in zip(self.bandpassDict, realized_fluxes, fluxes):
+        for bandpassName, realized_flux, flux in zip(self.bandpassDict,
+                                                     realized_fluxes, fluxes):
             for detector in detectorList:
-
-                name = self._getFileName(detector=detector, bandpassName=bandpassName)
-
-                xPix, yPix = detector.camera_wrapper.pixelCoordsFromPupilCoords(gsObject.xPupilRadians,
-                                                                                gsObject.yPupilRadians,
-                                                                                detector.name,
-                                                                                self.obs_metadata)
+                name = self._getFileName(detector=detector,
+                                         bandpassName=bandpassName)
+                xPix, yPix = detector.camera_wrapper.pixelCoordsFromPupilCoords(
+                    gsObject.xPupilRadians, gsObject.yPupilRadians,
+                    detector.name, self.obs_metadata)
 
                 # Set the object flux to the value realized from the
                 # Poisson distribution.
@@ -314,8 +349,9 @@ class GalSimInterpreter(object):
 
                 # If we are writing centroid files, store the entry.
                 if self.centroid_base_name is not None:
-                    centroid_tuple = (detector.fileName, bandpassName, gsObject.uniqueId,
-                                      flux, realized_flux, xPix, yPix, object_flags.value,
+                    centroid_tuple = (detector.fileName, bandpassName,
+                                      gsObject.uniqueId, flux, realized_flux,
+                                      xPix, yPix, object_flags.value,
                                       gsObject.galSimType)
                     self.centroid_list.append(centroid_tuple)
 
@@ -328,19 +364,20 @@ class GalSimInterpreter(object):
         self.write_checkpoint(force=force_checkpoint)
         return outputString
 
-    def _store_zero_flux_centroid_info(self, detectorList, fluxes, gsObject, obj_flags_value):
+    def _store_zero_flux_centroid_info(self, detectorList, fluxes, gsObject,
+                                       obj_flags_value):
         if self.centroid_base_name is None:
             return
         realized_flux = 0
         for bandpassName, flux in zip(self.bandpassDict, fluxes):
             for detector in detectorList:
-                xPix, yPix = detector.camera_wrapper.pixelCoordsFromPupilCoords(gsObject.xPupilRadians,
-                                                                                gsObject.yPupilRadians,
-                                                                                detector.name,
-                                                                                self.obs_metadata)
-                centroid_tuple = (detector.fileName, bandpassName, gsObject.uniqueId,
-                                  flux, realized_flux, xPix, yPix, obj_flags_value,
-                                  gsObject.galSimType)
+                xPix, yPix = detector.camera_wrapper.pixelCoordsFromPupilCoords(
+                    gsObject.xPupilRadians, gsObject.yPupilRadians,
+                    detector.name, self.obs_metadata)
+                centroid_tuple = (detector.fileName, bandpassName,
+                                  gsObject.uniqueId,
+                                  flux, realized_flux, xPix, yPix,
+                                  obj_flags_value, gsObject.galSimType)
                 self.centroid_list.append(centroid_tuple)
 
     def _addNoiseAndBackground(self, detectorList):
@@ -351,19 +388,22 @@ class GalSimInterpreter(object):
         """
         for detector in detectorList:
             for bandpassName in self.bandpassDict:
-                name = self._getFileName(detector=detector, bandpassName=bandpassName)
+                name = self._getFileName(detector=detector,
+                                         bandpassName=bandpassName)
                 if name not in self.detectorImages:
-                    self.detectorImages[name] = self.blankImage(detector=detector)
+                    self.detectorImages[name] \
+                        = self.blankImage(detector=detector)
                     if self.noiseWrapper is not None:
                         # Add sky background and noise to the image
                         self.detectorImages[name] = \
-                            self.noiseWrapper.addNoiseAndBackground(self.detectorImages[name],
-                                                                    bandpass=self.bandpassDict[bandpassName],
-                                                                    m5=self.obs_metadata.m5[bandpassName],
-                                                                    FWHMeff=self.
-                                                                    obs_metadata.seeing[bandpassName],
-                                                                    photParams=detector.photParams,
-                                                                    detector=detector)
+                            self.noiseWrapper.addNoiseAndBackground(
+                                self.detectorImages[name],
+                                bandpass=self.bandpassDict[bandpassName],
+                                m5=self.obs_metadata.m5[bandpassName],
+                                FWHMeff=self.
+                                obs_metadata.seeing[bandpassName],
+                                photParams=detector.photParams,
+                                detector=detector)
 
                         self.write_checkpoint(force=True, object_list=set())
 
@@ -371,10 +411,12 @@ class GalSimInterpreter(object):
         """
         Draw an image of a point source.
 
-        @param [in] gsObject is an instantiation of the GalSimCelestialObject class
-        carrying information about the object whose image is to be drawn
+        @param [in] gsObject is an instantiation of the
+        GalSimCelestialObject class carrying information about the
+        object whose image is to be drawn
 
-        @param [in] psf PSF to use for the convolution.  If None, then use self.PSF.
+        @param [in] psf PSF to use for the convolution.  If None, then
+        use self.PSF.
         """
         if psf is None:
             psf = self.PSF
@@ -384,30 +426,34 @@ class GalSimInterpreter(object):
         if psf is None:
             raise RuntimeError("Cannot draw a point source in GalSim "
                                "without a PSF")
-        return psf.applyPSF(xPupil=gsObject.xPupilArcsec, yPupil=gsObject.yPupilArcsec)
+        return psf.applyPSF(xPupil=gsObject.xPupilArcsec,
+                            yPupil=gsObject.yPupilArcsec)
 
     def drawSersic(self, gsObject, psf=None):
         """
         Draw the image of a Sersic profile.
 
-        @param [in] gsObject is an instantiation of the GalSimCelestialObject class
-        carrying information about the object whose image is to be drawn
+        @param [in] gsObject is an instantiation of the
+        GalSimCelestialObject class carrying information about the
+        object whose image is to be drawn
 
-        @param [in] psf PSF to use for the convolution.  If None, then use self.PSF.
+        @param [in] psf PSF to use for the convolution.  If None, then
+        use self.PSF.
         """
-
         if psf is None:
             psf = self.PSF
         return self._drawSersic(gsObject, psf=psf)
 
     def _drawSersic(self, gsObject, psf=None):
         # create a Sersic profile
-        centeredObj = galsim.Sersic(n=float(gsObject.sindex),
-                                    half_light_radius=float(gsObject.halfLightRadiusArcsec))
+        centeredObj = galsim.Sersic(
+            n=float(gsObject.sindex),
+            half_light_radius=float(gsObject.halfLightRadiusArcsec))
 
         # Turn the Sersic profile into an ellipse
-        centeredObj = centeredObj.shear(q=gsObject.minorAxisRadians/gsObject.majorAxisRadians,
-                                        beta=(0.5*np.pi+gsObject.positionAngleRadians)*galsim.radians)
+        centeredObj = centeredObj.shear(
+            q=gsObject.minorAxisRadians/gsObject.majorAxisRadians,
+            beta=(0.5*np.pi+gsObject.positionAngleRadians)*galsim.radians)
 
         # Apply weak lensing distortion.
         centeredObj = centeredObj.lens(gsObject.g1, gsObject.g2, gsObject.mu)
@@ -426,10 +472,12 @@ class GalSimInterpreter(object):
         reproducibility, the specific realisation of the random walk is seeded
         by the object unique identifier, if provided.
 
-        @param [in] gsObject is an instantiation of the GalSimCelestialObject class
-        carrying information about the object whose image is to be drawn
+        @param [in] gsObject is an instantiation of the
+        GalSimCelestialObject class carrying information about the
+        object whose image is to be drawn
 
-        @param [in] psf PSF to use for the convolution.  If None, then use self.PSF.
+        @param [in] psf PSF to use for the convolution.  If None, then
+        use self.PSF.
         """
         if psf is None:
             psf = self.PSF
@@ -443,13 +491,15 @@ class GalSimInterpreter(object):
             rng = galsim.BaseDeviate(int(gsObject.uniqueId))
 
         # Create the RandomWalk profile
-        centeredObj = galsim.RandomKnots(npoints=int(gsObject.npoints),
-                                         half_light_radius=float(gsObject.halfLightRadiusArcsec),
-                                         rng=rng)
+        centeredObj = galsim.RandomKnots(
+            npoints=int(gsObject.npoints),
+            half_light_radius=float(gsObject.halfLightRadiusArcsec),
+            rng=rng)
 
         # Apply intrinsic ellipticity to the profile
-        centeredObj = centeredObj.shear(q=gsObject.minorAxisRadians/gsObject.majorAxisRadians,
-                                        beta=(0.5*np.pi+gsObject.positionAngleRadians)*galsim.radians)
+        centeredObj = centeredObj.shear(
+            q=gsObject.minorAxisRadians/gsObject.majorAxisRadians,
+            beta=(0.5*np.pi+gsObject.positionAngleRadians)*galsim.radians)
 
         # Apply weak lensing distortion.
         centeredObj = centeredObj.lens(gsObject.g1, gsObject.g2, gsObject.mu)
@@ -466,10 +516,12 @@ class GalSimInterpreter(object):
         """
         Draw the image of a FitsImage light profile.
 
-        @param [in] gsObject is an instantiation of the GalSimCelestialObject class
-        carrying information about the object whose image is to be drawn
+        @param [in] gsObject is an instantiation of the
+        GalSimCelestialObject class carrying information about the
+        object whose image is to be drawn
 
-        @param [in] psf PSF to use for the convolution.  If None, then use self.PSF.
+        @param [in] psf PSF to use for the convolution.  If None, then
+        use self.PSF.
         """
         if psf is None:
             psf = self.PSF
@@ -480,7 +532,8 @@ class GalSimInterpreter(object):
         centeredObj = galsim.InterpolatedImage(gsObject.fits_image_file,
                                                scale=gsObject.pixel_scale)
         if gsObject.rotation_angle != 0:
-            centeredObj = centeredObj.rotate(gsObject.rotation_angle*galsim.degrees)
+            centeredObj = centeredObj.rotate(
+                gsObject.rotation_angle*galsim.degrees)
 
         # Apply weak lensing distortion.
         centerObject = centeredObj.lens(gsObject.g1, gsObject.g2, gsObject.mu)
@@ -494,15 +547,17 @@ class GalSimInterpreter(object):
         return centeredObj
 
     def createCenteredObject(self, gsObject, psf=None):
-        """
-        Create a centered GalSim Object (i.e. if we were just to draw this object as an image,
-        the object would be centered on the frame)
+        """.
+        Create a centered GalSim Object (i.e. if we were just to draw
+        this object as an image, the object would be centered on the
+        frame)
 
-        @param [in] gsObject is an instantiation of the GalSimCelestialObject class
-        carrying information about the object whose image is to be drawn
+        @param [in] gsObject is an instantiation of the
+        GalSimCelestialObject class carrying information about the
+        object whose image is to be drawn
 
-        Note: parameters that obviously only apply to Sersic profiles will be ignored in the case
-        of point sources
+        Note: parameters that obviously only apply to Sersic profiles
+        will be ignored in the case of point sources
         """
         if psf is None:
             psf = self.PSF
@@ -522,7 +577,8 @@ class GalSimInterpreter(object):
             centeredObj = self._drawFitsImage(gsObject, psf=psf)
 
         else:
-            raise RuntimeError("Apologies: the GalSimInterpreter does not yet have a method to draw " +
+            raise RuntimeError("Apologies: the GalSimInterpreter "
+                               "does not yet have a method to draw " +
                                gsObject.galSimType + " objects")
 
         return centeredObj
@@ -531,15 +587,16 @@ class GalSimInterpreter(object):
         """
         Write the FITS files to disk.
 
-        @param [in] nameRoot is a string that will be prepended to the names of the output
-        FITS files.  The files will be named like
+        @param [in] nameRoot is a string that will be prepended to the
+        names of the output FITS files.  The files will be named like
 
-        @param [out] namesWritten is a list of the names of the FITS files written
+        @param [out] namesWritten is a list of the names of the FITS
+        files written
 
         nameRoot_detectorName_bandpassName.fits
 
-        myImages_R_0_0_S_1_1_y.fits is an example of an image for an LSST-like camera with
-        nameRoot = 'myImages'
+        myImages_R_0_0_S_1_1_y.fits is an example of an image for an
+        LSST-like camera with nameRoot = 'myImages'
         """
         namesWritten = []
         for name in self.detectorImages:
@@ -554,39 +611,45 @@ class GalSimInterpreter(object):
 
     def open_centroid_file(self, centroid_name):
         """
-        Open a centroid file.  This file will have one line per-object and the
-        it will be labeled with the objectID and then followed by the average X
-        Y position of the photons from the object. Either the true photon
-        position or the average of the pixelated electrons collected on a finite
-        sensor can be chosen.
+        Open a centroid file.  This file will have one line per-object
+        and the it will be labeled with the objectID and then followed
+        by the average X Y position of the photons from the
+        object. Either the true photon position or the average of the
+        pixelated electrons collected on a finite sensor can be
+        chosen.
         """
 
         visitID = self.obs_metadata.OpsimMetaData['obshistID']
-        file_name = self.centroid_base_name + str(visitID) + '_' + centroid_name + '.txt.gz'
+        file_name = self.centroid_base_name + str(visitID) + \
+                    '_' + centroid_name + '.txt.gz'
 
         # Open the centroid file for this sensor with the gzip module to write
         # the centroid files in gzipped format.  Note the 'wt' which writes in
         # text mode which you must explicitly specify with gzip.
         self.centroid_handles[centroid_name] = gzip.open(file_name, 'wt')
-        self.centroid_handles[centroid_name].write('{:15} {:>15} {:>15} {:>10} {:>10} {:>11} {:>15}\n'.
-                                                   format('SourceID', 'Flux', 'Realized flux',
-                                                          'xPix', 'yPix', 'flags', 'GalSimType'))
+        self.centroid_handles[centroid_name].write(
+            '{:15} {:>15} {:>15} {:>10} {:>10} {:>11} {:>15}\n'.
+            format('SourceID', 'Flux', 'Realized flux',
+                   'xPix', 'yPix', 'flags', 'GalSimType'))
 
     def _writeObjectToCentroidFile(self, detector_name, bandpass_name, uniqueId,
                                    flux, realized_flux, xPix, yPix,
                                    obj_flags_value, object_type):
         """
-        Write the flux and the the object position on the sensor for this object
-        into a centroid file.  First check if a centroid file exists for this
-        detector and, if it doesn't create it.
+        Write the flux and the the object position on the sensor for
+        this object into a centroid file.  First check if a centroid
+        file exists for this detector and, if it doesn't create it.
 
-        @param [in] detector_name is the name of the sensor the gsObject falls on.
+        @param [in] detector_name is the name of the sensor the
+        gsObject falls on.
 
-        @param [in] bandpass_name is the name of the filter used in this exposure.
+        @param [in] bandpass_name is the name of the filter used in
+        this exposure.
 
         @param [in] uniqueId is the unique ID of the gsObject.
 
-        @param [in] flux is the calculated flux for the gsObject in the given bandpass.
+        @param [in] flux is the calculated flux for the gsObject in
+        the given bandpass.
 
         @param [in] realized_flux is the Poisson realization of the object flux.
 
@@ -594,12 +657,11 @@ class GalSimInterpreter(object):
 
         @param [in] yPix y-pixel coordinate of object.
 
-        @param [in] obj_flags_value is the bit flags for the object handling composed
-              as an integer.
+        @param [in] obj_flags_value is the bit flags for the object
+              handling composed as an integer.
 
         @param [in] object_type is the gsObject.galSimType
         """
-
         centroid_name = detector_name + '_' + bandpass_name
 
         # If we haven't seen this sensor before open a centroid file for it.
@@ -607,9 +669,10 @@ class GalSimInterpreter(object):
             self.open_centroid_file(centroid_name)
 
         # Write the object to the file
-        self.centroid_handles[centroid_name].write('{:<15} {:15.5f} {:15.5f} {:10.2f} {:10.2f} {:11d} {:>15}\n'.
-                                                   format(uniqueId, flux, realized_flux, xPix, yPix,
-                                                          obj_flags_value, object_type))
+        self.centroid_handles[centroid_name].write(
+            '{:<15} {:15.5f} {:15.5f} {:10.2f} {:10.2f} {:11d} {:>15}\n'.
+            format(uniqueId, flux, realized_flux, xPix, yPix,
+                   obj_flags_value, object_type))
 
     def write_centroid_files(self):
         """
@@ -772,13 +835,18 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
         self.local_hour_angle \
             = self.getHourAngle(self.obs_metadata.mjd.TAI,
                                 self.obs_metadata.pointingRA)*galsim.degrees
-        self.obs_latitude = self.observatory.getLatitude().asDegrees()*galsim.degrees
+        self.obs_latitude \
+            = self.observatory.getLatitude().asDegrees()*galsim.degrees
 
         # Make a trivial SED to use for faint things.
-        blue_limit = np.min([bp.blue_limit for bp in self.gs_bandpass_dict.values()])
-        red_limit = np.max([bp.red_limit for bp in self.gs_bandpass_dict.values()])
-        constant_func = galsim.LookupTable([blue_limit, red_limit], [1,1], interpolant='linear')
-        self.trivial_sed = galsim.SED(constant_func, wave_type='nm', flux_type='fphotons')
+        blue_limit = np.min([bp.blue_limit for bp
+                             in self.gs_bandpass_dict.values()])
+        red_limit = np.max([bp.red_limit for bp
+                            in self.gs_bandpass_dict.values()])
+        constant_func = galsim.LookupTable([blue_limit, red_limit],
+                                           [1,1], interpolant='linear')
+        self.trivial_sed = galsim.SED(constant_func, wave_type='nm',
+                                      flux_type='fphotons')
 
         # Create SiliconSensor objects for each detector.
         self.sensor = dict()
@@ -789,7 +857,8 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
                                        treering_func=det.tree_rings.func,
                                        transpose=True)
 
-    def drawObject(self, gsObject, max_flux_simple=0, sensor_limit=0, fft_sb_thresh=None):
+    def drawObject(self, gsObject, max_flux_simple=0, sensor_limit=0,
+                   fft_sb_thresh=None):
         """
         Draw an astronomical object on all of the relevant FITS files.
 
@@ -797,23 +866,27 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
         class carrying all of the information for the object whose image
         is to be drawn
 
-        @param [in] max_flux_simple is the maximum flux at which various simplifying
-        approximations are used.  These include using a flat SED and possibly omitting
-        the realistic sensor effects. (default = 0, which means always use the full SED)
+        @param [in] max_flux_simple is the maximum flux at which
+        various simplifying approximations are used.  These include
+        using a flat SED and possibly omitting the realistic sensor
+        effects. (default = 0, which means always use the full SED)
 
-        @param [in] sensor_limit is the limiting value of the existing flux in the
-        postage stamp image, above which the use of a SiliconSensor model is forced.
-        For faint things, if there is not already flux at this level, then a simple
-        sensor model will be used instead.  (default = 0, which means the SiliconSensor
-        is always used, even for the faint things)
+        @param [in] sensor_limit is the limiting value of the existing
+        flux in the postage stamp image, above which the use of a
+        SiliconSensor model is forced.  For faint things, if there is
+        not already flux at this level, then a simple sensor model
+        will be used instead.  (default = 0, which means the
+        SiliconSensor is always used, even for the faint things)
 
-        @param [in] fft_sb_thresh is a surface brightness (photons/pixel) where we will
-        switch from photon shooting to drawing with fft if any pixel is above this.
-        Should be at least the saturation level, if not higher. (default = None, which means
-        never switch to fft.)
+        @param [in] fft_sb_thresh is a surface brightness
+        (photons/pixel) where we will switch from photon shooting to
+        drawing with fft if any pixel is above this.  Should be at
+        least the saturation level, if not higher. (default = None,
+        which means never switch to fft.)
 
-        @param [out] outputString is a string denoting which detectors the astronomical
-        object illumines, suitable for output in the GalSim InstanceCatalog
+        @param [out] outputString is a string denoting which detectors
+        the astronomical object illumines, suitable for output in the
+        GalSim InstanceCatalog
         """
         object_flags = ObjectFlags()
 
@@ -829,8 +902,10 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
         # Compute the realized object fluxes (as drawn from the
         # corresponding Poisson distribution) for each band and return
         # right away if all values are zero in order to save compute.
-        fluxes = [gsObject.flux(bandpassName) for bandpassName in self.bandpassDict]
-        realized_fluxes = [galsim.PoissonDeviate(self._rng, mean=f)() for f in fluxes]
+        fluxes = [gsObject.flux(bandpassName) for bandpassName
+                  in self.bandpassDict]
+        realized_fluxes = [galsim.PoissonDeviate(self._rng, mean=f)()
+                           for f in fluxes]
         if all([f == 0 for f in realized_fluxes]):
             # All fluxes are 0, so no photons will be shot.
             object_flags.set_flag('skipped')
@@ -854,8 +929,9 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
         faint = all([f < max_flux_simple for f in realized_fluxes])
 
         if faint:
-            # For faint things, use a very simple SED, since we don't really care about getting
-            # the exact right distribution of wavelengths here.  (Impacts DCR and electron
+            # For faint things, use a very simple SED, since we don't
+            # really care about getting the exact right distribution
+            # of wavelengths here.  (Impacts DCR and electron
             # conversion depth in silicon)
             gs_sed = self.trivial_sed
             object_flags.set_flag('simple_sed')
@@ -871,26 +947,30 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
         obj_coord = galsim.CelestialCoord(ra_obs*galsim.degrees,
                                           dec_obs*galsim.degrees)
 
-        for bandpassName, realized_flux, flux in zip(self.bandpassDict, realized_fluxes, fluxes):
+        for bandpassName, realized_flux, flux in zip(self.bandpassDict,
+                                                     realized_fluxes, fluxes):
             gs_bandpass = self.gs_bandpass_dict[bandpassName]
             waves = galsim.WavelengthSampler(sed=gs_sed, bandpass=gs_bandpass,
                                              rng=self._rng)
-            dcr = galsim.PhotonDCR(base_wavelength=gs_bandpass.effective_wavelength,
-                                   HA=self.local_hour_angle,
-                                   latitude=self.obs_latitude,
-                                   obj_coord=obj_coord)
+            dcr = galsim.PhotonDCR(
+                base_wavelength=gs_bandpass.effective_wavelength,
+                HA=self.local_hour_angle,
+                latitude=self.obs_latitude,
+                obj_coord=obj_coord)
 
             # Set the object flux to the value realized from the
             # Poisson distribution.
             obj = centeredObj.withFlux(realized_flux)
 
             use_fft = False
-            if realized_flux > 1.e6 and fft_sb_thresh is not None and realized_flux > fft_sb_thresh:
-                # Note: Don't bother with this check unless the total flux is > thresh.
-                # Otherwise, there is no chance that the flux in 1 pixel is > thresh.
-                # Also, the cross-over point for time to where the fft becomes faster is
-                # emprically around 1.e6 photons, so also don't bother unless the flux
-                # is more than this.
+            if (realized_flux > 1.e6 and fft_sb_thresh is not None
+                and realized_flux > fft_sb_thresh):
+                # Note: Don't bother with this check unless the total
+                # flux is > thresh.  Otherwise, there is no chance
+                # that the flux in 1 pixel is > thresh.  Also, the
+                # cross-over point for time to where the fft becomes
+                # faster is emprically around 1.e6 photons, so also
+                # don't bother unless the flux is more than this.
                 obj, use_fft = self.maybeSwitchPSF(gsObject, obj, fft_sb_thresh)
 
             if use_fft:
@@ -915,7 +995,8 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
                 # noise)/3. as the nominal minimum surface brightness
                 # for rendering an extended object.
                 keep_sb_level = np.sqrt(self.sky_bg_per_pixel)/3.
-                full_bounds = self.getStampBounds(gsObject, realized_flux, image_pos,
+                full_bounds = self.getStampBounds(gsObject, realized_flux,
+                                                  image_pos,
                                                   keep_sb_level, 3*keep_sb_level)
 
                 # Ensure the bounds of the postage stamp lie within the image.
@@ -930,14 +1011,19 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
                 image = self.detectorImages[name][bounds]
 
                 if faint:
-                    # For faint things, only use the silicon sensor if there is already
-                    # some significant flux on the image near the object.
-                    # Brighter-fatter doesn't start having any measurable effect until at least
-                    # around 1000 e-/pixel. So a limit of 200 is conservative by a factor of 5.
-                    # Do the calculation relative to the median, since a perfectly flat sky level
-                    # will not have any B/F effect.  (But noise fluctuations due to the sky will
-                    # be properly included here if the sky is drawn first.)
-                    if np.max(image.array) > np.median(image.array) + sensor_limit:
+                    # For faint things, only use the silicon sensor if
+                    # there is already some significant flux on the
+                    # image near the object.  Brighter-fatter doesn't
+                    # start having any measurable effect until at
+                    # least around 1000 e-/pixel. So a limit of 200 is
+                    # conservative by a factor of 5.  Do the
+                    # calculation relative to the median, since a
+                    # perfectly flat sky level will not have any B/F
+                    # effect.  (But noise fluctuations due to the sky
+                    # will be properly included here if the sky is
+                    # drawn first.)
+                    if (np.max(image.array) > np.median(image.array)
+                        + sensor_limit):
                         sensor = self.sensor[detector.name]
                     else:
                         sensor = None
@@ -946,7 +1032,8 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
                     sensor = self.sensor[detector.name]
 
                 if sensor:
-                    # Ensure the rng used by the sensor object is set to the desired state.
+                    # Ensure the rng used by the sensor object is set
+                    # to the desired state.
                     self.sensor[detector.name].rng.reset(self._rng)
                     surface_ops = [waves, dcr, angles]
                 else:
@@ -954,13 +1041,17 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
                     surface_ops = [waves, dcr]
 
                 if use_fft:
-                    # When drawing with FFTs, large offsets can be a problem, since they
-                    # can blow up the required FFT size.  We'll guard for that below with
-                    # a try block, but we can minimize how often this happens by making sure
-                    # the offset is close to 0,0.
+                    # When drawing with FFTs, large offsets can be a
+                    # problem, since they can blow up the required FFT
+                    # size.  We'll guard for that below with a try
+                    # block, but we can minimize how often this
+                    # happens by making sure the offset is close to
+                    # 0,0.
                     if abs(offset.x) > 2 or abs(offset.y) > 2:
-                        # Make a larger image that has the object near the center.
-                        fft_image = galsim.Image(full_bounds, dtype=image.dtype, wcs=image.wcs)
+                        # Make a larger image that has the object near
+                        # the center.
+                        fft_image = galsim.Image(full_bounds, dtype=image.dtype,
+                                                 wcs=image.wcs)
                         fft_image[bounds] = image
                         fft_offset = image_pos - full_bounds.true_center
                     else:
@@ -978,10 +1069,12 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
                         if sensor is not None:
                             object_flags.unset_flag('no_silicon')
                     else:
-                        # Some pixels can end up negative from FFT numerics.  Just set them to 0.
+                        # Some pixels can end up negative from FFT
+                        # numerics.  Just set them to 0.
                         fft_image.array[fft_image.array < 0] = 0.
                         fft_image.addNoise(galsim.PoissonNoise(rng=self._rng))
-                        # In case we had to make a bigger image, just copy the part we need.
+                        # In case we had to make a bigger image, just
+                        # copy the part we need.
                         image += fft_image[bounds]
                 if not use_fft:
                     obj.drawImage(method='phot',
@@ -997,8 +1090,10 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
 
                 # If we are writing centroid files,store the entry.
                 if self.centroid_base_name is not None:
-                    centroid_tuple = (detector.fileName, bandpassName, gsObject.uniqueId,
-                                      flux, realized_flux, xPix, yPix, object_flags.value,
+                    centroid_tuple = (detector.fileName, bandpassName,
+                                      gsObject.uniqueId,
+                                      flux, realized_flux, xPix, yPix,
+                                      object_flags.value,
                                       gsObject.galSimType)
                     self.centroid_list.append(centroid_tuple)
 
@@ -1014,17 +1109,20 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
     @staticmethod
     def maybeSwitchPSF(gsObject, obj, fft_sb_thresh, pixel_scale=0.2):
         """
-        Check if the maximum surface brightness of the object is high enough that we should
-        switch to using an fft method rather than photon shooting.
+        Check if the maximum surface brightness of the object is high
+        enough that we should switch to using an fft method rather
+        than photon shooting.
 
-        When we do this, we also switch the PSF model to something slightly simpler with
-        roughly the same wings, but not as complicated in the central core.  Thus, this
-        should only be done when the core is going to be saturated anyway, so we only really
-        care about the wings of the PSF.
+        When we do this, we also switch the PSF model to something
+        slightly simpler with roughly the same wings, but not as
+        complicated in the central core.  Thus, this should only be
+        done when the core is going to be saturated anyway, so we only
+        really care about the wings of the PSF.
 
-        Note: This function assumes that obj at this point is a convolution with the PSF at the
-              end, and that it has had its flux set to a new value with `withFlux()`.
-              If this is not the case, an AttributeError will be raised.
+        Note: This function assumes that obj at this point is a
+              convolution with the PSF at the end, and that it has had
+              its flux set to a new value with `withFlux()`.  If this
+              is not the case, an AttributeError will be raised.
 
         Parameters
         ----------
@@ -1045,11 +1143,13 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
         -------
         galsim.GSObj, bool: obj = the object to actually use
                             use_fft = whether to use fft drawing
+
         """
         if not fft_sb_thresh:
             return obj, False
 
-        # obj.original should be a Convolution with the PSF at the end.  Extract it.
+        # obj.original should be a Convolution with the PSF at the
+        # end.  Extract it.
         geom_psf = obj.original.obj_list[-1]
         all_but_psf = obj.original.obj_list[:-1]
         try:
@@ -1058,11 +1158,14 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
             # If it's not a galsim.PhaseScreenPSF, just use whatever it is.
             fft_psf = [geom_psf]
         else:
-            # If geom_psf is a PhaseScreenPSF, then make a simpler one the just convolves
-            # a Kolmogorov profile with an OpticalPSF.
-            opt_screens = [s for s in geom_psf.screen_list if isinstance(s, galsim.OpticalScreen)]
+            # If geom_psf is a PhaseScreenPSF, then make a simpler one
+            # the just convolves a Kolmogorov profile with an
+            # OpticalPSF.
+            opt_screens = [s for s in geom_psf.screen_list
+                           if isinstance(s, galsim.OpticalScreen)]
             if len(opt_screens) >= 1:
-                # Should never be more than 1, but it there weirdly is, just use the first.
+                # Should never be more than 1, but it there weirdly
+                # is, just use the first.
                 opt_screen = opt_screens[0]
                 optical_psf = galsim.OpticalPSF(
                         lam=geom_psf.lam,
@@ -1081,13 +1184,15 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
 
         fft_obj = galsim.Convolve(all_but_psf + fft_psf).withFlux(obj.flux)
 
-        # Now this object should have a much better estimate of the real maximum surface brightness
-        # than the original geom_psf did.
-        # However, the max_sb feature gives an over-estimate, whereas to be conservative, we would
-        # rather an under-estimate.  For this kind of profile, dividing by 2 does a good job
-        # of giving us an underestimate of the max surface brightness.
-        # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
-        # to get photons/pixel, which we compare to fft_sb_thresh.
+        # Now this object should have a much better estimate of the
+        # real maximum surface brightness than the original geom_psf
+        # did.  However, the max_sb feature gives an over-estimate,
+        # whereas to be conservative, we would rather an
+        # under-estimate.  For this kind of profile, dividing by 2
+        # does a good job of giving us an underestimate of the max
+        # surface brightness.  Also note that `max_sb` is in
+        # photons/arcsec^2, so multiply by pixel_scale**2 to get
+        # photons/pixel, which we compare to fft_sb_thresh.
         if fft_obj.max_sb/2. * pixel_scale**2 > fft_sb_thresh:
             return fft_obj, True
         else:
@@ -1159,17 +1264,21 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
             # Start with GalSim's estimate of a good box size.
             image_size = obj.getGoodImageSize(pixel_scale)
 
-            # For bright things, defined as having an average of at least 10 photons per
-            # pixel on average, try to be careful about not truncating the surface brightness
-            # at the edge of the box.
+            # For bright things, defined as having an average of at
+            # least 10 photons per pixel on average, try to be careful
+            # about not truncating the surface brightness at the edge
+            # of the box.
             if flux > 10 * image_size**2:
-                image_size = self._getGoodPhotImageSize(gsObject, flux, keep_sb_level,
+                image_size = self._getGoodPhotImageSize(gsObject, flux,
+                                                        keep_sb_level,
                                                         pixel_scale=pixel_scale)
 
-            # If the above size comes out really huge, scale back to what you get for
-            # a somewhat brighter surface brightness limit.
+            # If the above size comes out really huge, scale back to
+            # what you get for a somewhat brighter surface brightness
+            # limit.
             if image_size > Nmax:
-                image_size = self._getGoodPhotImageSize(gsObject, flux, large_object_sb_level,
+                image_size = self._getGoodPhotImageSize(gsObject, flux,
+                                                        large_object_sb_level,
                                                         pixel_scale=pixel_scale)
                 image_size = max(image_size, Nmax)
 
@@ -1232,13 +1341,14 @@ def getGoodPhotImageSize(obj, keep_sb_level, pixel_scale=0.2):
     #print('N = ',N)
 
     if isinstance(obj, galsim.RandomKnots):
-        # If the galaxy is a RandomWalk, extract the underlying profile for this calculation
-        # rather than using the knotty version, which will pose problems for the xValue function.
+        # If the galaxy is a RandomWalk, extract the underlying
+        # profile for this calculation rather than using the knotty
+        # version, which will pose problems for the xValue function.
         obj = obj._profile
 
-    # This can be too small for bright stars, so increase it in steps until the edges are
-    # all below the requested sb level.
-    # (Don't go bigger than 4096)
+    # This can be too small for bright stars, so increase it in steps
+    # until the edges are all below the requested sb level.  (Don't go
+    # bigger than 4096)
     Nmax = 4096
     while N < Nmax:
         # Check the edges and corners of the current square
@@ -1255,9 +1365,9 @@ def getGoodPhotImageSize(obj, keep_sb_level, pixel_scale=0.2):
 
     N = min(N, Nmax)
 
-    # This can be quite huge for Devauc profiles, but we don't actually have much
-    # surface brightness way out in the wings.  So cut it back some.
-    # (Don't go below 64 though.)
+    # This can be quite huge for Devauc profiles, but we don't
+    # actually have much surface brightness way out in the wings.  So
+    # cut it back some.  (Don't go below 64 though.)
     while N >= 64 * factor:
         # Check the edges and corners of a square smaller by a factor of N.
         h = N / (2 * factor) * pixel_scale
@@ -1279,7 +1389,8 @@ class ObjectFlags:
     Class to keep track of the object rendering bit flags. The bits
     will be composed as an int for storing in centroid files.
     """
-    def __init__(self, conditions='skipped simple_sed no_silicon fft_rendered'.split()):
+    def __init__(self, conditions=['skipped', 'simple_sed', 'no_silicon',
+                                   'fft_rendered']):
         """
         Parameters
         ----------
