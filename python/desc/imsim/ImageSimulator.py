@@ -159,7 +159,7 @@ class ImageSimulator:
             gs_det = make_galsim_detector(self.camera_wrapper, det_name,
                                           self.phot_params, self.obs_md)
             self.gs_interpreters[det_name] \
-                = make_gs_interpreter(self.obs_md, [gs_det], bp_dict,
+                = make_gs_interpreter(self.obs_md, gs_det, bp_dict,
                                       noise_and_background,
                                       epoch=2000.0, seed=seed,
                                       apply_sensor_model=self.apply_sensor_model,
@@ -170,7 +170,7 @@ class ImageSimulator:
             self.gs_interpreters[det_name].setPSF(PSF=self.psf)
 
             if self.apply_sensor_model:
-                add_treering_info(self.gs_interpreters[det_name].detectors)
+                add_treering_info([self.gs_interpreters[det_name].detector])
 
             if file_id is not None:
                 self.gs_interpreters[det_name].checkpoint_file \
@@ -230,7 +230,7 @@ class ImageSimulator:
         str: The output file path.
         """
         prefix_key = 'raw_file_prefix' if raw else 'eimage_prefix'
-        detector = self.gs_interpreters[det_name].detectors[0]
+        detector = self.gs_interpreters[det_name].detector
         prefix = self.config['persistence'][prefix_key]
         visit = str(self.obs_md.OpsimMetaData['obshistID'])
         return os.path.join(self.outdir, prefix + '_'.join(
@@ -481,22 +481,18 @@ class SimulateSensor:
         """
         persist = IMAGE_SIMULATOR.config['persistence']
         band = IMAGE_SIMULATOR.obs_md.bandpass
-        for detector in gs_interpreter.detectors:
-            filename = gs_interpreter._getFileName(detector, band)
-            try:
-                gs_image = gs_interpreter.detectorImages[filename]
-            except KeyError:
-                continue
-            else:
-                raw = ImageSource.create_from_galsim_image(gs_image)
-                outfile = IMAGE_SIMULATOR.output_file(detector.name, raw=True)
-                added_keywords = dict()
-                if isinstance(IMAGE_SIMULATOR.psf, AtmosphericPSF):
-                    gaussianFWHM = IMAGE_SIMULATOR.config['psf']['gaussianFWHM']
-                    added_keywords['GAUSFWHM'] = gaussianFWHM
-                raw.write_fits_file(outfile,
-                                    compress=persist['raw_file_compress'],
-                                    added_keywords=added_keywords)
+        detector = gs_interpreter.detector
+        filename = gs_interpreter._getFileName(detector, band)
+        gs_image = gs_interpreter.detectorImages[filename]
+        raw = ImageSource.create_from_galsim_image(gs_image)
+        outfile = IMAGE_SIMULATOR.output_file(detector.name, raw=True)
+        added_keywords = dict()
+        if isinstance(IMAGE_SIMULATOR.psf, AtmosphericPSF):
+            gaussianFWHM = IMAGE_SIMULATOR.config['psf']['gaussianFWHM']
+            added_keywords['GAUSFWHM'] = gaussianFWHM
+        raw.write_fits_file(outfile,
+                            compress=persist['raw_file_compress'],
+                            added_keywords=added_keywords)
 
     def write_eimage_files(self, gs_interpreter):
         """

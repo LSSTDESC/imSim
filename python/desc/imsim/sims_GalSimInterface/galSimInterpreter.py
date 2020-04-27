@@ -20,18 +20,17 @@ from . import make_galsim_detector, SNRdocumentPSF, \
 __all__ = ["make_gs_interpreter", "GalSimInterpreter",
            "GalSimSiliconInterpreter", "ObjectFlags"]
 
-def make_gs_interpreter(obs_md, detectors, bandpassDict, noiseWrapper,
+def make_gs_interpreter(obs_md, detector, bandpassDict, noiseWrapper,
                         epoch=None, seed=None, apply_sensor_model=False,
                         bf_strength=1):
     if apply_sensor_model:
-        return GalSimSiliconInterpreter(obs_metadata=obs_md,
-                                        detectors=detectors,
+        return GalSimSiliconInterpreter(obs_md, detector,
                                         bandpassDict=bandpassDict,
                                         noiseWrapper=noiseWrapper,
                                         epoch=epoch, seed=seed,
                                         bf_strength=bf_strength)
 
-    return GalSimInterpreter(obs_metadata=obs_md, detectors=detectors,
+    return GalSimInterpreter(obs_md, detector,
                              bandpassDict=bandpassDict,
                              noiseWrapper=noiseWrapper,
                              epoch=epoch, seed=seed)
@@ -43,7 +42,7 @@ class GalSimInterpreter:
     """
     _observatory = LsstObservatory()
 
-    def __init__(self, obs_metadata=None, detectors=None,
+    def __init__(self, obs_metadata, detector,
                  bandpassDict=None, noiseWrapper=None,
                  epoch=None, seed=None):
 
@@ -53,8 +52,8 @@ class GalSimInterpreter:
         particular observation (telescope site and pointing
         information)
 
-        @param [in] detectors is a list of GalSimDetectors for which
-        we are drawing FITS images
+        @param [in] The GalSimDetector objects for which
+        we are drawing a FITS image
 
         @param [in] bandpassDict is a BandpassDict containing all of
         the bandpasses for which we are generating images
@@ -70,29 +69,26 @@ class GalSimInterpreter:
         """
 
         self.obs_metadata = obs_metadata
-        self.epoch = epoch
-        self.PSF = None
+        self.detector = detector
+        self.bandpassDict = bandpassDict
         self.noiseWrapper = noiseWrapper
-
+        self.epoch = epoch
         if seed is not None:
             self._rng = galsim.UniformDeviate(seed)
         else:
             self._rng = None
 
-        if detectors is None:
-            raise RuntimeError("Will not create images; you passed no "
-                               "detectors to the GalSimInterpreter")
+        self.PSF = None
 
-        self.detectors = detectors
-
-        # This dict will contain the FITS images (as GalSim images)
+        # This will contain the galsim Image
         self.detectorImages = {}
-        self.bandpassDict = bandpassDict
+
         # This dict will cache blank images associated with specific
         # detectors.  It turns out that calling the image's
         # constructor is more time-consuming than returning a deep
         # copy
         self.blankImageCache = {}
+
         self.checkpoint_file = None
         self.drawn_objects = set()
         self.nobj_checkpoint = 1000
@@ -126,127 +122,6 @@ class GalSimInterpreter:
         The resulting filename will be detectorName_bandpassName.fits
         """
         return detector.fileName + '_' + bandpassName + '.fits'
-
-    def _doesObjectImpingeOnDetector(self, xPupil=None, yPupil=None,
-                                     detector=None, imgScale=None,
-                                     nonZeroPixels=None):
-        """.
-        Compare an astronomical object to a detector and determine
-        whether or not that object will cast any light on that
-        detector (in case the object is near the edge of a detector
-        and will cast some incidental light onto it).
-
-        This method is called by the method findAllDetectors.
-        findAllDetectors will generate a test image of an astronomical
-        object.  It will find all of the pixels in that test image
-        with flux above a certain threshold and pass that list of
-        pixels into this method along with data characterizing the
-        detector in question.  This method compares the pupil
-        coordinates of those pixels with the pupil coordinate domain
-        of the detector. If some of those pixels fall inside the
-        detector, then this method returns True (signifying that the
-        astronomical object does cast light on the detector).  If not,
-        this method returns False.
-
-        @param [in] xPupil the x pupil coordinate of the image's
-        origin in arcseconds
-
-        @param [in] yPupil the y pupil coordinate of the image's
-        origin in arcseconds
-
-        @param [in] detector an instantiation of GalSimDetector.  This
-        is the detector against which we will compare the object.
-
-        @param [in] nonZeroPixels is a numpy array of non-zero pixels
-        from the test image referenced above.  nonZeroPixels[0] is
-        their x coordinate (in pixel value).  nonZeroPixels[1] is ther
-        y coordinate.
-
-        @param [in] imgScale is the platescale of the test image in
-        arcseconds per pixel
-        """
-        if detector is None:
-            return False
-
-        xPupilList = radiansFromArcsec(np.array([xPupil + ix*imgScale
-                                                 for ix in nonZeroPixels[0]]))
-        yPupilList = radiansFromArcsec(np.array([yPupil + iy*imgScale
-                                                 for iy in nonZeroPixels[1]]))
-
-        answer = detector.containsPupilCoordinates(xPupilList, yPupilList)
-
-        if True in answer:
-            return True
-        else:
-            return False
-
-    def findAllDetectors(self, gsObject, conservative_factor=10.):
-        """
-        Find all of the detectors on which a given astronomical object
-        might cast light.
-
-        Note: This is a bit conservative.  Later, once we actually
-        have the real flux, we can figure out a better estimate for
-        the stamp size to use, at which point some objects might not
-        get drawn.  For now, we just use the nominal stamp size from
-        GalSim, scaled up by the factor `conservative_factor`
-        (default=10).
-
-        @param [in] gsObject is an instantiation of the
-        GalSimCelestialObject class carrying information about the
-        object whose image is to be drawn
-
-        @param [in] conservative_factor is a factor (should be > 1) by
-        which we scale up the nominal stamp size.  Brighter objects
-        should use larger factors, but the default value of 10 should
-        be fairly conservative and not waste too many cycles on things
-        off the edges of detectors.
-
-        @param [out] outputString is a string indicating which chips
-        the object illumines (suitable for the GalSim InstanceCatalog
-        classes)
-
-        @param [out] outputList is a list of detector instantiations
-        indicating which detectors the object illumines
-
-        @param [out] centeredObj is a GalSim GSObject centered on the
-        chip
-
-        Note: parameters that only apply to Sersic profiles will be
-        ignored in the case of pointSources, etc.
-        """
-
-        # create a GalSim Object centered on the chip.
-        centeredObj = self.createCenteredObject(gsObject)
-
-        # pixel_scale = 1.0 means size is in arcsec.
-        sizeArcsec = centeredObj.getGoodImageSize(1.0)
-        sizeArcsec *= conservative_factor
-        xmax = gsObject.xPupilArcsec + sizeArcsec/2.
-        xmin = gsObject.xPupilArcsec - sizeArcsec/2.
-        ymax = gsObject.yPupilArcsec + sizeArcsec/2.
-        ymin = gsObject.yPupilArcsec - sizeArcsec/2.
-
-        outputString = ''
-        outputList = []
-
-        # first assemble a list of detectors which have any hope
-        # of overlapping the test image
-        viableDetectors = []
-        for dd in self.detectors:
-            xOverLaps = min(xmax, dd.xMaxArcsec) > max(xmin, dd.xMinArcsec)
-            yOverLaps = min(ymax, dd.yMaxArcsec) > max(ymin, dd.yMinArcsec)
-
-            if xOverLaps and yOverLaps:
-                if outputString != '':
-                    outputString += '//'
-                outputString += dd.name
-                outputList.append(dd)
-
-        if outputString == '':
-            outputString = None
-
-        return outputString, outputList, centeredObj
 
     def blankImage(self, detector=None):
         """
@@ -297,10 +172,9 @@ class GalSimInterpreter:
         object_flags = ObjectFlags()
         object_flags.set_flag('no_silicon')
 
-        # find the detectors which the astronomical object illumines
-        outputString, \
-        detectorList, \
-        centeredObj = self.findAllDetectors(gsObject)
+        outputString = None
+        detectorList = [self.detector]
+        centeredObj = self.createCenteredObject(gsObject)
 
         # Make sure this object is marked as "drawn" since we only
         # care that this method has been called for this object.
@@ -796,12 +670,11 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
     This subclass of GalSimInterpreter applies the Silicon sensor
     model to the drawn objects.
     """
-    def __init__(self, obs_metadata=None, detectors=None, bandpassDict=None,
+    def __init__(self, obs_metadata, detector, bandpassDict=None,
                  noiseWrapper=None, epoch=None, seed=None, bf_strength=1):
         super(GalSimSiliconInterpreter, self)\
-            .__init__(obs_metadata=obs_metadata, detectors=detectors,
-                      bandpassDict=bandpassDict, noiseWrapper=noiseWrapper,
-                      epoch=epoch, seed=seed)
+            .__init__(obs_metadata, detector, bandpassDict=bandpassDict,
+                      noiseWrapper=noiseWrapper, epoch=epoch, seed=seed)
 
         self.gs_bandpass_dict = {}
         for bandpassName in bandpassDict:
@@ -850,12 +723,11 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
 
         # Create SiliconSensor objects for each detector.
         self.sensor = dict()
-        for det in detectors:
-            self.sensor[det.name] \
-                = galsim.SiliconSensor(strength=bf_strength,
-                                       treering_center=det.tree_rings.center,
-                                       treering_func=det.tree_rings.func,
-                                       transpose=True)
+        self.sensor[detector.name] = galsim.SiliconSensor(
+            strength=bf_strength,
+            treering_center=detector.tree_rings.center,
+            treering_func=detector.tree_rings.func,
+            transpose=True)
 
     def drawObject(self, gsObject, max_flux_simple=0, sensor_limit=0,
                    fft_sb_thresh=None):
@@ -890,10 +762,9 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
         """
         object_flags = ObjectFlags()
 
-        # find the detectors which the astronomical object illumines
-        outputString, \
-        detectorList, \
-        centeredObj = self.findAllDetectors(gsObject)
+        outputString = None
+        detectorList = [self.detector]
+        centeredObj = self.createCenteredObject(gsObject)
 
         # Make sure this object is marked as "drawn" since we only
         # care that this method has been called for this object.
