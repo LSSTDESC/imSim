@@ -41,7 +41,7 @@ class RawFileOutputTestCase(unittest.TestCase):
         chipid = 'R{}_S{}'.format(detname[2:5:2], detname[8:11:2])
         detector = sims_gsi.make_galsim_detector(camera_wrapper, detname,
                                                  phot_params, obs_md)
-        gs_interpreter = sims_gsi.GalSimInterpreter(detectors=[detector])
+        gs_interpreter = sims_gsi.GalSimInterpreter(obs_md, detector)
         gs_image = gs_interpreter.blankImage(detector)
         raw_image = desc.imsim.ImageSource.create_from_galsim_image(gs_image)
         self.outfile = 'lsst_a_{}_r.fits'.format(chipid)
