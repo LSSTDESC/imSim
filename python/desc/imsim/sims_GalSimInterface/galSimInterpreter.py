@@ -13,7 +13,7 @@ import gzip
 import numpy as np
 import astropy
 import galsim
-from lsst.sims.utils import radiansFromArcsec, observedFromPupilCoords
+from lsst.sims.utils import  observedFromPupilCoords
 from . import make_galsim_detector, SNRdocumentPSF, \
     Kolmogorov_and_Gaussian_PSF, LsstObservatory
 
@@ -22,7 +22,7 @@ __all__ = ["make_gs_interpreter", "GalSimInterpreter", "ObjectFlags"]
 def make_gs_interpreter(obs_md, detector, bandpassDict, noiseWrapper,
                         epoch=None, seed=None, apply_sensor_model=False,
                         bf_strength=1):
-
+    """Function to make a GalSimInterpreter object."""
     disable_sensor_model = not apply_sensor_model
     return GalSimInterpreter(obs_md, detector,
                              bandpassDict=bandpassDict,
@@ -141,7 +141,7 @@ class GalSimInterpreter:
         red_limit = np.max([bp.red_limit for bp
                             in self.gs_bandpass_dict.values()])
         constant_func = galsim.LookupTable([blue_limit, red_limit],
-                                           [1,1], interpolant='linear')
+                                           [1, 1], interpolant='linear')
         self.trivial_sed = galsim.SED(constant_func, wave_type='nm',
                                       flux_type='fphotons')
 
@@ -314,7 +314,7 @@ class GalSimInterpreter:
                 # cross-over point for time to where the fft becomes
                 # faster is emprically around 1.e6 photons, so also
                 # don't bother unless the flux is more than this.
-                obj, use_fft = self.maybeSwitchPSF(gsObject, obj, fft_sb_thresh)
+                obj, use_fft = self.maybeSwitchPSF(obj, fft_sb_thresh)
 
             if use_fft:
                 object_flags.set_flag('fft_rendered')
@@ -448,13 +448,13 @@ class GalSimInterpreter:
         # time for bright objects (>1e4 photons takes longer than ~30s
         # on cori-haswell), force a checkpoint after each object is
         # drawn.
-        force_checkpoint = ((gsObject.galSimType == 'FitsImage') and
-                            realized_flux > 1e4)
+        force_checkpoint = ((gsObject.galSimType == 'FitsImage')
+                            and (realized_flux > 1e4))
         self.write_checkpoint(force=force_checkpoint)
         return outputString
 
     @staticmethod
-    def maybeSwitchPSF(gsObject, obj, fft_sb_thresh, pixel_scale=0.2):
+    def maybeSwitchPSF(obj, fft_sb_thresh, pixel_scale=0.2):
         """
         Check if the maximum surface brightness of the object is high
         enough that we should switch to using an fft method rather
@@ -542,8 +542,8 @@ class GalSimInterpreter:
         # photons/pixel, which we compare to fft_sb_thresh.
         if fft_obj.max_sb/2. * pixel_scale**2 > fft_sb_thresh:
             return fft_obj, True
-        else:
-            return obj, False
+
+        return obj, False
 
     def getStampBounds(self, gsObject, flux, image_pos, keep_sb_level,
                        large_object_sb_level, Nmax=1400, pixel_scale=0.2):
@@ -821,7 +821,7 @@ class GalSimInterpreter:
                 gsObject.rotation_angle*galsim.degrees)
 
         # Apply weak lensing distortion.
-        centerObject = centeredObj.lens(gsObject.g1, gsObject.g2, gsObject.mu)
+        centeredObj = centeredObj.lens(gsObject.g1, gsObject.g2, gsObject.mu)
 
         # Apply the PSF
         if psf is not None:
@@ -1073,6 +1073,7 @@ class GalSimInterpreter:
 
     @property
     def observatory(self):
+        """Return the observatory object."""
         return self._observatory
 
 
@@ -1126,10 +1127,10 @@ def getGoodPhotImageSize(obj, keep_sb_level, pixel_scale=0.2):
     while N < Nmax:
         # Check the edges and corners of the current square
         h = N / 2 * pixel_scale
-        xvalues = [ obj.xValue(h,0), obj.xValue(-h,0),
-                    obj.xValue(0,h), obj.xValue(0,-h),
-                    obj.xValue(h,h), obj.xValue(h,-h),
-                    obj.xValue(-h,h), obj.xValue(-h,-h) ]
+        xvalues = [obj.xValue(h, 0), obj.xValue(-h, 0),
+                   obj.xValue(0, h), obj.xValue(0, -h),
+                   obj.xValue(h, h), obj.xValue(h, -h),
+                   obj.xValue(-h, h), obj.xValue(-h, -h)]
         maxval = np.max(xvalues)
         #print(N, maxval)
         if maxval < keep_sb_level:
@@ -1144,10 +1145,10 @@ def getGoodPhotImageSize(obj, keep_sb_level, pixel_scale=0.2):
     while N >= 64 * factor:
         # Check the edges and corners of a square smaller by a factor of N.
         h = N / (2 * factor) * pixel_scale
-        xvalues = [ obj.xValue(h,0), obj.xValue(-h,0),
-                    obj.xValue(0,h), obj.xValue(0,-h),
-                    obj.xValue(h,h), obj.xValue(h,-h),
-                    obj.xValue(-h,h), obj.xValue(-h,-h) ]
+        xvalues = [obj.xValue(h, 0), obj.xValue(-h, 0),
+                   obj.xValue(0, h), obj.xValue(0, -h),
+                   obj.xValue(h, h), obj.xValue(h, -h),
+                   obj.xValue(-h, h), obj.xValue(-h, -h)]
         maxval = np.max(xvalues)
         #print(N, maxval)
         if maxval > keep_sb_level:
@@ -1162,8 +1163,8 @@ class ObjectFlags:
     Class to keep track of the object rendering bit flags. The bits
     will be composed as an int for storing in centroid files.
     """
-    def __init__(self, conditions=['skipped', 'simple_sed', 'no_silicon',
-                                   'fft_rendered']):
+    def __init__(self, conditions=('skipped', 'simple_sed', 'no_silicon',
+                                   'fft_rendered')):
         """
         Parameters
         ----------
