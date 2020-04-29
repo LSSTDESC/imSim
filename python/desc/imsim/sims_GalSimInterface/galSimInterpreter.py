@@ -235,32 +235,25 @@ class GalSimInterpreter:
         object_flags = ObjectFlags()
 
         outputString = None
-        detectorList = [self.detector]
         centeredObj = self.createCenteredObject(gsObject)
 
         # Make sure this object is marked as "drawn" since we only
         # care that this method has been called for this object.
         self.drawn_objects.add(gsObject.uniqueId)
 
-        # Compute the realized object fluxes (as drawn from the
-        # corresponding Poisson distribution) for each band and return
-        # right away if all values are zero in order to save compute.
-        fluxes = [gsObject.flux(bandpassName) for bandpassName
-                  in self.bandpassDict]
-        realized_fluxes = [galsim.PoissonDeviate(self._rng, mean=f)()
-                           for f in fluxes]
-        if all([f == 0 for f in realized_fluxes]):
-            # All fluxes are 0, so no photons will be shot.
+        # Compute the realized object flux (as drawn from the
+        # corresponding Poisson distribution) for the observed band
+        # and return right away if zero in order to save compute.
+        bandpassName = self.obs_metadata.bandpass
+        flux = gsObject.flux(bandpassName)
+        realized_flux = galsim.PoissonDeviate(self._rng, mean=flux)()
+        if flux == 0:
             object_flags.set_flag('skipped')
-            self._store_zero_flux_centroid_info(detectorList, fluxes, gsObject,
+            self._store_zero_flux_centroid_info(self.detector, flux, gsObject,
                                                 object_flags.value)
             return outputString
 
-        if len(detectorList) == 0:
-            # There is nothing to draw
-            return outputString
-
-        self._addNoiseAndBackground(detectorList)
+        self._addNoiseAndBackground(self.detector)
 
         # Create a surface operation to sample incident angles and a
         # galsim.SED object for sampling the wavelengths of the
@@ -269,7 +262,7 @@ class GalSimInterpreter:
         obscuration = 0.606  # (8.4**2 - 6.68**2)**0.5 / 8.4
         angles = galsim.FRatioAngles(fratio, obscuration, self._rng)
 
-        faint = all([f < max_flux_simple for f in realized_fluxes])
+        faint = realized_flux < max_flux_simple
 
         if faint:
             # For faint things, use a very simple SED, since we don't
@@ -290,159 +283,156 @@ class GalSimInterpreter:
         obj_coord = galsim.CelestialCoord(ra_obs*galsim.degrees,
                                           dec_obs*galsim.degrees)
 
-        for bandpassName, realized_flux, flux in zip(self.bandpassDict,
-                                                     realized_fluxes, fluxes):
-            gs_bandpass = self.gs_bandpass_dict[bandpassName]
-            waves = galsim.WavelengthSampler(sed=gs_sed, bandpass=gs_bandpass,
-                                             rng=self._rng)
-            dcr = galsim.PhotonDCR(
-                base_wavelength=gs_bandpass.effective_wavelength,
-                HA=self.local_hour_angle,
-                latitude=self.obs_latitude,
-                obj_coord=obj_coord)
+        gs_bandpass = self.gs_bandpass_dict[bandpassName]
+        waves = galsim.WavelengthSampler(sed=gs_sed, bandpass=gs_bandpass,
+                                         rng=self._rng)
+        dcr = galsim.PhotonDCR(
+            base_wavelength=gs_bandpass.effective_wavelength,
+            HA=self.local_hour_angle,
+            latitude=self.obs_latitude,
+            obj_coord=obj_coord)
 
-            # Set the object flux to the value realized from the
-            # Poisson distribution.
-            obj = centeredObj.withFlux(realized_flux)
+        # Set the object flux to the value realized from the
+        # Poisson distribution.
+        obj = centeredObj.withFlux(realized_flux)
 
-            use_fft = False
-            if (realized_flux > 1.e6 and fft_sb_thresh is not None
-                and realized_flux > fft_sb_thresh):
-                # Note: Don't bother with this check unless the total
-                # flux is > thresh.  Otherwise, there is no chance
-                # that the flux in 1 pixel is > thresh.  Also, the
-                # cross-over point for time to where the fft becomes
-                # faster is emprically around 1.e6 photons, so also
-                # don't bother unless the flux is more than this.
-                obj, use_fft = self.maybeSwitchPSF(obj, fft_sb_thresh)
+        use_fft = False
+        if (realized_flux > 1.e6 and fft_sb_thresh is not None
+            and realized_flux > fft_sb_thresh):
+            # Note: Don't bother with this check unless the total
+            # flux is > thresh.  Otherwise, there is no chance
+            # that the flux in 1 pixel is > thresh.  Also, the
+            # cross-over point for time to where the fft becomes
+            # faster is emprically around 1.e6 photons, so also
+            # don't bother unless the flux is more than this.
+            obj, use_fft = self.maybeSwitchPSF(obj, fft_sb_thresh)
 
-            if use_fft:
-                object_flags.set_flag('fft_rendered')
+        if use_fft:
+            object_flags.set_flag('fft_rendered')
+            object_flags.set_flag('no_silicon')
+
+        detector = self.detector
+        name = self._getFileName(detector=detector,
+                                 bandpassName=bandpassName)
+
+        xPix, yPix = detector.camera_wrapper\
+           .pixelCoordsFromPupilCoords(gsObject.xPupilRadians,
+                                       gsObject.yPupilRadians,
+                                       chipName=detector.name,
+                                       obs_metadata=self.obs_metadata)
+
+        # Desired position to draw the object.
+        image_pos = galsim.PositionD(xPix, yPix)
+
+        # Find a postage stamp region to draw onto.  Use (sky
+        # noise)/3. as the nominal minimum surface brightness
+        # for rendering an extended object.
+        keep_sb_level = np.sqrt(self.sky_bg_per_pixel)/3.
+        full_bounds = self.getStampBounds(gsObject, realized_flux,
+                                          image_pos,
+                                          keep_sb_level, 3*keep_sb_level)
+
+        # Ensure the bounds of the postage stamp lie within the image.
+        bounds = full_bounds & self.detectorImages[name].bounds
+
+        if not bounds.isDefined():
+            return outputString
+
+        # Offset is relative to the "true" center of the postage stamp.
+        offset = image_pos - bounds.true_center
+
+        image = self.detectorImages[name][bounds]
+
+        if faint:
+            # For faint things, only use the silicon sensor if
+            # there is already some significant flux on the
+            # image near the object.  Brighter-fatter doesn't
+            # start having any measurable effect until at
+            # least around 1000 e-/pixel. So a limit of 200 is
+            # conservative by a factor of 5.  Do the
+            # calculation relative to the median, since a
+            # perfectly flat sky level will not have any B/F
+            # effect.  (But noise fluctuations due to the sky
+            # will be properly included here if the sky is
+            # drawn first.)
+            if (np.max(image.array) > np.median(image.array)
+                + sensor_limit):
+                sensor = self.sensor[detector.name]
+            else:
+                sensor = None
                 object_flags.set_flag('no_silicon')
+        else:
+            sensor = self.sensor[detector.name]
 
-            for detector in detectorList:
+        if self.disable_sensor_model:
+            sensor = None
+            object_flags.set_flag('no_silicon')
 
-                name = self._getFileName(detector=detector,
-                                         bandpassName=bandpassName)
+        if sensor:
+            # Ensure the rng used by the sensor object is set
+            # to the desired state.
+            self.sensor[detector.name].rng.reset(self._rng)
+            surface_ops = [waves, dcr, angles]
+        else:
+            # Don't need angles if not doing silicon sensor.
+            surface_ops = [waves, dcr]
 
-                xPix, yPix = detector.camera_wrapper\
-                   .pixelCoordsFromPupilCoords(gsObject.xPupilRadians,
-                                               gsObject.yPupilRadians,
-                                               chipName=detector.name,
-                                               obs_metadata=self.obs_metadata)
+        if use_fft:
+            # When drawing with FFTs, large offsets can be a
+            # problem, since they can blow up the required FFT
+            # size.  We'll guard for that below with a try
+            # block, but we can minimize how often this
+            # happens by making sure the offset is close to
+            # 0,0.
+            if abs(offset.x) > 2 or abs(offset.y) > 2:
+                # Make a larger image that has the object near
+                # the center.
+                fft_image = galsim.Image(full_bounds, dtype=image.dtype,
+                                         wcs=image.wcs)
+                fft_image[bounds] = image
+                fft_offset = image_pos - full_bounds.true_center
+            else:
+                fft_image = image.copy()
+                fft_offset = offset
 
-                # Desired position to draw the object.
-                image_pos = galsim.PositionD(xPix, yPix)
+            try:
+                obj.drawImage(method='fft',
+                              offset=fft_offset,
+                              image=fft_image,
+                              gain=detector.photParams.gain)
+            except galsim.errors.GalSimFFTSizeError:
+                use_fft = False
+                object_flags.unset_flag('fft_rendered')
+                if sensor is not None:
+                    object_flags.unset_flag('no_silicon')
+            else:
+                # Some pixels can end up negative from FFT
+                # numerics.  Just set them to 0.
+                fft_image.array[fft_image.array < 0] = 0.
+                fft_image.addNoise(galsim.PoissonNoise(rng=self._rng))
+                # In case we had to make a bigger image, just
+                # copy the part we need.
+                image += fft_image[bounds]
+        if not use_fft:
+            obj.drawImage(method='phot',
+                          offset=offset,
+                          rng=self._rng,
+                          maxN=int(1e6),
+                          image=image,
+                          sensor=sensor,
+                          surface_ops=surface_ops,
+                          add_to_image=True,
+                          poisson_flux=False,
+                          gain=detector.photParams.gain)
 
-                # Find a postage stamp region to draw onto.  Use (sky
-                # noise)/3. as the nominal minimum surface brightness
-                # for rendering an extended object.
-                keep_sb_level = np.sqrt(self.sky_bg_per_pixel)/3.
-                full_bounds = self.getStampBounds(gsObject, realized_flux,
-                                                  image_pos,
-                                                  keep_sb_level, 3*keep_sb_level)
-
-                # Ensure the bounds of the postage stamp lie within the image.
-                bounds = full_bounds & self.detectorImages[name].bounds
-
-                if not bounds.isDefined():
-                    continue
-
-                # Offset is relative to the "true" center of the postage stamp.
-                offset = image_pos - bounds.true_center
-
-                image = self.detectorImages[name][bounds]
-
-                if faint:
-                    # For faint things, only use the silicon sensor if
-                    # there is already some significant flux on the
-                    # image near the object.  Brighter-fatter doesn't
-                    # start having any measurable effect until at
-                    # least around 1000 e-/pixel. So a limit of 200 is
-                    # conservative by a factor of 5.  Do the
-                    # calculation relative to the median, since a
-                    # perfectly flat sky level will not have any B/F
-                    # effect.  (But noise fluctuations due to the sky
-                    # will be properly included here if the sky is
-                    # drawn first.)
-                    if (np.max(image.array) > np.median(image.array)
-                        + sensor_limit):
-                        sensor = self.sensor[detector.name]
-                    else:
-                        sensor = None
-                        object_flags.set_flag('no_silicon')
-                else:
-                    sensor = self.sensor[detector.name]
-
-                if self.disable_sensor_model:
-                    sensor = None
-                    object_flags.set_flag('no_silicon')
-
-                if sensor:
-                    # Ensure the rng used by the sensor object is set
-                    # to the desired state.
-                    self.sensor[detector.name].rng.reset(self._rng)
-                    surface_ops = [waves, dcr, angles]
-                else:
-                    # Don't need angles if not doing silicon sensor.
-                    surface_ops = [waves, dcr]
-
-                if use_fft:
-                    # When drawing with FFTs, large offsets can be a
-                    # problem, since they can blow up the required FFT
-                    # size.  We'll guard for that below with a try
-                    # block, but we can minimize how often this
-                    # happens by making sure the offset is close to
-                    # 0,0.
-                    if abs(offset.x) > 2 or abs(offset.y) > 2:
-                        # Make a larger image that has the object near
-                        # the center.
-                        fft_image = galsim.Image(full_bounds, dtype=image.dtype,
-                                                 wcs=image.wcs)
-                        fft_image[bounds] = image
-                        fft_offset = image_pos - full_bounds.true_center
-                    else:
-                        fft_image = image.copy()
-                        fft_offset = offset
-
-                    try:
-                        obj.drawImage(method='fft',
-                                      offset=fft_offset,
-                                      image=fft_image,
-                                      gain=detector.photParams.gain)
-                    except galsim.errors.GalSimFFTSizeError:
-                        use_fft = False
-                        object_flags.unset_flag('fft_rendered')
-                        if sensor is not None:
-                            object_flags.unset_flag('no_silicon')
-                    else:
-                        # Some pixels can end up negative from FFT
-                        # numerics.  Just set them to 0.
-                        fft_image.array[fft_image.array < 0] = 0.
-                        fft_image.addNoise(galsim.PoissonNoise(rng=self._rng))
-                        # In case we had to make a bigger image, just
-                        # copy the part we need.
-                        image += fft_image[bounds]
-                if not use_fft:
-                    obj.drawImage(method='phot',
-                                  offset=offset,
-                                  rng=self._rng,
-                                  maxN=int(1e6),
-                                  image=image,
-                                  sensor=sensor,
-                                  surface_ops=surface_ops,
-                                  add_to_image=True,
-                                  poisson_flux=False,
-                                  gain=detector.photParams.gain)
-
-                # If we are writing centroid files,store the entry.
-                if self.centroid_base_name is not None:
-                    centroid_tuple = (detector.fileName, bandpassName,
-                                      gsObject.uniqueId,
-                                      flux, realized_flux, xPix, yPix,
-                                      object_flags.value,
-                                      gsObject.galSimType)
-                    self.centroid_list.append(centroid_tuple)
+        # If we are writing centroid files,store the entry.
+        if self.centroid_base_name is not None:
+            centroid_tuple = (detector.fileName, bandpassName,
+                              gsObject.uniqueId,
+                              flux, realized_flux, xPix, yPix,
+                              object_flags.value,
+                              gsObject.galSimType)
+            self.centroid_list.append(centroid_tuple)
 
         # Because rendering FitsImage object types can take a long
         # time for bright objects (>1e4 photons takes longer than ~30s
@@ -649,48 +639,46 @@ class GalSimInterpreter:
                                         pixel_scale=pixel_scale)
         return int(np.sqrt(ps_size**2 + obj_size**2))
 
-    def _store_zero_flux_centroid_info(self, detectorList, fluxes, gsObject,
+    def _store_zero_flux_centroid_info(self, detector, flux, gsObject,
                                        obj_flags_value):
         if self.centroid_base_name is None:
             return
         realized_flux = 0
-        for bandpassName, flux in zip(self.bandpassDict, fluxes):
-            for detector in detectorList:
-                xPix, yPix = detector.camera_wrapper.pixelCoordsFromPupilCoords(
-                    gsObject.xPupilRadians, gsObject.yPupilRadians,
-                    detector.name, self.obs_metadata)
-                centroid_tuple = (detector.fileName, bandpassName,
-                                  gsObject.uniqueId,
-                                  flux, realized_flux, xPix, yPix,
-                                  obj_flags_value, gsObject.galSimType)
-                self.centroid_list.append(centroid_tuple)
+        xPix, yPix = detector.camera_wrapper.pixelCoordsFromPupilCoords(
+            gsObject.xPupilRadians, gsObject.yPupilRadians,
+            detector.name, self.obs_metadata)
+        centroid_tuple = (detector.fileName, self.obs_metadata.bandpass,
+                          gsObject.uniqueId,
+                          flux, realized_flux, xPix, yPix,
+                          obj_flags_value, gsObject.galSimType)
+        self.centroid_list.append(centroid_tuple)
 
-    def _addNoiseAndBackground(self, detectorList):
+    def _addNoiseAndBackground(self, detector):
         """
         Go through the list of detector/bandpass combinations and
         initialize all of the FITS files we will need (if they have
         not already been initialized)
         """
-        for detector in detectorList:
-            for bandpassName in self.bandpassDict:
-                name = self._getFileName(detector=detector,
-                                         bandpassName=bandpassName)
-                if name not in self.detectorImages:
-                    self.detectorImages[name] \
-                        = self.blankImage(detector=detector)
-                    if self.noiseWrapper is not None:
-                        # Add sky background and noise to the image
-                        self.detectorImages[name] = \
-                            self.noiseWrapper.addNoiseAndBackground(
-                                self.detectorImages[name],
-                                bandpass=self.bandpassDict[bandpassName],
-                                m5=self.obs_metadata.m5[bandpassName],
-                                FWHMeff=self.
-                                obs_metadata.seeing[bandpassName],
-                                photParams=detector.photParams,
-                                detector=detector)
+        detector = self.detector
+        bandpassName = self.obs_metadata.bandpass
+        name = self._getFileName(detector=detector,
+                                 bandpassName=bandpassName)
+        if name not in self.detectorImages:
+            self.detectorImages[name] \
+                = self.blankImage(detector=detector)
+            if self.noiseWrapper is not None:
+                # Add sky background and noise to the image
+                self.detectorImages[name] = \
+                    self.noiseWrapper.addNoiseAndBackground(
+                        self.detectorImages[name],
+                        bandpass=self.bandpassDict[bandpassName],
+                        m5=self.obs_metadata.m5[bandpassName],
+                        FWHMeff=self.
+                        obs_metadata.seeing[bandpassName],
+                        photParams=detector.photParams,
+                        detector=detector)
 
-                        self.write_checkpoint(force=True, object_list=set())
+                self.write_checkpoint(force=True, object_list=set())
 
     def drawPointSource(self, gsObject, psf=None):
         """
