@@ -23,17 +23,14 @@ __all__ = ["make_gs_interpreter", "GalSimInterpreter",
 def make_gs_interpreter(obs_md, detector, bandpassDict, noiseWrapper,
                         epoch=None, seed=None, apply_sensor_model=False,
                         bf_strength=1):
-    if apply_sensor_model:
-        return GalSimSiliconInterpreter(obs_md, detector,
-                                        bandpassDict=bandpassDict,
-                                        noiseWrapper=noiseWrapper,
-                                        epoch=epoch, seed=seed,
-                                        bf_strength=bf_strength)
 
-    return GalSimInterpreter(obs_md, detector,
-                             bandpassDict=bandpassDict,
-                             noiseWrapper=noiseWrapper,
-                             epoch=epoch, seed=seed)
+    disable_sensor_model = not apply_sensor_model
+    return GalSimSiliconInterpreter(obs_md, detector,
+                                    bandpassDict=bandpassDict,
+                                    noiseWrapper=noiseWrapper,
+                                    epoch=epoch, seed=seed,
+                                    bf_strength=bf_strength,
+                                    disable_sensor_model=disable_sensor_model)
 
 class GalSimInterpreter:
     """
@@ -671,10 +668,12 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
     model to the drawn objects.
     """
     def __init__(self, obs_metadata, detector, bandpassDict=None,
-                 noiseWrapper=None, epoch=None, seed=None, bf_strength=1):
+                 noiseWrapper=None, epoch=None, seed=None, bf_strength=1,
+                 disable_sensor_model=False):
         super(GalSimSiliconInterpreter, self)\
             .__init__(obs_metadata, detector, bandpassDict=bandpassDict,
                       noiseWrapper=noiseWrapper, epoch=epoch, seed=seed)
+        self.disable_sensor_model = disable_sensor_model
 
         self.gs_bandpass_dict = {}
         for bandpassName in bandpassDict:
@@ -901,6 +900,10 @@ class GalSimSiliconInterpreter(GalSimInterpreter):
                         object_flags.set_flag('no_silicon')
                 else:
                     sensor = self.sensor[detector.name]
+
+                if self.disable_sensor_model:
+                    sensor = None
+                    object_flags.set_flag('no_silicon')
 
                 if sensor:
                     # Ensure the rng used by the sensor object is set
