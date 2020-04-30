@@ -139,9 +139,8 @@ class GalSimInterpreter:
         self.trivial_sed = galsim.SED(constant_func, wave_type='nm',
                                       flux_type='fphotons')
 
-        # Create SiliconSensor objects for each detector.
-        self.sensor = dict()
-        self.sensor[detector.name] = galsim.SiliconSensor(
+        # Create a SiliconSensor object.
+        self.sensor = galsim.SiliconSensor(
             strength=bf_strength,
             treering_center=detector.tree_rings.center,
             treering_func=detector.tree_rings.func,
@@ -326,12 +325,12 @@ class GalSimInterpreter:
             # drawn first.)
             if (np.max(image.array) > np.median(image.array)
                 + sensor_limit):
-                sensor = self.sensor[detector.name]
+                sensor = self.sensor
             else:
                 sensor = None
                 object_flags.set_flag('no_silicon')
         else:
-            sensor = self.sensor[detector.name]
+            sensor = self.sensor
 
         if self.disable_sensor_model:
             sensor = None
@@ -340,7 +339,7 @@ class GalSimInterpreter:
         if sensor:
             # Ensure the rng used by the sensor object is set
             # to the desired state.
-            self.sensor[detector.name].rng.reset(self._rng)
+            self.sensor.rng.reset(self._rng)
             surface_ops = [waves, dcr, angles]
         else:
             # Don't need angles if not doing silicon sensor.
