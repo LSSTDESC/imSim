@@ -433,8 +433,8 @@ class SimulateSensor:
         if IMAGE_SIMULATOR.config['persistence']['make_raw_file']:
             self.write_raw_files(gs_interpreter)
 
-        # Write out the centroid files if they were made.
-        gs_interpreter.write_centroid_files()
+        # Write out the centroid file if it was made.
+        gs_interpreter.write_centroid_file()
 
         # The image for the sensor-visit has been drawn, so delete or
         # move to the archive area any existing checkpoint file if the
