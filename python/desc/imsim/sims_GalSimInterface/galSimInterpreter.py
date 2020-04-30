@@ -626,6 +626,9 @@ class GalSimInterpreter:
         """
         Add sky background and noise to the detector image.
         """
+        if self.detectorImage is not None:
+            return
+        self.detectorImage = self.blankImage()
         bandpassName = self.obs_metadata.bandpass
         if self.noiseWrapper is not None:
             # Add sky background and noise to the image
