@@ -78,7 +78,7 @@ class GalSimInterpreter:
         self.PSF = None
 
         # This will contain the galsim Image
-        self.detectorImages = {}
+        self.detectorImage = self.blankImage(detector=self.detector)
 
         # This dict will cache blank images associated with specific
         # detectors.  It turns out that calling the image's
@@ -163,19 +163,12 @@ class GalSimInterpreter:
         """
         self.PSF = PSF
 
-    def _getFileName(self, detector=None, bandpassName=None):
+    def _getFileName(self):
         """
-        Given a detector and a bandpass name, return the name of the
-        FITS file to be written
-
-        @param [in] detector is an instantiation of GalSimDetector
-
-        @param [in] bandpassName is a string i.e. 'u' denoting the
-        filter being drawn
-
-        The resulting filename will be detectorName_bandpassName.fits
+        Return the partial name of the FITS file to be written
         """
-        return detector.fileName + '_' + bandpassName + '.fits'
+        return (self.detector.fileName + '_'
+                + self.obs_metadata.bandpass + '.fits')
 
     def blankImage(self, detector=None):
         """
@@ -253,7 +246,7 @@ class GalSimInterpreter:
                                                 object_flags.value)
             return outputString
 
-        self._addNoiseAndBackground(self.detector)
+        self._addNoiseAndBackground()
 
         # Create a surface operation to sample incident angles and a
         # galsim.SED object for sampling the wavelengths of the
@@ -312,8 +305,6 @@ class GalSimInterpreter:
             object_flags.set_flag('no_silicon')
 
         detector = self.detector
-        name = self._getFileName(detector=detector,
-                                 bandpassName=bandpassName)
 
         xPix, yPix = detector.camera_wrapper\
            .pixelCoordsFromPupilCoords(gsObject.xPupilRadians,
@@ -328,12 +319,11 @@ class GalSimInterpreter:
         # noise)/3. as the nominal minimum surface brightness
         # for rendering an extended object.
         keep_sb_level = np.sqrt(self.sky_bg_per_pixel)/3.
-        full_bounds = self.getStampBounds(gsObject, realized_flux,
-                                          image_pos,
+        full_bounds = self.getStampBounds(gsObject, realized_flux, image_pos,
                                           keep_sb_level, 3*keep_sb_level)
 
         # Ensure the bounds of the postage stamp lie within the image.
-        bounds = full_bounds & self.detectorImages[name].bounds
+        bounds = full_bounds & self.detectorImage.bounds
 
         if not bounds.isDefined():
             return outputString
@@ -341,7 +331,7 @@ class GalSimInterpreter:
         # Offset is relative to the "true" center of the postage stamp.
         offset = image_pos - bounds.true_center
 
-        image = self.detectorImages[name][bounds]
+        image = self.detectorImage[bounds]
 
         if faint:
             # For faint things, only use the silicon sensor if
@@ -653,32 +643,20 @@ class GalSimInterpreter:
                           obj_flags_value, gsObject.galSimType)
         self.centroid_list.append(centroid_tuple)
 
-    def _addNoiseAndBackground(self, detector):
+    def _addNoiseAndBackground(self):
         """
-        Go through the list of detector/bandpass combinations and
-        initialize all of the FITS files we will need (if they have
-        not already been initialized)
+        Add sky background and noise to the detector image.
         """
-        detector = self.detector
         bandpassName = self.obs_metadata.bandpass
-        name = self._getFileName(detector=detector,
-                                 bandpassName=bandpassName)
-        if name not in self.detectorImages:
-            self.detectorImages[name] \
-                = self.blankImage(detector=detector)
-            if self.noiseWrapper is not None:
-                # Add sky background and noise to the image
-                self.detectorImages[name] = \
-                    self.noiseWrapper.addNoiseAndBackground(
-                        self.detectorImages[name],
-                        bandpass=self.bandpassDict[bandpassName],
-                        m5=self.obs_metadata.m5[bandpassName],
-                        FWHMeff=self.
-                        obs_metadata.seeing[bandpassName],
-                        photParams=detector.photParams,
-                        detector=detector)
+        if self.noiseWrapper is not None:
+            # Add sky background and noise to the image
+            self.detectorImage = self.noiseWrapper.addNoiseAndBackground(
+                self.detectorImage, bandpass=self.bandpassDict[bandpassName],
+                m5=self.obs_metadata.m5[bandpassName],
+                FWHMeff=self.obs_metadata.seeing[bandpassName],
+                photParams=self.detector.photParams, detector=self.detector)
 
-                self.write_checkpoint(force=True, object_list=set())
+        self.write_checkpoint(force=True, object_list=set())
 
     def drawPointSource(self, gsObject, psf=None):
         """
@@ -872,13 +850,13 @@ class GalSimInterpreter:
         LSST-like camera with nameRoot = 'myImages'
         """
         namesWritten = []
-        for name in self.detectorImages:
-            if nameRoot is not None:
-                fileName = nameRoot+'_'+name
-            else:
-                fileName = name
-            self.detectorImages[name].write(file_name=fileName)
-            namesWritten.append(fileName)
+        name = self._getFileName()
+        if nameRoot is not None:
+            fileName = nameRoot + '_' + name
+        else:
+            fileName = name
+        self.detectorImage.write(file_name=fileName)
+        namesWritten.append(fileName)
 
         return namesWritten
 
@@ -974,12 +952,11 @@ class GalSimInterpreter:
         if self.checkpoint_file is None:
             return
         if force or len(self.drawn_objects) % self.nobj_checkpoint == 0:
-            # The galsim.Images in self.detectorImages cannot be
-            # pickled because they contain references to unpickleable
+            # The galsim.Image in self.detectorImage cannot be
+            # pickled because it contains references to unpickleable
             # afw objects, so just save the array data and rebuild
-            # the galsim.Images from scratch, given the detector name.
-            images = {key: value.array for key, value
-                      in self.detectorImages.items()}
+            # the galsim.Image from scratch, given the detector name.
+            images = {self._getFileName(): self.detectorImage}
             drawn_objects = self.drawn_objects if object_list is None \
                             else object_list
             image_state = dict(images=images,
@@ -997,7 +974,7 @@ class GalSimInterpreter:
     def restore_checkpoint(self, camera_wrapper, phot_params, obs_metadata,
                            epoch=2000.0):
         """
-        Restore self.detectorImages, self._rng, and self.drawn_objects states
+        Restore self.detectorImage, self._rng, and self.drawn_objects states
         from the checkpoint file.
 
         Parameters
@@ -1022,6 +999,12 @@ class GalSimInterpreter:
         with open(self.checkpoint_file, 'rb') as input_:
             image_state = pickle.load(input_)
             images = image_state['images']
+            # Loop over images dict for backwards compatibility, but
+            # there should only be exactly one entry, so raise an
+            # exception if not.
+            if len(images) != 1:
+                raise RuntimeError(f'{len(images)} images found '
+                                   f'in {self.checkpoint_file}.')
             for key in images:
                 # Unmangle the detector name.
                 detname = "R:{},{} S:{},{}".format(*tuple(key[1:3] + key[5:7]))
@@ -1030,8 +1013,8 @@ class GalSimInterpreter:
                 detector = make_galsim_detector(camera_wrapper, detname,
                                                 phot_params, obs_metadata,
                                                 epoch=epoch)
-                self.detectorImages[key] = self.blankImage(detector=detector)
-                self.detectorImages[key] += image_state['images'][key]
+                self.detectorImage = self.blankImage(detector=detector)
+                self.detectorImage += image_state['images'][key]
             self._rng = image_state['rng']
             self.drawn_objects = image_state['drawn_objects']
             self.centroid_list = image_state['centroid_objects']
