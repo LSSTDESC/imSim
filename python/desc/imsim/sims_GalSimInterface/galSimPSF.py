@@ -2,15 +2,13 @@
 This file defines the model classes that wrap PSFs from
 galsim into the CatSim interface
 """
-
-from builtins import object
 import numpy
 import galsim
 
 __all__ = ["PSFbase", "DoubleGaussianPSF", "SNRdocumentPSF",
            "Kolmogorov_and_Gaussian_PSF"]
 
-class PSFbase(object):
+class PSFbase:
     """
     This is the base class for wrappers of GalSim's PSF classes.  To
     apply a PSF to GalSim images using the GalSim Instance Catalog and
@@ -91,8 +89,7 @@ class PSFbase(object):
             # obj_list of the returned obj lists those components
             # separately.
             return galsim.Convolution([obj] + psf.obj_list)
-        else:
-            return galsim.Convolve(obj, psf)
+        return galsim.Convolve(obj, psf)
 
     def __eq__(self, rhs):
         """

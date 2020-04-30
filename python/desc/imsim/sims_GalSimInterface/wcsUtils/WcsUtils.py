@@ -1,12 +1,9 @@
 import numpy as np
-from lsst.afw.cameraGeom import TAN_PIXELS, FOCAL_PLANE
 import lsst.afw.geom as afwGeom
 import lsst.geom as LsstGeom
-import lsst.afw.image as afwImage
-import lsst.afw.image.utils as afwImageUtils
 import lsst.daf.base as dafBase
-from . import approximateWcs
 from lsst.sims.utils import _nativeLonLatFromPointing
+from . import approximateWcs
 
 __all__ = ["tanWcsFromDetector", "tanSipWcsFromDetector"]
 
@@ -35,9 +32,6 @@ def tanWcsFromDetector(detector_name, camera_wrapper, obs_metadata, epoch):
 
     xTanPixMin, xTanPixMax, \
     yTanPixMin, yTanPixMax = camera_wrapper.getTanPixelBounds(detector_name)
-
-    x_center = 0.5*(xTanPixMax+xTanPixMin)
-    y_center = 0.5*(yTanPixMax+yTanPixMin)
 
     xPixList = []
     yPixList = []
@@ -160,8 +154,6 @@ def tanSipWcsFromDetector(detector_name, camera_wrapper, obs_metadata, epoch,
     representing the WCS of the detector with optical distortions parametrized
     by the SIP polynomials.
     """
-
-    bbox = camera_wrapper.getBBox(detector_name)
 
     tanWcs = tanWcsFromDetector(detector_name, camera_wrapper, obs_metadata,
                                 epoch)

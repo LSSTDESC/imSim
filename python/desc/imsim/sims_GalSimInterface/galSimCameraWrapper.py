@@ -58,7 +58,6 @@ need:
 import numpy as np
 from lsst.afw.cameraGeom import FOCAL_PLANE, PIXELS, TAN_PIXELS
 from lsst.afw.cameraGeom import FIELD_ANGLE
-import lsst.geom as LsstGeom
 import lsst.sims.coordUtils as coordUtils
 import lsst.sims.utils as simsUtils
 
@@ -104,17 +103,17 @@ class GalSimCameraWrapper:
         return self._camera[detector_name].getBBox()
 
     def getCenterPixel(self, detector_name):
-         """
-         Return the central pixel for the detector named by detector_name
-         """
-         if detector_name not in self._center_pixel_cache:
-             centerPoint = self._camera[detector_name].getCenter(FOCAL_PLANE)
-             centerPixel = self._camera[detector_name]\
-                               .getTransform(FOCAL_PLANE, PIXELS)\
-                               .applyForward(centerPoint)
-             self._center_pixel_cache[detector_name] = centerPixel
+        """
+        Return the central pixel for the detector named by detector_name
+        """
+        if detector_name not in self._center_pixel_cache:
+            centerPoint = self._camera[detector_name].getCenter(FOCAL_PLANE)
+            centerPixel = self._camera[detector_name]\
+                              .getTransform(FOCAL_PLANE, PIXELS)\
+                              .applyForward(centerPoint)
+            self._center_pixel_cache[detector_name] = centerPixel
 
-         return self._center_pixel_cache[detector_name]
+        return self._center_pixel_cache[detector_name]
 
     def getCenterPupil(self, detector_name):
         """
@@ -228,7 +227,7 @@ class GalSimCameraWrapper:
             xPupil, yPupil, chipName=chipName,
             camera=self._camera, includeDistortion=includeDistortion)
 
-    def pupilCoordsFromPixelCoords(self, xPix, yPix, chipName, obs_metadata,
+    def pupilCoordsFromPixelCoords(self, xPix, yPix, chipName,
                                    includeDistortion=True):
 
         """
@@ -247,9 +246,6 @@ class GalSimCameraWrapper:
         there should be one chip name for each (xPix, yPix) coordinate
         pair), or a single value (in which case, all of the (xPix,
         yPix) points will be reckoned on that chip).
-
-        obs_metadata is an ObservationMetaData characterizing the telescope
-        pointing.
 
         includeDistortion is a boolean.  If True (default), then this
         method will expect the true pixel coordinates with optical
@@ -622,7 +618,7 @@ class LSSTCameraWrapper(coordUtils.DMtoCameraPixelTransformer,
         dm_xPix = yPix
         if isinstance(chipName, list) or isinstance(chipName, np.ndarray):
             dm_yPix = np.zeros(len(xPix))
-            for ix, (det_name, xx) in enumerate(zip(chipName, xPix)):
+            for ix, (det_name, _) in enumerate(zip(chipName, xPix)):
                 cam_center_pix = self.getCenterPixel(det_name)
                 dm_yPix[ix] = 2.0*cam_center_pix.getX()-xPix[ix]
         else:

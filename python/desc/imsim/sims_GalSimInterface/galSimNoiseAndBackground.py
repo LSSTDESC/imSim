@@ -2,15 +2,13 @@
 This file defines the model classes that wrap noise models from
 galsim into the CatSim interface
 """
-from builtins import object
-import numpy
 import galsim
 from lsst.sims.photUtils import calcSkyCountsPerPixelForM5,\
-    PhotometricParameters, LSSTdefaults
+    PhotometricParameters
 
 __all__ = ["ExampleCCDNoise"]
 
-class NoiseAndBackgroundBase(object):
+class NoiseAndBackgroundBase:
     """
     This is the base class for all wrappers of sky background and
     noise in the GalSim interface.  Daughters of this class are meant

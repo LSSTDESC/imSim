@@ -1,5 +1,3 @@
-from builtins import zip
-from builtins import object
 import re
 import copy
 from collections import namedtuple
@@ -182,8 +180,7 @@ class GalSim_afw_TanSipWCS(galsim.wcs.CelestialWCS):
 
         if type(ra) is np.ndarray:
             return (xx-self.crpix1, yy-self.crpix2)
-        else:
-            return (xx[0]-self.crpix1, yy-self.crpix2)
+        return (xx[0]-self.crpix1, yy-self.crpix2)
 
     def _newOrigin(self, origin):
         """
@@ -215,7 +212,7 @@ class GalSim_afw_TanSipWCS(galsim.wcs.CelestialWCS):
 
 TreeRingInfo = namedtuple('TreeRingInfo', ['center', 'func'])
 
-class GalSimDetector(object):
+class GalSimDetector:
     """
     This class stores information about individual detectors for use
     by the GalSimInterpreter

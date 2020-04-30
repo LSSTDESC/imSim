@@ -25,15 +25,11 @@
 This is a modified version of the approximateWcs.py script from
 meas_astrom
 """
-
-from builtins import range
 import numpy as np
-import lsst.afw.image as afwImage
 import lsst.afw.table as afwTable
 import lsst.geom as LsstGeom
 from lsst.meas.base import SingleFrameMeasurementTask
 from lsst.meas.astrom.sip import makeCreateWcsWithSip
-from lsst.sims.coordUtils import raDecFromPixelCoords
 
 __all__ = ["approximateWcs"]
 
@@ -110,7 +106,7 @@ def approximateWcs(wcs, camera_wrapper=None, detector_name=None,
 
     # The TAN-SIP fitter is fitting x and y separately, so we have to
     # iterate to make it converge
-    for indx in range(iterations) :
+    for _ in range(iterations):
         sipObject = makeCreateWcsWithSip(matchList, tanWcs, order, bbox)
         tanWcs = sipObject.getNewWcs()
     fitWcs = sipObject.getNewWcs()
