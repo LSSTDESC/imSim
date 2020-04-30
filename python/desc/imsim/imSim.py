@@ -710,14 +710,14 @@ def add_cosmic_rays(gs_interpreter, phot_params):
     band = gs_interpreter.obs_metadata.bandpass
 
     exptime = phot_params.nexp*phot_params.exptime
-    for name, image in gs_interpreter.detectorImages.items():
-        imarr = copy.deepcopy(image.array)
-        # Set the random number seed for painting the CRs.
-        cr_seed = CosmicRays.generate_seed(visit, name)
-        crs.set_seed(cr_seed)
-        gs_interpreter.detectorImages[name] = \
-            galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
-        image.wcs.fitsHeader.set('CR_SEED', str(cr_seed))
+    image = gs_interpreter.detectorImage
+    imarr = copy.deepcopy(image.array)
+    # Set the random number seed for painting the CRs.
+    cr_seed = CosmicRays.generate_seed(visit, gs_interpreter.getFileName())
+    crs.set_seed(cr_seed)
+    gs_interpreter.detectorImage \
+        = galsim.Image(crs.paint(imarr, exptime=exptime), wcs=image.wcs)
+    image.wcs.fitsHeader.set('CR_SEED', str(cr_seed))
 
 
 def add_treering_info(detectors, tr_filename=None):

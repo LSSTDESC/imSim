@@ -482,8 +482,7 @@ class SimulateSensor:
         persist = IMAGE_SIMULATOR.config['persistence']
         band = IMAGE_SIMULATOR.obs_md.bandpass
         detector = gs_interpreter.detector
-        filename = gs_interpreter._getFileName(detector, band)
-        gs_image = gs_interpreter.detectorImages[filename]
+        gs_image = gs_interpreter.detectorImage
         raw = ImageSource.create_from_galsim_image(gs_image)
         outfile = IMAGE_SIMULATOR.output_file(detector.name, raw=True)
         added_keywords = dict()
@@ -504,8 +503,8 @@ class SimulateSensor:
         """
         # Add version keywords to eimage headers
         version_keywords = get_version_keywords()
-        for image in gs_interpreter.detectorImages.values():
-            image.header = galsim.FitsHeader(header=version_keywords)
+        gs_interpreter.detectorImage.header \
+            = galsim.FitsHeader(header=version_keywords)
 
         # Write the eimage files using filenames containing the visit number.
         prefix = IMAGE_SIMULATOR.config['persistence']['eimage_prefix']
