@@ -39,7 +39,7 @@ class GalSimInterpreter:
     _observatory = LsstObservatory()
 
     def __init__(self, obs_metadata, detector,
-                 bandpassDict=None, noiseWrapper=None,
+                 bandpassDict, noiseWrapper=None,
                  epoch=None, seed=None, bf_strength=1,
                  disable_sensor_model=False):
 
@@ -78,7 +78,7 @@ class GalSimInterpreter:
         self.PSF = None
 
         # This will contain the galsim Image
-        self.detectorImage = self.blankImage()
+        self.detectorImage = None
 
         self.checkpoint_file = None
         self.drawn_objects = set()
@@ -157,7 +157,7 @@ class GalSimInterpreter:
         """
         self.PSF = PSF
 
-    def _getFileName(self):
+    def getFileName(self):
         """
         Return the partial name of the FITS file to be written
         """
@@ -832,7 +832,7 @@ class GalSimInterpreter:
         LSST-like camera with nameRoot = 'myImages'
         """
         namesWritten = []
-        name = self._getFileName()
+        name = self.getFileName()
         if nameRoot is not None:
             fileName = nameRoot + '_' + name
         else:
@@ -938,7 +938,7 @@ class GalSimInterpreter:
             # pickled because it contains references to unpickleable
             # afw objects, so just save the array data and rebuild
             # the galsim.Image from scratch, given the detector name.
-            images = {self._getFileName(): self.detectorImage}
+            images = {self.getFileName(): self.detectorImage}
             drawn_objects = self.drawn_objects if object_list is None \
                             else object_list
             image_state = dict(images=images,
