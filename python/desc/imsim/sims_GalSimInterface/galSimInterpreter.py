@@ -78,13 +78,7 @@ class GalSimInterpreter:
         self.PSF = None
 
         # This will contain the galsim Image
-        self.detectorImage = self.blankImage(detector=self.detector)
-
-        # This dict will cache blank images associated with specific
-        # detectors.  It turns out that calling the image's
-        # constructor is more time-consuming than returning a deep
-        # copy
-        self.blankImageCache = {}
+        self.detectorImage = self.blankImage()
 
         self.checkpoint_file = None
         self.drawn_objects = set()
@@ -170,29 +164,14 @@ class GalSimInterpreter:
         return (self.detector.fileName + '_'
                 + self.obs_metadata.bandpass + '.fits')
 
-    def blankImage(self, detector=None):
+    def blankImage(self):
         """
         Draw a blank image associated with a specific detector.  The
         image will have the correct size for the given detector.
-
-        param [in] detector is an instantiation of GalSimDetector
         """
-
-        # in order to speed up the code (by a factor of ~2), this
-        # method only draws a new blank image the first time it is
-        # called on a given detector.  It then caches the blank images
-        # it has drawn and uses GalSim's copy() method to return
-        # copies of cached blank images whenever they are called for
-        # again.
-
-        if detector.name in self.blankImageCache:
-            return self.blankImageCache[detector.name].copy()
-        image = galsim.Image(detector.xMaxPix-detector.xMinPix+1,
-                             detector.yMaxPix-detector.yMinPix+1,
-                             wcs=detector.wcs)
-
-        self.blankImageCache[detector.name] = image
-        return image.copy()
+        return galsim.Image(self.detector.xMaxPix - self.detector.xMinPix + 1,
+                            self.detector.yMaxPix - self.detector.yMinPix + 1,
+                            wcs=self.detector.wcs)
 
     def drawObject(self, gsObject, max_flux_simple=0, sensor_limit=0,
                    fft_sb_thresh=None):
@@ -1013,7 +992,7 @@ class GalSimInterpreter:
                 detector = make_galsim_detector(camera_wrapper, detname,
                                                 phot_params, obs_metadata,
                                                 epoch=epoch)
-                self.detectorImage = self.blankImage(detector=detector)
+                self.detectorImage = self.blankImage()
                 self.detectorImage += image_state['images'][key]
             self._rng = image_state['rng']
             self.drawn_objects = image_state['drawn_objects']
