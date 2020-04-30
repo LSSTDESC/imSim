@@ -5,6 +5,7 @@ import os
 import unittest
 import numpy as np
 import lsst.utils as lsstUtils
+from lsst.sims.photUtils import BandpassDict
 from desc.imsim.sims_GalSimInterface import make_galsim_detector
 from desc.imsim.sims_GalSimInterface import LSSTCameraWrapper
 from desc.imsim.sims_GalSimInterface import GalSimInterpreter
@@ -27,6 +28,7 @@ class TreeRingsTestCase(unittest.TestCase):
         desc.imsim.read_config()
         needed_stuff = desc.imsim.parsePhoSimInstanceFile(self.instcat_file, ())
         obs_md = needed_stuff.obs_metadata
+        bp_dict = BandpassDict.loadTotalBandpassesFromFiles(obs_md.bandpass)
         phot_params = needed_stuff.phot_params
 
         tr_filename = os.path.join(lsstUtils.getPackageDir('imsim'),
@@ -35,7 +37,7 @@ class TreeRingsTestCase(unittest.TestCase):
         for i, sensor in enumerate(self.sensors):
             detector = make_galsim_detector(camera_wrapper, sensor,
                                             phot_params, obs_md)
-            gs_interpreter = GalSimInterpreter(obs_md, detector)
+            gs_interpreter = GalSimInterpreter(obs_md, detector, bp_dict)
             desc.imsim.add_treering_info([gs_interpreter.detector],
                                          tr_filename=tr_filename)
 
