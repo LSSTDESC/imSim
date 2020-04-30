@@ -410,179 +410,89 @@ class GalSimDetector:
         """Minimum x pixel coordinate of the detector"""
         return self._xMinPix
 
-    @xMinPix.setter
-    def xMinPix(self, value):
-        raise RuntimeError("You should not be setting xMinPix on the fly; "
-                           "just instantiate a new GalSimDetector")
-
     @property
     def xMaxPix(self):
         """Maximum x pixel coordinate of the detector"""
         return self._xMaxPix
-
-    @xMaxPix.setter
-    def xMaxPix(self, value):
-        raise RuntimeError("You should not be setting xMaxPix on the fly; "
-                           "just instantiate a new GalSimDetector")
 
     @property
     def yMinPix(self):
         """Minimum y pixel coordinate of the detector"""
         return self._yMinPix
 
-    @yMinPix.setter
-    def yMinPix(self, value):
-        raise RuntimeError("You should not be setting yMinPix on the fly; "
-                           "just instantiate a new GalSimDetector")
-
     @property
     def yMaxPix(self):
         """Maximum y pixel coordinate of the detector"""
         return self._yMaxPix
-
-    @yMaxPix.setter
-    def yMaxPix(self, value):
-        raise RuntimeError("You should not be setting yMaxPix on the fly; "
-                           "just instantiate a new GalSimDetector")
 
     @property
     def xCenterPix(self):
         """Center x pixel coordinate of the detector"""
         return self._xCenterPix
 
-    @xCenterPix.setter
-    def xCenterPix(self, value):
-        raise RuntimeError("You should not be setting xCenterPix on the fly; "
-                           "just instantiate a new GalSimDetector")
-
     @property
     def yCenterPix(self):
         """Center y pixel coordinate of the detector"""
         return self._yCenterPix
-
-    @yCenterPix.setter
-    def yCenterPix(self, value):
-        raise RuntimeError("You should not be setting yCenterPix on the fly; "
-                           "just instantiate a new GalSimDetector")
 
     @property
     def xMaxArcsec(self):
         """Maximum x pupil coordinate of the detector in arcseconds"""
         return self._xMaxArcsec
 
-    @xMaxArcsec.setter
-    def xMaxArcsec(self, value):
-        raise RuntimeError("You should not be setting xMaxArcsec on the fly; "
-                           "just instantiate a new GalSimDetector")
-
     @property
     def xMinArcsec(self):
         """Minimum x pupil coordinate of the detector in arcseconds"""
         return self._xMinArcsec
-
-    @xMinArcsec.setter
-    def xMinArcsec(self, value):
-        raise RuntimeError("You should not be setting xMinArcsec on the fly; "
-                           "just instantiate a new GalSimDetector")
 
     @property
     def yMaxArcsec(self):
         """Maximum y pupil coordinate of the detector in arcseconds"""
         return self._yMaxArcsec
 
-    @yMaxArcsec.setter
-    def yMaxArcsec(self, value):
-        raise RuntimeError("You should not be setting yMaxArcsec on the fly; "
-                           "just instantiate a new GalSimDetector")
-
     @property
     def yMinArcsec(self):
         """Minimum y pupil coordinate of the detector in arcseconds"""
         return self._yMinArcsec
-
-    @yMinArcsec.setter
-    def yMinArcsec(self, value):
-        raise RuntimeError("You should not be setting yMinArcsec on the fly; "
-                           "just instantiate a new GalSimDetector")
 
     @property
     def xCenterArcsec(self):
         """Center x pupil coordinate of the detector in arcseconds"""
         return self._xCenterArcsec
 
-    @xCenterArcsec.setter
-    def xCenterArcsec(self, value):
-        raise RuntimeError("You should not be setting xCenterArcsec on the fly; "
-                           "just instantiate a new GalSimDetector")
-
     @property
     def yCenterArcsec(self):
         """Center y pupil coordinate of the detector in arcseconds"""
         return self._yCenterArcsec
-
-    @yCenterArcsec.setter
-    def yCenterArcsec(self, value):
-        raise RuntimeError("You should not be setting yCenterArcsec on the fly; "
-                           "just instantiate a new GalSimDetector")
 
     @property
     def epoch(self):
         """Epoch of the equinox against which RA and Dec are measured in Julian years"""
         return self._epoch
 
-    @epoch.setter
-    def epoch(self, value):
-        raise RuntimeError("You should not be setting epoch on the fly; "
-                           "just instantiate a new GalSimDetector")
-
     @property
     def obs_metadata(self):
         """ObservationMetaData instantiation describing the telescope pointing"""
         return self._obs_metadata
-
-    @obs_metadata.setter
-    def obs_metadata(self, value):
-        raise RuntimeError("You should not be setting obs_metadata on the fly; "
-                           "just instantiate a new GalSimDetector")
 
     @property
     def name(self):
         """Name of the detector"""
         return self._name
 
-    @name.setter
-    def name(self, value):
-        raise RuntimeError("You should not be setting name on the fly; "
-                           "just instantiate a new GalSimDetector")
-
     @property
     def camera_wrapper(self):
         return self._cameraWrapper
-
-    @camera_wrapper.setter
-    def camera_wrapper(self, value):
-        raise RuntimeError("You should not be setting the camera_wrapper on the fly; "
-                           "just instantiate a new GalSimDetector")
 
     @property
     def photParams(self):
         """PhotometricParameters instantiation characterizing the detector"""
         return self._photParams
 
-    @photParams.setter
-    def photParams(self, value):
-        raise RuntimeError("You should not be setting photParams on the fly; "
-                           "just instantiate a new GalSimDetector")
-
     @property
     def fileName(self):
         """Name of the FITS file corresponding to this detector"""
         return self._fileName
-
-    @fileName.setter
-    def fileName(self, value):
-        raise RuntimeError("You should not be setting fileName on the fly; "
-                           "just instantiate a new GalSimDetector")
 
     @property
     def wcs(self):
@@ -621,11 +531,6 @@ class GalSimDetector:
                 self._wcs.fitsHeader.set("OUTFILE", out_name)
 
         return self._wcs
-
-    @wcs.setter
-    def wcs(self, value):
-        raise RuntimeError("You should not be setting wcs on the fly; "
-                           "just instantiate a new GalSimDetector")
 
     @property
     def tree_rings(self):
