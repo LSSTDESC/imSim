@@ -907,6 +907,8 @@ class GalSimInterpreter:
 
         After writing the files are closed.
         """
+        if self.centroid_handle is None:
+            return
         # Loop over entries
         for centroid_tuple in self.centroid_list:
             self._writeObjectToCentroidFile(*centroid_tuple)
