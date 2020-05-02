@@ -929,7 +929,7 @@ class GalSimInterpreter:
             # pickled because it contains references to unpickleable
             # afw objects, so just save the array data and rebuild
             # the galsim.Image from scratch, given the detector name.
-            images = {self.getFileName(): self.detectorImage}
+            images = {self.getFileName(): self.detectorImage.array}
             drawn_objects = self.drawn_objects if object_list is None \
                             else object_list
             image_state = dict(images=images,
