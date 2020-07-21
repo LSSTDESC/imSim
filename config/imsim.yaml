@@ -1,0 +1,177 @@
+# This is an aspirational GalSim config file to reproduce what imSim does for e.g. DC2.
+# Most of the modules here involve code that already exists in imSim, but would need a slight
+# refactoring to use the GalSim config API for the function names and data flow.
+
+
+# This tells GalSim which things to import to register extra config types
+modules:
+    - galsim_extra   # Has some extra modules we might want to use.
+    - desc.imsim     # Will have the custom ImSim modules.
+
+# Anything set here can be used in any Eval (usually a string that starts with $) as a variable.
+# This is often convenient, so they can be set just once (probably from the command line) and
+# used in multiple places.
+eval_variables:
+    srun: 0001
+    simage_dir: $os.environ.get('IMSIM_IMAGE_PATH')
+
+    # Probably would set this on the command line, but for now, here is where the instance
+    # catalog lives on my computer.
+    # Note: .100 is a version I made with only 100 objects per file.
+    scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.100
+
+    # Likewise, this could be set on the command line, or maybe just generated automatically.
+    spsf_name: /Users/Mike/Astro/lsst/imsim/00466749/psf_save.fits
+
+# Any input data is set here.  These are read in at the start of the program and potentially
+# updated for each output file.
+# Also includes things that need some set up at the start of an exposure.
+input:
+    instance_catalog:
+        # This enables both OpsimMeta types (for the meta data) and InstCat (for the objects)
+        file_name: $cat_name  # Probably set this from the command line
+
+    #tree_rings:
+        # This enables TreeRingCenter and TreeRungFunc, which are stored as a dict here based
+        # on the detector name, so the right value can be accessed for each object.
+        #file_name: data/tree_ring_data/tree_ring_parameters_2018-04-26.txt
+
+    #atm_psf:
+        # This enables the Atmospheric type for the PSF
+        #airmass: { type: OpsimMeta, field: airmass }
+        #rawSeeing:  { type: OpsimMeta, field: airmass }
+        #band:  { type: OpsimMeta, field: airmass }
+        #save_file: $psf_file  # This is currently set of the imsim command line, so we could keep
+                              # doing that, but we could also base this name off of
+                              # input.instance_catalog.file_name, or even just have `save: True`
+                              # and let the atm_psf figure out a unique name from the input params.
+
+# Define how the objects are placed on the image.  This refers to a single CCD.
+image:
+    type: Scattered
+
+    random_seed: { type: OpsimMeta, field: seed }
+    nproc: -1  # Use as many processes as possible.  Can be a specific number if preferred.
+    xsize: 4096
+    ysize: 4096
+
+    wcs:
+        # TODO: We'll need to replace this.  For now, just copy a WCS out of a dc2 calexp.
+        type: Fits
+        file_name: '/Users/Mike/Astro/lsst/dc2/calexp_00733728-r-R43-S00-det180.fits'
+
+    noise:
+        #type: LSST_Noise
+        #readout_time: 3.
+        #dark_current: 0.02
+        #bias_level: 1000.
+        #pcti: 1.e-6
+        #scti: 1.e-6
+        type: CCD  # Placeholder for now.
+        gain: 1
+        read_noise: 3
+        sky_level: 200
+
+
+# Define the PSF to use in the normal case (LSST_Silicon will override if doing a saturated star)
+psf:
+    #type: Atmospheric
+    #x: $image_pos.x
+    #y: $image_pos.y
+    type: Moffat
+    beta: 3.5
+    fwhm: 0.7
+
+# Define the galaxy (or delta function) to use
+gal:
+    type: InstCatObj
+
+# This is where most of the code from GalsimSiliconInterpreter will go.
+stamp:
+    type: LSST_Silicon
+
+    fft_sb_thresh: 2.e5  # When to switch to fft and a simpler PSF and skip silicon
+    max_flux_simple: 100  # When to switch to simple SED
+
+    sed:
+        type: InstCatSED
+
+    world_pos:
+        type: InstCatWorldPos
+
+    surface_ops:
+        -
+            type: FRatioAngles
+            fratio: 1.234
+            obscuration: 0.606
+        -
+            # Normal case.  LSST_Silicon will override if use_simple=True
+            type: WavelengthSampler
+            sed: "@stamp.sed"
+        -
+            type: PhotonDCR
+            base_wavelength: $bandpass.effective_wavelength
+            latitude: -30.24463 degrees
+            HA: { type: OpsimMeta, field: HA }  # This is a derived quantity store in GSI now.
+                                                # But it's based on OpsimMeta values, so could
+                                                # move that to the InstCat object.
+
+    sensor:
+        type: Silicon
+        strength: 1.0
+        treering_center: { type: TreeRingCenter, det: det_name }
+        treerung_func: { type: TreeRingFunc, det: det_name }
+        transpose: True
+
+
+# This defines both the output files and some basic things about the overall exposure/fov.
+output:
+    type: LSST_CCD
+    nproc: 1    # Change this to work on multiple CCDs at once.
+    nfiles: 1   # Default is all 189 CCDs.  Set to 1 while testing.
+
+    bandpass: { type: OpsimMetaBandpass }
+
+    det_num:
+        type: Sequence
+        nitems: 189
+        first: 5   # Can set first to something if you want to do a specific sensor.
+
+    file_name:
+        dir: output
+        type: FormattedStr
+        format : calexp_%s-%s-%s-det%03d.fits
+        items:
+            - { type: OpsimMeta, field: obshistid }
+            - { type: OpsimMeta, field: bandpass }
+            - $det_name   # A value stored in the dict by LSST_CCD
+            - @output.det_num
+
+    # TODO: Not implemented yet.
+    checkpoint:
+        nobj: 500
+        cleanup: True
+
+    # TODO: Not implemented yet.
+    cosmic_rays:
+        ccd_rate: 0.2    # CTIO rate extracted from DECam darks.
+        catalog: default
+
+    truth:
+        dir: output
+        file_name:
+            type: FormattedStr
+            format : centroid_%s-%s-%s-det%03d.txt.gz
+            items:
+                - { type: OpsimMeta, field: obshistid }
+                - { type: OpsimMeta, field: bandpass }
+                - $det_name
+                - @output.det_num
+        columns:
+            ra: image.ra.theta
+            dec: image.dec.theta
+            x: "$image_pos.x"
+            y: "$image_pos.y"
+            flux: "$(@current_obj).flux"
+            obj_type: gal.test
+            # ... more probably
