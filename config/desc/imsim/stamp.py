@@ -69,6 +69,10 @@ class LSST_SiliconBuilder(StampBuilder):
             if folding_threshold >= self._ft_default:
                 gsparams = None
             else:
+                # Every different folding threshold requires a new initialization of Kolmogorov,
+                # which takes about a second.  So round down to the nearest e folding to
+                # minimize how many of these we need to do.
+                folding_threshold = np.exp(np.floor(np.log(folding_threshold)))
                 gsparams = galsim.GSParams(folding_threshold=folding_threshold)
 
             psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams)

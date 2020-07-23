@@ -130,6 +130,7 @@ stamp:
     world_pos:
         type: InstCatWorldPos
 
+    # TODO: This is ignored now.
     surface_ops:
         -
             type: FRatioAngles
@@ -147,6 +148,7 @@ stamp:
                                                 # But it's based on OpsimMeta values, so could
                                                 # move that to the InstCat object.
 
+    # TODO: also ignored.
     sensor:
         type: Silicon
         strength: 1.0
