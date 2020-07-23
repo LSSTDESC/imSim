@@ -31,10 +31,6 @@ class LSST_CCDBuilder(OutputBuilder):
         seed = galsim.config.SetupConfigRNG(base, logger=logger)
         logger.debug('file %d: seed = %d',file_num,seed)
 
-        # Read in the bandpass and save it to the config dict for other things that may need it.
-        bandpass = galsim.config.BuildBandpass(config, 'bandpass', base, logger=logger)
-        base['bandpass'] = bandpass
-
         # Figure out the detector name for the file name.
         detnum = galsim.config.ParseValue(config, 'det_num', base, int)[0]
         # Detectors have names Rij_Smn
@@ -49,6 +45,8 @@ class LSST_CCDBuilder(OutputBuilder):
             base['eval_variables'] = {}
         if 'sdet_name' not in base['eval_variables']:
             base['eval_variables']['sdet_name'] = det_name
+
+        base['exp_time'] = float(config.get('exp_time', 30))
 
     def getNFiles(self, config, base):
         """Returns the number of files to be built.
@@ -87,8 +85,8 @@ class LSST_CCDBuilder(OutputBuilder):
         """
         # This is basically the same as the base class version.  Just a few extra things to
         # add to the ignore list.
-        ignore += [ 'file_name', 'dir', 'nfiles', 'bandpass', 'checkpoint', 'det_num',
-                    'cosmic_rays' ]
+        ignore += [ 'file_name', 'dir', 'nfiles', 'checkpoint', 'det_num',
+                    'cosmic_rays', 'exp_time' ]
         galsim.config.CheckAllParams(config, ignore=ignore)
 
         image = galsim.config.BuildImage(base, image_num, obj_num, logger=logger)

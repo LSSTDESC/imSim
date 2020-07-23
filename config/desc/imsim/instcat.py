@@ -6,7 +6,6 @@ import astropy
 import astropy.coordinates
 
 from contextlib import contextmanager
-from functools import lru_cache
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, RegisterObjectType
 from galsim.config import RegisterSEDType, RegisterBandpassType
 from galsim import CelestialCoord
@@ -61,15 +60,28 @@ def fopen_generator(fd, abspath, **kwds):
                         yield line
 
 class InstCatalog(object):
+    """This just handles the objects part of the instance catalog.
 
-    def __init__(self, file_name, wcs, edge_pix=100, sort_mag=True, flip_g2=True,
-                 logger=None):
+    The other "phosim commands" are handled by OpsimMetaDict.
+    """
+    _bp500 = galsim.Bandpass(galsim.LookupTable([499,500,501],[0,1,0]),
+                             wave_type='nm').withZeropoint('AB')
+
+    # Using area-weighted effective aperture over FOV
+    # from https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
+    _rubin_area = 0.25 * np.pi * 649**2  # cm^2
+
+    def __init__(self, file_name, wcs, sed_dir=None, edge_pix=100, sort_mag=True, flip_g2=True,
+                 logger=None, _nobjects_only=False):
         logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
-        self.meta = {}
         self.flip_g2 = flip_g2
+        self._sed_cache = {}
 
-        count = 0
+        if sed_dir is None:
+            self.sed_dir = os.environ.get('SIMS_SED_LIBRARY_DIR')
+        else:
+            self.sed_dir = sed_dir
 
         # Allow objects to be centered somewhat off the image.
         min_x = 0 - edge_pix
@@ -112,8 +124,6 @@ class InstCatalog(object):
         logger.warning('Reading instance catalog %s', self.file_name)
         with fopen(self.file_name, mode='rt') as _input:
             for line in _input:
-                if line.startswith('#'):  # comments
-                    continue
                 if line.startswith('object'):
                     # Check if the object is on our image
                     tokens = line.strip().split()
@@ -123,41 +133,43 @@ class InstCatalog(object):
                     if not (min_ra <= ra <= max_ra and min_dec <= dec <= max_dec):
                         continue
                     world_pos = galsim.CelestialCoord(ra * galsim.degrees, dec * galsim.degrees)
-                    image_pos = wcs.toImage(world_pos)
+                    logger.debug('world_pos = %s',world_pos)
+                    try:
+                        image_pos = wcs.toImage(world_pos)
+                    except RuntimeError:
+                        # Inverse direction can fail for objects off the image.
+                        logger.debug('failed to determine image_pos')
+                        continue
+                    logger.debug('image_pos = %s',image_pos)
                     if not (min_x <= image_pos.x <= max_x and min_y <= image_pos.y <= max_y):
                         continue
                     # OK, keep this object.  Finish parsing it.
                     id_list.append(tokens[1])
+                    if _nobjects_only:
+                        continue
                     world_pos_list.append(world_pos)
                     magnorm_list.append(float(tokens[4]))
                     sed_list.append((tokens[5], float(tokens[6])))
                     # gamma1,gamma2,kappa
-                    lens_list.append(float(tokens[7]), g2_sign*float(tokens[8]), float(tokens[9]))
+                    lens_list.append((float(tokens[7]), g2_sign*float(tokens[8]), float(tokens[9])))
                     # what are 10,11?
                     dust_index = dust_index_dict.get(tokens[12], default_dust_index)
                     objinfo_list.append(tokens[12:dust_index])
                     dust_list.append(tokens[dust_index:])
-                else:
-                    # Everything other than objects go into the meta dict
-                    key, value = line.split()
-                    logger.debug('meta value: %s = %s',key,value)
-                    value = float(value)
-                    if int(value) == value:
-                        self.meta[key] = int(value)
-                    else:
-                        self.meta[key] = float(value)
-                    count += 1
+
         logger.debug("Done reading instance catalog")
         logger.info("Found %d objects potentially on image", len(id_list))
 
         # Sort the object lists by mag and convert to numpy arrays.
         self.id = np.array(id_list, dtype=str)
+        if _nobjects_only:
+            return
         self.world_pos = np.array(world_pos_list, dtype=object)
         self.magnorm = np.array(magnorm_list, dtype=float)
         self.sed = np.array(sed_list, dtype=object)
         self.lens = np.array(lens_list, dtype=object)
-        self.objinfo = np.array(objinfo_list, dtype=str)
-        self.dust = np.array(dust_list, dtype=str)
+        self.objinfo = np.array(objinfo_list, dtype=object)
+        self.dust = np.array(dust_list, dtype=object)
         if sort_mag:
             index = np.argsort(magnorm_list)
             self.id = self.id[index]
@@ -167,13 +179,6 @@ class InstCatalog(object):
             self.lens = self.lens[index]
             self.objinf = self.objinfo[index]
             self.dust = self.dust[index]
-        self._sed_cache = {}
-
-        # Add a couple derived quantities to meta values
-        self.meta['bandpass'] = 'ugrizy'[self.meta['filter']]
-        self.meta['HA'] = self.getHourAngle(self.meta['mjd'], self.meta['rightascension'])
-        logger.debug("Bandpass = %s",self.meta['bandpass'])
-        logger.debug("HA = %s",self.meta['HA'])
 
     def getNObjects(self):
         # Note: This method name is required by the config parser.
@@ -203,7 +208,8 @@ class InstCatalog(object):
         if name in self._sed_cache:
             sed = self._sed_cache[name]
         else:
-            sed = galsim.SED(name, wave_type='nm', flux_type='flambda')
+            full_name = os.path.join(self.sed_dir, name)
+            sed = galsim.SED(full_name, wave_type='nm', flux_type='flambda')
             self._sed_cache[name] = sed
 
         # TODO: Handle the dust effects.  internal, then redshift, then galactic.
@@ -243,7 +249,7 @@ class InstCatalog(object):
 
         return internal_av, internal_rv, galactic_av, galactic_rv
 
-    def getObj(self, index, gsparams=None, rng=None, bandpass=None, chromatic=False):
+    def getObj(self, index, gsparams=None, rng=None, bandpass=None, chromatic=False, exp_time=30):
         params = self.objinfo[index]
 
         magnorm = self.getMagNorm(index)
@@ -279,7 +285,6 @@ class InstCatalog(object):
             obj = obj.lens(g1, g2, mu)
 
         elif params[0].lower() == 'knots':
-            gs_type = 'RandomWalk'
             a = float(params[1])
             b = float(params[2])
             if b > a:
@@ -316,21 +321,91 @@ class InstCatalog(object):
         else:
             raise RuntimeError("Do not know how to handle object type: %s" % params[0])
 
-        # XXX: I'm not sure how magnorm is defined.  Is it properly normalized
-        #      for the bandpass of the current observation, or should we do withMagnitude
-        #      here with a single canonical band (e.g. r) and then the flux is calculated
-        #      below for the current observation band?  I had trouble tracking all this through
-        #      the current version, which uses the lsst stack sims code, so a little bit of a
-        #      black box at times.  There may also be other nuanced differences here between
-        #      how GalSim does things and the stack, so we should check this carefully.
-        sed = self.getSED(index).withMagnitude(magnorm, bandpass)
+        # magnorm is a monochromatic magnitude at 500 nm.
+        # So this step normalizes the SED to have the right magnitude.
+        # Then below we can calculate the flux for the current bandpass.
+        sed = self.getSED(index).withMagnitude(magnorm, self._bp500)
+
+        # This gives the normalization in photons/cm^2/sec.
+        # Multiply by area and exptime to get photons.
+        At = self._rubin_area * exp_time
 
         if chromatic:
-            return obj.withFlux(1.) * sed
+            return obj.withFlux(At) * sed
         else:
-            return obj.withFlux(sed.calculateFlux(bandpass))
+            flux = sed.calculateFlux(bandpass) * At
+            return obj.withFlux(flux)
 
-    def getMeta(self, field):
+    def getHourAngle(self, mjd, ra):
+        """
+        Compute the local hour angle of an object for the specified
+        MJD and RA.
+
+        Parameters
+        ----------
+        mjd: float
+            Modified Julian Date of the observation.
+        ra: float
+            Right Ascension (in degrees) of the object.
+
+        Returns
+        -------
+        float: hour angle in degrees
+        """
+        # cf. http://www.ctio.noao.edu/noao/content/coordinates-observatories-cerro-tololo-and-cerro-pachon
+        lsst_lat = '-30d 14m 40.68s'
+        lsst_long = '-70d 44m 57.90s'
+        lsst_elev = '2647m'
+        lsst_loc = astropy.coordinates.EarthLocation.from_geodetic(
+                        lsst_lat, lsst_long, lsst_elev)
+
+        time = astropy.time.Time(mjd, format='mjd', location=lsst_loc)
+        # Get the local apparent sidereal time.
+        last = time.sidereal_time('apparent').degree
+        ha = last - ra
+        return ha
+
+class OpsimMetaDict(object):
+    """This just handles the meta information at the start of the instance catalog file.
+
+    The objects are handled by InstCatalog.
+    """
+    _req_params = { 'file_name' : str, }
+    _opt_params = {}
+    _single_params = []
+    _takes_rng = False
+
+    def __init__(self, file_name, logger=None):
+        logger = galsim.config.LoggerWrapper(logger)
+        self.file_name = file_name
+        self.meta = {}
+
+        logger.warning('Reading instance catalog %s', self.file_name)
+        with fopen(self.file_name, mode='rt') as _input:
+            for line in _input:
+                if line.startswith('#'):  # comments
+                    continue
+                if line.startswith('object'):
+                    # Assumes objects are all at the end.  Is this necessarily true?
+                    break
+
+                key, value = line.split()
+                logger.debug('meta value: %s = %s',key,value)
+                value = float(value)
+                if int(value) == value:
+                    self.meta[key] = int(value)
+                else:
+                    self.meta[key] = float(value)
+
+        logger.debug("Done reading meta information from instance catalog")
+
+        # Add a couple derived quantities to meta values
+        self.meta['bandpass'] = 'ugrizy'[self.meta['filter']]
+        self.meta['HA'] = self.getHourAngle(self.meta['mjd'], self.meta['rightascension'])
+        logger.debug("Bandpass = %s",self.meta['bandpass'])
+        logger.debug("HA = %s",self.meta['HA'])
+
+    def get(self, field):
         if field not in self.meta:
             raise ValueError("OpsimMeta field %s not present in instance catalog"%field)
         return self.meta[field]
@@ -364,96 +439,28 @@ class InstCatalog(object):
         ha = last - ra
         return ha
 
-    @lru_cache(maxsize=128)
-    def DoubleGaussian(self, fwhm1=0.6, fwhm2=0.12, wgt1=1.0, wgt2=0.1):
-        """
-        @param [in] fwhm1 is the Full Width at Half Max of the first Gaussian in arcseconds
-
-        @param [in] fwhm2 is the Full Width at Half Max of the second Gaussian in arcseconds
-
-        @param [in] wgt1 is the dimensionless coefficient normalizing the first Gaussian
-
-        @param [in] wgt2 is the dimensionless coefficient normalizing the second Gaussian
-
-        The total PSF will be
-
-        (wgt1 * G(sig1) + wgt2 * G(sig2))/(wgt1 + wgt2)
-
-        where G(sigN) denotes a normalized Gaussian with a standard deviation that gives
-        a Full Width at Half Max of fwhmN.  (Integrating a two-dimensional Gaussian, we find
-        that sig = fwhm/2.355)
-
-        Because this PSF depends on neither position nor wavelength, this __init__ method
-        will instantiate a PSF and cache it.  It is this cached psf that will be returned
-        whenever _getPSF is called in this class.
-        """
-
-        r1 = fwhm1/2.355
-        r2 = fwhm2/2.355
-        norm = 1.0/(wgt1 + wgt2)
-
-        gaussian1 = galsim.Gaussian(sigma=r1)
-        gaussian2 = galsim.Gaussian(sigma=r2)
-
-        return norm*(wgt1*gaussian1 + wgt2*gaussian2)
-
-    @lru_cache(maxsize=128)
-    def Kolmogorov_and_Gaussian_PSF(self, airmass=1.2, rawSeeing=0.7, band='r', gsparams=None):
-        """
-        This PSF class is based on David Kirkby's presentation to the DESC Survey Simulations
-        working group on 23 March 2017.
-
-        https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
-
-        (you will need a SLAC Confluence account to access that link)
-
-        Parameters
-        ----------
-        airmass
-
-        rawSeeing is the FWHM seeing at zenith at 500 nm in arc seconds
-        (provided by OpSim)
-
-        band is the bandpass of the observation [u,g,r,i,z,y]
-        """
-        # This code was provided by David Kirkby in a private communication
-
-        wlen_eff = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
-        # wlen_eff is from Table 2 of LSE-40 (y=y2)
-
-        FWHMatm = rawSeeing * (wlen_eff / 500.) ** -0.3 * airmass ** 0.6
-        # From LSST-20160 eqn (4.1)
-
-        FWHMsys = numpy.sqrt(0.25**2 + 0.3**2 + 0.08**2) * airmass ** 0.6
-        # From LSST-20160 eqn (4.2)
-
-        atm = galsim.Kolmogorov(fwhm=FWHMatm, gsparams=gsparams)
-        sys = galsim.Gaussian(fwhm=FWHMsys, gsparams=gsparams)
-        return galsim.Convolve((atm, sys))
-
-
 def OpsimMeta(config, base, value_type):
     """Return one of the meta values stored in the instance catalog.
     """
-    inst = galsim.config.GetInputObj('instance_catalog', config, base, 'OpsimMeta')
+    meta = galsim.config.GetInputObj('opsim_meta_dict', config, base, 'OpsimMeta')
 
     req = { 'field' : str }
     opt = { 'num' : int }  # num, if present, was used by GetInputObj
     kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
     field = kwargs['field']
 
-    val = value_type(inst.getMeta(field))
+    val = value_type(meta.get(field))
     return val, safe
 
 def InstCatObj(config, base, ignore, gsparams, logger):
     """Build an object according to info in instance catalog.
     """
-    incat = galsim.config.GetInputObj('instance_catalog', config, base, 'InstCat')
+    inst = galsim.config.GetInputObj('instance_catalog', config, base, 'InstCat')
 
     # Setup the indexing sequence if it hasn't been specified.
     # The normal thing with a catalog is to just use each object in order,
     # so we don't require the user to specify that by hand.  We can do it for them.
-    SetDefaultIndex(config, inst.getNObjects())
+    galsim.config.SetDefaultIndex(config, inst.getNObjects())
 
     req = { 'index' : int }
     opt = { 'num' : int }
@@ -462,8 +469,9 @@ def InstCatObj(config, base, ignore, gsparams, logger):
 
     rng = galsim.config.GetRNG(config, base, logger, 'InstCatObj')
     bp = base['bandpass']
+    exp_time = base.get('exp_time',None)
 
-    obj = inst.getObj(index, gsparams=gsparams, rng=rng, bandpass=bp)
+    obj = inst.getObj(index, gsparams=gsparams, rng=rng, bandpass=bp, exp_time=exp_time)
     return obj, safe
 
 def InstCatWorldPos(config, base, value_type):
@@ -474,7 +482,7 @@ def InstCatWorldPos(config, base, value_type):
     # Setup the indexing sequence if it hasn't been specified.
     # The normal thing with a catalog is to just use each object in order,
     # so we don't require the user to specify that by hand.  We can do it for them.
-    SetDefaultIndex(config, inst.getNObjects())
+    galsim.config.SetDefaultIndex(config, inst.getNObjects())
 
     req = { 'index' : int }
     opt = { 'num' : int }
@@ -500,7 +508,7 @@ class InstCatSEDBuilder(galsim.config.SEDBuilder):
         """
         inst = galsim.config.GetInputObj('instance_catalog', config, base, 'InstCatWorldPos')
 
-        SetDefaultIndex(config, inst.getNObjects())
+        galsim.config.SetDefaultIndex(config, inst.getNObjects())
 
         req = { 'index' : int }
         opt = { 'num' : int }
@@ -523,49 +531,42 @@ class OpsimMetaBandpass(galsim.config.BandpassBuilder):
         Returns:
             the constructed Bandpass object.
         """
-        inst = galsim.config.GetInputObj('instance_catalog', config, base, 'InstCatWorldPos')
+        meta = galsim.config.GetInputObj('opsim_meta_dict', config, base, 'InstCatWorldPos')
 
         # Note: Jim used the lsst.sims versions of these.  Here we just use the ones in the 
         #       GalSim share directory.  Not sure whether those are current, but probably
         #       good enough for now.
-        bp = inst.getMeta('bandpass')
+        bp = meta.get('bandpass')
         bandpass = galsim.Bandpass('LSST_%s.dat'%bp, wave_type='nm')
+        bandpass = bandpass.withZeropoint('AB')
+        logger.debug('bandpass = %s',bandpass)
         return bandpass, False
 
 # The basic InputLoader almost works.  Just need to handle the wcs.
 class InstCatalogLoader(InputLoader):
     def getKwargs(self, config, base, logger):
         import galsim
-        import traceback
         req = {
                 'file_name' : str,
               }
         opt = {
+                'sed_dir' : str,
                 'edge_pix' : float,
                 'sort_mag' : bool,
                 'flip_g2' : bool,
               }
-        logger.debug('before galsim')
-        logger.debug('version = %s',galsim.version)
-        try:
-            kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
-        except Exception as e:
-            logger.debug('caught %r',e)
-            traceback.print_exc()
-            raise
-        logger.debug('kwargs = %s',kwargs)
-        logger.debug('before wcs')
+        kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
-        logger.debug('wcs = %s',wcs)
         kwargs['wcs'] = wcs
         kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
         return kwargs, safe
 
-RegisterInputType('instance_catalog',
-                  InstCatalogLoader(InstCatalog, has_nobj=True, file_scope=True))
-RegisterValueType('OpsimMeta', OpsimMeta, [float, int, str], input_type='instance_catalog')
+RegisterInputType('opsim_meta_dict', InputLoader(OpsimMetaDict, file_scope=True, takes_logger=True))
+RegisterValueType('OpsimMeta', OpsimMeta, [float, int, str], input_type='opsim_meta_dict')
+RegisterBandpassType('OpsimMetaBandpass', OpsimMetaBandpass(), input_type='opsim_meta_dict')
+
+RegisterInputType('instance_catalog', InstCatalogLoader(InstCatalog, has_nobj=True))
 RegisterValueType('InstCatWorldPos', InstCatWorldPos, [CelestialCoord],
                   input_type='instance_catalog')
-RegisterSEDType('InstCatSED', InstCatSEDBuilder(), input_type='instance_catalog')
 RegisterObjectType('InstCatObj', InstCatObj, input_type='instance_catalog')
-RegisterBandpassType('OpsimMetaBandpass', OpsimMetaBandpass(), input_type='instance_catalog')
+RegisterSEDType('InstCatSED', InstCatSEDBuilder(), input_type='instance_catalog')

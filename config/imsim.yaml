@@ -4,8 +4,9 @@
 
 
 # This tells GalSim which things to import to register extra config types
+# Mostly we need the imsim repo.  But could add others here as well.
+# E.g. galsim_extra has some useful routines we might want to use.  (But I don't here.)
 modules:
-    - galsim_extra   # Has some extra modules we might want to use.
     - desc.imsim     # Will have the custom ImSim modules.
 
 # Anything set here can be used in any Eval (usually a string that starts with $) as a variable.
@@ -13,29 +14,53 @@ modules:
 # used in multiple places.
 eval_variables:
     srun: 0001
-    simage_dir: $os.environ.get('IMSIM_IMAGE_PATH')
+
+    # Can set the output dir via environment variable if you want, or can set this on the
+    # command line via:
+    #
+    #     galsim imsim.yaml eval_variables.simage_dir=/some/other/output/dir
+    #simage_dir: $os.environ.get('IMSIM_IMAGE_PATH')
+    simage_dir: output # For testing, this is more convenient.
+
+    # Note: At nersc, this is /cvmfs/sw.lsst.eu/linux-x86_64/lsst_sims/sims_w_2020_28/stack/current/Linux64/sims_sed_library/2017.01.24-1-g5b328a8
+    #ssed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
+    ssed_dir: /Users/Mike/Astro/lsst/imsim/sims_sed_library_dir
 
     # Probably would set this on the command line, but for now, here is where the instance
     # catalog lives on my computer.
     # Note: .100 is a version I made with only 100 objects per file.
-    scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.100
+    #       And .star only has stars.
+    #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.txt
+    #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.100
+    scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.star
 
     # Likewise, this could be set on the command line, or maybe just generated automatically.
     spsf_name: /Users/Mike/Astro/lsst/imsim/00466749/psf_save.fits
 
 # Any input data is set here.  These are read in at the start of the program and potentially
 # updated for each output file.
-# Also includes things that need some set up at the start of an exposure.
+# Also includes things that need some set up at the start of an exposure, like the atmospheric PSF.
 input:
     instance_catalog:
-        # This enables both OpsimMeta types (for the meta data) and InstCat (for the objects)
-        file_name: $cat_name  # Probably set this from the command line
+        # This enables InstCat types
+        file_name: $cat_name
+        sed_dir: $sed_dir
 
+    opsim_meta_dict:
+        # This enables OpsimMeta types
+        # Note: These could have been just a single input object, since they both read in the same
+        # input file.  But it's useful to separate them, since we want some OpsimMeta items at
+        # file scope.  In particular to define the WCS, which is needed by the InstCat items.
+        # So this one is registered as being allowed at file scope, but instance_catalog is not.
+        file_name: $cat_name
+
+    # TODO
     #tree_rings:
         # This enables TreeRingCenter and TreeRungFunc, which are stored as a dict here based
         # on the detector name, so the right value can be accessed for each object.
         #file_name: data/tree_ring_data/tree_ring_parameters_2018-04-26.txt
 
+    # TODO
     #atm_psf:
         # This enables the Atmospheric type for the PSF
         #airmass: { type: OpsimMeta, field: airmass }
@@ -55,12 +80,17 @@ image:
     xsize: 4096
     ysize: 4096
 
+    bandpass: { type: OpsimMetaBandpass }
+
     wcs:
-        # TODO: We'll need to replace this.  For now, just copy a WCS out of a dc2 calexp.
-        type: Fits
-        file_name: '/Users/Mike/Astro/lsst/dc2/calexp_00733728-r-R43-S00-det180.fits'
+        # TODO: We'll need to replace this.
+        #       For now, I have a dict of the WCS's from the DC2 calexps for this exposure.
+        type: Dict
+        file_name: /Users/Mike/Astro/lsst/imsim/00466749/wcs_466749.yaml
+        key: "@output.file_name"
 
     noise:
+        # TODO
         #type: LSST_Noise
         #readout_time: 3.
         #dark_current: 0.02
@@ -75,10 +105,11 @@ image:
 
 # Define the PSF to use in the normal case (LSST_Silicon will override if doing a saturated star)
 psf:
+    # TODO
     #type: Atmospheric
     #x: $image_pos.x
     #y: $image_pos.y
-    type: Moffat
+    type: Moffat   # Placeholder
     beta: 3.5
     fwhm: 0.7
 
@@ -130,22 +161,22 @@ output:
     nproc: 1    # Change this to work on multiple CCDs at once.
     nfiles: 1   # Default is all 189 CCDs.  Set to 1 while testing.
 
-    bandpass: { type: OpsimMetaBandpass }
+    exp_time: 30
 
     det_num:
         type: Sequence
         nitems: 189
-        first: 5   # Can set first to something if you want to do a specific sensor.
+        first: 1   # Can set first to something if you want to do a specific sensor.
 
+    dir: $image_dir
     file_name:
-        dir: output
         type: FormattedStr
-        format : calexp_%s-%s-%s-det%03d.fits
+        format : calexp_%08d-%s-%s-det%03d.fits
         items:
             - { type: OpsimMeta, field: obshistid }
             - { type: OpsimMeta, field: bandpass }
-            - $det_name   # A value stored in the dict by LSST_CCD
-            - @output.det_num
+            - "$det_name"   # A value stored in the dict by LSST_CCD
+            - "@output.det_num"
 
     # TODO: Not implemented yet.
     checkpoint:
@@ -161,17 +192,16 @@ output:
         dir: output
         file_name:
             type: FormattedStr
-            format : centroid_%s-%s-%s-det%03d.txt.gz
+            format : centroid_%08d-%s-%s-det%03d.txt.gz
             items:
                 - { type: OpsimMeta, field: obshistid }
                 - { type: OpsimMeta, field: bandpass }
-                - $det_name
-                - @output.det_num
+                - "$det_name"
+                - "@output.det_num"
         columns:
-            ra: image.ra.theta
-            dec: image.dec.theta
+            ra: "$sky_pos.ra.deg"
+            dec: "$sky_pos.dec.deg"
             x: "$image_pos.x"
             y: "$image_pos.y"
-            flux: "$(@current_obj).flux"
-            obj_type: gal.test
+            flux: "$(@current_prof).flux"
             # ... more probably

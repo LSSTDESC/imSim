@@ -1,4 +1,6 @@
 
+from functools import lru_cache
+import numpy as np
 import galsim
 from galsim.config import StampBuilder, RegisterStampType
 
@@ -36,11 +38,12 @@ class LSST_SiliconBuilder(StampBuilder):
         Returns:
             xsize, ysize, image_pos, world_pos
         """
-        gal = galsim.config.BuildGSObject(base, 'gal', logger=logger)
+        gal = galsim.config.BuildGSObject(base, 'gal', logger=logger)[0]
+        self.gal = gal
 
         # Check if the realized flux is 0.
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
-        self.realized_flux = galsim.PoissonDeviate(rng, mean=gal.flux)()
+        self.realized_flux = galsim.PoissonDeviate(self.rng, mean=gal.flux)()
         if self.realized_flux == 0:
             # If so, we'll skip everything after this.
             # The mechanism within GalSim to do this is to raise a special SkipThisObject class.
@@ -51,36 +54,39 @@ class LSST_SiliconBuilder(StampBuilder):
             # For really faint things, don't try too hard.  Just use 32x32.
             image_size = 32
 
-        elif gal.type == "pointsource":
-            inst = GetInputObj('instance_catalog', config, base, 'LSST_Silicon')
-
+        elif isinstance(gal, galsim.DeltaFunction):
             # For bright stars, set the folding threshold for the
             # stamp size calculation.  Use a
             # Kolmogorov_and_Gaussian_PSF since it is faster to
             # evaluate than an AtmosphericPSF.
+            # CalculateNoiseVariance tries to do something sophisticated with the wcs.
+            # We don't really care here.  So approximate it as a pixel scale for the moment.
+            wcs = base['wcs']
+            base['wcs'] = galsim.PixelScale(0.2)
             noise_var = galsim.config.CalculateNoiseVariance(base)
-            folding_threshold = noise_var/flux
+            base['wcs'] = wcs
+            folding_threshold = noise_var/self.realized_flux
             if folding_threshold >= self._ft_default:
                 gsparams = None
             else:
                 gsparams = galsim.GSParams(folding_threshold=folding_threshold)
 
-            psf = inst.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams)
+            psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams)
             image_size = psf.getGoodImageSize(self._pixel_scale)
 
         else:
             # For extended objects, recreate the object to draw, but
             # convolved with the faster DoubleGaussian PSF.
-            psf = inst.DoubleGaussian()
+            psf = self.DoubleGaussian()
             obj = galsim.Convolve(gal, psf).withFlux(self.realized_flux)
 
             # Start with GalSim's estimate of a good box size.
-            image_size = obj.getGoodImageSize(pixel_scale)
+            image_size = obj.getGoodImageSize(self._pixel_scale)
 
             # For bright things, defined as having an average of at least 10 photons per
             # pixel on average, try to be careful about not truncating the surface brightness
             # at the edge of the box.
-            if flux > 10 * image_size**2:
+            if self.realized_flux > 10 * image_size**2:
                 image_size = self._getGoodPhotImageSize([gal, psf], self._keep_sb_level,
                                                         pixel_scale=self._pixel_scale)
 
@@ -181,6 +187,73 @@ class LSST_SiliconBuilder(StampBuilder):
 
         return int(N)
 
+    @lru_cache(maxsize=128)
+    def DoubleGaussian(self, fwhm1=0.6, fwhm2=0.12, wgt1=1.0, wgt2=0.1):
+        """
+        @param [in] fwhm1 is the Full Width at Half Max of the first Gaussian in arcseconds
+
+        @param [in] fwhm2 is the Full Width at Half Max of the second Gaussian in arcseconds
+
+        @param [in] wgt1 is the dimensionless coefficient normalizing the first Gaussian
+
+        @param [in] wgt2 is the dimensionless coefficient normalizing the second Gaussian
+
+        The total PSF will be
+
+        (wgt1 * G(sig1) + wgt2 * G(sig2))/(wgt1 + wgt2)
+
+        where G(sigN) denotes a normalized Gaussian with a standard deviation that gives
+        a Full Width at Half Max of fwhmN.  (Integrating a two-dimensional Gaussian, we find
+        that sig = fwhm/2.355)
+
+        Because this PSF depends on neither position nor wavelength, this __init__ method
+        will instantiate a PSF and cache it.  It is this cached psf that will be returned
+        whenever _getPSF is called in this class.
+        """
+
+        r1 = fwhm1/2.355
+        r2 = fwhm2/2.355
+        norm = 1.0/(wgt1 + wgt2)
+
+        gaussian1 = galsim.Gaussian(sigma=r1)
+        gaussian2 = galsim.Gaussian(sigma=r2)
+
+        return norm*(wgt1*gaussian1 + wgt2*gaussian2)
+
+    @lru_cache(maxsize=128)
+    def Kolmogorov_and_Gaussian_PSF(self, airmass=1.2, rawSeeing=0.7, band='r', gsparams=None):
+        """
+        This PSF class is based on David Kirkby's presentation to the DESC Survey Simulations
+        working group on 23 March 2017.
+
+        https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
+
+        (you will need a SLAC Confluence account to access that link)
+
+        Parameters
+        ----------
+        airmass
+
+        rawSeeing is the FWHM seeing at zenith at 500 nm in arc seconds
+        (provided by OpSim)
+
+        band is the bandpass of the observation [u,g,r,i,z,y]
+        """
+        # This code was provided by David Kirkby in a private communication
+
+        wlen_eff = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
+        # wlen_eff is from Table 2 of LSE-40 (y=y2)
+
+        FWHMatm = rawSeeing * (wlen_eff / 500.) ** -0.3 * airmass ** 0.6
+        # From LSST-20160 eqn (4.1)
+
+        FWHMsys = np.sqrt(0.25**2 + 0.3**2 + 0.08**2) * airmass ** 0.6
+        # From LSST-20160 eqn (4.2)
+
+        atm = galsim.Kolmogorov(fwhm=FWHMatm, gsparams=gsparams)
+        sys = galsim.Gaussian(fwhm=FWHMsys, gsparams=gsparams)
+        return galsim.Convolve((atm, sys))
+
     def getDrawMethod(self, config, base, logger):
         """Determine the draw method to use.
 
@@ -190,37 +263,39 @@ class LSST_SiliconBuilder(StampBuilder):
 
         @returns method
         """
-        method = ParseValue(config,'draw_method',base,str)[0]
-        if method not in valid_draw_methods:
-            raise GalSimConfigValueError("Invalid draw_method.", method, valid_draw_methods)
-        fft_sb_thresh = config.get('fft_sb_thresh', None)
-        if self.realized_flux < 1.e6 or not fft_sb_thesh or self.realized_flux < fft_sb_thresh:
+        method = galsim.config.ParseValue(config,'draw_method',base,str)[0]
+        if method not in galsim.config.valid_draw_methods:
+            raise galsim.GalSimConfigValueError("Invalid draw_method.", method,
+                                                galsim.config.valid_draw_methods)
+        if 'fft_sb_thresh' in config:
+            fft_sb_thresh = galsim.config.ParseValue(config,'fft_sb_thresh',base,float)[0]
+        else:
+            fft_sb_thresh = 0.
+        if self.realized_flux < 1.e6 or not fft_sb_thresh or self.realized_flux < fft_sb_thresh:
             self.fft_obj = None
             return 'phot'
 
         # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
-        # obj.original should be a Convolution with the PSF at the end.  Extract it.
-        geom_psf = obj.original.obj_list[-1]
-        all_but_psf = obj.original.obj_list[:-1]
+        psf = galsim.config.BuildGSObject(base, 'psf', logger=logger)[0]
         try:
-            screen_list = geom_psf.screen_list
+            screen_list = psf.screen_list
         except AttributeError:
             # If it's not a galsim.PhaseScreenPSF, just use whatever it is.
-            fft_psf = [geom_psf]
+            fft_psf = [psf]
         else:
-            # If geom_psf is a PhaseScreenPSF, then make a simpler one the just convolves
+            # If psf is a PhaseScreenPSF, then make a simpler one the just convolves
             # a Kolmogorov profile with an OpticalPSF.
-            opt_screens = [s for s in geom_psf.screen_list if isinstance(s, galsim.OpticalScreen)]
+            opt_screens = [s for s in psf.screen_list if isinstance(s, galsim.OpticalScreen)]
             if len(opt_screens) >= 1:
                 # Should never be more than 1, but if there weirdly is, just use the first.
                 opt_screen = opt_screens[0]
                 optical_psf = galsim.OpticalPSF(
-                        lam=geom_psf.lam,
+                        lam=psf.lam,
                         diam=opt_screen.diam,
                         aberrations=opt_screen.aberrations,
                         annular_zernike=opt_screen.annular_zernike,
                         obscuration=opt_screen.obscuration,
-                        gsparams=geom_psf.gsparams)
+                        gsparams=psf.gsparams)
                 fft_psf = [optical_psf]
             else:
                 fft_psf = []
@@ -229,7 +304,7 @@ class LSST_SiliconBuilder(StampBuilder):
                                         gsparams=geom_psf.gsparams)
             fft_psf.append(atm_psf)
 
-        fft_obj = galsim.Convolve(all_but_psf + fft_psf).withFlux(obj.flux)
+        fft_obj = galsim.Convolve([self.gal] + fft_psf).withFlux(self.gal.flux)
 
         # Now this object should have a much better estimate of the real maximum surface brightness
         # than the original geom_psf did.
@@ -238,7 +313,7 @@ class LSST_SiliconBuilder(StampBuilder):
         # of giving us an underestimate of the max surface brightness.
         # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
         # to get photons/pixel, which we compare to fft_sb_thresh.
-        if fft_obj.max_sb/2. * pixel_scale**2 > fft_sb_thresh:
+        if fft_obj.max_sb/2. * self._pixel_scale**2 > fft_sb_thresh:
             self.fft_obj = fft_obj
             return 'fft'
         else:
@@ -317,16 +392,16 @@ class LSST_SiliconBuilder(StampBuilder):
                 image += fft_image[bounds]
 
         if method == 'phot':  # Not else, since above might have failed.
-            obj.drawImage(method='phot',
-                          offset=offset,
-                          rng=self.rng,
-                          maxN=int(1e6),
-                          image=image,
-                          sensor=sensor,
-                          surface_ops=surface_ops,
-                          add_to_image=True,
-                          poisson_flux=False,
-                          gain=gain)
+            prof.drawImage(method='phot',
+                           offset=offset,
+                           rng=self.rng,
+                           maxN=int(1e6),
+                           image=image,
+                           sensor=sensor,
+                           surface_ops=surface_ops,
+                           add_to_image=True,
+                           poisson_flux=False,
+                           gain=gain)
         return image
 
 
