@@ -279,6 +279,7 @@ class InstCatalog(object):
             hlr = (a * b)**0.5  # geometric mean of a and b is close to right.
             # XXX: Note: Jim's code had hlr = a, which is wrong.  Galaxies were too large.
             #      Especially when they were more elliptical.  Oops.
+            # Maybe not?  Check if this should be a.
             obj = galsim.Sersic(n=n, half_light_radius=hlr, gsparams=gsparams)
             obj = obj.shear(q=b/a, beta=beta)
             g1,g2,mu = self.getLens(index)
