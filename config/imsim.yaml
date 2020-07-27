@@ -40,8 +40,8 @@ eval_variables:
     #
     #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.txt
     #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.100
-    #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.star
-    scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.disk
+    scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.star
+    #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.disk
 
     # Likewise, this could be set on the command line, or maybe just generated automatically.
     spsf_name: /Users/Mike/Astro/lsst/imsim/00466749/psf_save.fits
@@ -63,11 +63,14 @@ input:
         # So this one is registered as being allowed at file scope, but instance_catalog is not.
         file_name: $cat_name
 
-    # TODO
-    #tree_rings:
+    tree_rings:
         # This enables TreeRingCenter and TreeRungFunc, which are stored as a dict here based
         # on the detector name, so the right value can be accessed for each object.
-        #file_name: data/tree_ring_data/tree_ring_parameters_2018-04-26.txt
+        # This file lives in the imsim repo.
+        file_name: ../data/tree_ring_data/tree_ring_parameters_2018-04-26.txt
+        # Can limit the detectors to read in.  This is handy while debugging, since it takes
+        # a minute or so to read all 189 detectors.
+        only_dets: [R01-S01]
 
     # TODO
     #atm_psf:
@@ -98,20 +101,15 @@ image:
         #           /global/cscratch1/sd/mjarvis/DC2/wcs_466749.yaml
         type: Dict
         file_name: /Users/Mike/Astro/lsst/imsim/00466749/wcs_466749.yaml
-        key: "@output.file_name"
+        key: "$(@output.file_name).replace('raw','calexp')"
 
     noise:
-        # TODO
-        #type: LSST_Noise
-        #readout_time: 3.
-        #dark_current: 0.02
-        #bias_level: 1000.
-        #pcti: 1.e-6
-        #scti: 1.e-6
-        type: CCD  # Placeholder for now.
+        type: CCD
         gain: 1
-        read_noise: 3
-        sky_level: 200
+        read_noise: 0  # The read noise is applied later.  Only sky noise here.
+
+    # TODO: Port the skyModel code from imsim  (Currently uses lsst.sims)
+    sky_level: 20000  # ADU / arcsec**2
 
 
 # Define the PSF to use in the normal case (LSST_Silicon will override if doing a saturated star)
@@ -166,6 +164,7 @@ stamp:
                 type: Eval
                 str: depth_dict[band]
                 # TODO: Figure out the depth to use for other bands.  Josh found -0.6 for y.
+                # These numbers are in units of pixels.
                 ddepth_dict: {'u':0, 'g':0, 'r':0, 'i':0, 'z':0, 'y':-0.6}
                 sband: { type: OpsimMeta, field: bandpass }
         -
@@ -177,8 +176,9 @@ stamp:
     sensor:
         type: Silicon
         strength: 1.0
-        #treering_center: { type: TreeRingCenter, det: det_name }
-        #treerung_func: { type: TreeRingFunc, det: det_name }
+        # index_key just tells GalSim that this only changes with a new image num.
+        treering_center: { type: TreeRingCenter, det_name: $det_name, index_key: image_num }
+        treering_func: { type: TreeRingFunc, det_name: $det_name, index_key: image_num }
         transpose: True
 
 
@@ -198,7 +198,7 @@ output:
     dir: $image_dir
     file_name:
         type: FormattedStr
-        format : calexp_%08d-%s-%s-det%03d.fits
+        format : raw_%08d-%s-%s-det%03d.fits
         items:
             - { type: OpsimMeta, field: obshistid }
             - { type: OpsimMeta, field: bandpass }
@@ -214,6 +214,15 @@ output:
     cosmic_rays:
         ccd_rate: 0.2    # CTIO rate extracted from DECam darks.
         catalog: default
+
+    # TODO
+    readout:
+        # Convert from e-image to realized image from readout chain.
+        readout_time: 3.
+        dark_current: 0.02
+        bias_level: 1000.
+        pcti: 1.e-6
+        scti: 1.e-6
 
     truth:
         dir: output

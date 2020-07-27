@@ -86,7 +86,7 @@ class LSST_CCDBuilder(OutputBuilder):
         # This is basically the same as the base class version.  Just a few extra things to
         # add to the ignore list.
         ignore += [ 'file_name', 'dir', 'nfiles', 'checkpoint', 'det_num',
-                    'cosmic_rays', 'exp_time' ]
+                    'cosmic_rays', 'readout', 'exp_time' ]
         galsim.config.CheckAllParams(config, ignore=ignore)
 
         image = galsim.config.BuildImage(base, image_num, obj_num, logger=logger)

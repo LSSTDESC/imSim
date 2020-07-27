@@ -398,7 +398,7 @@ class OpsimMetaDict(object):
                 else:
                     self.meta[key] = float(value)
 
-        logger.debug("Done reading meta information from instance catalog")
+        logger.info("Done reading meta information from instance catalog")
 
         # Add a couple derived quantities to meta values
         self.meta['bandpass'] = 'ugrizy'[self.meta['filter']]

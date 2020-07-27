@@ -25,7 +25,7 @@ class DictWCS(WCSBuilder):
 
         file_name = params['file_name']
         key = params['key']
-        logger.debug("Finding WCS for %s",key)
+        logger.info("Finding WCS for %s",key)
 
         if not self.d or file_name != self.file_name:
             with open(file_name) as f:
