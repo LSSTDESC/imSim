@@ -358,15 +358,6 @@ class LSST_SiliconBuilder(StampBuilder):
             sed = galsim.config.BuildSED(config, 'sed', base, logger=logger)[0]
         base['current_sed'] = sed
 
-        # TODO  (These should be implemented in GalSim proper probably...)
-        surface_ops = []
-
-        if faint or 'sensor' not in config:
-            sensor = None
-        else:
-            # TODO  (Also probably ought to be implemented in GalSim proper.
-            sensor = None
-
         if method == 'fft':
             # When drawing with FFTs, large offsets can be a problem, since they
             # can blow up the required FFT size.  We'll guard for that below with
@@ -396,13 +387,23 @@ class LSST_SiliconBuilder(StampBuilder):
                 image += fft_image[bounds]
 
         if method == 'phot':  # Not else, since above might have failed.
+            if 'photon_ops' in config:
+                photon_ops = galsim.config.BuildPhotonOps(config, 'photon_ops', base, logger)
+            else:
+                photon_ops = None
+
+            if 'sensor' in config and not faint:
+                sensor = galsim.config.BuildSensor(config, 'sensor', base, logger)
+            else:
+                sensor = None
+
             prof.drawImage(method='phot',
                            offset=offset,
                            rng=self.rng,
                            maxN=int(1e6),
                            image=image,
                            sensor=sensor,
-                           surface_ops=surface_ops,
+                           photon_ops=photon_ops,
                            add_to_image=True,
                            poisson_flux=False,
                            gain=gain)

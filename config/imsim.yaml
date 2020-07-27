@@ -130,30 +130,44 @@ stamp:
     world_pos:
         type: InstCatWorldPos
 
-    # TODO: This is ignored now.
-    surface_ops:
+    photon_ops:
         -
             type: FRatioAngles
             fratio: 1.234
             obscuration: 0.606
         -
-            # Normal case.  LSST_Silicon will override if use_simple=True
             type: WavelengthSampler
             sed: "@stamp.sed"
         -
             type: PhotonDCR
             base_wavelength: $bandpass.effective_wavelength
             latitude: -30.24463 degrees
-            HA: { type: OpsimMeta, field: HA }  # This is a derived quantity store in GSI now.
-                                                # But it's based on OpsimMeta values, so could
-                                                # move that to the InstCat object.
+            HA:
+                type: Degrees
+                theta: { type: OpsimMeta, field: HA }
+        -
+            # Note: If FocusDepth is before Refraction, then the depth is the amount of focus
+            #       change required relative to the rays coming to a focus at the surface.
+            #       If FocusDepth is after Refraction, then the depth is the actual depth in
+            #       the silicon where the (refracted) rays come to a focus.
+            type: FocusDepth
+            depth:
+                type: Eval
+                str: depth_dict[band]
+                # TODO: Figure out the depth to use for other bands.  Josh found -0.6 for y.
+                ddepth_dict: {'u':0, 'g':0, 'r':0, 'i':0, 'z':0, 'y':-0.6}
+                sband: { type: OpsimMeta, field: bandpass }
+        -
+            type: Refraction
+            index_ratio: 3.9  # TODO: This is what Josh used for y band.
+                              # I assume it's wavelength dependent...
+                              # Probably need to use the same kind of pattern as above for depth.
 
-    # TODO: also ignored.
     sensor:
         type: Silicon
         strength: 1.0
-        treering_center: { type: TreeRingCenter, det: det_name }
-        treerung_func: { type: TreeRingFunc, det: det_name }
+        #treering_center: { type: TreeRingCenter, det: det_name }
+        #treerung_func: { type: TreeRingFunc, det: det_name }
         transpose: True
 
 
