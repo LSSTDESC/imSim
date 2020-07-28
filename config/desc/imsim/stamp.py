@@ -59,12 +59,8 @@ class LSST_SiliconBuilder(StampBuilder):
             # stamp size calculation.  Use a
             # Kolmogorov_and_Gaussian_PSF since it is faster to
             # evaluate than an AtmosphericPSF.
-            # CalculateNoiseVariance tries to do something sophisticated with the wcs.
-            # We don't really care here.  So approximate it as a pixel scale for the moment.
-            wcs = base['wcs']
-            base['wcs'] = galsim.PixelScale(0.2)
+            base['current_noise_image'] = base['current_image']
             noise_var = galsim.config.CalculateNoiseVariance(base)
-            base['wcs'] = wcs
             folding_threshold = noise_var/self.realized_flux
             if folding_threshold >= self._ft_default:
                 gsparams = None
@@ -392,10 +388,12 @@ class LSST_SiliconBuilder(StampBuilder):
             else:
                 photon_ops = None
 
-            if 'sensor' in config and not faint:
-                sensor = galsim.config.BuildSensor(config, 'sensor', base, logger)
-            else:
+            if faint:
                 sensor = None
+            else:
+                sensor = base.get('sensor', None)
+                if sensor is not None:
+                    sensor.updateRNG(self.rng)
 
             prof.drawImage(method='phot',
                            offset=offset,

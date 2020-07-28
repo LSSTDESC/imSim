@@ -109,7 +109,15 @@ image:
         read_noise: 0  # The read noise is applied later.  Only sky noise here.
 
     # TODO: Port the skyModel code from imsim  (Currently uses lsst.sims)
-    sky_level: 20000  # ADU / arcsec**2
+    sky_level: 5000000  # ADU / arcsec**2
+
+    sensor:
+        type: Silicon
+        strength: 1.0
+        # index_key just tells GalSim that this only changes with a new image num.
+        treering_center: { type: TreeRingCenter, det_name: $det_name, index_key: image_num }
+        treering_func: { type: TreeRingFunc, det_name: $det_name, index_key: image_num }
+        transpose: True
 
 
 # Define the PSF to use in the normal case (LSST_Silicon will override if doing a saturated star)
@@ -172,14 +180,6 @@ stamp:
             index_ratio: 3.9  # TODO: This is what Josh used for y band.
                               # I assume it's wavelength dependent...
                               # Probably need to use the same kind of pattern as above for depth.
-
-    sensor:
-        type: Silicon
-        strength: 1.0
-        # index_key just tells GalSim that this only changes with a new image num.
-        treering_center: { type: TreeRingCenter, det_name: $det_name, index_key: image_num }
-        treering_func: { type: TreeRingFunc, det_name: $det_name, index_key: image_num }
-        transpose: True
 
 
 # This defines both the output files and some basic things about the overall exposure/fov.
