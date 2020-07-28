@@ -111,6 +111,10 @@ image:
     # TODO: Port the skyModel code from imsim  (Currently uses lsst.sims)
     sky_level: 5000000  # ADU / arcsec**2
 
+    use_flux_sky_areas: False   # This is the default.  But set to true to get BF in sky.
+                                # TODO: this is a one step flux calculation, so it's not
+                                # yet right for doing flats.
+
     sensor:
         type: Silicon
         strength: 1.0
