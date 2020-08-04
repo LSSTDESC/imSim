@@ -40,8 +40,8 @@ eval_variables:
     #
     #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.txt
     #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.100
-    scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.star
-    #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.disk
+    #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.star
+    scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.disk
 
     # Likewise, this could be set on the command line, or maybe just generated automatically.
     spsf_name: /Users/Mike/Astro/lsst/imsim/00466749/psf_save.fits
@@ -109,7 +109,7 @@ image:
         read_noise: 0  # The read noise is applied later.  Only sky noise here.
 
     # TODO: Port the skyModel code from imsim  (Currently uses lsst.sims)
-    sky_level: 5000000  # ADU / arcsec**2
+    sky_level: 5000  # ADU / arcsec**2
 
     use_flux_sky_areas: False   # This is the default.  But set to true to get BF in sky.
                                 # TODO: this is a one step flux calculation, so it's not

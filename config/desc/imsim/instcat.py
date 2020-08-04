@@ -262,11 +262,14 @@ class InstCatalog(object):
             # Mark of invalid object apparently
             return None
 
+        if gsparams is not None:
+            gsparams = galsim.GSParams(**gsparams)
+
         # Make the object according to the values in the objinfo
 
         # Note: params here starts at 12, so all indices are 12 less than in Jim's code.
         if params[0].lower() == 'point':
-            obj = galsim.DeltaFunction()
+            obj = galsim.DeltaFunction(gsparams=gsparams)
 
         elif params[0].lower() == 'sersic2d':
             a = float(params[1])
@@ -274,12 +277,13 @@ class InstCatalog(object):
             if b > a:
                 # Invalid, but Jim just let's it pass.
                 return None
+            pa = float(params[3])
             if self.flip_g2:
                 # Jim's code first did PA = 360 - params[3]
                 # Then beta = 90 + PA
-                beta = float(90 - params[3]) * galsim.degrees
+                beta = float(90 - pa) * galsim.degrees
             else:
-                beta = float(90 + params[3]) * galsim.degrees
+                beta = float(90 + pa) * galsim.degrees
             n = float(params[4])
             hlr = (a * b)**0.5  # geometric mean of a and b is close to right.
             # XXX: Note: Jim's code had hlr = a, which is wrong.  Galaxies were too large.
@@ -295,10 +299,11 @@ class InstCatalog(object):
             b = float(params[2])
             if b > a:
                 return None
+            pa = float(params[3])
             if self.flip_g2:
-                beta = float(90 - params[3]) * galsim.degrees
+                beta = float(90 - pa) * galsim.degrees
             else:
-                beta = float(90 + params[3]) * galsim.degrees
+                beta = float(90 + pa) * galsim.degrees
             npoints = int(params[4])
             if npoints <= 0:
                 # Again, weird, but Jim just let's this pass without comment.
@@ -319,8 +324,8 @@ class InstCatalog(object):
             pixel_scale = float(params[1])
             theta = float(params[2])
             obj = galsim.InterpolatedImage(fits_file, scale=pixel_scale, gsparams=gsparams)
-            if rotation_angle != 0:
-                obj = obj.rotate(theta * galsim.degrees)
+            if theta != 0.:
+                obj = obj.rotate(-theta * galsim.degrees)
             g1,g2,mu = self.getLens(index)
             obj = obj.lens(g1, g2, mu)
 

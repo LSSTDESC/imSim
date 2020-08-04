@@ -14,6 +14,7 @@ class LSST_SiliconBuilder(StampBuilder):
     _pixel_scale = 0.2
     _trivial_sed = galsim.SED(galsim.LookupTable([100, 2000], [1,1], interpolant='linear'),
                               wave_type='nm', flux_type='fphotons')
+    _Nmax = 4096  # (Don't go bigger than 4096)
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
         """
@@ -83,19 +84,25 @@ class LSST_SiliconBuilder(StampBuilder):
             # Start with GalSim's estimate of a good box size.
             image_size = obj.getGoodImageSize(self._pixel_scale)
 
+            # Find a postage stamp region to draw onto.  Use (sky noise)/3. as the nominal
+            # minimum surface brightness for rendering an extended object.
+            base['current_noise_image'] = base['current_image']
+            noise_var = galsim.config.CalculateNoiseVariance(base)
+            keep_sb_level = np.sqrt(noise_var)/3.
+
             # For bright things, defined as having an average of at least 10 photons per
             # pixel on average, try to be careful about not truncating the surface brightness
             # at the edge of the box.
             if self.realized_flux > 10 * image_size**2:
-                image_size = self._getGoodPhotImageSize([gal, psf], self._keep_sb_level,
+                image_size = self._getGoodPhotImageSize([gal, psf], keep_sb_level,
                                                         pixel_scale=self._pixel_scale)
 
             # If the above size comes out really huge, scale back to what you get for
             # a somewhat brighter surface brightness limit.
-            if image_size > self_Nmax:
+            if image_size > self._Nmax:
                 image_size = self._getGoodPhotImageSize([gal, psf], self._large_object_sb_level,
                                                         pixel_scale=self._pixel_scale)
-                image_size = max(image_size, Nmax)
+                image_size = max(image_size, self._Nmax)
 
         # Also the position
         world_pos = galsim.config.ParseWorldPos(config, 'world_pos', base, logger)
@@ -152,9 +159,7 @@ class LSST_SiliconBuilder(StampBuilder):
 
         # This can be too small for bright stars, so increase it in steps until the edges are
         # all below the requested sb level.
-        # (Don't go bigger than 4096)
-        Nmax = 4096
-        while N < Nmax:
+        while N < self._Nmax:
             # Check the edges and corners of the current square
             h = N / 2 * pixel_scale
             xvalues = [ obj.xValue(h,0), obj.xValue(-h,0),
@@ -167,7 +172,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 break
             N *= factor
 
-        N = min(N, Nmax)
+        N = min(N, self._Nmax)
 
         # This can be quite huge for Devauc profiles, but we don't actually have much
         # surface brightness way out in the wings.  So cut it back some.
