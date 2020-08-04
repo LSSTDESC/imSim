@@ -48,7 +48,7 @@ class LSST_CCDBuilder(OutputBuilder):
 
         base['exp_time'] = float(config.get('exp_time', 30))
 
-    def getNFiles(self, config, base):
+    def getNFiles(self, config, base, logger=None):
         """Returns the number of files to be built.
 
         nfiles can be specified if you want.

@@ -72,7 +72,7 @@ class InstCatalog(object):
     _rubin_area = 0.25 * np.pi * 649**2  # cm^2
 
     def __init__(self, file_name, wcs, sed_dir=None, edge_pix=100, sort_mag=True, flip_g2=True,
-                 logger=None, _nobjects_only=False):
+                 logger=None):
         logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
         self.flip_g2 = flip_g2
@@ -145,8 +145,6 @@ class InstCatalog(object):
                         continue
                     # OK, keep this object.  Finish parsing it.
                     id_list.append(tokens[1])
-                    if _nobjects_only:
-                        continue
                     world_pos_list.append(world_pos)
                     magnorm_list.append(float(tokens[4]))
                     sed_list.append((tokens[5], float(tokens[6])))
@@ -162,8 +160,6 @@ class InstCatalog(object):
 
         # Sort the object lists by mag and convert to numpy arrays.
         self.id = np.array(id_list, dtype=str)
-        if _nobjects_only:
-            return
         self.world_pos = np.array(world_pos_list, dtype=object)
         self.magnorm = np.array(magnorm_list, dtype=float)
         self.sed = np.array(sed_list, dtype=object)
@@ -180,7 +176,7 @@ class InstCatalog(object):
             self.objinf = self.objinfo[index]
             self.dust = self.dust[index]
 
-    def getNObjects(self):
+    def getNObjects(self, logger=None):
         # Note: This method name is required by the config parser.
         return len(self.id)
 
