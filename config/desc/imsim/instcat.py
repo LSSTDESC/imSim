@@ -122,9 +122,14 @@ class InstCatalog(object):
         dust_list = []
         g2_sign = -1 if flip_g2 else 1
         logger.warning('Reading instance catalog %s', self.file_name)
+        nuse = 0
+        ntot = 0
         with fopen(self.file_name, mode='rt') as _input:
             for line in _input:
                 if line.startswith('object'):
+                    ntot += 1
+                    if ntot % 10000 == 0:
+                        logger.info('Using %d of %d objects so far.',nuse,ntot)
                     # Check if the object is on our image
                     tokens = line.strip().split()
                     ra = float(tokens[2])
@@ -145,6 +150,7 @@ class InstCatalog(object):
                         continue
                     # OK, keep this object.  Finish parsing it.
                     id_list.append(tokens[1])
+                    nuse += 1
                     world_pos_list.append(world_pos)
                     magnorm_list.append(float(tokens[4]))
                     sed_list.append((tokens[5], float(tokens[6])))
@@ -155,8 +161,10 @@ class InstCatalog(object):
                     objinfo_list.append(tokens[12:dust_index])
                     dust_list.append(tokens[dust_index:])
 
+        assert nuse == len(id_list)
         logger.debug("Done reading instance catalog")
-        logger.info("Found %d objects potentially on image", len(id_list))
+        logger.info("Total objects in file = %d",ntot)
+        logger.info("Found %d objects potentially on image", nuse)
 
         # Sort the object lists by mag and convert to numpy arrays.
         self.id = np.array(id_list, dtype=str)
@@ -175,6 +183,7 @@ class InstCatalog(object):
             self.lens = self.lens[index]
             self.objinf = self.objinfo[index]
             self.dust = self.dust[index]
+        logger.info("Sorted objects by magnitude (brightest first).")
 
     def getNObjects(self, logger=None):
         # Note: This method name is required by the config parser.
