@@ -35,13 +35,7 @@ eval_variables:
     # Note: At nersc, this is at:
     #   /global/cscratch1/sd/jchiang8/desc/Run2.2i/InstCats/00466749
     #
-    # The .100 is a version I made with only 100 objects per file.
-    # And .star and .disk only run the stars and disk galaxies respectively.
-    #
-    #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.txt
-    #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.100
-    #scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.star
-    scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.disk
+    scat_name: /Users/Mike/Astro/lsst/imsim/00466749/phosim_cat_466749.txt
 
     # Likewise, this could be set on the command line, or maybe just generated automatically.
     spsf_name: /Users/Mike/Astro/lsst/imsim/00466749/psf_save.fits
@@ -109,7 +103,7 @@ image:
         read_noise: 0  # The read noise is applied later.  Only sky noise here.
 
     # TODO: Port the skyModel code from imsim  (Currently uses lsst.sims)
-    sky_level: 5000  # ADU / arcsec**2
+    sky_level: 500  # ADU / arcsec**2
 
     use_flux_sky_areas: False   # This is the default.  But set to true to get BF in sky.
                                 # TODO: this is a one step flux calculation, so it's not

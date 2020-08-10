@@ -134,18 +134,18 @@ class InstCatalog(object):
                     tokens = line.strip().split()
                     ra = float(tokens[2])
                     dec = float(tokens[3])
-                    logger.debug('object at %s,%s',ra,dec)
+                    #logger.debug('object at %s,%s',ra,dec)
                     if not (min_ra <= ra <= max_ra and min_dec <= dec <= max_dec):
                         continue
                     world_pos = galsim.CelestialCoord(ra * galsim.degrees, dec * galsim.degrees)
-                    logger.debug('world_pos = %s',world_pos)
+                    #logger.debug('world_pos = %s',world_pos)
                     try:
                         image_pos = wcs.toImage(world_pos)
                     except RuntimeError:
                         # Inverse direction can fail for objects off the image.
-                        logger.debug('failed to determine image_pos')
+                        #logger.debug('failed to determine image_pos')
                         continue
-                    logger.debug('image_pos = %s',image_pos)
+                    #logger.debug('image_pos = %s',image_pos)
                     if not (min_x <= image_pos.x <= max_x and min_y <= image_pos.y <= max_y):
                         continue
                     # OK, keep this object.  Finish parsing it.
@@ -162,9 +162,8 @@ class InstCatalog(object):
                     dust_list.append(tokens[dust_index:])
 
         assert nuse == len(id_list)
-        logger.debug("Done reading instance catalog")
-        logger.info("Total objects in file = %d",ntot)
-        logger.info("Found %d objects potentially on image", nuse)
+        logger.warning("Total objects in file = %d",ntot)
+        logger.warning("Found %d objects potentially on image", nuse)
 
         # Sort the object lists by mag and convert to numpy arrays.
         self.id = np.array(id_list, dtype=str)
@@ -175,15 +174,15 @@ class InstCatalog(object):
         self.objinfo = np.array(objinfo_list, dtype=object)
         self.dust = np.array(dust_list, dtype=object)
         if sort_mag:
-            index = np.argsort(magnorm_list)
+            index = np.argsort(self.magnorm)
             self.id = self.id[index]
             self.world_pos = self.world_pos[index]
             self.magnorm = self.magnorm[index]
             self.sed = self.sed[index]
             self.lens = self.lens[index]
-            self.objinf = self.objinfo[index]
+            self.objinfo = self.objinfo[index]
             self.dust = self.dust[index]
-        logger.info("Sorted objects by magnitude (brightest first).")
+            logger.warning("Sorted objects by magnitude (brightest first).")
 
     def getNObjects(self, logger=None):
         # Note: This method name is required by the config parser.
@@ -284,11 +283,20 @@ class InstCatalog(object):
                 beta = float(90 - pa) * galsim.degrees
             else:
                 beta = float(90 + pa) * galsim.degrees
+
             n = float(params[4])
+            # GalSim can amortize some calculations for Sersics, but only if n is the same
+            # as a previous galaxy.  So quantize the n values at 0.05.  There's no way anyone
+            # cares about this at higher resolution than that.
+            # For now, this is not actually helpful, since n is always either 1 or 4, but if
+            # we ever start having more variable n, this will prevent it from redoing Hankel
+            # integrals for every galaxy.
+            n = round(n * 20.) / 20.
+
             hlr = (a * b)**0.5  # geometric mean of a and b is close to right.
-            # XXX: Note: Jim's code had hlr = a, which is wrong.  Galaxies were too large.
+            # XXX: Note: Jim's code had hlr = a, which is wrong. (?)  Galaxies were too large.
             #      Especially when they were more elliptical.  Oops.
-            # Maybe not?  Check if this should be a.
+            # TODO: Maybe not?  Check if this should be a.
             obj = galsim.Sersic(n=n, half_light_radius=hlr, gsparams=gsparams)
             obj = obj.shear(q=b/a, beta=beta)
             g1,g2,mu = self.getLens(index)
@@ -408,7 +416,7 @@ class OpsimMetaDict(object):
                 else:
                     self.meta[key] = float(value)
 
-        logger.info("Done reading meta information from instance catalog")
+        logger.warning("Done reading meta information from instance catalog")
 
         # Add a couple derived quantities to meta values
         self.meta['bandpass'] = 'ugrizy'[self.meta['filter']]

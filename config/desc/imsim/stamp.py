@@ -40,6 +40,8 @@ class LSST_SiliconBuilder(StampBuilder):
             xsize, ysize, image_pos, world_pos
         """
         gal = galsim.config.BuildGSObject(base, 'gal', logger=logger)[0]
+        if gal is None:
+            raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
         self.gal = gal
 
         # Check if the realized flux is 0.
