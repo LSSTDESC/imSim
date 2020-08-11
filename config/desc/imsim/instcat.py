@@ -82,6 +82,7 @@ class InstCatalog(object):
             self.sed_dir = os.environ.get('SIMS_SED_LIBRARY_DIR')
         else:
             self.sed_dir = sed_dir
+        self.inst_dir = os.path.dirname(file_name)
 
         # Allow objects to be centered somewhat off the image.
         min_x = 0 - edge_pix
@@ -212,7 +213,13 @@ class InstCatalog(object):
         if name in self._sed_cache:
             sed = self._sed_cache[name]
         else:
+            # Try both the given sed_dir and the directory of the instance catalog itself.
             full_name = os.path.join(self.sed_dir, name)
+            if not os.path.isfile(full_name):
+                full_name = os.path.join(self.inst_dir, name)
+            if not os.path.isfile(full_name):
+                raise OSError("Could not find file %s in either %s or %s"%(
+                              name, self.sed_dir, self.inst_dir))
             sed = galsim.SED(full_name, wave_type='nm', flux_type='flambda')
             self._sed_cache[name] = sed
 

@@ -152,7 +152,7 @@ stamp:
             obscuration: 0.606
         -
             type: WavelengthSampler
-            sed: "@stamp.sed"
+            sed: "@current_sed"
         -
             type: PhotonDCR
             base_wavelength: $bandpass.effective_wavelength
