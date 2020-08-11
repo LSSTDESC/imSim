@@ -51,6 +51,9 @@ class TreeRings():
         with open(self.file_name, 'r') as input_:
             lines = input_.readlines()
 
+        xCenterPix = 2048.5
+        yCenterPix = 2048.5
+
         self.info = {}
         for i, line in enumerate(lines):
             if not line.startswith('Rx'): continue
@@ -60,8 +63,8 @@ class TreeRings():
             if self.only_dets and det_name not in self.only_dets: continue
             logger.info(det_name)
 
-            Cx = float(items[4])
-            Cy = float(items[5])
+            Cx = float(items[4]) + xCenterPix
+            Cy = float(items[5]) + yCenterPix
             center = galsim.PositionD(Cx, Cy)
 
             # Temporary instance variables used by tree_ring_radial_function
