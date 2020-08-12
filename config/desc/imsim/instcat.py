@@ -2,6 +2,7 @@
 import os
 import gzip
 import numpy as np
+import math
 import astropy
 import astropy.coordinates
 
@@ -221,6 +222,7 @@ class InstCatalog(object):
                 raise OSError("Could not find file %s in either %s or %s"%(
                               name, self.sed_dir, self.inst_dir))
             sed = galsim.SED(full_name, wave_type='nm', flux_type='flambda')
+            sed = sed.withMagnitude(0, self._bp500)  # Normalize to mag 0
             self._sed_cache[name] = sed
 
         # TODO: Handle the dust effects.  internal, then redshift, then galactic.
@@ -347,19 +349,20 @@ class InstCatalog(object):
         else:
             raise RuntimeError("Do not know how to handle object type: %s" % params[0])
 
-        # magnorm is a monochromatic magnitude at 500 nm.
-        # So this step normalizes the SED to have the right magnitude.
-        # Then below we can calculate the flux for the current bandpass.
-        sed = self.getSED(index).withMagnitude(magnorm, self._bp500)
+        # The seds are normalized to correspond to magnorm=0.
+        # The flux for the given magnorm is 10**(-0.4*magnorm)
+        # The constant here, 0.9210340371976184 = 0.4 * log(10)
+        flux = math.exp(-0.9210340371976184 * magnorm)
 
         # This gives the normalization in photons/cm^2/sec.
         # Multiply by area and exptime to get photons.
-        At = self._rubin_area * exp_time
+        fAt = flux * self._rubin_area * exp_time
 
+        sed = self.getSED(index)
         if chromatic:
-            return obj.withFlux(At) * sed
+            return obj.withFlux(fAt) * sed
         else:
-            flux = sed.calculateFlux(bandpass) * At
+            flux = sed.calculateFlux(bandpass) * fAt
             return obj.withFlux(flux)
 
     def getHourAngle(self, mjd, ra):
