@@ -143,13 +143,15 @@ class InstCatalog(object):
                     #logger.debug('world_pos = %s',world_pos)
                     try:
                         image_pos = wcs.toImage(world_pos)
-                    except RuntimeError:
+                    except RuntimeError as e:
                         # Inverse direction can fail for objects off the image.
-                        #logger.debug('failed to determine image_pos')
+                        logger.debug('%s',e)
+                        logger.debug('failed to determine image_pos')
                         continue
                     #logger.debug('image_pos = %s',image_pos)
                     if not (min_x <= image_pos.x <= max_x and min_y <= image_pos.y <= max_y):
                         continue
+                    #logger.debug('on image')
                     # OK, keep this object.  Finish parsing it.
                     id_list.append(tokens[1])
                     nuse += 1

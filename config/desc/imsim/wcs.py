@@ -21,10 +21,13 @@ class DictWCS(WCSBuilder):
         req = { "file_name": str,
                 "key": str
               }
+        opt = { "fix_ab": bool,
+              }
         params, safe = galsim.config.GetAllParams(config, base, req=req)
 
         file_name = params['file_name']
         key = params['key']
+        fix_ab = params.get('fix_ab', True)
         logger.info("Finding WCS for %s",key)
 
         if not self.d or file_name != self.file_name:
@@ -34,6 +37,19 @@ class DictWCS(WCSBuilder):
         logger.debug("Using WCS: %s",self.d[key])
 
         # The dict stores the WCS as its repr.  Eval it to make an actual WCS.
-        return galsim.utilities.math_eval(self.d[key])
+        wcs = galsim.utilities.math_eval(self.d[key])
+
+        # I changed the internal storage of the ab matrices in GalSim, so the reprs I have
+        # in the yaml file are wrong.  This fixes them.
+        # TODO: Fix the yaml file and get rid of this hack.
+        if fix_ab:
+            if wcs.ab is not None:
+                wcs.ab[0,1,0] += 1
+                wcs.ab[1,0,1] += 1
+            if wcs.abp is not None:
+                wcs.abp[0,1,0] += 1
+                wcs.abp[1,0,1] += 1
+
+        return wcs
 
 RegisterWCSType('Dict', DictWCS())
