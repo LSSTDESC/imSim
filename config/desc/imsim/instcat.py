@@ -309,9 +309,10 @@ class InstCatalog(object):
             #      Especially when they were more elliptical.  Oops.
             # TODO: Maybe not?  Check if this should be a.
             obj = galsim.Sersic(n=n, half_light_radius=hlr, gsparams=gsparams)
-            obj = obj.shear(q=b/a, beta=beta)
+            shear = galsim.Shear(q=b/a, beta=beta)
+            obj = obj._shear(shear)
             g1,g2,mu = self.getLens(index)
-            obj = obj.lens(g1, g2, mu)
+            obj = obj._lens(g1, g2, mu)
 
         elif params[0].lower() == 'knots':
             a = float(params[1])
@@ -330,13 +331,14 @@ class InstCatalog(object):
             hlr = (a * b)**0.5
             obj = galsim.RandomKnots(npoints=npoints, half_light_radius=hlr, rng=rng,
                                      gsparams=gsparams)
-            obj = obj.shear(q=b/a, beta=beta)
+            shear = galsim.Shear(q=b/a, beta=beta)
+            obj = obj._shear(shear)
             # TODO: These look bad in space images (cf. Troxel's talks about Roman sims.)
             #       Should convolve this by a smallish Gaussian *here*:
             #       I'd guess 0.3 arcsec is a good choice for the fwhm of this Gaussian.
             # obj = galsim.Convolve(obj, galsim.Gaussian(fwhm=0.3))
             g1,g2,mu = self.getLens(index)
-            obj = obj.lens(g1, g2, mu)
+            obj = obj._lens(g1, g2, mu)
 
         elif (params[0].endswith('.fits') or params[0].endswith('.fits.gz')):
             fits_file = find_file_path(params[0], get_image_dirs())
@@ -346,7 +348,7 @@ class InstCatalog(object):
             if theta != 0.:
                 obj = obj.rotate(-theta * galsim.degrees)
             g1,g2,mu = self.getLens(index)
-            obj = obj.lens(g1, g2, mu)
+            obj = obj._lens(g1, g2, mu)
 
         else:
             raise RuntimeError("Do not know how to handle object type: %s" % params[0])
