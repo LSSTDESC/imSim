@@ -64,7 +64,7 @@ input:
         file_name: ../data/tree_ring_data/tree_ring_parameters_2018-04-26.txt
         # Can limit the detectors to read in.  This is handy while debugging, since it takes
         # a minute or so to read all 189 detectors.
-        only_dets: [R01-S01]
+        only_dets: [R22-S11]
 
     # TODO
     #atm_psf:
@@ -191,7 +191,7 @@ output:
     det_num:
         type: Sequence
         nitems: 189
-        first: 1   # Can set first to something if you want to do a specific sensor.
+        first: 94  # Can set first to something if you want to do a specific sensor.
 
     dir: $image_dir
     file_name:
