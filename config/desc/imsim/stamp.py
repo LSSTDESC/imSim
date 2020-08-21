@@ -390,10 +390,10 @@ class LSST_SiliconBuilder(StampBuilder):
                 image += fft_image[image.bounds]
 
         if method == 'phot':  # Not else, since above might have failed.
-            if 'photon_ops' in config:
+            if not faint and 'photon_ops' in config:
                 photon_ops = galsim.config.BuildPhotonOps(config, 'photon_ops', base, logger)
             else:
-                photon_ops = None
+                photon_ops = []
 
             if faint:
                 sensor = None
