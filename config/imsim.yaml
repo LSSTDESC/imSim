@@ -44,11 +44,6 @@ eval_variables:
 # updated for each output file.
 # Also includes things that need some set up at the start of an exposure, like the atmospheric PSF.
 input:
-    instance_catalog:
-        # This enables InstCat types
-        file_name: $cat_name
-        sed_dir: $sed_dir
-
     opsim_meta_dict:
         # This enables OpsimMeta types
         # Note: These could have been just a single input object, since they both read in the same
@@ -56,6 +51,44 @@ input:
         # file scope.  In particular to define the WCS, which is needed by the InstCat items.
         # So this one is registered as being allowed at file scope, but instance_catalog is not.
         file_name: $cat_name
+
+    instance_catalog:
+        # This enables InstCat types
+        file_name: $cat_name
+        sed_dir: $sed_dir
+
+    atm_psf:
+        # This enables the AtmosphericPSF type for the PSF
+
+        # The first 4 items are required.
+        airmass: { type: OpsimMeta, field: airmass }
+        rawSeeing:  { type: OpsimMeta, field: seeing }
+        band:  { type: OpsimMeta, field: band }
+        boresight:
+            type: RADec
+            ra:
+                type: Degrees
+                theta: { type: OpsimMeta, field: rightascension }
+            dec:
+                type: Degrees
+                theta: { type: OpsimMeta, field: declination }
+
+        # Optional parameters:  (These are all the defaults)
+        t0: 0               # seconds
+        exptime: 30         # seconds
+        kcrit: 0.2          # in units of 1/r0
+        #screen_size: 819.2  # meters
+        screen_size: 409.6
+        screen_scale: 0.1   # meters
+        doOpt: True
+        #nproc: None         # Default means one proc per screen.
+        nproc: 1
+
+        # TODO:
+        #save_file: $psf_file  # This is currently set of the imsim command line, so we could keep
+                              # doing that, but we could also base this name off of
+                              # input.instance_catalog.file_name, or even just have `save: True`
+                              # and let the atm_psf figure out a unique name from the input params.
 
     tree_rings:
         # This enables TreeRingCenter and TreeRungFunc, which are stored as a dict here based
@@ -66,16 +99,6 @@ input:
         # a minute or so to read all 189 detectors.
         only_dets: [R22-S11]
 
-    # TODO
-    #atm_psf:
-        # This enables the Atmospheric type for the PSF
-        #airmass: { type: OpsimMeta, field: airmass }
-        #rawSeeing:  { type: OpsimMeta, field: airmass }
-        #band:  { type: OpsimMeta, field: airmass }
-        #save_file: $psf_file  # This is currently set of the imsim command line, so we could keep
-                              # doing that, but we could also base this name off of
-                              # input.instance_catalog.file_name, or even just have `save: True`
-                              # and let the atm_psf figure out a unique name from the input params.
 
 # Define how the objects are placed on the image.  This refers to a single CCD.
 image:
@@ -120,13 +143,23 @@ image:
 
 # Define the PSF to use in the normal case (LSST_Silicon will override if doing a saturated star)
 psf:
-    # TODO
-    #type: Atmospheric
-    #x: $image_pos.x
-    #y: $image_pos.y
-    type: Moffat   # Placeholder
-    beta: 3.5
-    fwhm: 0.7
+    type: Convolve
+    items:
+        -
+            # Note: This type requires the "input" type atm_psf.
+            #       It's not really an input in the normal sense, since it doesn't read
+            #       in a file.  But it needs to do some setup at the start, which all
+            #       objects will use.  So functionally, this works like an input type.
+            #       All of the relevant configurable parameters are set there.
+            type: AtmosphericPSF
+        -
+            # An additional Gaussian profile to represent contributions of physical effects
+            # not otherwise explicitly modeled in either the Optical or Atmospheric parts.
+            # This value of 0.3 arcsec is appropriate when doOpt=True and sensor effects are
+            # being modeled. If this is not the case, then it may be appropriate to increase
+            # this value to account for the missing contribution of these effects.
+            type: Gaussian
+            fwhm: 0.3
 
 # Define the galaxy (or delta function) to use
 gal:
@@ -172,7 +205,7 @@ stamp:
                 # TODO: Figure out the depth to use for other bands.  Josh found -0.6 for y.
                 # These numbers are in units of pixels.
                 ddepth_dict: {'u':0, 'g':0, 'r':0, 'i':0, 'z':0, 'y':-0.6}
-                sband: { type: OpsimMeta, field: bandpass }
+                sband: { type: OpsimMeta, field: band }
         -
             type: Refraction
             index_ratio: 3.9  # TODO: This is what Josh used for y band.
@@ -199,7 +232,7 @@ output:
         format : raw_%08d-%s-%s-det%03d.fits
         items:
             - { type: OpsimMeta, field: obshistid }
-            - { type: OpsimMeta, field: bandpass }
+            - { type: OpsimMeta, field: band }
             - "$det_name"   # A value stored in the dict by LSST_CCD
             - "@output.det_num"
 
@@ -229,7 +262,7 @@ output:
             format : centroid_%08d-%s-%s-det%03d.txt.gz
             items:
                 - { type: OpsimMeta, field: obshistid }
-                - { type: OpsimMeta, field: bandpass }
+                - { type: OpsimMeta, field: band }
                 - "$det_name"
                 - "@output.det_num"
         columns:

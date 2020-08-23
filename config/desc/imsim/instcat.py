@@ -433,10 +433,32 @@ class OpsimMetaDict(object):
         logger.warning("Done reading meta information from instance catalog")
 
         # Add a couple derived quantities to meta values
-        self.meta['bandpass'] = 'ugrizy'[self.meta['filter']]
+        # Note a semantic distinction we make here:
+        # "filter" is the number 0,1,2,3,4,5 from the input instance catalog.
+        # "band" is the character u,g,r,i,z,y.
+        # "bandpass" will be the real constructed galsim.Bandpass object.
+        self.meta['band'] = 'ugrizy'[self.meta['filter']]
         self.meta['HA'] = self.getHourAngle(self.meta['mjd'], self.meta['rightascension'])
-        logger.debug("Bandpass = %s",self.meta['bandpass'])
+        self.meta['airmass'] = self.getAirmass(self.meta['altitude'])
+        logger.debug("Bandpass = %s",self.meta['band'])
         logger.debug("HA = %s",self.meta['HA'])
+
+    def getAirmass(self, altitude):
+        """
+        Function to compute the airmass from altitude using equation 3
+        of Krisciunas and Schaefer 1991.
+
+        Parameters
+        ----------
+        altitude: float
+            Altitude of pointing direction in degrees.
+
+        Returns
+        -------
+        float: the airmass in units of sea-level airmass at the zenith.
+        """
+        altRad = np.radians(altitude)
+        return 1.0/np.sqrt(1.0 - 0.96*(np.sin(0.5*np.pi - altRad))**2)
 
     def get(self, field):
         if field not in self.meta:
@@ -569,8 +591,8 @@ class OpsimMetaBandpass(galsim.config.BandpassBuilder):
         # Note: Jim used the lsst.sims versions of these.  Here we just use the ones in the 
         #       GalSim share directory.  Not sure whether those are current, but probably
         #       good enough for now.
-        bp = meta.get('bandpass')
-        bandpass = galsim.Bandpass('LSST_%s.dat'%bp, wave_type='nm')
+        band = meta.get('band')
+        bandpass = galsim.Bandpass('LSST_%s.dat'%band, wave_type='nm')
         bandpass = bandpass.withZeropoint('AB')
         logger.debug('bandpass = %s',bandpass)
         return bandpass, False

@@ -261,6 +261,87 @@ class LSST_SiliconBuilder(StampBuilder):
         sys = galsim.Gaussian(fwhm=FWHMsys, gsparams=gsparams)
         return galsim.Convolve((atm, sys))
 
+    def buildPSF(self, config, base, gsparams, logger):
+        """Build the PSF object.
+
+        For the Basic stamp type, this builds a PSF from the base['psf'] dict, if present,
+        else returns None.
+
+        Parameters:
+            config:     The configuration dict for the stamp field.
+            base:       The base configuration dict.
+            gsparams:   A dict of kwargs to use for a GSParams.  More may be added to this
+                        list by the galaxy object.
+            logger:     A logger object to log progress.
+
+        Returns:
+            the PSF
+        """
+        psf = galsim.config.BuildGSObject(base, 'psf', gsparams=gsparams, logger=logger)[0]
+
+        # For very bright things, we might want to change this for FFT drawing.
+        if 'fft_sb_thresh' in config:
+            fft_sb_thresh = galsim.config.ParseValue(config,'fft_sb_thresh',base,float)[0]
+        else:
+            fft_sb_thresh = 0.
+        if self.realized_flux < 1.e6 or not fft_sb_thresh or self.realized_flux < fft_sb_thresh:
+            self.use_fft = False
+            return psf
+
+        # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
+        psf = galsim.config.BuildGSObject(base, 'psf', logger=logger)[0]
+        fft_psf = self.make_fft_psf(psf, logger)
+
+        # Now this object should have a much better estimate of the real maximum surface brightness
+        # than the original psf did.
+        # However, the max_sb feature gives an over-estimate, whereas to be conservative, we would
+        # rather an under-estimate.  For this kind of profile, dividing by 2 does a good job
+        # of giving us an underestimate of the max surface brightness.
+        # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
+        # to get photons/pixel, which we compare to fft_sb_thresh.
+        if fft_psf.max_sb/2. * self._pixel_scale**2 > fft_sb_thresh:
+            self.use_fft = True
+            logger.info('use fft')
+            return fft_psf
+        else:
+            self.use_fft = False
+            logger.info('use phot')
+            return psf
+
+    def make_fft_psf(self, psf, logger):
+        """Swap out any PhaseScreenPSF component with a roughly equivalent analytic approximation.
+        """
+        if isinstance(psf, galsim.Transformation):
+            return galsim.Transformation(self.make_fft_psf(psf.original, logger),
+                                         psf.jac, psf.offset, psf.flux_ratio, psf.gsparams)
+        elif isinstance(psf, galsim.Convolution):
+            obj_list = [self.make_fft_psf(p, logger) for p in psf.obj_list]
+            return galsim.Convolution(obj_list, gsparams=psf.gsparams)
+        elif isinstance(psf, galsim.PhaseScreenPSF):
+            # If psf is a PhaseScreenPSF, then make a simpler one the just convolves
+            # a Kolmogorov profile with an OpticalPSF.
+            r0_500 = psf.screen_list.r0_500_effective
+            atm_psf = galsim.Kolmogorov(lam=psf.lam, r0_500=r0_500,
+                                        gsparams=psf.gsparams)
+
+            opt_screens = [s for s in psf.screen_list if isinstance(s, galsim.OpticalScreen)]
+            logger.info('opt_screens = %r',opt_screens)
+            if len(opt_screens) >= 1:
+                # Should never be more than 1, but if there weirdly is, just use the first.
+                opt_screen = opt_screens[0]
+                optical_psf = galsim.OpticalPSF(
+                        lam=psf.lam,
+                        diam=opt_screen.diam,
+                        aberrations=opt_screen.aberrations,
+                        annular_zernike=opt_screen.annular_zernike,
+                        obscuration=opt_screen.obscuration,
+                        gsparams=psf.gsparams)
+                return galsim.Convolve([atm_psf, optical_psf], gsparams=psf.gsparams)
+            else:
+                return atm_psf
+        else:
+            return psf
+
     def getDrawMethod(self, config, base, logger):
         """Determine the draw method to use.
 
@@ -274,58 +355,11 @@ class LSST_SiliconBuilder(StampBuilder):
         if method not in galsim.config.valid_draw_methods:
             raise galsim.GalSimConfigValueError("Invalid draw_method.", method,
                                                 galsim.config.valid_draw_methods)
-        if 'fft_sb_thresh' in config:
-            fft_sb_thresh = galsim.config.ParseValue(config,'fft_sb_thresh',base,float)[0]
-        else:
-            fft_sb_thresh = 0.
-        if self.realized_flux < 1.e6 or not fft_sb_thresh or self.realized_flux < fft_sb_thresh:
-            self.fft_obj = None
-            return 'phot'
-
-        # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
-        psf = galsim.config.BuildGSObject(base, 'psf', logger=logger)[0]
-        try:
-            screen_list = psf.screen_list
-        except AttributeError:
-            # If it's not a galsim.PhaseScreenPSF, just use whatever it is.
-            fft_psf = [psf]
-        else:
-            # If psf is a PhaseScreenPSF, then make a simpler one the just convolves
-            # a Kolmogorov profile with an OpticalPSF.
-            opt_screens = [s for s in psf.screen_list if isinstance(s, galsim.OpticalScreen)]
-            if len(opt_screens) >= 1:
-                # Should never be more than 1, but if there weirdly is, just use the first.
-                opt_screen = opt_screens[0]
-                optical_psf = galsim.OpticalPSF(
-                        lam=psf.lam,
-                        diam=opt_screen.diam,
-                        aberrations=opt_screen.aberrations,
-                        annular_zernike=opt_screen.annular_zernike,
-                        obscuration=opt_screen.obscuration,
-                        gsparams=psf.gsparams)
-                fft_psf = [optical_psf]
-            else:
-                fft_psf = []
-            r0_500 = screen_list.r0_500_effective
-            atm_psf = galsim.Kolmogorov(lam=geom_psf.lam, r0_500=r0_500,
-                                        gsparams=geom_psf.gsparams)
-            fft_psf.append(atm_psf)
-
-        fft_obj = galsim.Convolve([self.gal] + fft_psf).withFlux(self.gal.flux)
-
-        # Now this object should have a much better estimate of the real maximum surface brightness
-        # than the original geom_psf did.
-        # However, the max_sb feature gives an over-estimate, whereas to be conservative, we would
-        # rather an under-estimate.  For this kind of profile, dividing by 2 does a good job
-        # of giving us an underestimate of the max surface brightness.
-        # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
-        # to get photons/pixel, which we compare to fft_sb_thresh.
-        if fft_obj.max_sb/2. * self._pixel_scale**2 > fft_sb_thresh:
-            self.fft_obj = fft_obj
+        if method == 'phot' and self.use_fft:
+            logger.warning('Switch to FFT drawing for object %d.',base['obj_num'])
             return 'fft'
         else:
-            self.fft_obj = None
-            return 'phot'
+            return method
 
     def draw(self, prof, image, method, offset, config, base, logger):
         """Draw the profile on the postage stamp image.
@@ -376,10 +410,10 @@ class LSST_SiliconBuilder(StampBuilder):
                 fft_offset = offset
 
             try:
-                self.fft_obj.drawImage(method='fft',
-                                       offset=fft_offset,
-                                       image=fft_image,
-                                       gain=gain)
+                prof.drawImage(method='fft',
+                               offset=fft_offset,
+                               image=fft_image,
+                               gain=gain)
             except galsim.errors.GalSimFFTSizeError:
                 method = 'phot'
             else:
