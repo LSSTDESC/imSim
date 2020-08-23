@@ -291,6 +291,8 @@ class LSST_SiliconBuilder(StampBuilder):
         # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
         psf = galsim.config.BuildGSObject(base, 'psf', logger=logger)[0]
         fft_psf = self.make_fft_psf(psf, logger)
+        logger.warning('Object %d has flux = %s.  Check if we should switch to FFT',
+                       base['obj_num'], self.realized_flux)
 
         # Now this object should have a much better estimate of the real maximum surface brightness
         # than the original psf did.
@@ -299,13 +301,18 @@ class LSST_SiliconBuilder(StampBuilder):
         # of giving us an underestimate of the max surface brightness.
         # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
         # to get photons/pixel, which we compare to fft_sb_thresh.
-        if fft_psf.max_sb/2. * self._pixel_scale**2 > fft_sb_thresh:
+        fft_obj = galsim.Convolve(self.gal, fft_psf)
+        max_sb = fft_obj.max_sb/2. * self._pixel_scale**2
+        logger.debug('max_sb = %s. cf. %s',max_sb,fft_sb_thresh)
+        if max_sb > fft_sb_thresh:
             self.use_fft = True
-            logger.info('use fft')
+            logger.warning('Yes. Use FFT for this object.  max_sb = %.0f > %.0f',
+                           max_sb, fft_sb_thresh)
             return fft_psf
         else:
             self.use_fft = False
-            logger.info('use phot')
+            logger.warning('No. Use photon shooting.  max_sb = %.0f <= %.0f',
+                           max_sb, fft_sb_thresh)
             return psf
 
     def make_fft_psf(self, psf, logger):
@@ -355,10 +362,17 @@ class LSST_SiliconBuilder(StampBuilder):
         if method not in galsim.config.valid_draw_methods:
             raise galsim.GalSimConfigValueError("Invalid draw_method.", method,
                                                 galsim.config.valid_draw_methods)
-        if method == 'phot' and self.use_fft:
-            logger.warning('Switch to FFT drawing for object %d.',base['obj_num'])
-            return 'fft'
+        if method  == 'auto':
+            if  self.use_fft:
+                logger.info('Auto -> Use FFT drawing for object %d.',base['obj_num'])
+                return 'fft'
+            else:
+                logger.info('Auto -> Use photon shooting for object %d.',base['obj_num'])
+                return 'phot'
         else:
+            # If user sets something specific for the method, rather than auto,
+            # then respect their wishes.
+            logger.info('Use specified method=%s for object %d.',method,base['obj_num'])
             return method
 
     def draw(self, prof, image, method, offset, config, base, logger):
@@ -383,6 +397,8 @@ class LSST_SiliconBuilder(StampBuilder):
 
         max_flux_simple = config.get('max_flux_simple', 100)
         faint = self.realized_flux < max_flux_simple
+
+        prof = prof.withFlux(self.realized_flux)
 
         # This seems to be hard-coded to 1 in the imsim code.
         # XXX: Make this a parameter?  Or ok to leave like this?
@@ -440,6 +456,7 @@ class LSST_SiliconBuilder(StampBuilder):
                            offset=offset,
                            rng=self.rng,
                            maxN=int(1e6),
+                           n_photons=self.realized_flux,
                            image=image,
                            sensor=sensor,
                            photon_ops=photon_ops,

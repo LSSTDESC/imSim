@@ -120,16 +120,19 @@ class AtmosphericPSF(object):
         r0 = r0_500 * (self.wlen_eff/500.0)**(6./5)
         kmax = kcrit / r0
         if logger:
-            logger.info("Building atmosphere")
+            logger.warning("Building atmosphere")
 
         if nproc is None:
             nproc = len(self.atm)
-        if logger:
-            logger.info(f"Using {nproc} processes to build the phase screens")
 
-        with ctx.Pool(nproc, initializer=galsim.phase_screens.initWorker,
-                      initargs=galsim.phase_screens.initWorkerArgs()) as pool:
-            self.atm.instantiate(pool=pool, kmax=kmax, check='phot')
+        if nproc == 1:
+            self.atm.instantiate(kmax=kmax, check='phot')
+        else:
+            if logger:
+                logger.warning(f"Using {nproc} processes to build the phase screens")
+            with ctx.Pool(nproc, initializer=galsim.phase_screens.initWorker,
+                          initargs=galsim.phase_screens.initWorkerArgs()) as pool:
+                self.atm.instantiate(pool=pool, kmax=kmax, check='phot')
 
         if logger:
             logger.info("Finished building atmosphere")
