@@ -246,14 +246,23 @@ output:
         ccd_rate: 0.2    # CTIO rate extracted from DECam darks.
         catalog: default
 
-    # TODO
+    # TODO: There is only a skeleton implementation of this so far.
     readout:
-        # Convert from e-image to realized image from readout chain.
+        # Convert from e-image to realized amp images
         readout_time: 3.
         dark_current: 0.02
         bias_level: 1000.
         pcti: 1.e-6
         scti: 1.e-6
+
+        file_name:
+            type: FormattedStr
+            format : amp_%08d-%s-%s-det%03d.fits.fz
+            items:
+                - { type: OpsimMeta, field: obshistid }
+                - { type: OpsimMeta, field: band }
+                - "$det_name"
+                - "@output.det_num"
 
     truth:
         dir: output
