@@ -67,6 +67,8 @@ def cte_matrix(npix, cti, ntransfers=20, nexact=30):
 
 
 class CcdReadout:
+    """Class to apply electronics readout effects to e-images using camera
+    parameters from the lsst.obs.lsst package."""
     def __init__(self, config, base, rng=None):
         self.rng = rng
         if self.rng is None:
@@ -85,6 +87,7 @@ class CcdReadout:
                             else cte_matrix(amp.raw_bounds.ymax, pcti))
 
     def apply_cte(self, amp_images):
+        """Apply CTI to a list of amp images."""
         for full_segment in amp_images:
             full_arr = full_segment.array
             if self.pcte_matrix is not None:
@@ -95,11 +98,12 @@ class CcdReadout:
                     full_arr[row, :] = self.scte_matrix @ full_arr[row, :]
         return amp_images
 
-    def apply_crosstalk(self, amp_arrays, xtalk_coeffs):
-        if xtalk_coeffs is None:
+    def apply_crosstalk(self, amp_arrays):
+        """Apply intra-CCD crosstalk to an array of amp data."""
+        if self.ccd.xtalk is None:
             return amp_arrays
         output = []
-        for amp_index, xtalk_row in enumerate(xtalk_coeffs):
+        for amp_index, xtalk_row in enumerate(self.ccd.xtalk):
             output.append(amp_arrays[amp_index] +
                           sum([x*y for x, y in zip(amp_arrays, xtalk_row)]))
         return output
@@ -127,15 +131,21 @@ class CcdReadout:
             if amp.raw_flip_y:
                 amp_data = amp_data[::-1, :]
             amp_arrays.append(amp_data)
-        amp_arrays = self.apply_crosstalk(amp_arrays, self.ccd.xtalk)
 
+        # Add intra-CCD crosstalk.
+        amp_arrays = self.apply_crosstalk(amp_arrays)
+
+        # Construct full segments with prescan and overscan pixels.
         amp_images = []
         for amp_data, amp in zip(amp_arrays, self.ccd.values()):
             full_segment = galsim.Image(amp.raw_bounds)
             full_segment[amp.raw_data_bounds].array[:] += amp_data
             amp_images.append(full_segment)
+
+        # Apply CTI.
         amp_images = self.apply_cte(amp_images)
 
+        # Add bias levels and read noise.
         for full_segment in amp_images:
             full_segment += config['bias_level']
             read_noise = galsim.CCDNoise(self.rng, gain=amp.gain,
@@ -143,9 +153,9 @@ class CcdReadout:
             full_segment.addNoise(read_noise)
         return amp_images
 
+
 class CameraReadout(ExtraOutputBuilder):
-    """This is a GalSim "extra output" builder to write out the amplifier
-    file simulating
+    """This is a GalSim "extra output" builder to write out the amplifier file simulating
     the camera readout of the main "e-image".
     """
 
