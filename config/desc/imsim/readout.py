@@ -1,3 +1,4 @@
+import os
 import copy
 import numpy as np
 import scipy
@@ -64,6 +65,46 @@ def cte_matrix(npix, cti, ntransfers=20, nexact=30):
             my_matrix[i-1, :][index] \
                 = (j*cti)**(i-j)*np.exp(-j*cti)/scipy.special.factorial(i-j)
     return my_matrix
+
+
+def get_primary_hdu(config, base, main_data, lsst_num='LCA-11021_RTM-000',
+                    image_type='SKYEXP'):
+    """Create a primary HDU for the output raw file with the keywords
+    needed to process with the LSST Stack."""
+    opsim_md = galsim.config.GetInputObj('opsim_meta_dict', config, base,
+                                         'OpsimMeta')
+    md = opsim_md.meta
+    phdu = fits.PrimaryHDU()
+    phdu.header['RUNNUM'] = md.get('obshistid')
+    phdu.header['OBSID'] = md.get('obshistid')
+    exp_time = base['exp_time']
+    phdu.header['EXPTIME'] = exp_time
+    phdu.header['DARKTIME'] = exp_time
+    phdu.header['FILTER'] = 'ugrizy'[md.get('filter')]
+    phdu.header['TIMESYS'] = 'TAI'
+    phdu.header['LSST_NUM'] = lsst_num
+    phdu.header['TESTTYPE'] = 'IMSIM'
+    phdu.header['IMGTYPE'] = image_type
+    phdu.header['OBSTYPE'] = image_type
+    phdu.header['MONOWL'] = -1
+    raft, sensor = base['det_name'].split('-')
+    phdu.header['RAFTNAME'] = raft
+    phdu.header['SENSNAME'] = sensor
+    ratel = md.get('rightascension')
+    phdu.header['RATEL'] = ratel
+    phdu.header['DECTEL'] = md.get('declination')
+    phdu.header['ROTANGLE'] = md.get('rotskypos')
+    mjd_obs = md.get('mjd')
+    mjd_end = mjd_obs + base['exp_time']/86400.
+    phdu.header['MJD-OBS'] = mjd_obs
+    phdu.header['HASTART'] = opsim_md.getHourAngle(mjd_obs, ratel)
+    phdu.header['HAEND'] = opsim_md.getHourAngle(mjd_end, ratel)
+    phdu.header['AMSTART'] = md.get('airmass')
+    # write hardwired version keywords for now.
+    phdu.header['IMSIMVER'] = 'unknown'
+    phdu.header['PKG00000'] = 'throughputs'
+    phdu.header['VER00000'] = '1.4'
+    return phdu
 
 
 class CcdReadout:
@@ -187,14 +228,15 @@ class CameraReadout(ExtraOutputBuilder):
         y_seg_offset = (0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2)
         wcs = main_data[0].wcs
         crpix1, crpix2 = wcs.crpix
-        hdus = []
+        hdus = fits.HDUList(get_primary_hdu(config, base, main_data))
         for amp_num, amp in enumerate(amps):
             channel = 'C' + channels[amp_num]
             amp_info = ccd_readout.ccd[channel]
             raw_data_bounds = amp_info.raw_data_bounds
-            hdu = fits.CompImageHDU(amp.array, compression_type='RICE_1')
+            hdu = fits.CompImageHDU(np.array(amp.array, dtype=np.int32),
+                                    compression_type='RICE_1')
             wcs.writeToFitsHeader(hdu.header, main_data[0].bounds)
-            hdu.header['EXTNAME'] = 'SEGMENT' + channels[amp_num]
+            hdu.header['EXTNAME'] = 'Segment' + channels[amp_num]
             xsign = -1 if amp_info.raw_flip_x else 1
             ysign = -1 if amp_info.raw_flip_y else 1
             height, width = raw_data_bounds.numpyShape()
@@ -231,7 +273,8 @@ class CameraReadout(ExtraOutputBuilder):
         logger.warning("Writing amplifier images to %s",file_name)
         # self.final_data is the output of finalize, which is our list
         # of amp images.
-        galsim.fits.writeMulti(self.final_data, file_name)
+        self.final_data[0].header['OUTFILE'] = os.path.basename(file_name)
+        self.final_data.writeto(file_name, overwrite=True)
 
 
 RegisterExtraOutput('readout', CameraReadout())
