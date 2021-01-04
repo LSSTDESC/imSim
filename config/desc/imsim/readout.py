@@ -101,7 +101,20 @@ class CcdReadout:
         return output
 
     def build_images(self, config, base, main_data):
-        eimage = main_data[0]
+        """Build the amplifier images applying readout effects and
+        repackaging the pixel ordering in readout order."""
+        eimage = copy.deepcopy(main_data[0])
+
+        # Add dark current.
+        exp_time = base['exp_time']
+        dark_current = config['dark_current']
+        rng = galsim.PoissonDeviate(seed=self.rng, mean=dark_current*exp_time)
+        dc_data = np.zeros(np.prod(eimage.array.shape))
+        rng.generate(dc_data)
+        eimage += dc_data.reshape(eimage.array.shape)
+
+        # Partition eimage into amp-level imaging segments, convert to ADUs,
+        # and apply the readout flips.
         amp_arrays = []
         for amp in self.ccd.values():
             amp_data = eimage[amp.bounds].array/amp.gain
