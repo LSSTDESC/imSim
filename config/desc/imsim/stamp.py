@@ -74,7 +74,11 @@ class LSST_SiliconBuilder(StampBuilder):
                 folding_threshold = np.exp(np.floor(np.log(folding_threshold)))
                 gsparams = galsim.GSParams(folding_threshold=folding_threshold)
 
-            psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams)
+            md = galsim.config.GetInputObj('opsim_meta_dict', config, base, 'OpsimMeta').meta
+            psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams,
+                                                   airmass=md['airmass'],
+                                                   rawSeeing=md['seeing'],
+                                                   band='ugrizy'[md['filter']])
             image_size = psf.getGoodImageSize(self._pixel_scale)
 
         else:
