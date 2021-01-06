@@ -165,7 +165,4 @@ def make_camera_from_lsst(lsst_camera):
     return my_camera
 
 
-try:
-    RegisterInputType('camera_geometry', InputLoader(Camera, takes_logger=True))
-except TypeError:
-    pass
+RegisterInputType('camera_geometry', InputLoader(Camera, takes_logger=True))
