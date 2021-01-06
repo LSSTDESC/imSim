@@ -189,7 +189,10 @@ class CcdReadout:
         # Add bias levels and read noise.
         for full_segment in amp_images:
             full_segment += config['bias_level']
-            read_noise = galsim.CCDNoise(self.rng, gain=amp.gain,
+            # Setting gain=0 turns off the addition of Poisson noise,
+            # which is already in the e-image, so that only the read
+            # noise is added.
+            read_noise = galsim.CCDNoise(self.rng, gain=0,
                                          read_noise=amp.read_noise)
             full_segment.addNoise(read_noise)
         return amp_images
