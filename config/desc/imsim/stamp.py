@@ -72,10 +72,14 @@ class LSST_SiliconBuilder(StampBuilder):
                 # which takes about a second.  So round down to the nearest e folding to
                 # minimize how many of these we need to do.
                 folding_threshold = np.exp(np.floor(np.log(folding_threshold)))
+                logger.debug('Using folding_threshold %s',folding_threshold)
+                logger.debug('From: noise_var = %s, flux = %s',noise_var,self.realized_flux)
                 gsparams = galsim.GSParams(folding_threshold=folding_threshold)
 
             psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams)
             image_size = psf.getGoodImageSize(self._pixel_scale)
+            # No point in this being larger than a CCD.  Cut back to Nmax if larger than this.
+            image_size = min(image_size, self._Nmax)
 
         else:
             # For extended objects, recreate the object to draw, but
@@ -104,7 +108,9 @@ class LSST_SiliconBuilder(StampBuilder):
             if image_size > self._Nmax:
                 image_size = self._getGoodPhotImageSize([gal, psf], self._large_object_sb_level,
                                                         pixel_scale=self._pixel_scale)
-                image_size = max(image_size, self._Nmax)
+                image_size = min(image_size, self._Nmax)
+
+        logger.info('Object %d will use stamp size = %s',base.get('obj_num',0),image_size)
 
         # Also the position
         world_pos = galsim.config.ParseWorldPos(config, 'world_pos', base, logger)
@@ -411,6 +417,8 @@ class LSST_SiliconBuilder(StampBuilder):
             sed = galsim.config.BuildSED(config, 'sed', base, logger=logger)[0]
         base['current_sed'] = sed
 
+        wcs = base['wcs']
+
         if method == 'fft':
             # When drawing with FFTs, large offsets can be a problem, since they
             # can blow up the required FFT size.  We'll guard for that below with
@@ -418,7 +426,7 @@ class LSST_SiliconBuilder(StampBuilder):
             # the offset is close to 0,0.
             if abs(offset.x) > 2 or abs(offset.y) > 2:
                 # Make a larger image that has the object near the center.
-                fft_image = galsim.Image(full_bounds, dtype=image.dtype, wcs=image.wcs)
+                fft_image = galsim.Image(full_bounds, dtype=image.dtype)
                 fft_image[image.bounds] = image
                 fft_offset = image_pos - full_bounds.true_center
             else:
@@ -429,9 +437,23 @@ class LSST_SiliconBuilder(StampBuilder):
                 prof.drawImage(method='fft',
                                offset=fft_offset,
                                image=fft_image,
+                               wcs=wcs,
                                gain=gain)
-            except galsim.errors.GalSimFFTSizeError:
-                method = 'phot'
+            except galsim.errors.GalSimFFTSizeError as e:
+                # I think this shouldn't happen with the updates I made to how the image size
+                # is calculated, even for extremely bright things.  So it should be ok to
+                # just report what happened, give some extra information to diagonose the problem
+                # and raise the error.
+                logger.error('Caught error trying to draw using FFT:')
+                logger.error('%s',e)
+                logger.error('You may need to add a gsparams field with maximum_fft_size to')
+                logger.error('either the psf or gal field to allow larger FFTs.')
+                logger.info('prof = %r',prof)
+                logger.info('fft_image = %s',fft_image)
+                logger.info('offset = %r',offset)
+                logger.info('wcs = %r',wcs)
+                logger.info('gain = %r',gain)
+                raise
             else:
                 # Some pixels can end up negative from FFT numerics.  Just set them to 0.
                 fft_image.array[fft_image.array < 0] = 0.
@@ -439,7 +461,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 # In case we had to make a bigger image, just copy the part we need.
                 image += fft_image[image.bounds]
 
-        if method == 'phot':  # Not else, since above might have failed.
+        else:
             if not faint and 'photon_ops' in config:
                 photon_ops = galsim.config.BuildPhotonOps(config, 'photon_ops', base, logger)
             else:
@@ -458,6 +480,7 @@ class LSST_SiliconBuilder(StampBuilder):
                            maxN=int(1e6),
                            n_photons=self.realized_flux,
                            image=image,
+                           wcs=wcs,
                            sensor=sensor,
                            photon_ops=photon_ops,
                            add_to_image=True,
