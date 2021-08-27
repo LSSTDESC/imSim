@@ -5,7 +5,10 @@ import os
 import sys
 import warnings
 from collections import namedtuple, defaultdict
-import pickle
+try:
+    import cPickle as pickle
+except:
+    import pickle
 import logging
 import traceback
 import gc
@@ -883,7 +886,8 @@ def save_psf(psf, outfile):
     if hasattr(psf, 'logger'):
         psf.logger = None
     with open(outfile, 'wb') as output:
-        pickle.dump(psf, output)
+        with galsim.utilities.pickle_shared():
+            pickle.dump(psf, output)
 
 def load_psf(psf_file, log_level='INFO'):
     """
