@@ -48,16 +48,15 @@ shared_data = all_files_from('data')
 
 # Read in the version from imsim/_version.py
 # cf. http://stackoverflow.com/questions/458550/standard-way-to-embed-version-into-python-package
-#version_file=os.path.join('imsim','_version.py')
-#verstrline = open(version_file, "rt").read()
-#VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
-#mo = re.search(VSRE, verstrline, re.M)
-#if mo:
-#    imsim_version = mo.group(1)
-#else:
-#    raise RuntimeError("Unable to find version string in %s." % (version_file,))
-#print('ImSim version is %s'%(imsim_version))
-imsim_version = 2.0
+version_file=os.path.join('imsim','_version.py')
+verstrline = open(version_file, "rt").read()
+VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
+mo = re.search(VSRE, verstrline, re.M)
+if mo:
+    imsim_version = mo.group(1)
+else:
+    raise RuntimeError("Unable to find version string in %s." % (version_file,))
+print('ImSim version is %s'%(imsim_version))
 
 dist = setup(name="ImSim",
     version=imsim_version,
