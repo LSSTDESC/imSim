@@ -1,12 +1,17 @@
+
+# These need conda (via stackvana).  Not pip-installable
 import lsst.afw.cameraGeom as cameraGeom
 from lsst.obs.lsst import LsstCamMapper
 
+# This is not on conda yet, but is pip installable.
+# We'll need to get Matt to add this to conda-forge probably.
+import batoid
+
 import numpy as np
-import erfa
 from astropy.time import Time
+import erfa  # Installed as part of astropy.
 
 import galsim
-import batoid
 
 
 # There are 5 coordinate systems to handle.  In order:
