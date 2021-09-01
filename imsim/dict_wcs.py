@@ -23,7 +23,7 @@ class DictWCS(WCSBuilder):
               }
         opt = { "fix_ab": bool,
               }
-        params, safe = galsim.config.GetAllParams(config, base, req=req)
+        params, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
 
         file_name = params['file_name']
         key = params['key']
