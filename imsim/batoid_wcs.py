@@ -491,7 +491,7 @@ class BatoidWCSBuilder(WCSBuilder):
                 "boresight": galsim.CelestialCoord,
                 "rotTelPos": galsim.Angle,
                 "obstime": None,  # Either str or astropy.time.Time instance
-                "det": str,
+                "det_name": str,
                 "band": str,  # Note: If we allow telescope != 'LSST', then this needs to
                               # become optional, since other telescopes don't use it.
               }
@@ -511,7 +511,7 @@ class BatoidWCSBuilder(WCSBuilder):
             base['bandpass'] = bp
 
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
-        logger.info("Building Batoid WCS for %s", kwargs['det'])
+        logger.info("Building Batoid WCS for %s", kwargs['det_name'])
 
         # If a string, convert it to astropy.time.Time.
         # XXX: Does this make sense?
@@ -561,14 +561,10 @@ class BatoidWCSBuilder(WCSBuilder):
             kwargs['H2O_pressure'] = 1.0 # kPa
 
         # Finally, build the WCS.
-        det = kwargs.pop('det')
+        det_name = kwargs.pop('det_name')
         order = kwargs.pop('order', 3)
         factory = BatoidWCSFactory(**kwargs)
-        print('det = ',det)
-        print('camera = ',camera)
-        # XXX: Change canonical det name to use _ rather than -?
-        det = det.replace('-','_')
-        wcs = factory.getWCS(camera[det], order=order)
+        wcs = factory.getWCS(camera[det_name], order=order)
 
         return wcs
 

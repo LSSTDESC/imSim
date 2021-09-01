@@ -39,7 +39,7 @@ class LSST_CCDBuilder(OutputBuilder):
         sensor = detnum % 9  # 0..8
         raft = self.rafts[raft]
         sensor = self.sensors[sensor]
-        det_name = raft + '-' + sensor
+        det_name = raft + '_' + sensor
         base['det_name'] = det_name
         if 'eval_variables' not in base:
             base['eval_variables'] = {}
@@ -91,7 +91,6 @@ class LSST_CCDBuilder(OutputBuilder):
 
         image = galsim.config.BuildImage(base, image_num, obj_num, logger=logger)
         return [ image ]
-
 
 RegisterOutputType('LSST_CCD', LSST_CCDBuilder())
 

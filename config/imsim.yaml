@@ -105,7 +105,7 @@ input:
         file_name: ../data/tree_ring_data/tree_ring_parameters_2018-04-26.txt
         # Can limit the detectors to read in.  This is handy while debugging, since it takes
         # a minute or so to read all 189 detectors (the default behavior).
-        only_dets: [R22-S11]
+        only_dets: [R22_S11]
 
 
 # Define how the objects are placed on the image.  This refers to a single CCD.
@@ -143,7 +143,7 @@ image:
             str: "astropy.time.Time(mjd_val, format='mjd', scale='tai')"
             fmjd_val: { type: OpsimMeta, field: mjd }
 
-        det: $det_name
+        det_name: $det_name
         band: { type: OpsimMeta, field: band }
         wavelength: "$(@image.bandpass).effective_wavelength"
 
