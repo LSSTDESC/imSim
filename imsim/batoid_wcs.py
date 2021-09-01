@@ -10,7 +10,9 @@ import batoid
 import numpy as np
 import erfa  # Installed as part of astropy.
 
+import astropy.time
 import galsim
+from galsim.config import WCSBuilder, RegisterWCSType
 
 
 # There are 5 coordinate systems to handle.  In order:
@@ -39,7 +41,7 @@ class BatoidWCSFactory:
         to the ICRF axes.
     rotTelPos : galsim.Angle
         Camera rotator angle.
-    obstime : astropy.Time
+    obstime : astropy.time.Time
         Mean time of observation.
     fiducial_telescope : batoid.Optic
         Telescope instance without applying the rotator.
@@ -93,6 +95,7 @@ class BatoidWCSFactory:
         # https://earthscience.stackexchange.com/questions/9868/convert-air-vapor-pressure-to-relative-humidity
         es = 6.11 * np.exp(17.27 * self.tc / (237.3 + self.tc))  # mbar
         self.rh = self.H2O_pressure/es  # relative humidity
+        # XXX: Meters is an odd unit for this.  Can we switch to nm?
         self.wl = self.wavelength * 1e6  # m -> micron
 
     def _ICRF_to_observed(self, rc, dc, all=False):
@@ -468,3 +471,105 @@ class BatoidWCSFactory:
         rob, dob = self._field_to_observed(thx, thy)
         rc, dc = self._observed_to_ICRF(rob, dob)
         return rc, dc
+
+class BatoidWCSBuilder(WCSBuilder):
+    def __init__(self):
+        self.factory = None  # Will be a BatoidWCSFactory instance once we know enough to build it.
+
+    def buildWCS(self, config, base, logger):
+        """Build a Tan-SIP WCS based on the specifications in the config dict.
+
+        Parameters:
+            config:     The configuration dict for the wcs type.
+            base:       The base configuration dict.
+            logger:     If provided, a logger for logging debug statements.
+
+        Returns:
+            the constructed WCS object (a galsim.GSFitsWCS instance)
+        """
+        req = {
+                "boresight": galsim.CelestialCoord,
+                "rotTelPos": galsim.Angle,
+                "obstime": None,  # Either str or astropy.time.Time instance
+                "det": str,
+                "band": str,  # Note: If we allow telescope != 'LSST', then this needs to
+                              # become optional, since other telescopes don't use it.
+              }
+        opt = {
+                "telescope": str,
+                "temperature": float,
+                "pressure": float,
+                "H2O_pressure": float,
+                "wavelength": float,
+                "order": int,
+              }
+
+        # Make sure the bandpass is built, since we are likely to need it to get the
+        # wavelength (either in user specification or the default behavior below).
+        if 'bandpass' not in base:
+            bp = galsim.config.BuildBandpass(base['image'], 'bandpass', base, logger)[0]
+            base['bandpass'] = bp
+
+        kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
+        logger.info("Building Batoid WCS for %s", kwargs['det'])
+
+        # If a string, convert it to astropy.time.Time.
+        # XXX: Does this make sense?
+        #      If so, should we have the user give format and/or scale?
+        #      Or is it ok to assume UTC in this case?  I doubt we ever care about the different
+        #      options for scale in terms of how it affects the WCS, so probably doesn't matter.
+        if isinstance(kwargs['obstime'], str):
+            kwargs['obstime'] = astropy.time.Time(kwargs['obstime'], scale='utc')
+
+        # XXX: Not sure the best API for this, so I'm open to suggestions.
+        #      On the one hand, imsim is nominally for LSST, so maybe only have that.
+        #      On the other hand, Batoid has other telescope specifications that people
+        #      might want to use.  Those though don't use the band part.  E.g. it's just
+        #      DECam.yaml, not DECam_r.yaml, etc.
+        #      More importantly, I assume they would need some other camera option, which right
+        #      now is hard-coded to LSST.
+        # TL;DR For now, this only works for LSST.
+        telescope = kwargs.pop('telescope', 'LSST')
+        if telescope != 'LSST':
+            raise NotImplementedError("Batoid WCS only valid for telescope='LSST' currently")
+        band = kwargs.pop('band')
+        kwargs['fiducial_telescope'] = batoid.Optic.fromYaml(f"{telescope}_{band}.yaml")
+        kwargs['camera'] = camera = LsstCamMapper().camera
+
+        # Update optional kwargs
+
+        if 'wavelength' not in kwargs:
+            # NB. BatoidWCSFactory uses meters for wavelength.  Convert nm -> m.
+            kwargs['wavelength'] = base['bandpass'].effective_wavelength * 1.e-9
+
+        if 'temperature' not in kwargs:
+            # cf. https://www.meteoblue.com/en/weather/historyclimate/climatemodelled/Cerro+Pachon
+            # Average minimum temp is around 45 F = 7 C, but obviously varies a lot.
+            kwargs['temperature'] = 280 # Kelvin
+
+        if 'pressure' not in kwargs:
+            # cf. https://www.engineeringtoolbox.com/air-altitude-pressure-d_462.html
+            # p = 101.325 kPa (1 - 2.25577e-5 (h / 1 m))**5.25588
+            # Cerro Pachon  altitude = 2715 m
+            # XXX: If we allow other telescopes, might want to get the altitude somehow?
+            h = 2715
+            kwargs['pressure'] = 101.325 * (1-2.25577e-5*h)**5.25588
+
+        if 'H2O_pressure' not in kwargs:
+            # XXX: I have no idea what a good default is, but this seems like a minor enough effect
+            # that we should not require the user to pick something.
+            kwargs['H2O_pressure'] = 1.0 # kPa
+
+        # Finally, build the WCS.
+        det = kwargs.pop('det')
+        order = kwargs.pop('order', 3)
+        factory = BatoidWCSFactory(**kwargs)
+        print('det = ',det)
+        print('camera = ',camera)
+        # XXX: Change canonical det name to use _ rather than -?
+        det = det.replace('-','_')
+        wcs = factory.getWCS(camera[det], order=order)
+
+        return wcs
+
+RegisterWCSType('Batoid', BatoidWCSBuilder())
