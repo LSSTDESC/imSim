@@ -8,6 +8,9 @@
 # E.g. galsim_extra has some useful routines we might want to use.  (But I don't here.)
 modules:
     - imsim
+    - astropy  # I don't really understand why this is required.  But if only have astropy.time
+               # then I get a NameError when trying to parse astropy.time.Time.
+    - astropy.time  # Need this for an Eval.  Tell GalSim to have it loaded.
 
 # Anything set here can be used in any Eval (usually a string that starts with $) as a variable.
 # This is often convenient, so they can be set just once (probably from the command line) and
@@ -125,13 +128,32 @@ image:
     bandpass: { type: OpsimMetaBandpass }
 
     wcs:
-        # TODO: We'll need to replace this.
-        #       For now, I have a dict of the WCS's from the DC2 calexps for this exposure.
-        #       At nersc, this is at:
-        #           /global/cscratch1/sd/mjarvis/DC2/wcs_466749.yaml
-        type: Dict
-        file_name: /Users/Mike/Astro/lsst/imsim/00466749/wcs_466749.yaml
-        key: "$(@output.file_name).replace('raw','calexp')"
+        type: Batoid
+
+        # These are required:
+        boresight: "@input.atm_psf.boresight"
+        rotTelPos:
+            type: Degrees
+            theta: { type: OpsimMeta, field: rottelpos }
+
+        obstime:
+            type: Eval
+            # XXX: Is this really TAI?  I would have assumed UTC, but I don't really know how
+            #      all the different scales for astropy.time.Time work. Probably doesn't matter TBH.
+            str: "astropy.time.Time(mjd_val, format='mjd', scale='tai')"
+            fmjd_val: { type: OpsimMeta, field: mjd }
+
+        det: $det_name
+        band: { type: OpsimMeta, field: band }
+        wavelength: "$(@image.bandpass).effective_wavelength"
+
+        # The rest can be omitted, since these are the default values, but shown here
+        # for reference.
+        telescope: LSST   # This is the only option currently (and the default)
+        temperature: 280  # Kelvin
+        pressure: 72.7    # kPa
+        H2O_pressure: 1.0 # kPa
+        order: 3          # Order of the SIP polynomial
 
     noise:
         type: CCD
