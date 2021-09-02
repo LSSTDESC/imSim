@@ -474,7 +474,13 @@ class BatoidWCSFactory:
 
 class BatoidWCSBuilder(WCSBuilder):
     def __init__(self):
-        self.factory = None  # Will be a BatoidWCSFactory instance once we know enough to build it.
+        self._camera = None  # It's slow to make a camera instance, so only make it once.
+
+    @property
+    def camera(self):
+        if self._camera is None:
+            self._camera = LsstCamMapper().camera
+        return self._camera
 
     def buildWCS(self, config, base, logger):
         """Build a Tan-SIP WCS based on the specifications in the config dict.
@@ -534,7 +540,7 @@ class BatoidWCSBuilder(WCSBuilder):
             raise NotImplementedError("Batoid WCS only valid for telescope='LSST' currently")
         band = kwargs.pop('band')
         kwargs['fiducial_telescope'] = batoid.Optic.fromYaml(f"{telescope}_{band}.yaml")
-        kwargs['camera'] = camera = LsstCamMapper().camera
+        kwargs['camera'] = self.camera
 
         # Update optional kwargs
 
@@ -564,7 +570,7 @@ class BatoidWCSBuilder(WCSBuilder):
         det_name = kwargs.pop('det_name')
         order = kwargs.pop('order', 3)
         factory = BatoidWCSFactory(**kwargs)
-        wcs = factory.getWCS(camera[det_name], order=order)
+        wcs = factory.getWCS(self.camera[det_name], order=order)
 
         return wcs
 
