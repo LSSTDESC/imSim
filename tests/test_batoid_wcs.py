@@ -402,8 +402,113 @@ def test_intermediate_coord_sys():
     np.testing.assert_allclose(thx/np.sin(zob), dz, rtol=0, atol=1e-8)
     np.testing.assert_allclose(thy, 0.0, rtol=0, atol=1e-6)
 
+def test_config():
+    """Check the config interface to BatoidWCS.
+    """
+    import yaml
+    import astropy.units as u
+    import matplotlib.pyplot as plt
+    from tqdm import tqdm
+    # Need these for `eval` below
+    from numpy import array
+    import coord
+
+    # Same test suite as used in test_imsim above.
+    # This time, we just use this for the det names.
+    with open("data/wcs_466749.yaml", 'r') as f:
+        wcss = yaml.safe_load(f)
+
+    cmds = {}
+    with open("data/phosim_cat_466749.txt", 'r') as f:
+        for line in f:
+            k, v = line.split()
+            try:
+                v = int(v)
+            except ValueError:
+                try:
+                    v = float(v)
+                except ValueError:
+                    pass
+            cmds[k] = v
+
+    # Values below (and others) from phosim_cat_466749.txt
+    rc = cmds['rightascension']
+    dc = cmds['declination']
+    boresight = galsim.CelestialCoord(
+        rc*galsim.degrees,
+        dc*galsim.degrees
+    )
+    obstime = Time(cmds['mjd'], format='mjd', scale='tai')
+    obstime -= 15*u.s
+    band = "ugrizy"[cmds['filter']]
+    fiducial_telescope = batoid.Optic.fromYaml(f"LSST_{band}.yaml")
+    wavelength_dict = dict(
+        u=365.49e-9,
+        g=480.03e-9,
+        r=622.20e-9,
+        i=754.06e-9,
+        z=868.21e-9,
+        y=991.66e-9
+    )
+    wavelength = wavelength_dict[band]
+    camera = LsstCamMapper().camera
+
+    rotTelPos =  cmds['rottelpos'] * galsim.degrees
+
+    # Ambient conditions
+    # These are a guess.
+    temperature = 293.
+    pressure = 69.0
+    H2O_pressure = 1.0
+
+    factory = imsim.BatoidWCSFactory(
+        boresight, rotTelPos, obstime, fiducial_telescope, wavelength,
+        camera,
+        temperature=temperature,
+        pressure=pressure,
+        H2O_pressure=H2O_pressure
+    )
+
+    config = {
+        'image': {
+            'wcs': {
+                'type': 'Batoid',
+                'boresight': boresight,
+                'rotTelPos': rotTelPos,
+                'obstime': obstime,
+                'band': band,
+                'wavelength': wavelength,
+                'temperature': temperature,
+                'pressure': pressure,
+                'H2O_pressure': H2O_pressure,
+                'order': 2,
+            }
+        }
+    }
+
+    rng = np.random.default_rng(1234)
+    for k in tqdm(wcss.keys()):
+        name = k[18:25].replace('-', '_')
+        det = camera[name]
+        cpix = det.getCenter(cameraGeom.PIXELS)
+
+        wcs1 = factory.getWCS(det, order=2)
+        config['image']['wcs']['det_name'] = name
+        galsim.config.RemoveCurrent(config['image']['wcs'])
+        wcs2 = galsim.config.BuildWCS(config['image'], 'wcs', config)
+        print('wcs1 = ',wcs1)
+        print('wcs2 = ',wcs2)
+
+        # Test points
+        xs = rng.uniform(0, 4000, 100)
+        ys = rng.uniform(0, 4000, 100)
+        ra1, dec1 = wcs1.xyToradec(xs, ys, units='radians')
+        ra2, dec2 = wcs2.xyToradec(xs, ys, units='radians')
+        np.testing.assert_allclose(ra1, ra2)
+        np.testing.assert_allclose(dec1, dec2)
 
 if __name__ == "__main__":
     test_wcs_fit()
     test_imsim()
     test_intermediate_coord_sys()
+    test_config()

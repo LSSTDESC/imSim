@@ -506,7 +506,7 @@ class BatoidWCSBuilder(WCSBuilder):
 
         # Make sure the bandpass is built, since we are likely to need it to get the
         # wavelength (either in user specification or the default behavior below).
-        if 'bandpass' not in base:
+        if 'bandpass' not in base and 'bandpass' in base.get('image',{}):
             bp = galsim.config.BuildBandpass(base['image'], 'bandpass', base, logger)[0]
             base['bandpass'] = bp
 
