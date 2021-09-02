@@ -438,7 +438,7 @@ def test_config():
         rc*galsim.degrees,
         dc*galsim.degrees
     )
-    obstime = Time(cmds['mjd'], format='mjd', scale='tai')
+    obstime = Time(cmds['mjd'], format='mjd', scale='utc')
     obstime -= 15*u.s
     band = "ugrizy"[cmds['filter']]
     fiducial_telescope = batoid.Optic.fromYaml(f"LSST_{band}.yaml")
@@ -455,11 +455,10 @@ def test_config():
 
     rotTelPos =  cmds['rottelpos'] * galsim.degrees
 
-    # Ambient conditions
-    # These are a guess.
+    # Non-default values.
     temperature = 293.
     pressure = 69.0
-    H2O_pressure = 1.0
+    H2O_pressure = 2.0
 
     factory = imsim.BatoidWCSFactory(
         boresight, rotTelPos, obstime, fiducial_telescope, wavelength,
@@ -481,6 +480,7 @@ def test_config():
                 'temperature': temperature,
                 'pressure': pressure,
                 'H2O_pressure': H2O_pressure,
+                'telescope': 'LSST',
                 'order': 2,
             }
         }
@@ -496,8 +496,6 @@ def test_config():
         config['image']['wcs']['det_name'] = name
         galsim.config.RemoveCurrent(config['image']['wcs'])
         wcs2 = galsim.config.BuildWCS(config['image'], 'wcs', config)
-        print('wcs1 = ',wcs1)
-        print('wcs2 = ',wcs2)
 
         # Test points
         xs = rng.uniform(0, 4000, 100)
@@ -506,6 +504,98 @@ def test_config():
         ra2, dec2 = wcs2.xyToradec(xs, ys, units='radians')
         np.testing.assert_allclose(ra1, ra2)
         np.testing.assert_allclose(dec1, dec2)
+
+    # Test == when identical
+    galsim.config.RemoveCurrent(config['image']['wcs'])
+    wcs3 = galsim.config.BuildWCS(config['image'], 'wcs', config)
+    assert wcs3 == wcs2
+
+    # Test that pressure and temperature matter.
+    config['image']['wcs']['temperature'] = 250
+    galsim.config.RemoveCurrent(config['image']['wcs'])
+    wcs4 = galsim.config.BuildWCS(config['image'], 'wcs', config)
+    assert wcs4 != wcs2
+
+    config['image']['wcs']['temperature'] = temperature
+    config['image']['wcs']['pressure'] = 55
+    galsim.config.RemoveCurrent(config['image']['wcs'])
+    wcs5 = galsim.config.BuildWCS(config['image'], 'wcs', config)
+    assert wcs5 != wcs2
+
+    config['image']['wcs']['pressure'] = pressure
+    config['image']['wcs']['H2O_pressure'] = 10
+    galsim.config.RemoveCurrent(config['image']['wcs'])
+    wcs6 = galsim.config.BuildWCS(config['image'], 'wcs', config)
+    assert wcs6 != wcs2
+
+    # Test defaults
+    del config['image']['wcs']['temperature']
+    del config['image']['wcs']['pressure']
+    del config['image']['wcs']['H2O_pressure']
+    del config['image']['wcs']['telescope']
+    galsim.config.RemoveCurrent(config['image']['wcs'])
+    config = galsim.config.CleanConfig(config)
+    wcs7 = galsim.config.BuildWCS(config['image'], 'wcs', config)
+    default_pressure = 101.325 * (1-2.25577e-5*2715)**5.25588
+    wcs7a = imsim.BatoidWCSFactory(
+                boresight, rotTelPos, obstime, fiducial_telescope, wavelength, camera,
+                temperature=280,
+                pressure=default_pressure,
+                H2O_pressure=1.0,
+            ).getWCS(det, order=2)
+    assert wcs7 == wcs7a
+
+    # Default wavelength from bandpass
+    del config['image']['wcs']['wavelength']
+    config['bandpass'] = galsim.Bandpass('LSST_r.dat', 'nm')
+    galsim.config.RemoveCurrent(config['image']['wcs'])
+    config = galsim.config.CleanConfig(config)
+    wcs8 = galsim.config.BuildWCS(config['image'], 'wcs', config)
+    wcs8a = imsim.BatoidWCSFactory(
+                boresight, rotTelPos, obstime, fiducial_telescope,
+                wavelength=config['bandpass'].effective_wavelength * 1.e-9,
+                camera=camera,
+                temperature=280,
+                pressure=default_pressure,
+                H2O_pressure=1.0,
+            ).getWCS(det, order=2)
+    assert wcs8 == wcs8a
+
+    del config['bandpass']
+    config['image']['bandpass'] = {
+        'file_name' : 'LSST_r.dat',
+        'wave_type' : 'nm',
+    }
+    galsim.config.RemoveCurrent(config['image']['wcs'])
+    config = galsim.config.CleanConfig(config)
+    wcs8b = galsim.config.BuildWCS(config['image'], 'wcs', config)
+    assert wcs8b == wcs8a
+
+    # Obstime can be a string
+    print('obstime = ',obstime.to_value('iso'), type(obstime.to_value('iso')))
+    config['image']['wcs']['obstime'] = obstime.to_value('iso')
+    # Doesn't quite roundtrip perfectly.  But within a millisecond.
+    obstime = Time(obstime.to_value('iso'), scale='utc')
+    print('obstime => ',obstime)
+    galsim.config.RemoveCurrent(config['image']['wcs'])
+    config = galsim.config.CleanConfig(config)
+    wcs9 = galsim.config.BuildWCS(config['image'], 'wcs', config)
+    wcs9a = imsim.BatoidWCSFactory(
+                boresight, rotTelPos, obstime, fiducial_telescope,
+                wavelength=config['bandpass'].effective_wavelength * 1.e-9,
+                camera=camera,
+                temperature=280,
+                pressure=default_pressure,
+                H2O_pressure=1.0,
+            ).getWCS(det, order=2)
+    assert wcs9 == wcs9a
+
+    # Non-LSST telescope not allowed
+    galsim.config.RemoveCurrent(config['image']['wcs'])
+    config = galsim.config.CleanConfig(config)
+    config['image']['wcs']['telescope'] = 'DECam'
+    np.testing.assert_raises(NotImplementedError,
+                             galsim.config.BuildWCS, config['image'], 'wcs', config)
 
 if __name__ == "__main__":
     test_wcs_fit()

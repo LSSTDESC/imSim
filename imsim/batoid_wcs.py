@@ -557,7 +557,7 @@ class BatoidWCSBuilder(WCSBuilder):
             # cf. https://www.engineeringtoolbox.com/air-altitude-pressure-d_462.html
             # p = 101.325 kPa (1 - 2.25577e-5 (h / 1 m))**5.25588
             # Cerro Pachon  altitude = 2715 m
-            # XXX: If we allow other telescopes, might want to get the altitude somehow?
+            # XXX: If we allow other telescopes, should get the altitude somehow probably?
             h = 2715
             kwargs['pressure'] = 101.325 * (1-2.25577e-5*h)**5.25588
 
