@@ -56,11 +56,11 @@ if mo:
     imsim_version = mo.group(1)
 else:
     raise RuntimeError("Unable to find version string in %s." % (version_file,))
-print('ImSim version is %s'%(imsim_version))
+print('imSim version is %s'%(imsim_version))
 
-dist = setup(name="ImSim",
+dist = setup(name="imSim",
     version=imsim_version,
-    author="ImSim Developers (point of contact: Chris Walter)",
+    author="imSim Developers (point of contact: Chris Walter)",
     author_email="chris.walter@duke.edu",
     description="Image Simulation tools for LSST DESC",
     long_description=long_description,
