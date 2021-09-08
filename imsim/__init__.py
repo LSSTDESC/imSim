@@ -1,4 +1,6 @@
 
+from ._version import *
+from .meta_data import *
 from .stamp import *
 from .instcat import *
 from .ccd import *

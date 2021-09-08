@@ -1,5 +1,5 @@
-[![Build Status](https://travis-ci.org/LSSTDESC/imSim.svg?branch=master)](https://travis-ci.org/LSSTDESC/imSim)
-[![Coverage Status](https://coveralls.io/repos/github/LSSTDESC/imSim/badge.svg?branch=master)](https://coveralls.io/github/LSSTDESC/imSim?branch=master)
+[![Build Status](https://travis-ci.org/LSSTDESC/imSim.svg?branch=main)](https://travis-ci.org/LSSTDESC/imSim)
+[![Coverage Status](https://coveralls.io/repos/github/LSSTDESC/imSim/badge.svg?branch=main)](https://coveralls.io/github/LSSTDESC/imSim?branch=main)
 
 # imSim
 imSim is a software package that simulates the LSST telescope and survey.
@@ -84,7 +84,7 @@ optional arguments:
 ```
 
 ## Release Status
-imSim is currently still considered beta code. A list of tagged versions and pre-releases of this package can be found [here](https://github.com/LSSTDESC/imSim/releases), with the master branch including the most recent (non-tagged) development.  
+imSim is currently still considered beta code. A list of tagged versions and pre-releases of this package can be found [here](https://github.com/LSSTDESC/imSim/releases), with the main branch including the most recent (non-tagged) development.
 
 ## Licensing and ownership
 This software was developed within the LSST DESC using LSST DESC resources, and

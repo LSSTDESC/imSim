@@ -21,8 +21,8 @@ def apply_channel_bleeding(gs_interpreter, full_well):
     full_well: int
         The pixel full well/saturation value in electrons.
     """
-    for gs_image in gs_interpreter.detectorImages.values():
-        bleed_eimage(afw_image.ImageF(gs_image.array), full_well)
+    gs_image = gs_interpreter.detectorImage
+    bleed_eimage(afw_image.ImageF(gs_image.array), full_well)
 
 
 def bleed_eimage(eimage, full_well, midline_stop=True):

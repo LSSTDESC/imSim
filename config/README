@@ -1,6 +1,0 @@
-I am imagining that this would live somewhere in the imsim python module.
-However, since the current installation requires the DM stack, which I don't have locally,
-it's easier for me to test by creating a separate parallel structure here.
-
-The main thing that needs to happen is when we do `import desc.imsim`, the appropriate
-galsim.*.Register* commands get executed.

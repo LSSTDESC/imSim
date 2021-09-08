@@ -2,7 +2,10 @@
 Function to apply chip-centered acceptance cones on instance catalogs.
 """
 from collections import defaultdict
-import pickle
+try:
+    import cPickle as pickle
+except:
+    import pickle
 import numpy as np
 import lsst.sims.coordUtils
 from lsst.sims.utils import _angularSeparation

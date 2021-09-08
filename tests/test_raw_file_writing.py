@@ -4,8 +4,8 @@ Unit test code for raw file writing.
 import os
 import unittest
 from astropy.io import fits
-import lsst.sims.GalSimInterface as sims_gsi
-from lsst.sims.photUtils import PhotometricParameters
+import desc.imsim.sims_GalSimInterface as sims_gsi
+from lsst.sims.photUtils import PhotometricParameters, BandpassDict
 from lsst.sims.utils import ObservationMetaData
 import desc.imsim
 
@@ -35,14 +35,18 @@ class RawFileOutputTestCase(unittest.TestCase):
                                      rotSkyPos=69.0922930,
                                      mjd=59797.2854090,
                                      bandpassName='r')
+        bp_dict = BandpassDict.loadTotalBandpassesFromFiles(obs_md.bandpass)
         obs_md.OpsimMetaData = {'obshistID': 161899,
-                                'airmass': desc.imsim.airmass(43.6990272)}
+                                'airmass': desc.imsim.airmass(43.6990272),
+                                'FWHMgeom': 0.7,
+                                'altitude': 43.6990272,
+                                'rawSeeing': 0.6}
         detname = "R:2,2 S:1,1"
         chipid = 'R{}_S{}'.format(detname[2:5:2], detname[8:11:2])
         detector = sims_gsi.make_galsim_detector(camera_wrapper, detname,
                                                  phot_params, obs_md)
-        gs_interpreter = sims_gsi.GalSimInterpreter(detectors=[detector])
-        gs_image = gs_interpreter.blankImage(detector)
+        gs_interpreter = sims_gsi.GalSimInterpreter(obs_md, detector, bp_dict)
+        gs_image = gs_interpreter.blankImage()
         raw_image = desc.imsim.ImageSource.create_from_galsim_image(gs_image)
         self.outfile = 'lsst_a_{}_r.fits'.format(chipid)
 

@@ -14,16 +14,12 @@ from timeit import timeit
 
 from galsim.zernike import Zernike, zernikeBasis
 
-# Note: Except for this next line, this is identical to what is in the main imsim repo.
-#import lsst.utils
-#FILE_DIR = lsst.utils.getPackageDir('imsim')
-# Three directories up from this file.
-FILE_DIR = dirname(dirname(dirname(dirname(os.path.realpath(__file__)))))
+from .meta_data import data_dir
 
-AOS_PATH = os.path.join(FILE_DIR, 'data', 'optics_data', 'aos_sim_results.txt')
-MATRIX_PATH = os.path.join(FILE_DIR, 'data', 'optics_data', 'sensitivity_matrix.txt')
-NOMINAL_PATH = os.path.join(FILE_DIR, 'data', 'optics_data', 'annular_nominal_coeff.txt')
-ZEMAX_PATH = os.path.join(FILE_DIR, 'data', 'optics_data', 'annular_zemax_estimates.fits')
+AOS_PATH = os.path.join(data_dir, 'optics_data', 'aos_sim_results.txt')
+MATRIX_PATH = os.path.join(data_dir, 'optics_data', 'sensitivity_matrix.txt')
+NOMINAL_PATH = os.path.join(data_dir, 'optics_data', 'annular_nominal_coeff.txt')
+ZEMAX_PATH = os.path.join(data_dir, 'optics_data', 'annular_zemax_estimates.fits')
 
 
 def cartesian_coords():

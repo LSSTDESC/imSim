@@ -15,9 +15,9 @@ from astropy._erfa import ErfaWarning
 import galsim
 from lsst.afw.cameraGeom import DetectorType
 from lsst.sims.photUtils import BandpassDict
-from lsst.sims.GalSimInterface import make_galsim_detector
-from lsst.sims.GalSimInterface import make_gs_interpreter
-from lsst.sims.GalSimInterface import LSSTCameraWrapper
+from .sims_GalSimInterface import make_galsim_detector
+from .sims_GalSimInterface import make_gs_interpreter
+from .sims_GalSimInterface import LSSTCameraWrapper
 from .imSim import read_config, parsePhoSimInstanceFile, add_cosmic_rays,\
     add_treering_info, get_logger, TracebackDecorator, get_version_keywords
 from .bleed_trails import apply_channel_bleeding
@@ -159,7 +159,7 @@ class ImageSimulator:
             gs_det = make_galsim_detector(self.camera_wrapper, det_name,
                                           self.phot_params, self.obs_md)
             self.gs_interpreters[det_name] \
-                = make_gs_interpreter(self.obs_md, [gs_det], bp_dict,
+                = make_gs_interpreter(self.obs_md, gs_det, bp_dict,
                                       noise_and_background,
                                       epoch=2000.0, seed=seed,
                                       apply_sensor_model=self.apply_sensor_model,
@@ -170,7 +170,7 @@ class ImageSimulator:
             self.gs_interpreters[det_name].setPSF(PSF=self.psf)
 
             if self.apply_sensor_model:
-                add_treering_info(self.gs_interpreters[det_name].detectors)
+                add_treering_info([self.gs_interpreters[det_name].detector])
 
             if file_id is not None:
                 self.gs_interpreters[det_name].checkpoint_file \
@@ -230,7 +230,7 @@ class ImageSimulator:
         str: The output file path.
         """
         prefix_key = 'raw_file_prefix' if raw else 'eimage_prefix'
-        detector = self.gs_interpreters[det_name].detectors[0]
+        detector = self.gs_interpreters[det_name].detector
         prefix = self.config['persistence'][prefix_key]
         visit = str(self.obs_md.OpsimMetaData['obshistID'])
         return os.path.join(self.outdir, prefix + '_'.join(
@@ -433,8 +433,8 @@ class SimulateSensor:
         if IMAGE_SIMULATOR.config['persistence']['make_raw_file']:
             self.write_raw_files(gs_interpreter)
 
-        # Write out the centroid files if they were made.
-        gs_interpreter.write_centroid_files()
+        # Write out the centroid file if it was made.
+        gs_interpreter.write_centroid_file()
 
         # The image for the sensor-visit has been drawn, so delete or
         # move to the archive area any existing checkpoint file if the
@@ -481,22 +481,17 @@ class SimulateSensor:
         """
         persist = IMAGE_SIMULATOR.config['persistence']
         band = IMAGE_SIMULATOR.obs_md.bandpass
-        for detector in gs_interpreter.detectors:
-            filename = gs_interpreter._getFileName(detector, band)
-            try:
-                gs_image = gs_interpreter.detectorImages[filename]
-            except KeyError:
-                continue
-            else:
-                raw = ImageSource.create_from_galsim_image(gs_image)
-                outfile = IMAGE_SIMULATOR.output_file(detector.name, raw=True)
-                added_keywords = dict()
-                if isinstance(IMAGE_SIMULATOR.psf, AtmosphericPSF):
-                    gaussianFWHM = IMAGE_SIMULATOR.config['psf']['gaussianFWHM']
-                    added_keywords['GAUSFWHM'] = gaussianFWHM
-                raw.write_fits_file(outfile,
-                                    compress=persist['raw_file_compress'],
-                                    added_keywords=added_keywords)
+        detector = gs_interpreter.detector
+        gs_image = gs_interpreter.detectorImage
+        raw = ImageSource.create_from_galsim_image(gs_image)
+        outfile = IMAGE_SIMULATOR.output_file(detector.name, raw=True)
+        added_keywords = dict()
+        if isinstance(IMAGE_SIMULATOR.psf, AtmosphericPSF):
+            gaussianFWHM = IMAGE_SIMULATOR.config['psf']['gaussianFWHM']
+            added_keywords['GAUSFWHM'] = gaussianFWHM
+        raw.write_fits_file(outfile,
+                            compress=persist['raw_file_compress'],
+                            added_keywords=added_keywords)
 
     def write_eimage_files(self, gs_interpreter):
         """
@@ -508,8 +503,8 @@ class SimulateSensor:
         """
         # Add version keywords to eimage headers
         version_keywords = get_version_keywords()
-        for image in gs_interpreter.detectorImages.values():
-            image.header = galsim.FitsHeader(header=version_keywords)
+        gs_interpreter.detectorImage.header \
+            = galsim.FitsHeader(header=version_keywords)
 
         # Write the eimage files using filenames containing the visit number.
         prefix = IMAGE_SIMULATOR.config['persistence']['eimage_prefix']

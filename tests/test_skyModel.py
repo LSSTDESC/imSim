@@ -9,7 +9,7 @@ import configparser
 import numpy as np
 import numpy.random as random
 import galsim
-from lsst.sims.GalSimInterface import make_galsim_detector, LSSTCameraWrapper
+from desc.imsim.sims_GalSimInterface import make_galsim_detector, LSSTCameraWrapper
 import desc.imsim
 
 

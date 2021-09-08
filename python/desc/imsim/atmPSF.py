@@ -7,7 +7,7 @@ import numpy as np
 from scipy.optimize import bisect
 
 import galsim
-from lsst.sims.GalSimInterface import PSFbase
+from .sims_GalSimInterface import PSFbase
 
 from .optical_system import OpticalZernikes, mock_deviations
 
@@ -47,10 +47,6 @@ class OptWF(object):
         return Z._wavefront_gradient(u, v, t, theta)
 
     def _getStepK(self, **kwargs):
-        return self.stepk
-
-    # galsim v1.60 version:
-    def _stepK(self, **kwargs):
         return self.stepk
 
     # galsim v1.60 version:

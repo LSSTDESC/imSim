@@ -18,7 +18,7 @@ from lsst.sims.utils import arcsecFromRadians
 from lsst.sims.photUtils import Sed, BandpassDict
 from lsst.sims.photUtils import Bandpass, PhotometricParameters
 from lsst.sims.coordUtils import chipNameFromPupilCoordsLSST
-from lsst.sims.GalSimInterface import LSSTCameraWrapper
+from desc.imsim.sims_GalSimInterface import LSSTCameraWrapper
 
 def sources_from_list(lines, obs_md, phot_params, file_name):
     """Return a two-item tuple containing
