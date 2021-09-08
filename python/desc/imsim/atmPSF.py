@@ -7,7 +7,7 @@ import numpy as np
 from scipy.optimize import bisect
 
 import galsim
-from lsst.sims.GalSimInterface import PSFbase
+from .sims_GalSimInterface import PSFbase
 
 from .optical_system import OpticalZernikes, mock_deviations
 
