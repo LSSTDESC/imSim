@@ -3,7 +3,7 @@
 import os
 import unittest
 import gzip
-import desc.imsim
+import imsim
 
 class FopenTestCase(unittest.TestCase):
     "TestCase class for fopen unit tests."
@@ -43,7 +43,7 @@ class FopenTestCase(unittest.TestCase):
 
     def test_fopen(self):
         "Test the fopen function."
-        with desc.imsim.fopen(self.fopen_test_file, mode='rt') as input_:
+        with imsim.fopen(self.fopen_test_file, mode='rt') as input_:
             for i, line in enumerate(input_):
                 expected = self.lines[i]
                 self.assertEqual(line.strip(), expected)
