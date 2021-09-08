@@ -2,8 +2,9 @@
 Test the setting of the logging configuration.
 """
 import unittest
-import desc.imsim
+import imsim
 
+# XXX: I think this is probably not needed anymore.  Now use GalSim logger.
 
 class LoggingTestCase(unittest.TestCase):
     "TestCase class for logging."
@@ -18,7 +19,7 @@ class LoggingTestCase(unittest.TestCase):
         "Test logging level configuration."
         for level, log_level in zip(list(range(10, 60, 10)),
                                     "DEBUG INFO WARN ERROR CRITICAL".split()):
-            logger = desc.imsim.get_logger(log_level)
+            logger = imsim.get_logger(log_level)
             self.assertEqual(logger.level, level)
 
 
