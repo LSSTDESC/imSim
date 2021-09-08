@@ -7,7 +7,7 @@
 # Mostly we need the imsim repo.  But could add others here as well.
 # E.g. galsim_extra has some useful routines we might want to use.  (But I don't here.)
 modules:
-    - desc.imsim
+    - imsim
 
 # Anything set here can be used in any Eval (usually a string that starts with $) as a variable.
 # This is often convenient, so they can be set just once (probably from the command line) and
