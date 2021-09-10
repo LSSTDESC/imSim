@@ -432,18 +432,32 @@ class OpsimMetaDict(object):
 
         logger.warning("Done reading meta information from instance catalog")
 
-        # Add a couple derived quantities to meta values
+        # Add a few derived quantities to meta values
         # Note a semantic distinction we make here:
         # "filter" is the number 0,1,2,3,4,5 from the input instance catalog.
         # "band" is the character u,g,r,i,z,y.
         # "bandpass" will be the real constructed galsim.Bandpass object.
         self.meta['band'] = 'ugrizy'[self.meta['filter']]
         self.meta['HA'] = self.getHourAngle(self.meta['mjd'], self.meta['rightascension'])
-        self.meta['airmass'] = self.getAirmass(self.meta['altitude'])
+        self.meta['rawSeeing'] = self.meta.pop('seeing')  # less ambiguous name
+        self.meta['airmass'] = self.getAirmass()
+        self.meta['FWHMeff'] = self.FWHMeff()
+        self.meta['FWHMgeom'] = self.FWHMgeom()
         logger.debug("Bandpass = %s",self.meta['band'])
         logger.debug("HA = %s",self.meta['HA'])
 
-    def getAirmass(self, altitude):
+    @classmethod
+    def from_dict(cls, d):
+        """Build an OpsimMetaDict directly from the provided dict.
+
+        (Mostly used for unit tests.)
+        """
+        ret = cls.__new__(cls)
+        ret.file_name = ''
+        ret.meta = d
+        return ret
+
+    def getAirmass(self, altitude=None):
         """
         Function to compute the airmass from altitude using equation 3
         of Krisciunas and Schaefer 1991.
@@ -452,13 +466,81 @@ class OpsimMetaDict(object):
         ----------
         altitude: float
             Altitude of pointing direction in degrees.
+            [default: self.get('altitude')]
 
         Returns
         -------
         float: the airmass in units of sea-level airmass at the zenith.
         """
+        if altitude is None:
+            altitude = self.get('altitude')
         altRad = np.radians(altitude)
         return 1.0/np.sqrt(1.0 - 0.96*(np.sin(0.5*np.pi - altRad))**2)
+
+    def FWHMeff(self, rawSeeing=None, band=None, altitude=None):
+        """
+        Compute the effective FWHM for a single Gaussian describing the PSF.
+
+        Parameters
+        ----------
+        rawSeeing: float
+            The "ideal" seeing in arcsec at zenith and at 500 nm.
+            reference: LSST Document-20160
+            [default: self.get('rawSeeing')]
+        band: str
+            The LSST ugrizy band.
+            [default: self.get('band')]
+        altitude: float
+            The altitude in degrees of the pointing.
+            [default: self.get('altitude')]
+
+        Returns
+        -------
+        float: Effective FWHM in arcsec.
+        """
+        X = self.getAirmass(altitude)
+
+        if band is None:
+            band = self.get('band')
+        if rawSeeing is None:
+            rawSeeing = self.get('rawSeeing')
+
+        # Find the effective wavelength for the band.
+        wl = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
+
+        # Compute the atmospheric contribution.
+        FWHMatm = rawSeeing*(wl/500)**(-0.3)*X**(0.6)
+
+        # The worst case instrument contribution (see LSE-30).
+        FWHMsys = 0.4*X**(0.6)
+
+        # From LSST Document-20160, p. 8.
+        return 1.16*np.sqrt(FWHMsys**2 + 1.04*FWHMatm**2)
+
+
+    def FWHMgeom(self, rawSeeing=None, band=None, altitude=None):
+        """
+        FWHM of the "combined PSF".  This is FWHMtot from
+        LSST Document-20160, p. 8.
+
+        Parameters
+        ----------
+        rawSeeing: float
+            The "ideal" seeing in arcsec at zenith and at 500 nm.
+            reference: LSST Document-20160
+            [default: self.get('rawSeeing')]
+        band: str
+            The LSST ugrizy band.
+            [default: self.get('band')]
+        altitude: float
+            The altitude in degrees of the pointing.
+            [default: self.get('altitude')]
+
+        Returns
+        -------
+        float: FWHM of the combined PSF in arcsec.
+        """
+        return 0.822*self.FWHMeff(rawSeeing, band, altitude) + 0.052
 
     def get(self, field):
         if field not in self.meta:
