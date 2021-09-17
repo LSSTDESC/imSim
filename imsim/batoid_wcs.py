@@ -33,6 +33,8 @@ from galsim.config import WCSBuilder, RegisterWCSType
 
 class BatoidWCSFactory:
     """
+    Factory for constructing WCS's.  Currently hard-coded for Rubin Observatory.
+
     Parameters
     ----------
     boresight : galsim.CelestialCoord
@@ -409,6 +411,7 @@ class BatoidWCSFactory:
         # Get field angle of detector center.
         fpx, fpy = det.getCenter(cameraGeom.FOCAL_PLANE)
         thx, thy = self._focal_to_field(fpx, fpy)
+        # Hard-coding detector dimensions for Rubin science sensors for now.
         # detector width ~ 4000 px * 0.2 arcsec/px ~ 800 arcsec ~ 0.22 deg
         # max radius is about sqrt(2) smaller, ~0.16 deg
         # make hexapolar grid with that radius for test points
@@ -471,6 +474,7 @@ class BatoidWCSFactory:
         rc, dc = self._observed_to_ICRF(rob, dob)
         return rc, dc
 
+
 class BatoidWCSBuilder(WCSBuilder):
     def __init__(self):
         self._camera = None  # It's slow to make a camera instance, so only make it once.
@@ -526,14 +530,6 @@ class BatoidWCSBuilder(WCSBuilder):
         if isinstance(kwargs['obstime'], str):
             kwargs['obstime'] = astropy.time.Time(kwargs['obstime'], scale='utc')
 
-        # XXX: Not sure the best API for this, so I'm open to suggestions.
-        #      On the one hand, imsim is nominally for LSST, so maybe only have that.
-        #      On the other hand, Batoid has other telescope specifications that people
-        #      might want to use.  Those though don't use the band part.  E.g. it's just
-        #      DECam.yaml, not DECam_r.yaml, etc.
-        #      More importantly, I assume they would need some other camera option, which right
-        #      now is hard-coded to LSST.
-        # TL;DR For now, this only works for LSST.
         telescope = kwargs.pop('telescope', 'LSST')
         if telescope != 'LSST':
             raise NotImplementedError("Batoid WCS only valid for telescope='LSST' currently")
@@ -555,12 +551,11 @@ class BatoidWCSBuilder(WCSBuilder):
             # cf. https://www.engineeringtoolbox.com/air-altitude-pressure-d_462.html
             # p = 101.325 kPa (1 - 2.25577e-5 (h / 1 m))**5.25588
             # Cerro Pachon  altitude = 2715 m
-            # XXX: If we allow other telescopes, should get the altitude somehow probably?
             h = 2715
             kwargs['pressure'] = 101.325 * (1-2.25577e-5*h)**5.25588
 
         if 'H2O_pressure' not in kwargs:
-            # XXX: I have no idea what a good default is, but this seems like a minor enough effect
+            # I have no idea what a good default is, but this seems like a minor enough effect
             # that we should not require the user to pick something.
             kwargs['H2O_pressure'] = 1.0 # kPa
 
