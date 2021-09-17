@@ -138,8 +138,6 @@ image:
 
         obstime:
             type: Eval
-            # XXX: Is this really TAI?  I would have assumed UTC, but I don't really know how
-            #      all the different scales for astropy.time.Time work. Probably doesn't matter TBH.
             str: "astropy.time.Time(mjd_val, format='mjd', scale='tai')"
             fmjd_val: { type: OpsimMeta, field: mjd }
 
