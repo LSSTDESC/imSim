@@ -46,7 +46,7 @@ class BatoidWCSFactory:
     fiducial_telescope : batoid.Optic
         Telescope instance without applying the rotator.
     wavelength : float
-        Meters
+        Nanometers
     camera : lsst.afw.cameraGeom.Camera
     temperature : float
         Ambient temperature in Kelvin
@@ -95,8 +95,7 @@ class BatoidWCSFactory:
         # https://earthscience.stackexchange.com/questions/9868/convert-air-vapor-pressure-to-relative-humidity
         es = 6.11 * np.exp(17.27 * self.tc / (237.3 + self.tc))  # mbar
         self.rh = self.H2O_pressure/es  # relative humidity
-        # XXX: Meters is an odd unit for this.  Can we switch to nm?
-        self.wl = self.wavelength * 1e6  # m -> micron
+        self.wl = self.wavelength * 1e-3  # nm -> micron
 
     def _ICRF_to_observed(self, rc, dc, all=False):
         """
@@ -312,7 +311,7 @@ class BatoidWCSFactory:
         rv = batoid.RayVector.fromFieldAngles(
             thx, thy, projection='gnomonic',
             optic=self._telescope,
-            wavelength=self.wavelength
+            wavelength=self.wavelength*1e-9
         )
         self._telescope.trace(rv)
         # x -> -x to map batoid x to EDCS x.
@@ -545,8 +544,7 @@ class BatoidWCSBuilder(WCSBuilder):
         # Update optional kwargs
 
         if 'wavelength' not in kwargs:
-            # NB. BatoidWCSFactory uses meters for wavelength.  Convert nm -> m.
-            kwargs['wavelength'] = base['bandpass'].effective_wavelength * 1.e-9
+            kwargs['wavelength'] = base['bandpass'].effective_wavelength
 
         if 'temperature' not in kwargs:
             # cf. https://www.meteoblue.com/en/weather/historyclimate/climatemodelled/Cerro+Pachon

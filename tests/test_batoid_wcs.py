@@ -33,7 +33,7 @@ def test_wcs_fit():
     import astropy.units as u
     rng = np.random.default_rng(57721)
     fiducial_telescope = batoid.Optic.fromYaml("LSST_r.yaml")
-    wavelength = 620e-9
+    wavelength = 620. # nm
     camera = LsstCamMapper().camera
 
     for _ in range(30):
@@ -164,12 +164,12 @@ def test_imsim():
     band = "ugrizy"[cmds['filter']]
     fiducial_telescope = batoid.Optic.fromYaml(f"LSST_{band}.yaml")
     wavelength_dict = dict(
-        u=365.49e-9,
-        g=480.03e-9,
-        r=622.20e-9,
-        i=754.06e-9,
-        z=868.21e-9,
-        y=991.66e-9
+        u=365.49,
+        g=480.03,
+        r=622.20,
+        i=754.06,
+        z=868.21,
+        y=991.66
     )
     wavelength = wavelength_dict[band]
     camera = LsstCamMapper().camera
@@ -344,12 +344,12 @@ def test_intermediate_coord_sys():
     band = "ugrizy"[cmds['filter']]
     fiducial_telescope = batoid.Optic.fromYaml(f"LSST_{band}.yaml")
     wavelength_dict = dict(
-        u=365.49e-9,
-        g=480.03e-9,
-        r=622.20e-9,
-        i=754.06e-9,
-        z=868.21e-9,
-        y=991.66e-9
+        u=365.49,
+        g=480.03,
+        r=622.20,
+        i=754.06,
+        z=868.21,
+        y=991.66
     )
     wavelength = wavelength_dict[band]
     camera = LsstCamMapper().camera
@@ -443,12 +443,12 @@ def test_config():
     band = "ugrizy"[cmds['filter']]
     fiducial_telescope = batoid.Optic.fromYaml(f"LSST_{band}.yaml")
     wavelength_dict = dict(
-        u=365.49e-9,
-        g=480.03e-9,
-        r=622.20e-9,
-        i=754.06e-9,
-        z=868.21e-9,
-        y=991.66e-9
+        u=365.49,
+        g=480.03,
+        r=622.20,
+        i=754.06,
+        z=868.21,
+        y=991.66
     )
     wavelength = wavelength_dict[band]
     camera = LsstCamMapper().camera
@@ -553,7 +553,7 @@ def test_config():
     wcs8 = galsim.config.BuildWCS(config['image'], 'wcs', config)
     wcs8a = imsim.BatoidWCSFactory(
                 boresight, rotTelPos, obstime, fiducial_telescope,
-                wavelength=config['bandpass'].effective_wavelength * 1.e-9,
+                wavelength=config['bandpass'].effective_wavelength,
                 camera=camera,
                 temperature=280,
                 pressure=default_pressure,
@@ -582,7 +582,7 @@ def test_config():
     wcs9 = galsim.config.BuildWCS(config['image'], 'wcs', config)
     wcs9a = imsim.BatoidWCSFactory(
                 boresight, rotTelPos, obstime, fiducial_telescope,
-                wavelength=config['bandpass'].effective_wavelength * 1.e-9,
+                wavelength=config['bandpass'].effective_wavelength,
                 camera=camera,
                 temperature=280,
                 pressure=default_pressure,
