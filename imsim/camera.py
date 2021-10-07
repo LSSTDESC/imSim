@@ -4,6 +4,7 @@ import copy
 import numpy as np
 import galsim
 from galsim.config import RegisterInputType, InputLoader
+import lsst.obs.lsst
 
 
 # Crosstalk cofficients from lsst.obs.lsst.imsim.ImsimMapper.  These
@@ -98,6 +99,7 @@ class Amp:
         self.raw_data_bounds = None
         self.read_noise = None
         self.bias_level = None
+        self.lsst_amp = None
 
     def update(self, other):
         """
@@ -125,6 +127,7 @@ class Amp:
         Amp object
         """
         my_amp = Amp()
+        my_amp.lsst_amp = lsst_amp
         my_amp.bounds = get_gs_bounds(lsst_amp.getBBox())
         my_amp.raw_flip_x = lsst_amp.getRawFlipX()
         my_amp.raw_flip_y = lsst_amp.getRawFlipY()
@@ -135,6 +138,9 @@ class Amp:
         my_amp.bias_level = bias_level
         return my_amp
 
+    def __getattr__(self, attr):
+        """Provide access to the attributes of the underlying lsst_amp."""
+        return getattr(self.lsst_amp, attr)
 
 class CCD(dict):
     """
@@ -149,6 +155,7 @@ class CCD(dict):
         super().__init__()
         self.bounds = None
         self.xtalk = _ts3_xtalk
+        self.lsst_detector = None
 
     def update(self, other):
         """
@@ -180,27 +187,30 @@ class CCD(dict):
         """
         my_ccd = CCD()
         my_ccd.bounds = get_gs_bounds(lsst_ccd.getBBox())
+        my_ccd.lsst_ccd = lsst_ccd
         for lsst_amp in lsst_ccd:
             my_ccd[lsst_amp.getName()] = Amp.make_amp_from_lsst(lsst_amp)
         if lsst_ccd.hasCrosstalk():
             my_ccd.xtalk = lsst_ccd.getCrosstalk()
         return my_ccd
 
+    def __getattr__(self, attr):
+        """Provide access to the attributes of the underlying lsst_ccd."""
+        return getattr(self.lsst_ccd, attr)
 
 class Camera(dict):
     """
     Class to represent the LSST Camera as a dictionary of CCD objects,
     keyed by the CCD name in the focal plane, e.g., 'R01_S00'.
     """
-    _req_params = {'file_name' : str}
-
-    def __init__(self, file_name, logger=None):
+    def __init__(self, instrument_class=lsst.obs.lsst.LsstCam, logger=None):
         """
-        Initialize a Camera object from a pickle file.
+        Initialize a Camera object from the lsst instrument class.
         """
         super().__init__()
-        if file_name is not None:
-            self.update(self.read_pickle(file_name))
+        self.lsst_camera = instrument_class().getCamera()
+        for lsst_ccd in self.lsst_camera:
+            self[lsst_ccd.getName()] = CCD.make_ccd_from_lsst(lsst_ccd)
 
     def update(self, other):
         """
@@ -213,30 +223,9 @@ class Camera(dict):
                 self[key] = CCD()
             self[key].update(value)
 
-    def to_pickle(self, pickle_file):
-        """
-        Write this Camera object to a pickle file.
-        """
-        with open(pickle_file, 'wb') as fd:
-            pickle.dump(self, fd)
-
-    @staticmethod
-    def read_pickle(pickle_file):
-        """
-        Read a pickled Camera object from a file and return it.
-        """
-        with open(pickle_file, 'rb') as fd:
-            return pickle.load(fd)
-
-
-def make_camera_from_lsst(lsst_camera):
-    """
-    Create a Camera object from a lsst.afw.cameraGeom.Camera object.
-    """
-    my_camera = Camera(None)
-    for lsst_ccd in lsst_camera:
-        my_camera[lsst_ccd.getName()] = CCD.make_ccd_from_lsst(lsst_ccd)
-    return my_camera
+    def __getattr__(self, attr):
+        """Provide access to the attributes of the underlying lsst_camera."""
+        return getattr(self.lsst_camera, attr)
 
 
 RegisterInputType('camera_geometry', InputLoader(Camera, takes_logger=True))
