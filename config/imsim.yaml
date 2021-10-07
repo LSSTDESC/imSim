@@ -49,7 +49,7 @@ eval_variables:
 input:
     camera_geometry:
         # Camera geometry from lsst.obs.lsst
-        file_name: config/LsstCam.pickle
+        file_name: LsstCam.pickle
 
     instance_catalog:
         # This enables InstCat types
