@@ -77,11 +77,18 @@ _ts3_xtalk = np.array(
 
 
 def get_gs_bounds(bbox):
+    """
+    Return a galsim.BoundsI object created from an lsst.afw.Box2I object.
+    """
     return galsim.BoundsI(xmin=bbox.getMinX() + 1, xmax=bbox.getMaxX() + 1,
                           ymin=bbox.getMinY() + 1, ymax=bbox.getMaxY() + 1)
 
 
 class Amp:
+    """
+    Class to contain the pixel geometry and electronic readout properties
+    of the amplifier segments in the Rubin Camera CCDs.
+    """
     def __init__(self):
         self.bounds = None
         self.raw_flip_x = None
@@ -93,10 +100,30 @@ class Amp:
         self.bias_level = None
 
     def update(self, other):
+        """
+        Method to copy the properties of another Amp object.
+        """
         self.__dict__.update(other.__dict__)
 
     @staticmethod
     def make_amp_from_lsst(lsst_amp, bias_level=1000.):
+        """
+        Static function to create an Amp object, extracting its properties
+        from an lsst.afw.cameraGeom.Amplifier object.
+
+        Parameters
+        ----------
+        lsst_amp : lsst.afw.cameraGeom.Amplifier
+           The LSST Science Pipelines class representing an amplifier
+           segment in a CCD.
+        bias_level : float [1000.]
+           The bias level (ADU) to use since the camerGeom.Amplifier
+           object doesn't have a this value encapsulated.
+
+        Returns
+        -------
+        Amp object
+        """
         my_amp = Amp()
         my_amp.bounds = get_gs_bounds(lsst_amp.getBBox())
         my_amp.raw_flip_x = lsst_amp.getRawFlipX()
@@ -110,12 +137,23 @@ class Amp:
 
 
 class CCD(dict):
+    """
+    A dict subclass to contain the Amp representations of a CCD's
+    amplifier segments along with the pixel bounds of the CCD in focal
+    plane coordinates, as well as other CCD-level information such as
+    the crosstalk between amps.  Amp objects are keyed by LSST amplifier
+    name, e.g., 'C10'.
+
+    """
     def __init__(self):
         super().__init__()
         self.bounds = None
         self.xtalk = _ts3_xtalk
 
     def update(self, other):
+        """
+        Method to copy the properties of another CCD object.
+        """
         self.__dict__.update(other.__dict__)
         for key, value in other.items():
             if not key in self:
@@ -124,6 +162,22 @@ class CCD(dict):
 
     @staticmethod
     def make_ccd_from_lsst(lsst_ccd):
+        """
+        Static function to create a CCD object, extracting its properties
+        from an lsst.afw.cameraGeom.Detector object, including CCD and
+        amp-level bounding boxes, and intra-CCD crosstalk, if it's
+        available.
+
+        Parameters
+        ----------
+        lsst_ccd : lsst.afw.cameraGeom.Detector
+           The LSST Science Pipelines class representing a CCD.
+
+        Returns
+        -------
+        CCD object
+
+        """
         my_ccd = CCD()
         my_ccd.bounds = get_gs_bounds(lsst_ccd.getBBox())
         for lsst_amp in lsst_ccd:
@@ -134,14 +188,25 @@ class CCD(dict):
 
 
 class Camera(dict):
+    """
+    Class to represent the LSST Camera as a dictionary of CCD objects,
+    keyed by the CCD name in the focal plane, e.g., 'R01_S00'.
+    """
     _req_params = {'file_name' : str}
 
     def __init__(self, file_name, logger=None):
+        """
+        Initialize a Camera object from a pickle file.
+        """
         super().__init__()
         if file_name is not None:
             self.update(self.read_pickle(file_name))
 
     def update(self, other):
+        """
+        Method to copy the properties of the CCDs in this object from
+        another Camera object.
+        """
         self.__dict__.update(other.__dict__)
         for key, value in other.items():
             if not key in self:
@@ -149,16 +214,25 @@ class Camera(dict):
             self[key].update(value)
 
     def to_pickle(self, pickle_file):
+        """
+        Write this Camera object to a pickle file.
+        """
         with open(pickle_file, 'wb') as fd:
             pickle.dump(self, fd)
 
     @staticmethod
     def read_pickle(pickle_file):
+        """
+        Read a pickled Camera object from a file and return it.
+        """
         with open(pickle_file, 'rb') as fd:
             return pickle.load(fd)
 
 
 def make_camera_from_lsst(lsst_camera):
+    """
+    Create a Camera object from a lsst.afw.cameraGeom.Camera object.
+    """
     my_camera = Camera(None)
     for lsst_ccd in lsst_camera:
         my_camera[lsst_ccd.getName()] = CCD.make_ccd_from_lsst(lsst_ccd)
