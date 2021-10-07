@@ -208,11 +208,6 @@ class CameraReadout(ExtraOutputBuilder):
 
         This function will be called after all images have been built.
 
-        It returns some sort of final version of the object.  In the
-        base class, it just returns self.data, but depending on the
-        meaning of the output object, something else might be more
-        appropriate.
-
         Parameters:
            config:     The configuration field for this output object.
            base:       The base configuration dict.
@@ -220,7 +215,7 @@ class CameraReadout(ExtraOutputBuilder):
            logger:     If given, a logger object to log progress. [default: None]
 
         Returns:
-           The final version of the object.
+           An HDUList of the amplifier images in a CCD.
         """
         logger.warning("Making amplifier images")
         ccd_readout = CcdReadout(config, base)
@@ -261,10 +256,6 @@ class CameraReadout(ExtraOutputBuilder):
 
     def writeFile(self, file_name, config, base, logger):
         """Write this output object to a file.
-
-        The base class implementation is appropriate for the cas that
-        the result of finalize is a list of images to be written to a
-        FITS file.
 
         Parameters:
             file_name:  The file to write to.
