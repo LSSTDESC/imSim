@@ -119,8 +119,8 @@ image:
                 # the main process for all of the (many) vert faint sources, which only shoot
                 # a small numer of photons.
 
-    xsize: 4072   # These are the numbers for ITL sensors, but they should be
-    ysize: 4000   # found from the camera geometry individually for each CCD.
+    xsize: 4096
+    ysize: 4096
 
     bandpass: { type: OpsimMetaBandpass }
 
