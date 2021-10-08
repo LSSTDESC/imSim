@@ -18,7 +18,7 @@ def section_keyword(bounds, flipx=False, flipy=False):
     return '[%i:%i,%i:%i]' % (xmin, xmax, ymin, ymax)
 
 
-def cte_matrix(npix, cti, ntransfers=20, nexact=30):
+def cte_matrix(npix, cti, ntransfers=20):
     """
     Compute the CTE matrix so that the apparent charge q_i in the i-th
     pixel is given by
@@ -33,39 +33,34 @@ def cte_matrix(npix, cti, ntransfers=20, nexact=30):
         Total number of pixels in either the serial or parallel
         directions.
     cti : float
-        The charge transfer inefficiency.
-    ntransfers : int, optional
+        The charge transfer inefficiency, i.e., the fraction of
+        a pixel's charge left behind for each single pixel transfer.
+    ntransfers : int [20]
         Maximum number of transfers to consider as contributing to
         a target pixel.
-    nexact : int, optional
-        Number of transfers to use exact the binomial distribution
-        expression, otherwise use Poisson's approximation.
     Returns
     -------
     numpy.array
         The npix x npix numpy array containing the CTE matrix.
-    Notes
-    -----
-    This implementation is based on
-    Janesick, J. R., 2001, "Scientific Charge-Coupled Devices", Chapter 5,
-    eqs. 5.2a,b.
-    """
-    ntransfers = min(npix, ntransfers)
-    nexact = min(nexact, ntransfers)
-    my_matrix = np.zeros((npix, npix), dtype=np.float)
-    for i in range(1, npix):
-        jvals = np.concatenate((np.arange(1, i+1), np.zeros(npix-i)))
-        index = np.where(i - nexact < jvals)
-        j = jvals[index]
-        my_matrix[i-1, :][index] \
-            = scipy.special.binom(i, j)*(1 - cti)**i*cti**(i - j)
-        if nexact < ntransfers:
-            index = np.where((i - nexact >= jvals) & (i - ntransfers < jvals))
-            j = jvals[index]
-            my_matrix[i-1, :][index] \
-                = (j*cti)**(i-j)*np.exp(-j*cti)/scipy.special.factorial(i-j)
-    return my_matrix
 
+    This implementation is from Mike Jarvis.
+    """
+    my_matrix = np.zeros((npix, npix), dtype=np.float)
+    for i in range(1, npix+1):
+        # On diagonal, there are i transfers of the electrons, so i chances to lose a fraction
+        # cti into the later pixels.  Net charge is decreased by (1-cti)**i.
+        my_matrix[i-1, i-1] = (1.-cti)**i
+
+        # Off diagonal, there must be (i-j) cti losses of charge among i-1 possible transfers.
+        # Then that charge has to survive j additional transfers.
+        # So net charge is binom(i-1,i-j) * (1-cti)**j * cti**(i-j)
+        # (Indeed this is the same equation as above when i=j, but slightly more efficient to
+        # break it out separately above.)
+        jmin = max(1, i-ntransfers)
+        j = np.arange(jmin, i)
+        my_matrix[i-1, jmin-1:i-1] = scipy.special.binom(i-1, i-j) * (1.-cti)**j * cti**(i-j)
+
+    return my_matrix
 
 def get_primary_hdu(config, base, main_data, lsst_num='LCA-11021_RTM-000',
                     image_type='SKYEXP'):
@@ -150,8 +145,18 @@ class CcdReadout:
         return output
 
     def build_images(self, config, base, main_data):
-        """Build the amplifier images applying readout effects and
-        repackaging the pixel ordering in readout order."""
+        """Build the amplifier images from the "electron-image".
+        The steps are
+        * add dark current
+        * divide the physical image into amplifier segements
+        * apply per-amp gains
+        * apply appropriate flips in x- and y-directions to
+          get the amp image array in readout order
+        * apply intra-CCD crosstalk
+        * add prescan and overscan pixels
+        * apply charge transfer efficiency effects
+        * add bias levels and read noise
+        """
         eimage = copy.deepcopy(main_data[0])
 
         # Add dark current.
@@ -204,9 +209,12 @@ class CameraReadout(ExtraOutputBuilder):
     """
 
     def finalize(self, config, base, main_data, logger):
-        """Perform any final processing at the end of all the image processing.
-
-        This function will be called after all images have been built.
+        """
+        This function will use the CcdReadout class to divide the physical
+        CCD image into amplifier segments and add readout effects.
+        This function will also add header keywords with the amp names
+        and pixel geometry, and will package everything up as an
+        astropy.io.fits.HDUList.
 
         Parameters:
            config:     The configuration field for this output object.
