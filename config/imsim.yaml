@@ -47,6 +47,10 @@ eval_variables:
 # updated for each output file.
 # Also includes things that need some set up at the start of an exposure, like the atmospheric PSF.
 input:
+    camera_geometry:
+        # Camera geometry from lsst.obs.lsst
+        file_name: LsstCam.pickle
+
     instance_catalog:
         # This enables InstCat types
         file_name: $cat_name

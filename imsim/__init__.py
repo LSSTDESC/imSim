@@ -8,3 +8,4 @@ from .wcs import *
 from .treerings import *
 from .atmPSF import *
 from .readout import *
+from .camera import *
