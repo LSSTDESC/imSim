@@ -5,7 +5,7 @@ import scipy
 from astropy.io import fits
 import galsim
 from galsim.config import ExtraOutputBuilder, RegisterExtraOutput
-
+from .bleed_trails import bleed_eimage
 
 def section_keyword(bounds, flipx=False, flipy=False):
     """Package image bounds as a NOAO image section keyword value."""
@@ -158,6 +158,9 @@ class CcdReadout:
         * add bias levels and read noise
         """
         eimage = copy.deepcopy(main_data[0])
+
+        # Bleed trail processing. TODO: Get full_well from the camera.
+        eimage.array[:] = bleed_eimage(eimage.array, full_well=1e5)
 
         # Add dark current.
         exp_time = base['exp_time']
