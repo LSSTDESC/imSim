@@ -90,6 +90,18 @@ class LSST_CCDBuilder(OutputBuilder):
         galsim.config.CheckAllParams(config, ignore=ignore)
 
         image = galsim.config.BuildImage(base, image_num, obj_num, logger=logger)
+
+        # Add cosmic rays.
+        exp_time = base['exp_time']
+        det_name = base['det_name']
+        md = galsim.config.GetInputObj('opsim_meta_dict', config, base,
+                                       'OpsimMeta').meta
+        visit = md.get('obshistid')
+        cosmic_rays = galsim.config.GetInputObj('cosmic_rays', config, base,
+                                                'CosmicRays')
+        cosmic_rays.set_seed(cosmic_rays.generate_seed(visit, det_name))
+        cosmic_rays.paint(image.array, exptime=exp_time)
+
         return [ image ]
 
 RegisterOutputType('LSST_CCD', LSST_CCDBuilder())

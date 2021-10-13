@@ -107,6 +107,10 @@ input:
         # a minute or so to read all 189 detectors (the default behavior).
         only_dets: [R22_S11]
 
+    cosmic_rays:
+        ccd_rate: 0.2    # CTIO rate extracted from DECam darks.
+        catalog_file: default
+
 
 # Define how the objects are placed on the image.  This refers to a single CCD.
 image:
@@ -277,11 +281,6 @@ output:
     checkpoint:
         nobj: 500
         cleanup: True
-
-    # TODO: Not implemented yet.
-    cosmic_rays:
-        ccd_rate: 0.2    # CTIO rate extracted from DECam darks.
-        catalog: default
 
     # TODO: There is only a skeleton implementation of this so far.
     readout:
