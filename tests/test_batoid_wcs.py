@@ -575,7 +575,7 @@ def test_config():
     print('obstime = ',obstime.to_value('iso'), type(obstime.to_value('iso')))
     config['image']['wcs']['obstime'] = obstime.to_value('iso')
     # Doesn't quite roundtrip perfectly.  But within a millisecond.
-    obstime = Time(obstime.to_value('iso'), scale='utc')
+    obstime = Time(obstime.to_value('iso'), scale='tai')
     print('obstime => ',obstime)
     galsim.config.RemoveCurrent(config['image']['wcs'])
     config = galsim.config.CleanConfig(config)

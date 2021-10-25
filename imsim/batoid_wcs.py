@@ -523,12 +523,10 @@ class BatoidWCSBuilder(WCSBuilder):
         logger.info("Building Batoid WCS for %s", kwargs['det_name'])
 
         # If a string, convert it to astropy.time.Time.
-        # XXX: Does this make sense?
-        #      If so, should we have the user give format and/or scale?
-        #      Or is it ok to assume UTC in this case?  I doubt we ever care about the different
-        #      options for scale in terms of how it affects the WCS, so probably doesn't matter.
+        # XXX Assumption is that string time is in scale 'TAI'.  Should make sure
+        # to make this consistent with OpSim.
         if isinstance(kwargs['obstime'], str):
-            kwargs['obstime'] = astropy.time.Time(kwargs['obstime'], scale='utc')
+            kwargs['obstime'] = astropy.time.Time(kwargs['obstime'], scale='tai')
 
         telescope = kwargs.pop('telescope', 'LSST')
         if telescope != 'LSST':
