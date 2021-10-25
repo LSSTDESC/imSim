@@ -59,7 +59,7 @@ class TreeRings():
             if not line.startswith('Rx'): continue
             items = lines[i+1].split()
 
-            det_name = "R%s%s-S%s%s"%(tuple(items[:4]))
+            det_name = "R%s%s_S%s%s"%(tuple(items[:4]))
             if self.only_dets and det_name not in self.only_dets: continue
             logger.info(det_name)
 
