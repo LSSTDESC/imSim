@@ -33,7 +33,7 @@ input:
     instance_catalog:
         # This enables InstCat types
         file_name: $cat_name
-        sed_dir: $sed_dir
+        sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
     opsim_meta_dict:
         # This enables OpsimMeta types
@@ -78,7 +78,7 @@ input:
         # This enables TreeRingCenter and TreeRungFunc, which are stored as a dict here based
         # on the detector name, so the right value can be accessed for each object.
         # This file lives in the imsim repo.
-        file_name: $imsim_dir + "/data/tree_ring_data/tree_ring_parameters_2018-04-26.txt"
+        file_name: $os.environ.get('IMSIM_DIR') + "/data/tree_ring_data/tree_ring_parameters_2018-04-26.txt"
         # Can limit the detectors to read in.  This is handy while debugging, since it takes
         # a minute or so to read all 189 detectors (the default behavior).
         # only_dets: [R22_S11]
@@ -239,7 +239,7 @@ output:
         nitems: 189
         first: 94  # Can set first to something if you want to do a specific sensor.
 
-    dir: $image_dir
+    dir: fits
     file_name:
         type: FormattedStr
         format : raw_%08d-%s-%s-det%03d.fits

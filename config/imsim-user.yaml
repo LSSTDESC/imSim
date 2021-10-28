@@ -1,41 +1,35 @@
-#template: $os.environ.get('IMSIM_DIR') + "/config/imsim-config.yaml"
-template: /Users/walter/LSST/imSim/config/imsim-config.yaml
+template: /Users/walter/LSST/imSim/config/imsim-config.yaml  # Use configuration
 
-# These variables are used by the imsim-config file. You can customize them here. Note they
-# should be prepended with a "s" to indicate they are a string.
+# Note: by default these config files assome that you have set the enviroment
+# variable IMSIM_DIR for the location of the imSim source directory and
+# SIMS_SED_LIBRARY_DIR for the location of the astrophysical SEDs.
+#
+# You can find the SEDS at NERSC at:
+# /cvmfs/sw.lsst.eu/linux-x86_64/lsst_sims/sims_w_2020_28/stack/current/Linux64/sims_sed_library/2017.01.24-1-g5b328a8
+#
+# and on OSX if you use CVMFS at (last pinned version of lsst_sims)
+# /cvmfs/sw.lsst.eu/darwin-x86_64/lsst_sims/sims_w_2020_15/stack/current/DarwinX86/sims_sed_library/2017.01.24
+#
+# You can also supply a local directory for the SEDs.
+#
+# You can also override any of the config variables on the command line.
+
+# Overide the the values in the template configuration with the values below.
 
 eval_variables:
 
-    simsim_dir: $os.environ.get('IMSIM_DIR')
+    # These are global variables used by the imsim-config.yaml file. Note they
+    # should be prepended with a "s" to indicate they are a string.
 
-    # Can set the output dir via environment variable if you want, or can set this on the
-    # command line via:
-    #
-    #     galsim imsim.yaml eval_variables.simage_dir=/some/other/output/dir
-    #
-    #simage_dir: $os.environ.get('IMSIM_IMAGE_PATH')
-    simage_dir: output #  A local relative path
-
-    # Where the SED files are located
-    #
-    # Note: At nersc, this is:
-    # /cvmfs/sw.lsst.eu/linux-x86_64/lsst_sims/sims_w_2020_28/stack/current/Linux64/sims_sed_library/2017.01.24-1-g5b328a8
-    #
-    # On OSX (last pinned version of lsst_sims) you can find the same at:
-    # /cvmfs/sw.lsst.eu/darwin-x86_64/lsst_sims/sims_w_2020_15/stack/current/DarwinX86/sims_sed_library/2017.01.24
-    #
-    # You can also use a local directory or export a enviroment variable.
-    ssed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
-
-    # Probably would set this on the command line, but you may specify here
-    #
-    # Note: At nersc, this is at:
-    #   /global/cscratch1/sd/jchiang8/desc/Run2.2i/InstCats/00466749
-    #
-    # Note: you could instead set input.instance_catalog.file_name on the command line
-    # (actually no the cat_name is used in two diferent variables so need to set that instead... cww)
-    scat_name: /Users/walter/LSST/work/imsim-config/00466749/phosim_cat_466749.txt
+    # The instance catalog name
+    # [Note: you could set input.instance_catalog.file_name on the command line]
+    # (actually no; cat_name is used in two diferent variables now so,
+    # need to set this instead... cww)
+    scat_name: '/Users/walter/LSST/work/imsim-config/00466749/phosim_cat_466749.txt'
 
 # Changes to individual pamameters (these could also be set on the command line)
+input.instance_catalog.sed_dir:  $os.environ.get('SIMS_SED_LIBRARY_DIR') # current default
 input.instance_catalog.sort_mag: False
-image.nobjects: 10
+image.nobjects: 5
+
+output.dir: output  # default `fits`
