@@ -15,7 +15,7 @@ template: /Users/walter/LSST/imSim/config/imsim-config.yaml  # Use configuration
 # You can also override any of the config variables on the command line.  For
 # example:
 #
-# galsim imsim-user.html input.instance_catalog.file_name=00466749/cat_466749.txt
+# galsim imsim-user.yaml input.instance_catalog.file_name=00466749/cat_466749.txt
 #
 # Overide the the values in the template configuration with the values below.
 
