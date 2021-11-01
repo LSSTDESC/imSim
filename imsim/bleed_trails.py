@@ -2,7 +2,6 @@
 Simple bleed trail implementation to apply to "eimages" just prior to
 the camera readout code.
 """
-import copy
 import numpy as np
 
 __all__ = ['bleed_eimage', 'bleed_channel']
@@ -63,7 +62,7 @@ def bleed_channel(channel, full_well):
     """
     # Find contiguous sets of pixels that lie above full well, and
     # build a list of end point pairs identifying each set.
-    my_channel = copy.deepcopy(channel)
+    my_channel = channel.copy()
     padded = np.array([0] + list(my_channel) + [0])
     index = np.where(padded > full_well)
     mask = np.zeros(len(padded), dtype=int)
