@@ -8,15 +8,13 @@ from collections import namedtuple, defaultdict
 import hashlib
 import numpy as np
 import astropy.io.fits as fits
-from galsim.config import RegisterInputType, InputLoader
+import galsim
 
 __all__ = ['CosmicRays', 'write_cosmic_ray_catalog']
 
 CR_Span = namedtuple('CR_Span', 'x0 y0 pixel_values'.split())
 
 class CosmicRays(list):
-    _req_params = {'catalog_file' : str,
-                   'ccd_rate' : float}
     """
     This is a subclass of the Python list data type.  Each element of
     the list represents a cosmic ray (CR) that was extracted from a
@@ -33,22 +31,15 @@ class CosmicRays(list):
         Sum of exposure times (seconds) of the input darks.
     ccd_rate: float
         Cosmic rays per second per CCD.
-    rng: numpy.random.RandomState
-        Random number generator.  If the seed is not set with
-        .set_seed(...), this is just set to numpy.random.
     """
-    def __init__(self, catalog_file, ccd_rate):
+    def __init__(self, ccd_rate, catalog_file):
         """
         Constructor.
         """
-        if catalog_file == 'default':
-            catalog_file = os.path.join(os.path.dirname(__file__), '..',
-                                        'data', 'cosmic_ray_catalog.fits.gz')
         super().__init__()
         self._read_catalog(catalog_file, ccd_rate)
-        self.rng = np.random     # Use numpy.random module by default.
 
-    def paint(self, image_array, exptime=30., num_crs=None):
+    def paint(self, image_array, rng, exptime=30., num_crs=None):
         """
         Paint cosmic rays on an input image.  If num_crs is None, the
         number of CRs to paint is drawn from a predicted number based
@@ -60,6 +51,8 @@ class CosmicRays(list):
         ----------
         image_array: numpy.array
             Input image array onto which the CRs are painted.
+        rng: galsim.BaseDeviate
+            Random number generator.
         exptime: float, optional
             Exposure time (seconds) of the image to use for computing
             the number of CRs to paint. Default: 30
@@ -73,12 +66,13 @@ class CosmicRays(list):
         """
         if num_crs is None:
             ccd_frac = float(np.prod(image_array.shape))/self.num_pix
-            num_crs = self.rng.poisson(exptime*self.ccd_rate*ccd_frac)
+            pd = galsim.PoissonDeviate(rng, exptime*self.ccd_rate*ccd_frac)
+            num_crs = int(pd())
         for i in range(num_crs):
-            image_array = self.paint_cr(image_array)
+            image_array = self.paint_cr(image_array, rng)
         return image_array
 
-    def paint_cr(self, image_array, index=None, pixel=None):
+    def paint_cr(self, image_array, rng, index=None, pixel=None):
         """
         Paint a single cosmic ray onto the input image array.
 
@@ -86,24 +80,26 @@ class CosmicRays(list):
         ----------
         image_array: numpy.array
             Input image array onto which the CRs are painted.
-        index: int, optional
-            The list index of the CR to paint. If None (default),
+        rng: galsim.BaseDeviate
+            Random number generator.
+        index: int [None] The list index of the CR to paint. If None,
             then a random CR will be selected.
-        pixel: tuple(int, int), optional
+        pixel: tuple(int, int) [None]
             Pixel coordinates of the starting pixel of the footprint
-            used for painting the CR.
+            used for painting the CR. If None, then a random pixel in
+            the image_array will be selected.
 
         Returns
         -------
         numpy.array: The input image array with the CR added.
         """
+        ud = galsim.UniformDeviate(rng)
         if index is None:
-            cr = self.rng.choice(self)
-        else:
-            cr = self[index]
+            index = int(ud()*len(self))
+        cr = self[index]
         if pixel is None:
-            pixel = (self.rng.randint(image_array.shape[1]),
-                     self.rng.randint(image_array.shape[0]))
+            pixel = (int(ud()*image_array.shape[1]),
+                     int(ud()*image_array.shape[0]))
         for span in cr:
             for dx, value in enumerate(span.pixel_values):
                 try:
@@ -144,46 +140,6 @@ class CosmicRays(list):
         else:
             self.ccd_rate = ccd_rate
 
-    def set_seed(self, seed):
-        """
-        Set the random number seed for a numpy.random.RandomState
-        instance that's held as the self.rng attribute.
-
-        Parameters
-        ----------
-        seed: int
-            The seed must be between 0 and 2**32 - 1
-        """
-        self.rng = np.random.RandomState(seed)
-
-    @staticmethod
-    def generate_seed(visit, det_name):
-
-        """
-        Deterministically construct an integer, appropriate for a random
-        seed, from visit number and detector name.
-
-        Parameters
-        ----------
-        visit: int
-            Visit (or obsHistID) number.
-        det_name: str
-            Name of the sensor in the LSST focal plane, e.g., "R:2,2 S:1,1".
-
-        Returns
-        -------
-        int
-
-        Notes
-        -----
-        See https://stackoverflow.com/a/42089311
-        """
-        my_string = "{}{}".format(visit, det_name)
-        my_int = int(hashlib.sha256(my_string.encode('utf-8')).hexdigest(), 16)
-
-        # Return a seed between 0 and 2**32-1
-        return my_int % (2**32 - 1)
-
 
 def write_cosmic_ray_catalog(fp_id, x0, y0, pixel_values, exptime, num_pix,
                              outfile='cosmic_ray_catalog.fits', overwrite=True):
@@ -221,6 +177,3 @@ def write_cosmic_ray_catalog(fp_id, x0, y0, pixel_values, exptime, num_pix,
     hdu_list[-1].header['EXPTIME'] = exptime
     hdu_list[-1].header['NUM_PIX'] = num_pix
     hdu_list.writeto(outfile, overwrite=overwrite)
-
-
-RegisterInputType('cosmic_rays', InputLoader(CosmicRays, takes_logger=False))
