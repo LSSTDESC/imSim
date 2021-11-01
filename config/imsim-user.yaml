@@ -12,11 +12,14 @@ template: /Users/walter/LSST/imSim/config/imsim-config.yaml  # Use configuration
 #
 # You can also supply a local directory for the SEDs.
 #
-# You can also override any of the config variables on the command line.
-
+# You can also override any of the config variables on the command line.  For
+# example:
+#
+# galsim imsim-user.html input.instance_catalog.file_name=00466749/cat_466749.txt
+#
 # Overide the the values in the template configuration with the values below.
 
-eval_variables:
+#eval_variables:
 
     # These are global variables used by the imsim-config.yaml file. Note they
     # should be prepended with a "s" to indicate they are a string.
@@ -25,11 +28,13 @@ eval_variables:
     # [Note: you could set input.instance_catalog.file_name on the command line]
     # (actually no; cat_name is used in two diferent variables now so,
     # need to set this instead... cww)
-    scat_name: '/Users/walter/LSST/work/imsim-config/00466749/phosim_cat_466749.txt'
+    # scat_name: '/Users/walter/LSST/work/imsim-config/00466749/phosim_cat_466749.txt'
 
-# Changes to individual pamameters (these could also be set on the command line)
-input.instance_catalog.sed_dir:  $os.environ.get('SIMS_SED_LIBRARY_DIR') # current default
+# Changes to individual pamameters.  These could also be set on the command line like for example:
+
+input.instance_catalog.file_name: /Users/walter/LSST/work/imsim-config/00466749/phosim_cat_466749.txt
+input.instance_catalog.sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR') # current default
 input.instance_catalog.sort_mag: False
 image.nobjects: 5
 
-output.dir: output  # default `fits`
+output.dir: output # default `fits`

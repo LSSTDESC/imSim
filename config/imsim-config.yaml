@@ -32,7 +32,7 @@ input:
 
     instance_catalog:
         # This enables InstCat types
-        file_name: $cat_name
+        file_name: {}
         sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
     opsim_meta_dict:
@@ -41,7 +41,7 @@ input:
         # input file.  But it's useful to separate them, since we want some OpsimMeta items at
         # file scope.  In particular to define the WCS, which is needed by the InstCat items.
         # So this one is registered as being allowed at file scope, but instance_catalog is not.
-        file_name: $cat_name
+        file_name: '@input.instance_catalog.file_name'
 
     atm_psf:
         # This enables the AtmosphericPSF type for the PSF
