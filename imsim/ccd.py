@@ -88,15 +88,20 @@ class LSST_CCDBuilder(OutputBuilder):
         # This is basically the same as the base class version.  Just a few extra things to
         # add to the ignore list.
         ignore += [ 'file_name', 'dir', 'nfiles', 'checkpoint', 'det_num',
-                    'cosmic_ray_rate', 'cosmic_ray_catalog', 'readout', 'exp_time' ]
-        galsim.config.CheckAllParams(config, ignore=ignore)
+                    'readout', 'exp_time' ]
+
+        opt = {
+            'cosmic_ray_rate': float,
+            'cosmic_ray_catalog': str
+        }
+        params, safe = galsim.config.GetAllParams(config, base, opt=opt, ignore=ignore)
 
         image = galsim.config.BuildImage(base, image_num, obj_num, logger=logger)
 
         # Add cosmic rays.
-        cosmic_ray_rate = galsim.config.ParseValue(config, 'cosmic_ray_rate', base, float)[0]
+        cosmic_ray_rate = params.get('cosmic_ray_rate', 0)
         if cosmic_ray_rate > 0:
-            cosmic_ray_catalog = galsim.config.ParseValue(config, 'cosmic_ray_catalog', base, str)[0]
+            cosmic_ray_catalog = params.get('cosmic_ray_catalog', None)
             if cosmic_ray_catalog is None:
                 cosmic_ray_catalog = os.path.join(data_dir, 'cosmic_rays_itl_2017.fits.gz')
             if not os.path.isfile(cosmic_ray_catalog):

@@ -256,7 +256,6 @@ output:
     exp_time: 30
 
     cosmic_ray_rate: 0.2
-    cosmic_ray_catalog:
 
     det_num:
         type: Sequence
