@@ -29,7 +29,8 @@ input:
 
     instance_catalog:
         # This enables InstCat types
-        file_name: {} # No default instance catalog.
+        file_name: default_catalog_file.txt # This should be overridden in either the user config file or
+                                            # on the command line.  See imsim-user.yaml for instructions.
         sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
     opsim_meta_dict:
