@@ -232,7 +232,7 @@ output:
 
     exp_time: 30
 
-    cosmic_ray_rate: 2.0
+    cosmic_ray_rate: 0.2
 
     det_num:
         type: Sequence
