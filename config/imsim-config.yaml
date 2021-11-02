@@ -29,7 +29,7 @@ input:
 
     instance_catalog:
         # This enables InstCat types
-        file_name: {}
+        file_name: {} # No default instance catalog.
         sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
     opsim_meta_dict:
