@@ -1,3 +1,6 @@
+# Currently, you need to hardcode the path to the template. In the future we should
+# be able to use IMSIM_DIR
+#
 template: /Users/walter/LSST/imSim/config/imsim-config.yaml  # Use configuration
 
 # Note: by default these config files assome that you have set the enviroment
@@ -10,7 +13,7 @@ template: /Users/walter/LSST/imSim/config/imsim-config.yaml  # Use configuration
 # and on OSX if you use CVMFS at (last pinned version of lsst_sims)
 # /cvmfs/sw.lsst.eu/darwin-x86_64/lsst_sims/sims_w_2020_15/stack/current/DarwinX86/sims_sed_library/2017.01.24
 #
-# You can also supply a local directory for the SEDs.
+# You can also supply a local directory for the SEDs by overriding the sed_dir variable.
 #
 # You can also override any of the config variables on the command line.  For
 # example:
@@ -19,21 +22,10 @@ template: /Users/walter/LSST/imSim/config/imsim-config.yaml  # Use configuration
 #
 # Overide the the values in the template configuration with the values below.
 
-#eval_variables:
-
-    # These are global variables used by the imsim-config.yaml file. Note they
-    # should be prepended with a "s" to indicate they are a string.
-
-    # The instance catalog name
-    # [Note: you could set input.instance_catalog.file_name on the command line]
-    # (actually no; cat_name is used in two diferent variables now so,
-    # need to set this instead... cww)
-    # scat_name: '/Users/walter/LSST/work/imsim-config/00466749/phosim_cat_466749.txt'
-
-# Changes to individual pamameters.  These could also be set on the command line like for example:
-
+# Here are examples of local parameters you might change for your simulation.
 input.instance_catalog.file_name: /Users/walter/LSST/work/imsim-config/00466749/phosim_cat_466749.txt
 input.instance_catalog.sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR') # current default
+
 input.instance_catalog.sort_mag: False
 image.nobjects: 5
 

@@ -21,9 +21,6 @@ eval_variables:
     # So to use this in an Eval string, you would write just run, not srun.
     srun: '0001'
 
-    # This could be set on the command line, or maybe just generated automatically.
-    spsf_name: psf_save.fits
-
 # Any input data is set here.  These are read in at the start of the program and potentially
 # updated for each output file.
 # Also includes things that need some set up at the start of an exposure, like the atmospheric PSF.
@@ -69,7 +66,7 @@ input:
         nproc: 1            # Default (None) means one proc per screen.
 
         # TODO:
-        #save_file: $psf_file  # This is currently set of the imsim command line, so we could keep
+        #save_file: {}        # This is currently set of the imsim command line, so we could keep
                               # doing that, but we could also base this name off of
                               # input.instance_catalog.file_name, or even just have `save: True`
                               # and let the atm_psf figure out a unique name from the input params.
