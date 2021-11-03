@@ -73,7 +73,7 @@ class InstCatalog(object):
     _rubin_area = 0.25 * np.pi * 649**2  # cm^2
 
     def __init__(self, file_name, wcs, sed_dir=None, edge_pix=100, sort_mag=True, flip_g2=True,
-                 logger=None):
+                 min_source=None, logger=None):
         logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
         self.flip_g2 = flip_g2
@@ -128,6 +128,7 @@ class InstCatalog(object):
         ntot = 0
         with fopen(self.file_name, mode='rt') as _input:
             for line in _input:
+                if ' inf ' in line: continue
                 if line.startswith('object'):
                     ntot += 1
                     if ntot % 10000 == 0:
@@ -177,6 +178,19 @@ class InstCatalog(object):
         self.lens = np.array(lens_list, dtype=object)
         self.objinfo = np.array(objinfo_list, dtype=object)
         self.dust = np.array(dust_list, dtype=object)
+
+        if min_source is not None:
+            nsersic = np.sum([params[0].lower() == 'sersic2d' for params in self.objinfo])
+            if nsersic < min_source:
+                logger.warning(f"Fewer than {min_source} galaxies on sensor.  Skipping.")
+                self.id = self.id[:0]
+                self.world_pos = self.world_pos[:0]
+                self.magnorm = self.magnorm[:0]
+                self.sed = self.sed[:0]
+                self.lens = self.lens[:0]
+                self.objinfo = self.objinfo[:0]
+                self.dust = self.dust[:0]
+
         if sort_mag:
             index = np.argsort(self.magnorm)
             self.id = self.id[index]
@@ -691,6 +705,7 @@ class InstCatalogLoader(InputLoader):
                 'edge_pix' : float,
                 'sort_mag' : bool,
                 'flip_g2' : bool,
+                'min_source' : int,
               }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)

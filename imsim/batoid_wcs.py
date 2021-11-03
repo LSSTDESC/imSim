@@ -523,48 +523,89 @@ class BatoidWCSBuilder(WCSBuilder):
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         self._camera_class = kwargs.pop('camera')
         logger.info("Building Batoid WCS for %s", kwargs['det_name'])
+        kwargs['bandpass'] = base.get('bandpass', None)
+        return self.makeWCS(**kwargs)
+
+    def makeWCS(self, boresight, rotTelPos, obstime, det_name, band,
+                telescope='LSST', temperature=None, pressure=None, H2O_pressure=None,
+                wavelength=None, bandpass=None, order=3):
+        """Make the WCS object given the parameters explicitly rather than via a config dict.
+
+        It mostly just calls the BatoidWCSFactory.getWCS function, but it has sensible defaults
+        for many parameters.
+
+        Parameters
+        ----------
+        boresight : galsim.CelestialCoord
+            The ICRF coordinate of light that reaches the boresight.  Note that this
+            is distinct from the spherical coordinates of the boresight with respect
+            to the ICRF axes.
+        rotTelPos : galsim.Angle
+            Camera rotator angle.
+        obstime : astropy.time.Time or str
+            Mean time of observation.
+        det_name : str
+            Detector name in the format e.g. R22_S11
+        band : str
+            The name of the bandpass
+        telescope : str
+            The name of the telescope. [default: 'LSST']  Currenly only 'LSST' is functional.
+        temperature : float
+            Ambient temperature in Kelvin [default: 280 K]
+        pressure : float
+            Ambient pressure in kPa [default: based on LSST heigh of 2715 meters]
+        H2O_pressure : float
+            Water vapor pressure in kPa [default: 1.0 kPa]
+        wavelength : float
+            Nanometers [default: None, which means use the bandpass effective wavelength]
+        bandpass : galsim.Bandpass
+            If wavelegnth is None, use this to get the effective wavelength. [default: None,
+            which means the default LSST bandpass will be used given the (required) band parameter.
+        order : int
+            The order of the SIP polynomial to use. [default: 3]
+
+        Returns:
+            the constructed WCS object (a galsim.GSFitsWCS instance)
+        """
 
         # If a string, convert it to astropy.time.Time.
         # XXX Assumption is that string time is in scale 'TAI'.  Should make sure
         # to make this consistent with OpSim.
-        if isinstance(kwargs['obstime'], str):
-            kwargs['obstime'] = astropy.time.Time(kwargs['obstime'], scale='tai')
+        if isinstance(obstime, str):
+            obstime = astropy.time.Time(obstime, scale='tai')
 
-        telescope = kwargs.pop('telescope', 'LSST')
         if telescope != 'LSST':
             raise NotImplementedError("Batoid WCS only valid for telescope='LSST' currently")
-        band = kwargs.pop('band')
-        kwargs['fiducial_telescope'] = batoid.Optic.fromYaml(f"{telescope}_{band}.yaml")
-        kwargs['camera'] = self.camera
+        fiducial_telescope = batoid.Optic.fromYaml(f"{telescope}_{band}.yaml")
+        camera = self.camera
 
         # Update optional kwargs
 
-        if 'wavelength' not in kwargs:
-            kwargs['wavelength'] = base['bandpass'].effective_wavelength
+        if wavelength is None:
+            if bandpass is None:
+                bandpass = galsim.Bandpass('LSST_%s.dat'%band, wave_type='nm')
+            wavelength = bandpass.effective_wavelength
 
-        if 'temperature' not in kwargs:
+        if temperature is None:
             # cf. https://www.meteoblue.com/en/weather/historyclimate/climatemodelled/Cerro+Pachon
             # Average minimum temp is around 45 F = 7 C, but obviously varies a lot.
-            kwargs['temperature'] = 280 # Kelvin
+            temperature = 280 # Kelvin
 
-        if 'pressure' not in kwargs:
+        if pressure is None:
             # cf. https://www.engineeringtoolbox.com/air-altitude-pressure-d_462.html
             # p = 101.325 kPa (1 - 2.25577e-5 (h / 1 m))**5.25588
             # Cerro Pachon  altitude = 2715 m
             h = 2715
-            kwargs['pressure'] = 101.325 * (1-2.25577e-5*h)**5.25588
+            pressure = 101.325 * (1-2.25577e-5*h)**5.25588
 
-        if 'H2O_pressure' not in kwargs:
+        if H2O_pressure is None:
             # I have no idea what a good default is, but this seems like a minor enough effect
             # that we should not require the user to pick something.
-            kwargs['H2O_pressure'] = 1.0 # kPa
+            H2O_pressure = 1.0 # kPa
 
         # Finally, build the WCS.
-        det_name = kwargs.pop('det_name')
-        order = kwargs.pop('order', 3)
-        factory = BatoidWCSFactory(**kwargs)
-        wcs = factory.getWCS(self.camera[det_name], order=order)
-
-        return wcs
+        factory = BatoidWCSFactory(boresight, rotTelPos, obstime, fiducial_telescope,
+                                   wavelength, camera, temperature, pressure, H2O_pressure)
+        return factory.getWCS(camera[det_name], order=order)
 
 RegisterWCSType('Batoid', BatoidWCSBuilder())
