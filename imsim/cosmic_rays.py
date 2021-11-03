@@ -110,6 +110,21 @@ class CosmicRays(list):
         return image_array
 
     def _read_catalog(self, catalog_file, ccd_rate, extname='COSMIC_RAYS'):
+        with fits.open(catalog_file) as catalog:
+            cr_cat = catalog[extname]
+            self.num_pix = cr_cat.header['NUM_PIX']
+            self.exptime = cr_cat.header['EXPTIME']
+            crs = defaultdict(list)
+            for i, span in enumerate(cr_cat.data):
+                crs[span[0]].append(CR_Span(*tuple(span)[1:]))
+        super().extend(crs.values())
+        if ccd_rate is None:
+            self.ccd_rate = float(len(self))/self.exptime
+        else:
+            self.ccd_rate = ccd_rate
+
+    @classmethod
+    def read_catalog(cls, catalog_file, ccd_rate, extname='COSMIC_RAYS'):
         """
         Read a FITS file containing a cosmic ray catalog.
 
@@ -127,18 +142,9 @@ class CosmicRays(list):
         -------
         CosmicRays instance.
         """
-        with fits.open(catalog_file) as catalog:
-            cr_cat = catalog[extname]
-            self.num_pix = cr_cat.header['NUM_PIX']
-            self.exptime = cr_cat.header['EXPTIME']
-            crs = defaultdict(list)
-            for i, span in enumerate(cr_cat.data):
-                crs[span[0]].append(CR_Span(*tuple(span)[1:]))
-        super().extend(crs.values())
-        if ccd_rate is None:
-            self.ccd_rate = float(len(self))/self.exptime
-        else:
-            self.ccd_rate = ccd_rate
+        ret = cls.__new__(cls)
+        ret._read_catalog(catalog_file, ccd_rate, extname=extname)
+        return ret
 
 
 def write_cosmic_ray_catalog(fp_id, x0, y0, pixel_values, exptime, num_pix,
@@ -171,7 +177,7 @@ def write_cosmic_ray_catalog(fp_id, x0, y0, pixel_values, exptime, num_pix,
                fits.Column(name='x0', format='I', array=x0),
                fits.Column(name='y0', format='I', array=y0),
                fits.Column(name='pixel_values', format='PJ()',
-                           array=np.array(pixel_values, dtype=np.object))]
+                           array=np.array(pixel_values, dtype=object))]
     hdu_list.append(fits.BinTableHDU.from_columns(columns))
     hdu_list[-1].name = 'COSMIC_RAYS'
     hdu_list[-1].header['EXPTIME'] = exptime
