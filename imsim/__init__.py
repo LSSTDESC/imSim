@@ -10,3 +10,5 @@ from .readout import *
 from .camera import *
 from .dict_wcs import *
 from .batoid_wcs import *
+from .bleed_trails import *
+from .cosmic_rays import *

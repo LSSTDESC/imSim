@@ -50,9 +50,7 @@ eval_variables:
 # updated for each output file.
 # Also includes things that need some set up at the start of an exposure, like the atmospheric PSF.
 input:
-    camera_geometry:
-        # Camera geometry from lsst.obs.lsst
-        file_name: LsstCam.pickle
+    camera_geometry: {}
 
     instance_catalog:
         # This enables InstCat types
@@ -106,7 +104,6 @@ input:
         # Can limit the detectors to read in.  This is handy while debugging, since it takes
         # a minute or so to read all 189 detectors (the default behavior).
         only_dets: [R22_S11]
-
 
 # Define how the objects are placed on the image.  This refers to a single CCD.
 image:
@@ -258,6 +255,8 @@ output:
 
     exp_time: 30
 
+    cosmic_ray_rate: 0.2
+
     det_num:
         type: Sequence
         nitems: 189
@@ -277,11 +276,6 @@ output:
     checkpoint:
         nobj: 500
         cleanup: True
-
-    # TODO: Not implemented yet.
-    cosmic_rays:
-        ccd_rate: 0.2    # CTIO rate extracted from DECam darks.
-        catalog: default
 
     # TODO: There is only a skeleton implementation of this so far.
     readout:

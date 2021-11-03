@@ -1,6 +1,8 @@
-
+import os
 import galsim
 from galsim.config import OutputBuilder, RegisterOutputType
+from .cosmic_rays import CosmicRays
+from .meta_data import data_dir
 
 class LSST_CCDBuilder(OutputBuilder):
     """This runs the overall generation of an LSST CCD file.
@@ -86,10 +88,36 @@ class LSST_CCDBuilder(OutputBuilder):
         # This is basically the same as the base class version.  Just a few extra things to
         # add to the ignore list.
         ignore += [ 'file_name', 'dir', 'nfiles', 'checkpoint', 'det_num',
-                    'cosmic_rays', 'readout', 'exp_time' ]
-        galsim.config.CheckAllParams(config, ignore=ignore)
+                    'readout', 'exp_time' ]
+
+        opt = {
+            'cosmic_ray_rate': float,
+            'cosmic_ray_catalog': str
+        }
+        params, safe = galsim.config.GetAllParams(config, base, opt=opt, ignore=ignore)
 
         image = galsim.config.BuildImage(base, image_num, obj_num, logger=logger)
+
+        # Add cosmic rays.
+        cosmic_ray_rate = params.get('cosmic_ray_rate', 0)
+        if cosmic_ray_rate > 0:
+            cosmic_ray_catalog = params.get('cosmic_ray_catalog', None)
+            if cosmic_ray_catalog is None:
+                cosmic_ray_catalog = os.path.join(data_dir, 'cosmic_rays_itl_2017.fits.gz')
+            if not os.path.isfile(cosmic_ray_catalog):
+                raise FileNotFoundError(f'{cosmic_ray_catalog} not found')
+
+            logger.info('Adding cosmic rays with rate %f using %s.',
+                        cosmic_ray_rate, cosmic_ray_catalog)
+            exp_time = base['exp_time']
+            det_name = base['det_name']
+            md = galsim.config.GetInputObj('opsim_meta_dict', config, base,
+                                           'OpsimMeta').meta
+            visit = md.get('obshistid')
+            cosmic_rays = CosmicRays(cosmic_ray_rate, cosmic_ray_catalog)
+            rng = galsim.config.GetRNG(config, base)
+            cosmic_rays.paint(image.array, rng, exptime=exp_time)
+
         return [ image ]
 
 RegisterOutputType('LSST_CCD', LSST_CCDBuilder())
