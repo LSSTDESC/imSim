@@ -12,6 +12,8 @@ from galsim.config import RegisterSEDType, RegisterBandpassType
 from galsim import CelestialCoord
 import galsim
 
+from .meta_data import data_dir
+
 # Some helpers to read in a file that might be gzipped.
 @contextmanager
 def fopen(filename, **kwds):
@@ -117,6 +119,7 @@ class InstCatalog(object):
 
         id_list = []
         world_pos_list = []
+        image_pos_list = []
         magnorm_list = []
         sed_list = []
         lens_list = []
@@ -126,6 +129,7 @@ class InstCatalog(object):
         logger.warning('Reading instance catalog %s', self.file_name)
         nuse = 0
         ntot = 0
+
         with fopen(self.file_name, mode='rt') as _input:
             for line in _input:
                 if ' inf ' in line: continue
@@ -153,18 +157,44 @@ class InstCatalog(object):
                     if not (min_x <= image_pos.x <= max_x and min_y <= image_pos.y <= max_y):
                         continue
                     #logger.debug('on image')
-                    # OK, keep this object.  Finish parsing it.
-                    id_list.append(tokens[1])
-                    nuse += 1
-                    world_pos_list.append(world_pos)
-                    magnorm_list.append(float(tokens[4]))
-                    sed_list.append((tokens[5], float(tokens[6])))
+
+                    # OK, probably keep this object.  Finish parsing it.
+                    objid = tokens[1]
+                    magnorm = float(tokens[4])
+                    sed = ((tokens[5], float(tokens[6])))
                     # gamma1,gamma2,kappa
-                    lens_list.append((float(tokens[7]), g2_sign*float(tokens[8]), float(tokens[9])))
+                    lens = (float(tokens[7]), g2_sign*float(tokens[8]), float(tokens[9]))
                     # what are 10,11?
                     dust_index = dust_index_dict.get(tokens[12], default_dust_index)
-                    objinfo_list.append(tokens[12:dust_index])
-                    dust_list.append(tokens[dust_index:])
+                    objinfo = tokens[12:dust_index]
+                    dust = tokens[dust_index:]
+
+                    # Check for some reasons to skip this object.
+                    # XXX: Is this right?  We require dust?
+                    #      The previous code had that galactic_av = galactic_rv = 0 is invalid.
+                    #      That doesn't seem right to me...
+                    object_is_valid = (magnorm < 50.0 and
+                                        dust[-1] != 'none' and
+                                        (float(dust[-1]) != 0 or float(dust[-2]) != 0) and
+                                        not (objinfo[0] == 'sersic2d' and
+                                                float(objinfo[1]) < float(objinfo[2])) and
+                                        not (objinfo[0] == 'knots' and
+                                                (float(objinfo[1]) < float(objinfo[2]) or
+                                                 int(objinfo[4]) <= 0)))
+                    if not object_is_valid:
+                        logger.debug("Skipping object %s since not valid.", tokens[1])
+                        continue
+
+                    # Object is ok.  Add it to lists.
+                    nuse += 1
+                    id_list.append(objid)
+                    world_pos_list.append(world_pos)
+                    image_pos_list.append(image_pos)
+                    magnorm_list.append(magnorm)
+                    sed_list.append(sed)
+                    lens_list.append(lens)
+                    objinfo_list.append(objinfo)
+                    dust_list.append(dust)
 
         assert nuse == len(id_list)
         logger.warning("Total objects in file = %d",ntot)
@@ -173,6 +203,7 @@ class InstCatalog(object):
         # Sort the object lists by mag and convert to numpy arrays.
         self.id = np.array(id_list, dtype=str)
         self.world_pos = np.array(world_pos_list, dtype=object)
+        self.image_pos = np.array(image_pos_list, dtype=object)
         self.magnorm = np.array(magnorm_list, dtype=float)
         self.sed = np.array(sed_list, dtype=object)
         self.lens = np.array(lens_list, dtype=object)
@@ -185,6 +216,7 @@ class InstCatalog(object):
                 logger.warning(f"Fewer than {min_source} galaxies on sensor.  Skipping.")
                 self.id = self.id[:0]
                 self.world_pos = self.world_pos[:0]
+                self.image_pos = self.image_pos[:0]
                 self.magnorm = self.magnorm[:0]
                 self.sed = self.sed[:0]
                 self.lens = self.lens[:0]
@@ -195,6 +227,7 @@ class InstCatalog(object):
             index = np.argsort(self.magnorm)
             self.id = self.id[index]
             self.world_pos = self.world_pos[index]
+            self.image_pos = self.image_pos[index]
             self.magnorm = self.magnorm[index]
             self.sed = self.sed[index]
             self.lens = self.lens[index]
@@ -219,6 +252,9 @@ class InstCatalog(object):
 
     def getWorldPos(self, index):
         return self.world_pos[index]
+
+    def getImagePos(self, index):
+        return self.image_pos[index]
 
     def getMagNorm(self, index):
         return self.magnorm[index]
@@ -298,9 +334,7 @@ class InstCatalog(object):
         elif params[0].lower() == 'sersic2d':
             a = float(params[1])
             b = float(params[2])
-            if b > a:
-                # Invalid, but existing code just lets it pass.
-                return None
+            assert a >= b  # Enforced above.
             pa = float(params[3])
             if self.flip_g2:
                 # Previous code first did PA = 360 - params[3]
@@ -331,17 +365,14 @@ class InstCatalog(object):
         elif params[0].lower() == 'knots':
             a = float(params[1])
             b = float(params[2])
-            if b > a:
-                return None
+            assert a >= b
             pa = float(params[3])
             if self.flip_g2:
                 beta = float(90 - pa) * galsim.degrees
             else:
                 beta = float(90 + pa) * galsim.degrees
             npoints = int(params[4])
-            if npoints <= 0:
-                # Again, weird, but previous code just lets this pass without comment.
-                return None
+            assert npoint > 0
             hlr = (a * b)**0.5
             obj = galsim.RandomKnots(npoints=npoints, half_light_radius=hlr, rng=rng,
                                      gsparams=gsparams)
@@ -422,6 +453,26 @@ class OpsimMetaDict(object):
     _single_params = []
     _takes_rng = False
 
+    _required_commands = set("""rightascension
+                                declination
+                                mjd
+                                altitude
+                                azimuth
+                                filter
+                                rotskypos
+                                rottelpos
+                                dist2moon
+                                moonalt
+                                moondec
+                                moonphase
+                                moonra
+                                nsnap
+                                obshistid
+                                seed
+                                seeing
+                                sunalt
+                                vistime""".split())
+
     def __init__(self, file_name, logger=None):
         logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
@@ -446,6 +497,10 @@ class OpsimMetaDict(object):
 
         logger.warning("Done reading meta information from instance catalog")
 
+        if any(key not in self.meta for key in self._required_commands):
+            raise ValueError("Some required commands are missing. Required commands: {}".format(
+                             str(self._required_commands)))
+
         # Add a few derived quantities to meta values
         # Note a semantic distinction we make here:
         # "filter" is the number 0,1,2,3,4,5 from the input instance catalog.
@@ -459,6 +514,12 @@ class OpsimMetaDict(object):
         self.meta['FWHMgeom'] = self.FWHMgeom()
         logger.debug("Bandpass = %s",self.meta['band'])
         logger.debug("HA = %s",self.meta['HA'])
+
+        # Set some default values if these aren't present in input file.
+        self.meta['gain'] = self.meta.get('gain', 1)
+        self.meta['exptime'] = self.meta.get('exptime', 30)
+        self.meta['readnoise'] = self.meta.get('readnoise', 0)
+        self.meta['darkcurrent'] = self.meta.get('darkcurrent', 0)
 
     @classmethod
     def from_dict(cls, d):
@@ -555,6 +616,9 @@ class OpsimMetaDict(object):
         float: FWHM of the combined PSF in arcsec.
         """
         return 0.822*self.FWHMeff(rawSeeing, band, altitude) + 0.052
+
+    def __getitem__(self, field):
+        return self.get(field)
 
     def get(self, field):
         if field not in self.meta:
