@@ -1,6 +1,7 @@
 import os
 import galsim
 from galsim.config import OutputBuilder, RegisterOutputType
+import lsst.utils
 from .cosmic_rays import CosmicRays
 from .meta_data import data_dir
 
@@ -9,16 +10,6 @@ class LSST_CCDBuilder(OutputBuilder):
 
     Most of the defaults work fine.  There are a few extra things we do that are LSST-specific.
     """
-    rafts = [        'R01', 'R02', 'R03',
-              'R10', 'R11', 'R12', 'R13', 'R14',
-              'R20', 'R21', 'R22', 'R23', 'R24',
-              'R30', 'R31', 'R32', 'R33', 'R34',
-                     'R41', 'R42', 'R43'
-            ]
-    sensors = [ 'S00', 'S01', 'S02',
-                'S10', 'S11', 'S12',
-                'S20', 'S21', 'S22'
-              ]
 
     def setup(self, config, base, file_num, logger):
         """Do any necessary setup at the start of processing a file.
@@ -35,13 +26,9 @@ class LSST_CCDBuilder(OutputBuilder):
 
         # Figure out the detector name for the file name.
         detnum = galsim.config.ParseValue(config, 'det_num', base, int)[0]
-        # Detectors have names Rij_Smn
-        # We need to run through them in a predictable way for detnum = 0..188
-        raft = detnum // 9   # 0..20
-        sensor = detnum % 9  # 0..8
-        raft = self.rafts[raft]
-        sensor = self.sensors[sensor]
-        det_name = raft + '_' + sensor
+        camera_class = config['camera_class']
+        camera = list(lsst.utils.doImport(camera_class).getCamera())
+        det_name = camera[detnum].getName()
         base['det_name'] = det_name
         if 'eval_variables' not in base:
             base['eval_variables'] = {}
@@ -88,7 +75,7 @@ class LSST_CCDBuilder(OutputBuilder):
         # This is basically the same as the base class version.  Just a few extra things to
         # add to the ignore list.
         ignore += [ 'file_name', 'dir', 'nfiles', 'checkpoint', 'det_num',
-                    'readout', 'exp_time' ]
+                    'readout', 'exp_time', 'camera_class' ]
 
         opt = {
             'cosmic_ray_rate': float,
