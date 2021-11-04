@@ -202,7 +202,8 @@ class CCD(dict):
         return getattr(self.lsst_ccd, attr)
 
 
-def get_camera(camera):
+_camera_cache = {}
+def get_camera(camera='LsstCam'):
     """
     Return an lsst camera object.
 
@@ -210,7 +211,7 @@ def get_camera(camera):
     ----------
     camera : str
        The class name of the LSST camera object. Valid names
-       are 'LsstCam', 'LsstComCam', 'Latiss'.
+       are 'LsstCam', 'LsstComCam', 'Latiss'. [default: 'LsstCam']
 
     Returns
     -------
@@ -219,7 +220,9 @@ def get_camera(camera):
     valid_cameras = ('LsstCam', 'LsstComCam', 'Latiss')
     if camera not in valid_cameras:
         raise ValueError('Invalid camera: %s', camera)
-    return lsst.utils.doImport('lsst.obs.lsst.' + camera)().getCamera()
+    if camera not in _camera_cache:
+        _camera_cache[camera] = lsst.utils.doImport('lsst.obs.lsst.' + camera)().getCamera()
+    return _camera_cache[camera]
 
 
 class Camera(dict):
