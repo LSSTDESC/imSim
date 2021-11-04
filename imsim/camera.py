@@ -4,7 +4,7 @@ import copy
 import numpy as np
 import galsim
 from galsim.config import RegisterInputType, InputLoader
-import lsst.obs.lsst
+import lsst.utils
 
 
 # Crosstalk cofficients from lsst.obs.lsst.imsim.ImsimMapper.  These
@@ -203,12 +203,13 @@ class Camera(dict):
     Class to represent the LSST Camera as a dictionary of CCD objects,
     keyed by the CCD name in the focal plane, e.g., 'R01_S00'.
     """
-    def __init__(self, instrument_class=lsst.obs.lsst.LsstCam, logger=None):
+    _req_params = { 'camera_class' : str,}
+    def __init__(self, camera_class, logger=None):
         """
         Initialize a Camera object from the lsst instrument class.
         """
         super().__init__()
-        self.lsst_camera = instrument_class().getCamera()
+        self.lsst_camera = lsst.utils.doImport(camera_class)().getCamera()
         for lsst_ccd in self.lsst_camera:
             self[lsst_ccd.getName()] = CCD.make_ccd_from_lsst(lsst_ccd)
 

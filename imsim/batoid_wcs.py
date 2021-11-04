@@ -1,7 +1,7 @@
 
 # These need conda (via stackvana).  Not pip-installable
 import lsst.afw.cameraGeom as cameraGeom
-from lsst.obs.lsst import LsstCamMapper
+import lsst.utils
 
 # This is not on conda yet, but is pip installable.
 # We'll need to get Matt to add this to conda-forge probably.
@@ -482,7 +482,7 @@ class BatoidWCSBuilder(WCSBuilder):
     @property
     def camera(self):
         if self._camera is None:
-            self._camera = LsstCamMapper().camera
+            self._camera = lsst.utils.doImport(self._camera_class).getCamera()
         return self._camera
 
     def buildWCS(self, config, base, logger):
@@ -497,6 +497,7 @@ class BatoidWCSBuilder(WCSBuilder):
             the constructed WCS object (a galsim.GSFitsWCS instance)
         """
         req = {
+                "camera_class": str,
                 "boresight": galsim.CelestialCoord,
                 "rotTelPos": galsim.Angle,
                 "obstime": None,  # Either str or astropy.time.Time instance
@@ -520,6 +521,7 @@ class BatoidWCSBuilder(WCSBuilder):
             base['bandpass'] = bp
 
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
+        self._camera_class = kwargs.pop('camera_class')
         logger.info("Building Batoid WCS for %s", kwargs['det_name'])
 
         # If a string, convert it to astropy.time.Time.
