@@ -15,7 +15,8 @@ class PsfTestCase(unittest.TestCase):
         self.test_dir = 'psf_tests_dir'
         instcat = 'tiny_instcat.txt'
         self.obs_md = imsim.OpsimMetaDict(instcat)
-        os.makedirs(self.test_dir)
+        if not os.path.exists(self.test_dir):
+            os.makedirs(self.test_dir)
 
     def tearDown(self):
         for item in glob.glob(os.path.join(self.test_dir, '*')):
@@ -51,15 +52,30 @@ class PsfTestCase(unittest.TestCase):
                     'airmass': self.obs_md['airmass'],
                     'rawSeeing': self.obs_md['rawSeeing'],
                     'band':  self.obs_md['band'],
+                    'screen_scale': 6.4,
                     'boresight': {
                         'type': 'RADec',
                         'ra': { 'type': 'Degrees', 'theta': self.obs_md['rightascension'], },
                         'dec': { 'type': 'Degrees', 'theta': self.obs_md['declination'], }
                     }
                 }
+            },
+            'image_pos': galsim.PositionD(0,0),  # This would get set appropriately during
+                                                 # normal config processing.
+            'image' : {
+                'wcs': {
+                    'type' : 'Tan',
+                    'dudx' : 0.2,
+                    'dudy' : 0.,
+                    'dvdx' : 0.,
+                    'dvdy' : 0.2,
+                    'ra' : '@input.atm_psf.boresight.ra',
+                    'dec' : '@input.atm_psf.boresight.dec',
+                }
             }
-        }
+         }
         galsim.config.ProcessInput(config)
+        config['wcs'] = galsim.config.BuildWCS(config['image'], 'wcs', config)
         for psf_name in ("DoubleGaussian", "Kolmogorov", "Atmospheric"):
             psf = galsim.config.BuildGSObject(config, psf_name)
             psf_file = os.path.join(self.test_dir, '{}.pkl'.format(psf_name))
@@ -76,9 +92,7 @@ class PsfTestCase(unittest.TestCase):
             'psf': {
                 'type': 'Convolve',
                 'items': [
-                    { 'type': 'AtmosphericPSF',
-                      'screen_scale': 6.4,
-                    },
+                    { 'type': 'AtmosphericPSF' },
                     { 'type': 'Gaussian', 'fwhm': 0.3 },
                 ],
             },
@@ -87,25 +101,41 @@ class PsfTestCase(unittest.TestCase):
                     'airmass': self.obs_md['airmass'],
                     'rawSeeing': self.obs_md['rawSeeing'],
                     'band':  self.obs_md['band'],
+                    'screen_scale': 6.4,
                     'boresight': {
                         'type': 'RADec',
                         'ra': { 'type': 'Degrees', 'theta': self.obs_md['rightascension'], },
                         'dec': { 'type': 'Degrees', 'theta': self.obs_md['declination'], }
                     }
                 }
+            },
+            'image_pos': galsim.PositionD(0,0),  # This would get set appropriately during
+                                                 # normal config processing.
+            'image' : {
+                'wcs': {
+                    'type' : 'Tan',
+                    'dudx' : 0.2,
+                    'dudy' : 0.,
+                    'dvdx' : 0.,
+                    'dvdy' : 0.2,
+                    'ra' : '@input.atm_psf.boresight.ra',
+                    'dec' : '@input.atm_psf.boresight.dec',
+                }
             }
         }
         galsim.config.ProcessInput(config)
-        config1 = galsin.config.CopyConfig(config)
-        # PSF with gaussianFWHM explicitly set to zero.
-        config1['psf']['items'][1]['fwhm'] = 0.
-        psf_0 = galsim.config.BuildGSObject(config1, 'psf')
+        config['wcs'] = galsim.config.BuildWCS(config['image'], 'wcs', config)
 
-        # PSF with gaussianFWHM explicitly set to config file value.
-        psf_c = galsim.config.BuildGSObject(config, 'psf')
+        # PSF without gaussian
+        config1 = galsim.config.CopyConfig(config)
+        del config1['psf']['items'][1]
+        psf_0 = galsim.config.BuildGSObject(config1, 'psf')[0]
+
+        # PSF with gaussian
+        psf_c = galsim.config.BuildGSObject(config, 'psf')[0]
 
         # PSF made manually convolving Atm with Gaussian.
-        psf_a = galsim.config.BuildGSObject(config['psf']['items'], 0, config)
+        psf_a = galsim.config.BuildGSObject(config['psf']['items'], 0, config)[0]
         psf = galsim.Convolve(psf_a, galsim.Gaussian(fwhm=0.3))
 
         self.assertEqual(psf, psf_c)

@@ -6,6 +6,7 @@ import multiprocessing
 import numpy as np
 from scipy.optimize import bisect
 
+import pickle
 import galsim
 
 from .optical_system import OpticalZernikes, mock_deviations
@@ -328,6 +329,7 @@ class AtmosphericPSFBuilder(object):
         # Instead, the user can choose to convolve this by a Gaussian in the config file.
         self.atm = AtmosphericPSF(airmass, rawSeeing, band, rng,
                                   t0=t0, exptime=exptime, kcrit=kcrit, gaussianFWHM=0.,
+                                  screen_size=screen_size, screen_scale=screen_scale,
                                   doOpt=doOpt, logger=logger, nproc=nproc)
         # The other change is that we need the boresight to do image_pos -> field_pos
         # I think it makes sense to take that as an input here rather than in the
@@ -387,10 +389,10 @@ def BuildDoubleGaussianPSF(config, base, ignore, gsparams, logger):
 
     eff_pixel_sigma_sq = pixel_scale*pixel_scale/12.0
 
-    sigma = numpy.sqrt(alpha*alpha - eff_pixel_sigma_sq)
+    sigma = np.sqrt(alpha*alpha - eff_pixel_sigma_sq)
     gaussian1 = galsim.Gaussian(sigma=sigma, gsparams=gsparams)
 
-    sigma = numpy.sqrt(4.0*alpha*alpha - eff_pixel_sigma_sq)
+    sigma = np.sqrt(4.0*alpha*alpha - eff_pixel_sigma_sq)
     gaussian2 = galsim.Gaussian(sigma=sigma, gsparams=gsparams)
 
     psf = 0.909*(gaussian1 + 0.1*gaussian2)
@@ -439,7 +441,7 @@ def BuildKolmogorovPSF(config, base, ignore, gsparams, logger):
     FWHMatm = rawSeeing*(wlen_eff/500.)**-0.3*airmass**0.6
     # From LSST-20160 eqn (4.1)
 
-    FWHMsys = numpy.sqrt(0.25**2 + 0.3**2 + 0.08**2)*airmass**0.6
+    FWHMsys = np.sqrt(0.25**2 + 0.3**2 + 0.08**2)*airmass**0.6
     # From LSST-20160 eqn (4.2)
 
     atm = galsim.Kolmogorov(fwhm=FWHMatm, gsparams=gsparams)
