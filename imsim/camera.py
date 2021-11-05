@@ -7,6 +7,9 @@ from galsim.config import RegisterInputType, InputLoader
 import lsst.utils
 
 
+__all__ = ['get_camera', 'Camera']
+
+
 # Crosstalk cofficients from lsst.obs.lsst.imsim.ImsimMapper.  These
 # values are from TS3 measurements of an ITL sensor.  The current
 # LsstCamMapper doesn't include crosstalk coefficients.
@@ -198,18 +201,39 @@ class CCD(dict):
         """Provide access to the attributes of the underlying lsst_ccd."""
         return getattr(self.lsst_ccd, attr)
 
+
+def get_camera(camera_class):
+    """
+    Return an lsst camera object.
+
+    Parameters
+    ----------
+    camera_class : str
+       The class name of the camera object.  For on-sky LSST cameras,
+       this can just be the unqualified class name, e.g., 'LsstCam'.
+       For other cameras, it should be the fully qualified name, e.g.,
+       'lsst.obs.decam.DarkEnergyCamera'.
+
+    Returns
+    -------
+    lsst.afw.cameraGeom.Camera
+    """
+    if camera_class in ('LsstCam', 'LsstComCam', 'Latiss'):
+        camera_class = 'lsst.obs.lsst.' + camera_class
+    return lsst.utils.doImport(camera_class)().getCamera()
+
+
 class Camera(dict):
     """
     Class to represent the LSST Camera as a dictionary of CCD objects,
     keyed by the CCD name in the focal plane, e.g., 'R01_S00'.
     """
-    _req_params = { 'camera_class' : str,}
-    def __init__(self, camera_class, logger=None):
+    def __init__(self, camera_class='LsstCam'):
         """
         Initialize a Camera object from the lsst instrument class.
         """
         super().__init__()
-        self.lsst_camera = lsst.utils.doImport(camera_class)().getCamera()
+        self.lsst_camera = get_camera(camera_class)
         for lsst_ccd in self.lsst_camera:
             self[lsst_ccd.getName()] = CCD.make_ccd_from_lsst(lsst_ccd)
 
@@ -227,6 +251,3 @@ class Camera(dict):
     def __getattr__(self, attr):
         """Provide access to the attributes of the underlying lsst_camera."""
         return getattr(self.lsst_camera, attr)
-
-
-RegisterInputType('camera_geometry', InputLoader(Camera, takes_logger=True))

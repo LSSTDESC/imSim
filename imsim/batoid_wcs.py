@@ -13,6 +13,7 @@ import erfa  # Installed as part of astropy.
 import astropy.time
 import galsim
 from galsim.config import WCSBuilder, RegisterWCSType
+from .camera import get_camera
 
 
 # There are 5 coordinate systems to handle.  In order:
@@ -482,7 +483,7 @@ class BatoidWCSBuilder(WCSBuilder):
     @property
     def camera(self):
         if self._camera is None:
-            self._camera = lsst.utils.doImport(self._camera_class).getCamera()
+            self._camera = get_camera(self._camera_class)
         return self._camera
 
     def buildWCS(self, config, base, logger):

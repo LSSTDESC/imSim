@@ -1,9 +1,9 @@
 import os
 import galsim
 from galsim.config import OutputBuilder, RegisterOutputType
-import lsst.utils
 from .cosmic_rays import CosmicRays
 from .meta_data import data_dir
+from .camera import get_camera
 
 class LSST_CCDBuilder(OutputBuilder):
     """This runs the overall generation of an LSST CCD file.
@@ -26,8 +26,7 @@ class LSST_CCDBuilder(OutputBuilder):
 
         # Figure out the detector name for the file name.
         detnum = galsim.config.ParseValue(config, 'det_num', base, int)[0]
-        camera_class = config['camera_class']
-        camera = list(lsst.utils.doImport(camera_class).getCamera())
+        camera = get_camera(config['camera_class'])
         det_name = camera[detnum].getName()
         base['det_name'] = det_name
         if 'eval_variables' not in base:
