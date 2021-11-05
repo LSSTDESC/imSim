@@ -1,7 +1,6 @@
 
 # These need conda (via stackvana).  Not pip-installable
 import lsst.afw.cameraGeom as cameraGeom
-import lsst.utils
 
 # This is not on conda yet, but is pip installable.
 # We'll need to get Matt to add this to conda-forge probably.
