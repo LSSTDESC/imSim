@@ -75,7 +75,7 @@ class InstCatalog(object):
     _rubin_area = 0.25 * np.pi * 649**2  # cm^2
 
     def __init__(self, file_name, wcs, sed_dir=None, edge_pix=100, sort_mag=True, flip_g2=True,
-                 min_source=None, logger=None):
+                 min_source=None, skip_invalid=True, logger=None):
         logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
         self.flip_g2 = flip_g2
@@ -169,21 +169,22 @@ class InstCatalog(object):
                     objinfo = tokens[12:dust_index]
                     dust = tokens[dust_index:]
 
-                    # Check for some reasons to skip this object.
-                    # XXX: Is this right?  We require dust?
-                    #      The previous code had that galactic_av = galactic_rv = 0 is invalid.
-                    #      That doesn't seem right to me...
-                    object_is_valid = (magnorm < 50.0 and
-                                        dust[-1] != 'none' and
-                                        (float(dust[-1]) != 0 or float(dust[-2]) != 0) and
-                                        not (objinfo[0] == 'sersic2d' and
-                                                float(objinfo[1]) < float(objinfo[2])) and
-                                        not (objinfo[0] == 'knots' and
-                                                (float(objinfo[1]) < float(objinfo[2]) or
-                                                 int(objinfo[4]) <= 0)))
-                    if not object_is_valid:
-                        logger.debug("Skipping object %s since not valid.", tokens[1])
-                        continue
+                    if skip_invalid:
+                        # Check for some reasons to skip this object.
+                        # XXX: Is this right?  We require dust?
+                        #      The previous code had that galactic_av = galactic_rv = 0 is invalid.
+                        #      That doesn't seem right to me...
+                        object_is_valid = (magnorm < 50.0 and
+                                            dust[-1] != 'none' and
+                                            (float(dust[-1]) != 0 or float(dust[-2]) != 0) and
+                                            not (objinfo[0] == 'sersic2d' and
+                                                    float(objinfo[1]) < float(objinfo[2])) and
+                                            not (objinfo[0] == 'knots' and
+                                                    (float(objinfo[1]) < float(objinfo[2]) or
+                                                     int(objinfo[4]) <= 0)))
+                        if not object_is_valid:
+                            logger.debug("Skipping object %s since not valid.", tokens[1])
+                            continue
 
                     # Object is ok.  Add it to lists.
                     nuse += 1
@@ -770,6 +771,7 @@ class InstCatalogLoader(InputLoader):
                 'sort_mag' : bool,
                 'flip_g2' : bool,
                 'min_source' : int,
+                'skip_invalid' : bool,
               }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)

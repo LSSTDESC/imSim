@@ -37,18 +37,20 @@ class InstCatTrimmerTestCase(unittest.TestCase):
 
         # Note: some objects in instcat are up to ~600 pixels off the image.
         # So need to use a largish edge_pix to keep them all.
-        instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=1000)
+        instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=1000, skip_invalid=False)
         self.assertEqual(instcat.nobjects, 24)
 
         # With the default edge_pix=100, only 17 make the cut.
-        instcat = imsim.InstCatalog(instcat_file, wcs)
+        instcat = imsim.InstCatalog(instcat_file, wcs, skip_invalid=False)
         self.assertEqual(instcat.nobjects, 17)
 
         # Check the application of min_source.
-        instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=1000, min_source=10)
+        instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=1000, min_source=10,
+                                    skip_invalid=False)
         self.assertEqual(instcat.nobjects, 24)
 
-        instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=1000, min_source=12)
+        instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=1000, min_source=12,
+                                    skip_invalid=False)
         self.assertEqual(instcat.nobjects, 0)
 
         # Check various values of chunk_size.
@@ -56,7 +58,8 @@ class InstCatTrimmerTestCase(unittest.TestCase):
         #      then we can re-enable this test.
         if 0:
             for chunk_size in (5, 10, 100):
-                instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=1000, chunk_size=chunk_size)
+                instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=1000,
+                                            chunk_size=chunk_size, skip_invalid=False)
                 self.assertEqual(instcat.nobjects, 24)
 
     def test_inf_filter(self):
@@ -70,7 +73,8 @@ class InstCatTrimmerTestCase(unittest.TestCase):
         sensor = 'R22_S11'
         wcs = self.make_wcs(instcat_file, sensor)
 
-        instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=1000, min_source=10)
+        instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=1000, min_source=10,
+                                    skip_invalid=False)
         self.assertEqual(instcat.nobjects, 26)
 
 
