@@ -25,8 +25,6 @@ eval_variables:
 # updated for each output file.
 # Also includes things that need some set up at the start of an exposure, like the atmospheric PSF.
 input:
-    camera_geometry: {}
-
     instance_catalog:
         # This enables InstCat types
         file_name: default_catalog_file.txt # This should be overridden in either the user config file or
@@ -105,6 +103,7 @@ image:
         type: Batoid
 
         # These are required:
+        camera: "@output.camera"
         boresight: "@input.atm_psf.boresight"
         rotTelPos:
             type: Degrees
@@ -229,6 +228,8 @@ output:
     type: LSST_CCD
     nproc: 1    # Change this to work on multiple CCDs at once.
     nfiles: 1   # Default is all 189 CCDs.  Set to 1 while testing.
+
+    camera: LsstCam
 
     exp_time: 30
 

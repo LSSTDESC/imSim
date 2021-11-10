@@ -4,7 +4,10 @@ import copy
 import numpy as np
 import galsim
 from galsim.config import RegisterInputType, InputLoader
-import lsst.obs.lsst
+import lsst.utils
+
+
+__all__ = ['get_camera', 'Camera']
 
 
 # Crosstalk cofficients from lsst.obs.lsst.imsim.ImsimMapper.  These
@@ -198,17 +201,38 @@ class CCD(dict):
         """Provide access to the attributes of the underlying lsst_ccd."""
         return getattr(self.lsst_ccd, attr)
 
+
+def get_camera(camera):
+    """
+    Return an lsst camera object.
+
+    Parameters
+    ----------
+    camera : str
+       The class name of the LSST camera object. Valid names
+       are 'LsstCam', 'LsstComCam', 'Latiss'.
+
+    Returns
+    -------
+    lsst.afw.cameraGeom.Camera
+    """
+    valid_cameras = ('LsstCam', 'LsstComCam', 'Latiss')
+    if camera not in valid_cameras:
+        raise ValueError('Invalid camera: %s', camera)
+    return lsst.utils.doImport('lsst.obs.lsst.' + camera)().getCamera()
+
+
 class Camera(dict):
     """
     Class to represent the LSST Camera as a dictionary of CCD objects,
     keyed by the CCD name in the focal plane, e.g., 'R01_S00'.
     """
-    def __init__(self, instrument_class=lsst.obs.lsst.LsstCam, logger=None):
+    def __init__(self, camera_class='LsstCam'):
         """
         Initialize a Camera object from the lsst instrument class.
         """
         super().__init__()
-        self.lsst_camera = instrument_class().getCamera()
+        self.lsst_camera = get_camera(camera_class)
         for lsst_ccd in self.lsst_camera:
             self[lsst_ccd.getName()] = CCD.make_ccd_from_lsst(lsst_ccd)
 
@@ -226,6 +250,3 @@ class Camera(dict):
     def __getattr__(self, attr):
         """Provide access to the attributes of the underlying lsst_camera."""
         return getattr(self.lsst_camera, attr)
-
-
-RegisterInputType('camera_geometry', InputLoader(Camera, takes_logger=True))

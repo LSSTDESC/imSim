@@ -6,6 +6,7 @@ from astropy.io import fits
 import galsim
 from galsim.config import ExtraOutputBuilder, RegisterExtraOutput
 from .bleed_trails import bleed_eimage
+from .camera import Camera
 
 def section_keyword(bounds, flipx=False, flipy=False):
     """Package image bounds as a NOAO image section keyword value."""
@@ -110,9 +111,8 @@ class CcdReadout:
         if self.rng is None:
             seed = galsim.config.SetupConfigRNG(base)
             self.rng = galsim.BaseDeviate(seed)
-        self.det_name = base['det_name'].replace('-', '_')
-        camera = galsim.config.GetInputObj('camera_geometry', config, base,
-                                           'Camera')
+        self.det_name = base['det_name']
+        camera = Camera(base['output']['camera'])
         self.ccd = camera[self.det_name]
         amp = list(self.ccd.values())[0]
         scti = config['scti']
