@@ -103,7 +103,7 @@ image:
         type: Batoid
 
         # These are required:
-        camera_class: "@output.camera_class"
+        camera: "@output.camera"
         boresight: "@input.atm_psf.boresight"
         rotTelPos:
             type: Degrees
@@ -229,7 +229,7 @@ output:
     nproc: 1    # Change this to work on multiple CCDs at once.
     nfiles: 1   # Default is all 189 CCDs.  Set to 1 while testing.
 
-    camera_class: LsstCam
+    camera: LsstCam
 
     exp_time: 30
 

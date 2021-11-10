@@ -26,7 +26,7 @@ class LSST_CCDBuilder(OutputBuilder):
 
         # Figure out the detector name for the file name.
         detnum = galsim.config.ParseValue(config, 'det_num', base, int)[0]
-        camera = get_camera(config['camera_class'])
+        camera = get_camera(config['camera'])
         det_name = camera[detnum].getName()
         base['det_name'] = det_name
         if 'eval_variables' not in base:
@@ -74,7 +74,7 @@ class LSST_CCDBuilder(OutputBuilder):
         # This is basically the same as the base class version.  Just a few extra things to
         # add to the ignore list.
         ignore += [ 'file_name', 'dir', 'nfiles', 'checkpoint', 'det_num',
-                    'readout', 'exp_time', 'camera_class' ]
+                    'readout', 'exp_time', 'camera' ]
 
         opt = {
             'cosmic_ray_rate': float,

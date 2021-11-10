@@ -497,7 +497,7 @@ class BatoidWCSBuilder(WCSBuilder):
             the constructed WCS object (a galsim.GSFitsWCS instance)
         """
         req = {
-                "camera_class": str,
+                "camera": str,
                 "boresight": galsim.CelestialCoord,
                 "rotTelPos": galsim.Angle,
                 "obstime": None,  # Either str or astropy.time.Time instance
@@ -521,7 +521,7 @@ class BatoidWCSBuilder(WCSBuilder):
             base['bandpass'] = bp
 
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
-        self._camera_class = kwargs.pop('camera_class')
+        self._camera_class = kwargs.pop('camera')
         logger.info("Building Batoid WCS for %s", kwargs['det_name'])
 
         # If a string, convert it to astropy.time.Time.

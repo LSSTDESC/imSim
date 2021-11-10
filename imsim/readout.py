@@ -112,7 +112,7 @@ class CcdReadout:
             seed = galsim.config.SetupConfigRNG(base)
             self.rng = galsim.BaseDeviate(seed)
         self.det_name = base['det_name']
-        camera = Camera(base['output']['camera_class'])
+        camera = Camera(base['output']['camera'])
         self.ccd = camera[self.det_name]
         amp = list(self.ccd.values())[0]
         scti = config['scti']

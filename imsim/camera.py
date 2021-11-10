@@ -202,25 +202,24 @@ class CCD(dict):
         return getattr(self.lsst_ccd, attr)
 
 
-def get_camera(camera_class):
+def get_camera(camera):
     """
     Return an lsst camera object.
 
     Parameters
     ----------
-    camera_class : str
-       The class name of the camera object.  For on-sky LSST cameras,
-       this can just be the unqualified class name, e.g., 'LsstCam'.
-       For other cameras, it should be the fully qualified name, e.g.,
-       'lsst.obs.decam.DarkEnergyCamera'.
+    camera : str
+       The class name of the LSST camera object. Valid names
+       are 'LsstCam', 'LsstComCam', 'Latiss'.
 
     Returns
     -------
     lsst.afw.cameraGeom.Camera
     """
-    if camera_class in ('LsstCam', 'LsstComCam', 'Latiss'):
-        camera_class = 'lsst.obs.lsst.' + camera_class
-    return lsst.utils.doImport(camera_class)().getCamera()
+    valid_cameras = ('LsstCam', 'LsstComCam', 'Latiss')
+    if camera not in valid_cameras:
+        raise ValueError('Invalid camera: %s', camera)
+    return lsst.utils.doImport('lsst.obs.lsst.' + camera)().getCamera()
 
 
 class Camera(dict):
