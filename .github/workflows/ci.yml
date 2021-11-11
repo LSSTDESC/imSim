@@ -23,6 +23,11 @@ jobs:
                 CC: [ gcc ]
                 CXX: [ g++ ]
 
+        defaults:
+          run:
+            # cf. https://github.com/conda-incubator/setup-miniconda#important
+            shell: bash -l {0}
+
         steps:
             - uses: actions/checkout@v2
 
@@ -36,6 +41,8 @@ jobs:
 
             - name: Install conda deps
               run: |
+                conda info
+                conda list
                 conda install -y --file conda_requirements.txt
                 conda info
                 conda list
