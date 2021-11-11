@@ -1,0 +1,78 @@
+name: imSim CI
+
+on:
+    push:
+        branches:
+            - main
+            - releases/*
+
+    pull_request:
+        branches:
+            - main
+            - releases/*
+
+jobs:
+    build:
+        runs-on: ${{ matrix.os }}
+
+        strategy:
+            matrix:
+                # For now, just ubuntu, 3.8.  Can add more later.
+                os: [ ubuntu-latest ]
+                py: [ 3.8 ]
+                CC: [ gcc ]
+                CXX: [ g++ ]
+
+        steps:
+            - uses: actions/checkout@v2
+
+            - name: Setup conda
+              uses: conda-incubator/setup-miniconda@v2
+              with:
+                activate-environment: stack
+                python-version: 3.8
+                condarc-file: etc/.condarc
+                use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+
+            - name: Install conda deps
+              run: |
+                conda install -y --file conda_requirements.txt
+                conda info
+                conda list
+
+            - name: Install pip deps
+              run: |
+                # We need to get batoid onto conda, but for now, this is a separate step.
+                pip install batoid
+                conda info
+                conda list
+
+            - name: Cache conda packages
+              uses: actions/cache@v2
+              env:
+                # Increase this value to reset cache
+                CACHE_NUMBER: 0
+              with:
+                path: ~/conda_pkgs_dir
+                key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('conda_requirements.txt') }}
+
+            - name: Cache pip
+              uses: actions/cache@v2
+              with:
+                path: ~/.cache/pip
+                key: ${{ runner.os }}-pip-${{ matrix.py }}-${{ hashFiles('requirements.txt') }}
+
+            - name: Install imSim
+              run:
+                python setup.py install
+
+            - name: Install test deps
+              run:
+                conda install -y nose
+
+            - name: Run tests
+              run:
+                cd tests
+                # We're working towards getting all the tests working, but so far these are
+                # the ones that work withe the setup.py installation.
+                nosetests test_FWHMgeom.py test_atmPSF.py test_batoid_wcs.py test_cosmic_rays.py test_fopen.py test_instcat_parser.py test_logging.py test_optical_zernikes.py test_psf.py test_tree_rings.py test_trimmer.py
