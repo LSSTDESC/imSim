@@ -476,13 +476,14 @@ class BatoidWCSFactory:
 
 
 class BatoidWCSBuilder(WCSBuilder):
+
     def __init__(self):
-        self._camera = None  # It's slow to make a camera instance, so only make it once.
+        self._camera = None
 
     @property
     def camera(self):
         if self._camera is None:
-            self._camera = get_camera(self._camera_class)
+            self._camera = get_camera(self._camera_name)
         return self._camera
 
     def buildWCS(self, config, base, logger):
@@ -497,7 +498,6 @@ class BatoidWCSBuilder(WCSBuilder):
             the constructed WCS object (a galsim.GSFitsWCS instance)
         """
         req = {
-                "camera": str,
                 "boresight": galsim.CelestialCoord,
                 "rotTelPos": galsim.Angle,
                 "obstime": None,  # Either str or astropy.time.Time instance
@@ -506,6 +506,7 @@ class BatoidWCSBuilder(WCSBuilder):
                               # become optional, since other telescopes don't use it.
               }
         opt = {
+                "camera": str,
                 "telescope": str,
                 "temperature": float,
                 "pressure": float,
@@ -521,12 +522,11 @@ class BatoidWCSBuilder(WCSBuilder):
             base['bandpass'] = bp
 
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
-        self._camera_class = kwargs.pop('camera')
         logger.info("Building Batoid WCS for %s", kwargs['det_name'])
         kwargs['bandpass'] = base.get('bandpass', None)
         return self.makeWCS(**kwargs)
 
-    def makeWCS(self, boresight, rotTelPos, obstime, det_name, band,
+    def makeWCS(self, boresight, rotTelPos, obstime, det_name, band, camera='LsstCam',
                 telescope='LSST', temperature=None, pressure=None, H2O_pressure=None,
                 wavelength=None, bandpass=None, order=3):
         """Make the WCS object given the parameters explicitly rather than via a config dict.
@@ -577,7 +577,7 @@ class BatoidWCSBuilder(WCSBuilder):
         if telescope != 'LSST':
             raise NotImplementedError("Batoid WCS only valid for telescope='LSST' currently")
         fiducial_telescope = batoid.Optic.fromYaml(f"{telescope}_{band}.yaml")
-        camera = self.camera
+        self._camera_name = camera
 
         # Update optional kwargs
 
@@ -605,7 +605,7 @@ class BatoidWCSBuilder(WCSBuilder):
 
         # Finally, build the WCS.
         factory = BatoidWCSFactory(boresight, rotTelPos, obstime, fiducial_telescope,
-                                   wavelength, camera, temperature, pressure, H2O_pressure)
-        return factory.getWCS(camera[det_name], order=order)
+                                   wavelength, self.camera, temperature, pressure, H2O_pressure)
+        return factory.getWCS(self.camera[det_name], order=order)
 
 RegisterWCSType('Batoid', BatoidWCSBuilder())
