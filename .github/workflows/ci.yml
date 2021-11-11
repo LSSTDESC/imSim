@@ -71,7 +71,7 @@ jobs:
                 conda install -y nose
 
             - name: Run tests
-              run:
+              run: |
                 cd tests
                 # We're working towards getting all the tests working, but so far these are
                 # the ones that work withe the setup.py installation.
