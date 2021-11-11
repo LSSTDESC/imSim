@@ -37,7 +37,9 @@ input:
         # input file.  But it's useful to separate them, since we want some OpsimMeta items at
         # file scope.  In particular to define the WCS, which is needed by the InstCat items.
         # So this one is registered as being allowed at file scope, but instance_catalog is not.
-        file_name: '@input.instance_catalog.file_name'
+        file_name: small_opsim.db
+        visit: 19500
+        snap: 1
 
     atm_psf:
         # This enables the AtmosphericPSF type for the PSF
@@ -50,10 +52,10 @@ input:
             type: RADec
             ra:
                 type: Degrees
-                theta: { type: OpsimMeta, field: rightascension }
+                theta: { type: OpsimMeta, field: fieldRA }
             dec:
                 type: Degrees
-                theta: { type: OpsimMeta, field: declination }
+                theta: { type: OpsimMeta, field: fieldDec }
 
         # Optional parameters:  (Unless otherwise stated, these are the default values.)
         t0: 0               # seconds
@@ -107,7 +109,7 @@ image:
         boresight: "@input.atm_psf.boresight"
         rotTelPos:
             type: Degrees
-            theta: { type: OpsimMeta, field: rottelpos }
+            theta: { type: OpsimMeta, field: rotTelPos }
 
         obstime:
             type: Eval
@@ -245,7 +247,7 @@ output:
         type: FormattedStr
         format : raw_%08d-%s-%s-det%03d.fits
         items:
-            - { type: OpsimMeta, field: obshistid }
+            - { type: OpsimMeta, field: observationId }
             - { type: OpsimMeta, field: band }
             - "$det_name"   # A value stored in the dict by LSST_CCD
             - "@output.det_num"
@@ -266,9 +268,10 @@ output:
 
         file_name:
             type: FormattedStr
-            format : amp_%08d-%s-%s-det%03d.fits.fz
+            format : amp_%08d-%1d-%s-%s-det%03d.fits.fz
             items:
-                - { type: OpsimMeta, field: obshistid }
+                - { type: OpsimMeta, field: observationId }
+                - { type: OpsimMeta, field: snap }
                 - { type: OpsimMeta, field: band }
                 - "$det_name"
                 - "@output.det_num"
@@ -277,9 +280,10 @@ output:
         dir: output
         file_name:
             type: FormattedStr
-            format : centroid_%08d-%s-%s-det%03d.txt.gz
+            format : centroid_%08d-%1d-%s-%s-det%03d.txt.gz
             items:
-                - { type: OpsimMeta, field: obshistid }
+                - { type: OpsimMeta, field: observationId }
+                - { type: OpsimMeta, field: snap }
                 - { type: OpsimMeta, field: band }
                 - "$det_name"
                 - "@output.det_num"
