@@ -46,7 +46,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
     def setUp(self):
         self.phosim_file = os.path.join(self.data_dir, 'phosim_stars.txt')
-        # XXX: What is the point of the extra_commands?  Seems like we get remove this bit.
+        # XXX: What is the point of the extra_commands?  Seems like we could remove this bit.
         self.extra_commands = 'instcat_extra.txt'
         with open(self.phosim_file, 'r') as input_file:
             with open(self.extra_commands, 'w') as output:

@@ -73,7 +73,7 @@ class PsfTestCase(unittest.TestCase):
                     'dec' : '@input.atm_psf.boresight.dec',
                 }
             }
-         }
+        }
         galsim.config.ProcessInput(config)
         config['wcs'] = galsim.config.BuildWCS(config['image'], 'wcs', config)
         for psf_name in ("DoubleGaussian", "Kolmogorov", "Atmospheric"):
