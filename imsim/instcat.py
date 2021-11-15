@@ -515,12 +515,11 @@ class OpsimMetaDict(object):
         # Following instance catalog convention, set use the visit as
         # the seed.
         self.meta['seed'] = self.meta['observationId']
-
-        # There are three seeing values in the observations table in the
-        # opsim db.  TODO: figure out the right one to use here.
-#        self.meta['seeing'] = self.meta['seeingFwhm500']
-#        self.meta['seeing'] = self.meta['seeingFwhmEff']
-        self.meta['seeing'] = self.meta['seeingFwhmGeom']
+        # For use by the AtmosphericPSF, "seeing" should be set to the
+        # atmosphere-only PSF FWHM at 500nm at zenith.  Based on
+        # https://smtn-002.lsst.io/, this should be the
+        # "seeingFwhm500" column.
+        self.meta['seeing'] = self.meta['seeingFwhm500']
         logger.debug("Bandpass = %s",self.meta['band'])
         logger.debug("HA = %s",self.meta['HA'])
 
