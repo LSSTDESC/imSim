@@ -504,16 +504,17 @@ class OpsimMetaDict(object):
         # Note a semantic distinction we make here:
         # "filter" or "band" is a character u,g,r,i,z,y.
         # "bandpass" will be the real constructed galsim.Bandpass object.
-        # "mjd" will be the midpoint of the exposure
         self.meta['band'] = self.meta['filter']
-        exposure_time = self.meta['visitExposureTime']/self.meta['numExposures']
+        self.meta['exptime'] = self.meta['visitExposureTime']/self.meta['numExposures']
         readout_time = (self.meta['visitTime'] - self.meta['visitExposureTime'])/self.meta['numExposures']
+        # Set "mjd" to be the midpoint of the exposure
         self.meta['mjd'] = (self.meta['observationStartMJD']
-                            + (self.meta['snap']*(exposure_time + readout_time)
-                               + exposure_time/2)/24./3600.)
+                            + (self.meta['snap']*(self.meta['exptime'] + readout_time)
+                               + self.meta['exptime']/2)/24./3600.)
         self.meta['HA'] = self.getHourAngle(self.meta['mjd'], self.meta['fieldRA'])
-        # Following instance catalog convention, set use the visit as
-        # the seed.
+        # Following instance catalog convention, use the visit as the
+        # seed.  TODO: Figure out how to make this depend on the snap
+        # as well as the visit.
         self.meta['seed'] = self.meta['observationId']
         # For use by the AtmosphericPSF, "seeing" should be set to the
         # atmosphere-only PSF FWHM at 500nm at zenith.  Based on

@@ -32,11 +32,9 @@ input:
         sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
     opsim_meta_dict:
-        # This enables OpsimMeta types
-        # Note: These could have been just a single input object, since they both read in the same
-        # input file.  But it's useful to separate them, since we want some OpsimMeta items at
-        # file scope.  In particular to define the WCS, which is needed by the InstCat items.
-        # So this one is registered as being allowed at file scope, but instance_catalog is not.
+        # Read the visit meta data from the opsim db file.  Note: We
+        # want some OpsimMeta items at file scope, in particular to
+        # define the WCS, which is needed by the InstCat items.
         file_name: small_opsim.db
         visit: 19500
         snap: 1
@@ -59,7 +57,7 @@ input:
 
         # Optional parameters:  (Unless otherwise stated, these are the default values.)
         t0: 0               # seconds
-        exptime: 30         # seconds
+        exptime: { type: OpsimMeta, field: exptime }
         kcrit: 0.2          # in units of 1/r0
         screen_size: 409.6  # Default=812.2, which takes a lot of memory, so use this for testing.
         screen_scale: 0.1   # meters
