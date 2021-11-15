@@ -56,15 +56,15 @@ jobs:
 
             - name: Install imSim
               run:
-                python setup.py install
+                pip install .
 
             - name: Install test deps
               run:
-                conda install -y nose
+                conda install -y pytest nose
 
             - name: Run tests
               run: |
                 cd tests
                 # We're working towards getting all the tests working, but so far these are
-                # the ones that work withe the setup.py installation.
-                nosetests test_FWHMgeom.py test_atmPSF.py test_batoid_wcs.py test_cosmic_rays.py test_fopen.py test_instcat_parser.py test_logging.py test_optical_zernikes.py test_psf.py test_tree_rings.py test_trimmer.py
+                # the ones that work withe the pip installation.
+                pytest test_FWHMgeom.py test_atmPSF.py test_batoid_wcs.py test_cosmic_rays.py test_fopen.py test_instcat_parser.py test_logging.py test_optical_zernikes.py test_psf.py test_tree_rings.py test_trimmer.py
