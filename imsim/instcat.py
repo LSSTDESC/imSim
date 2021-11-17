@@ -441,7 +441,7 @@ class InstCatalog(object):
         return ha
 
 class OpsimMetaDict(object):
-    """"Read the exposure information from the opsim db file.
+    """Read the exposure information from the opsim db file.
 
     The objects are handled by InstCatalog.
     """
