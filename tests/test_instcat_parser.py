@@ -444,9 +444,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         self.assertEqual(meta['gain'], 1)
         self.assertEqual(meta['band'], 'r')
-        # XXX: These used to be nexp=2 ?? and exptime=15.  I guess per snap, but we're not doing
-        #      2 snaps now in any real way AFAIK, so I switched this to nsnap=2, which is in the
-        #      input file and exptime=30, which is our default value.
         self.assertEqual(meta['nsnap'], 2)
         self.assertAlmostEqual(meta['exptime'], 30.)
         self.assertEqual(meta['readnoise'], 0)
