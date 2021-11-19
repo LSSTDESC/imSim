@@ -480,13 +480,16 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         # these are the objects that should be omitted
         bad_unique_ids = set([str(x) for x in
-                              [34307989098524, 811883374597,
-                               811883374596, 956090392580,
-                               34307989098523, 34304522113056]])
+                              [34307989098524, 811883374597, 34304522113056]])
+
+        # Note: these used to be skipped for having dust=none in one or both components, but
+        # we now allow them and treat them as Av=0, Rv=1:
+        #    811883374596, 956090392580, 34307989098523,
+        # cf. Issue #213
 
         print('id_arr = ',id_arr)
         print('bad ids = ',bad_unique_ids)
-        self.assertEqual(len(id_arr), 18)
+        self.assertEqual(len(id_arr), 21)
         for obj_id in id_arr:
             self.assertNotIn(obj_id, bad_unique_ids)
 

@@ -171,12 +171,7 @@ class InstCatalog(object):
 
                     if skip_invalid:
                         # Check for some reasons to skip this object.
-                        # XXX: Is this right?  We require dust?
-                        #      The previous code had that galactic_av = galactic_rv = 0 is invalid.
-                        #      That doesn't seem right to me...
                         object_is_valid = (magnorm < 50.0 and
-                                            dust[-1] != 'none' and
-                                            (float(dust[-1]) != 0 or float(dust[-2]) != 0) and
                                             not (objinfo[0] == 'sersic2d' and
                                                     float(objinfo[1]) < float(objinfo[2])) and
                                             not (objinfo[0] == 'knots' and
@@ -303,7 +298,7 @@ class InstCatalog(object):
             params = params[3:]
         else:
             internal_av = 0.
-            internal_rv = 0.
+            internal_rv = 1.
             params = params[1:]
 
         if params[0].lower() != 'none':
@@ -311,7 +306,7 @@ class InstCatalog(object):
             galactic_rv = float(params[2])
         else:
             galactic_av = 0.
-            galactic_rv = 0.
+            galactic_rv = 1.
 
         return internal_av, internal_rv, galactic_av, galactic_rv
 
