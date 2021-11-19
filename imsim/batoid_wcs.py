@@ -543,7 +543,8 @@ class BatoidWCSBuilder(WCSBuilder):
         rotTelPos : galsim.Angle
             Camera rotator angle.
         obstime : astropy.time.Time or str
-            Mean time of observation.
+            Mean time of observation.  Note: if this is a string, it is assumed to be in TAI scale,
+            which seems to be standard in the Rubin project.
         det_name : str
             Detector name in the format e.g. R22_S11
         band : str
@@ -569,8 +570,6 @@ class BatoidWCSBuilder(WCSBuilder):
         """
 
         # If a string, convert it to astropy.time.Time.
-        # XXX Assumption is that string time is in scale 'TAI'.  Should make sure
-        # to make this consistent with OpSim.
         if isinstance(obstime, str):
             obstime = astropy.time.Time(obstime, scale='tai')
 
