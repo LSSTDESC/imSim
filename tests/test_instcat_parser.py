@@ -46,13 +46,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
     def setUp(self):
         self.phosim_file = os.path.join(self.data_dir, 'phosim_stars.txt')
-        # XXX: What is the point of the extra_commands?  Seems like we could remove this bit.
-        self.extra_commands = 'instcat_extra.txt'
-        with open(self.phosim_file, 'r') as input_file:
-            with open(self.extra_commands, 'w') as output:
-                for line in input_file.readlines()[:22]:
-                    output.write(line)
-                output.write('extra_command 1\n')
 
     def make_wcs(self, instcat_file=None, sensors=None):
         # Make a wcs to use for this instance catalog.
@@ -79,9 +72,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                 all_wcs[det_name] = wcs
 
         return all_wcs
-
-    def tearDown(self):
-        os.remove(self.extra_commands)
 
     def test_required_commands_error(self):
         """
