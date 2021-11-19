@@ -53,15 +53,6 @@ class InstCatTrimmerTestCase(unittest.TestCase):
                                     skip_invalid=False)
         self.assertEqual(instcat.nobjects, 0)
 
-        # Check various values of chunk_size.
-        # XXX: We don't use chunking anymore.  If we revisit this and put it back in,
-        #      then we can re-enable this test.
-        if 0:
-            for chunk_size in (5, 10, 100):
-                instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=1000,
-                                            chunk_size=chunk_size, skip_invalid=False)
-                self.assertEqual(instcat.nobjects, 24)
-
     def test_inf_filter(self):
         """
         Test filtering of the ` inf ` string (i.e., bracked by spaces)
