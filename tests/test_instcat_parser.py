@@ -12,6 +12,8 @@ import astropy.time
 import imsim
 from lsst.afw.cameraGeom import DetectorType
 
+from test_batoid_wcs import sphere_dist
+
 def sources_from_list(lines, obs_md, phot_params, file_name):
     """Return a two-item tuple containing
        * a list of GalSimCelestialObjects for each object entry in `lines`
@@ -196,12 +198,19 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         ra_arr = np.array([pos.ra.rad for cat in all_cats.values() for pos in cat.world_pos])
         dec_arr = np.array([pos.dec.rad for cat in all_cats.values() for pos in cat.world_pos])
-        # XXX: These are only within 1.e-4 radians, which is kind of a lot.
+        # XXX: These are only within 10 arcsec, which is kind of a lot.
         #      I (MJ) think this is probalby related to differences in convention from how we
         #      used to do the WCS, so it's probably fine.  But someone who knows better might
         #      want to update how this test is done.
+        #      cf. Issue #262
         print("ra diff = ",ra_arr[index]-truth_data['raJ2000'])
         print("dec diff = ",dec_arr[index]-truth_data['decJ2000'])
+        dist = sphere_dist(ra_arr[index], dec_arr[index],
+                           truth_data['raJ2000'], truth_data['decJ2000'])
+        print("sphere dist = ",dist)
+        print('max dist = ',np.max(dist))
+        print('max dist (arcsec) = ',np.max(dist) * 180/np.pi * 3600)
+        np.testing.assert_array_less(dist * 180/np.pi * 3600, 10.)  # largest is 9.97 arcscec.
         np.testing.assert_allclose(truth_data['raJ2000'], ra_arr[index], rtol=1.e-4)
         np.testing.assert_allclose(truth_data['decJ2000'], dec_arr[index], rtol=1.e-4)
 
@@ -309,6 +318,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         # XXX: There are more differences here.  I think mostly because of the WCS mismatch.
         #      We should probably figure this out to make sure the Batoid WCS isn't missing some
         #      bit of physics that the LSST WCS included...
+        #      cf. Issue #262
         assert len(set(id_arr)^set(truth_data['uniqueId'])) <= 10
         index = np.argsort(id_arr)
         index1 = np.where(np.in1d(truth_data['uniqueId'], id_arr[index]))
@@ -359,7 +369,15 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         ra_arr = np.array([pos.ra.rad for cat in all_cats.values() for pos in cat.world_pos])
         dec_arr = np.array([pos.dec.rad for cat in all_cats.values() for pos in cat.world_pos])
-        # XXX: Again, only good to ~1.e-4 radians.  (!)
+        # XXX: These are slightly better than the stars actually.  But still max out at a few
+        #      arcsec separation differences, which seems like a lot.
+        #      cf. Issue #262
+        dist = sphere_dist(ra_arr[index2], dec_arr[index2],
+                           truth_data['raJ2000'][index1], truth_data['decJ2000'][index1])
+        print("sphere dist = ",dist)
+        print('max dist = ',np.max(dist))
+        print('max dist (arcsec) = ',np.max(dist) * 180/np.pi * 3600)
+        np.testing.assert_array_less(dist * 180/np.pi * 3600, 5.)  # largest is 3.3 arcsec
         np.testing.assert_allclose(truth_data['raJ2000'][index1], ra_arr[index2], rtol=1.e-4)
         np.testing.assert_allclose(truth_data['decJ2000'][index1], dec_arr[index2], rtol=1.e-4)
 
