@@ -5,7 +5,7 @@ import unittest
 
 import numpy as np
 
-from desc.imsim.optical_system import OpticalZernikes, mock_deviations
+from imsim.optical_system import OpticalZernikes, mock_deviations
 
 
 class OpticalDeviations(unittest.TestCase):

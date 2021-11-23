@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import galsim
 
-from desc.imsim.atmPSF import AtmosphericPSF
+from imsim.atmPSF import AtmosphericPSF
 
 class AtmPSF(unittest.TestCase):
     def test_r0_500(self):

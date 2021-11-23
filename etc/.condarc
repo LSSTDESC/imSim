@@ -1,0 +1,5 @@
+channels:
+  - conda-forge
+  - defaults
+ssl_verify: true
+channel_priority: strict

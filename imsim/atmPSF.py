@@ -6,9 +6,36 @@ import multiprocessing
 import numpy as np
 from scipy.optimize import bisect
 
+import pickle
 import galsim
 
 from .optical_system import OpticalZernikes, mock_deviations
+
+
+def save_psf(psf, outfile):
+    """
+    Save the psf as a pickle file.
+    """
+    # Set any logger attribute to None since loggers cannot be persisted.
+    if hasattr(psf, 'logger'):
+        psf.logger = None
+    with open(outfile, 'wb') as output:
+        with galsim.utilities.pickle_shared():
+            pickle.dump(psf, output)
+
+def load_psf(psf_file, log_level='INFO'):
+    """
+    Load a psf from a pickle file.
+    """
+    with open(psf_file, 'rb') as fd:
+        psf = pickle.load(fd)
+
+    # Since save_psf sets any logger attribute to None, restore
+    # it here.
+    if hasattr(psf, 'logger'):
+        psf.logger = get_logger(log_level, 'psf')
+
+    return psf
 
 
 class OptWF(object):
@@ -302,6 +329,7 @@ class AtmosphericPSFBuilder(object):
         # Instead, the user can choose to convolve this by a Gaussian in the config file.
         self.atm = AtmosphericPSF(airmass, rawSeeing, band, rng,
                                   t0=t0, exptime=exptime, kcrit=kcrit, gaussianFWHM=0.,
+                                  screen_size=screen_size, screen_scale=screen_scale,
                                   doOpt=doOpt, logger=logger, nproc=nproc)
         # The other change is that we need the boresight to do image_pos -> field_pos
         # I think it makes sense to take that as an input here rather than in the
@@ -328,6 +356,102 @@ def BuildAtmosphericPSF(config, base, ignore, gsparams, logger):
     psf = atm.getPSF(field_pos, gsparams)
     return psf, False
 
+# These next two are approximations to the above atmospheric PSF, which might be
+# useful in contexts where accuracy of the PSF isn't so important.
+def BuildDoubleGaussianPSF(config, base, ignore, gsparams, logger):
+    """
+    This is an example implementation of a wavelength- and
+    position-independent Double Gaussian PSF.  See the documentation
+    in PSFbase to learn how it is used.
+
+    This specific PSF comes from equation(30) of the signal-to-noise
+    document (LSE-40), which can be found at
+
+    www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf
+
+    The required fwhm parameter is the Full Width at Half Max of the total
+    PSF.  This is given in arcseconds.
+    """
+    req = {'fwhm': float}
+    opt = {'pixel_scale': float}
+
+    params, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
+    fwhm = params['fwhm']
+    pixel_scale = params.get('pixel_scale', 0.2)
+    if gsparams: gsparams = GSParams(**gsparams)
+    else: gsparams = None
+
+    # the expression below is derived by solving equation (30) of
+    # the signal-to-noise document
+    # (www.astro.washington.edu/uses/ivezic/Astr511/LSST_SNRdoc.pdf)
+    # for r at half the maximum of the PSF
+    alpha = fwhm/2.3835
+
+    eff_pixel_sigma_sq = pixel_scale*pixel_scale/12.0
+
+    sigma = np.sqrt(alpha*alpha - eff_pixel_sigma_sq)
+    gaussian1 = galsim.Gaussian(sigma=sigma, gsparams=gsparams)
+
+    sigma = np.sqrt(4.0*alpha*alpha - eff_pixel_sigma_sq)
+    gaussian2 = galsim.Gaussian(sigma=sigma, gsparams=gsparams)
+
+    psf = 0.909*(gaussian1 + 0.1*gaussian2)
+
+    return psf, safe
+
+
+def BuildKolmogorovPSF(config, base, ignore, gsparams, logger):
+    """
+    This PSF class is based on David Kirkby's presentation to the DESC
+    Survey Simulations working group on 23 March 2017.
+
+    https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
+
+    (you will need a SLAC Confluence account to access that link)
+
+    Parameters
+    ----------
+    airmass
+
+    rawSeeing is the FWHM seeing at zenith at 500 nm in arc seconds
+    (provided by OpSim)
+
+    band is the bandpass of the observation [u,g,r,i,z,y]
+    """
+
+    req = {
+            'airmass': float,
+            'rawSeeing': float,
+            'band': str,
+          }
+
+    params, safe = galsim.config.GetAllParams(config, base, req=req)
+    airmass = params['airmass']
+    rawSeeing = params['rawSeeing']
+    band = params['band']
+    if gsparams: gsparams = GSParams(**gsparams)
+    else: gsparams = None
+
+    # This code was provided by David Kirkby in a private communication
+
+    wlen_eff = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21,
+                    y=991.66)[band]
+    # wlen_eff is from Table 2 of LSE-40 (y=y2)
+
+    FWHMatm = rawSeeing*(wlen_eff/500.)**-0.3*airmass**0.6
+    # From LSST-20160 eqn (4.1)
+
+    FWHMsys = np.sqrt(0.25**2 + 0.3**2 + 0.08**2)*airmass**0.6
+    # From LSST-20160 eqn (4.2)
+
+    atm = galsim.Kolmogorov(fwhm=FWHMatm, gsparams=gsparams)
+    sys = galsim.Gaussian(fwhm=FWHMsys, gsparams=gsparams)
+    psf = galsim.Convolve((atm, sys))
+
+    return psf, safe
+
 from galsim.config import InputLoader, RegisterInputType, RegisterObjectType
 RegisterInputType('atm_psf', InputLoader(AtmosphericPSFBuilder, takes_logger=True))
 RegisterObjectType('AtmosphericPSF', BuildAtmosphericPSF, input_type='atm_psf')
+RegisterObjectType('DoubleGaussianPSF', BuildDoubleGaussianPSF)
+RegisterObjectType('KolmogorovPSF', BuildKolmogorovPSF)

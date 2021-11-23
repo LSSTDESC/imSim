@@ -4,7 +4,6 @@ import numpy as np
 import batoid
 import galsim
 import lsst.afw.cameraGeom as cameraGeom
-from lsst.obs.lsst import LsstCamMapper
 from astropy.time import Time
 
 def sphere_dist(ra1, dec1, ra2, dec2):
@@ -34,7 +33,7 @@ def test_wcs_fit():
     rng = np.random.default_rng(57721)
     fiducial_telescope = batoid.Optic.fromYaml("LSST_r.yaml")
     wavelength = 620. # nm
-    camera = LsstCamMapper().camera
+    camera = imsim.get_camera()
 
     for _ in range(30):
         # Random spherepoint for boresight
@@ -72,7 +71,8 @@ def test_wcs_fit():
             continue
 
         # Pick a few detectors randomly
-        for det in rng.choice(camera, 3):
+        for idet in rng.choice(len(camera), 3):
+            det = camera[idet]
             wcs = factory.getWCS(det, order=3)
 
             # center of detector:
@@ -172,7 +172,7 @@ def test_imsim():
         y=991.66
     )
     wavelength = wavelength_dict[band]
-    camera = LsstCamMapper().camera
+    camera = imsim.get_camera()
 
     rotTelPos =  cmds['rottelpos'] * galsim.degrees
 
@@ -352,7 +352,7 @@ def test_intermediate_coord_sys():
         y=991.66
     )
     wavelength = wavelength_dict[band]
-    camera = LsstCamMapper().camera
+    camera = imsim.get_camera()
 
     rotTelPos =  cmds['rottelpos'] * galsim.degrees
 
@@ -451,7 +451,7 @@ def test_config():
         y=991.66
     )
     wavelength = wavelength_dict[band]
-    camera = LsstCamMapper().camera
+    camera = imsim.get_camera()
 
     rotTelPos =  cmds['rottelpos'] * galsim.degrees
 

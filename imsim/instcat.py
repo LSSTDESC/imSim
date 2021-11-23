@@ -12,6 +12,8 @@ from galsim.config import RegisterSEDType, RegisterBandpassType
 from galsim import CelestialCoord
 import galsim
 
+from .meta_data import data_dir
+
 # Some helpers to read in a file that might be gzipped.
 @contextmanager
 def fopen(filename, **kwds):
@@ -73,7 +75,7 @@ class InstCatalog(object):
     _rubin_area = 0.25 * np.pi * 649**2  # cm^2
 
     def __init__(self, file_name, wcs, sed_dir=None, edge_pix=100, sort_mag=True, flip_g2=True,
-                 logger=None):
+                 min_source=None, skip_invalid=True, logger=None):
         logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
         self.flip_g2 = flip_g2
@@ -117,6 +119,7 @@ class InstCatalog(object):
 
         id_list = []
         world_pos_list = []
+        image_pos_list = []
         magnorm_list = []
         sed_list = []
         lens_list = []
@@ -126,8 +129,10 @@ class InstCatalog(object):
         logger.warning('Reading instance catalog %s', self.file_name)
         nuse = 0
         ntot = 0
+
         with fopen(self.file_name, mode='rt') as _input:
             for line in _input:
+                if ' inf ' in line: continue
                 if line.startswith('object'):
                     ntot += 1
                     if ntot % 10000 == 0:
@@ -152,18 +157,40 @@ class InstCatalog(object):
                     if not (min_x <= image_pos.x <= max_x and min_y <= image_pos.y <= max_y):
                         continue
                     #logger.debug('on image')
-                    # OK, keep this object.  Finish parsing it.
-                    id_list.append(tokens[1])
-                    nuse += 1
-                    world_pos_list.append(world_pos)
-                    magnorm_list.append(float(tokens[4]))
-                    sed_list.append((tokens[5], float(tokens[6])))
+
+                    # OK, probably keep this object.  Finish parsing it.
+                    objid = tokens[1]
+                    magnorm = float(tokens[4])
+                    sed = ((tokens[5], float(tokens[6])))
                     # gamma1,gamma2,kappa
-                    lens_list.append((float(tokens[7]), g2_sign*float(tokens[8]), float(tokens[9])))
+                    lens = (float(tokens[7]), g2_sign*float(tokens[8]), float(tokens[9]))
                     # what are 10,11?
                     dust_index = dust_index_dict.get(tokens[12], default_dust_index)
-                    objinfo_list.append(tokens[12:dust_index])
-                    dust_list.append(tokens[dust_index:])
+                    objinfo = tokens[12:dust_index]
+                    dust = tokens[dust_index:]
+
+                    if skip_invalid:
+                        # Check for some reasons to skip this object.
+                        object_is_valid = (magnorm < 50.0 and
+                                            not (objinfo[0] == 'sersic2d' and
+                                                    float(objinfo[1]) < float(objinfo[2])) and
+                                            not (objinfo[0] == 'knots' and
+                                                    (float(objinfo[1]) < float(objinfo[2]) or
+                                                     int(objinfo[4]) <= 0)))
+                        if not object_is_valid:
+                            logger.debug("Skipping object %s since not valid.", tokens[1])
+                            continue
+
+                    # Object is ok.  Add it to lists.
+                    nuse += 1
+                    id_list.append(objid)
+                    world_pos_list.append(world_pos)
+                    image_pos_list.append(image_pos)
+                    magnorm_list.append(magnorm)
+                    sed_list.append(sed)
+                    lens_list.append(lens)
+                    objinfo_list.append(objinfo)
+                    dust_list.append(dust)
 
         assert nuse == len(id_list)
         logger.warning("Total objects in file = %d",ntot)
@@ -172,15 +199,31 @@ class InstCatalog(object):
         # Sort the object lists by mag and convert to numpy arrays.
         self.id = np.array(id_list, dtype=str)
         self.world_pos = np.array(world_pos_list, dtype=object)
+        self.image_pos = np.array(image_pos_list, dtype=object)
         self.magnorm = np.array(magnorm_list, dtype=float)
         self.sed = np.array(sed_list, dtype=object)
         self.lens = np.array(lens_list, dtype=object)
         self.objinfo = np.array(objinfo_list, dtype=object)
         self.dust = np.array(dust_list, dtype=object)
+
+        if min_source is not None:
+            nsersic = np.sum([params[0].lower() == 'sersic2d' for params in self.objinfo])
+            if nsersic < min_source:
+                logger.warning(f"Fewer than {min_source} galaxies on sensor.  Skipping.")
+                self.id = self.id[:0]
+                self.world_pos = self.world_pos[:0]
+                self.image_pos = self.image_pos[:0]
+                self.magnorm = self.magnorm[:0]
+                self.sed = self.sed[:0]
+                self.lens = self.lens[:0]
+                self.objinfo = self.objinfo[:0]
+                self.dust = self.dust[:0]
+
         if sort_mag:
             index = np.argsort(self.magnorm)
             self.id = self.id[index]
             self.world_pos = self.world_pos[index]
+            self.image_pos = self.image_pos[index]
             self.magnorm = self.magnorm[index]
             self.sed = self.sed[index]
             self.lens = self.lens[index]
@@ -205,6 +248,9 @@ class InstCatalog(object):
 
     def getWorldPos(self, index):
         return self.world_pos[index]
+
+    def getImagePos(self, index):
+        return self.image_pos[index]
 
     def getMagNorm(self, index):
         return self.magnorm[index]
@@ -252,7 +298,7 @@ class InstCatalog(object):
             params = params[3:]
         else:
             internal_av = 0.
-            internal_rv = 0.
+            internal_rv = 1.
             params = params[1:]
 
         if params[0].lower() != 'none':
@@ -260,7 +306,7 @@ class InstCatalog(object):
             galactic_rv = float(params[2])
         else:
             galactic_av = 0.
-            galactic_rv = 0.
+            galactic_rv = 1.
 
         return internal_av, internal_rv, galactic_av, galactic_rv
 
@@ -284,9 +330,7 @@ class InstCatalog(object):
         elif params[0].lower() == 'sersic2d':
             a = float(params[1])
             b = float(params[2])
-            if b > a:
-                # Invalid, but existing code just lets it pass.
-                return None
+            assert a >= b  # Enforced above.
             pa = float(params[3])
             if self.flip_g2:
                 # Previous code first did PA = 360 - params[3]
@@ -317,17 +361,14 @@ class InstCatalog(object):
         elif params[0].lower() == 'knots':
             a = float(params[1])
             b = float(params[2])
-            if b > a:
-                return None
+            assert a >= b
             pa = float(params[3])
             if self.flip_g2:
                 beta = float(90 - pa) * galsim.degrees
             else:
                 beta = float(90 + pa) * galsim.degrees
             npoints = int(params[4])
-            if npoints <= 0:
-                # Again, weird, but previous code just lets this pass without comment.
-                return None
+            assert npoint > 0
             hlr = (a * b)**0.5
             obj = galsim.RandomKnots(npoints=npoints, half_light_radius=hlr, rng=rng,
                                      gsparams=gsparams)
@@ -408,6 +449,26 @@ class OpsimMetaDict(object):
     _single_params = []
     _takes_rng = False
 
+    _required_commands = set("""rightascension
+                                declination
+                                mjd
+                                altitude
+                                azimuth
+                                filter
+                                rotskypos
+                                rottelpos
+                                dist2moon
+                                moonalt
+                                moondec
+                                moonphase
+                                moonra
+                                nsnap
+                                obshistid
+                                seed
+                                seeing
+                                sunalt
+                                vistime""".split())
+
     def __init__(self, file_name, logger=None):
         logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
@@ -432,18 +493,42 @@ class OpsimMetaDict(object):
 
         logger.warning("Done reading meta information from instance catalog")
 
-        # Add a couple derived quantities to meta values
+        if any(key not in self.meta for key in self._required_commands):
+            raise ValueError("Some required commands are missing. Required commands: {}".format(
+                             str(self._required_commands)))
+
+        # Add a few derived quantities to meta values
         # Note a semantic distinction we make here:
         # "filter" is the number 0,1,2,3,4,5 from the input instance catalog.
         # "band" is the character u,g,r,i,z,y.
         # "bandpass" will be the real constructed galsim.Bandpass object.
         self.meta['band'] = 'ugrizy'[self.meta['filter']]
         self.meta['HA'] = self.getHourAngle(self.meta['mjd'], self.meta['rightascension'])
-        self.meta['airmass'] = self.getAirmass(self.meta['altitude'])
+        self.meta['rawSeeing'] = self.meta.pop('seeing')  # less ambiguous name
+        self.meta['airmass'] = self.getAirmass()
+        self.meta['FWHMeff'] = self.FWHMeff()
+        self.meta['FWHMgeom'] = self.FWHMgeom()
         logger.debug("Bandpass = %s",self.meta['band'])
         logger.debug("HA = %s",self.meta['HA'])
 
-    def getAirmass(self, altitude):
+        # Set some default values if these aren't present in input file.
+        self.meta['gain'] = self.meta.get('gain', 1)
+        self.meta['exptime'] = self.meta.get('exptime', 30)
+        self.meta['readnoise'] = self.meta.get('readnoise', 0)
+        self.meta['darkcurrent'] = self.meta.get('darkcurrent', 0)
+
+    @classmethod
+    def from_dict(cls, d):
+        """Build an OpsimMetaDict directly from the provided dict.
+
+        (Mostly used for unit tests.)
+        """
+        ret = cls.__new__(cls)
+        ret.file_name = ''
+        ret.meta = d
+        return ret
+
+    def getAirmass(self, altitude=None):
         """
         Function to compute the airmass from altitude using equation 3
         of Krisciunas and Schaefer 1991.
@@ -452,13 +537,84 @@ class OpsimMetaDict(object):
         ----------
         altitude: float
             Altitude of pointing direction in degrees.
+            [default: self.get('altitude')]
 
         Returns
         -------
         float: the airmass in units of sea-level airmass at the zenith.
         """
+        if altitude is None:
+            altitude = self.get('altitude')
         altRad = np.radians(altitude)
         return 1.0/np.sqrt(1.0 - 0.96*(np.sin(0.5*np.pi - altRad))**2)
+
+    def FWHMeff(self, rawSeeing=None, band=None, altitude=None):
+        """
+        Compute the effective FWHM for a single Gaussian describing the PSF.
+
+        Parameters
+        ----------
+        rawSeeing: float
+            The "ideal" seeing in arcsec at zenith and at 500 nm.
+            reference: LSST Document-20160
+            [default: self.get('rawSeeing')]
+        band: str
+            The LSST ugrizy band.
+            [default: self.get('band')]
+        altitude: float
+            The altitude in degrees of the pointing.
+            [default: self.get('altitude')]
+
+        Returns
+        -------
+        float: Effective FWHM in arcsec.
+        """
+        X = self.getAirmass(altitude)
+
+        if band is None:
+            band = self.get('band')
+        if rawSeeing is None:
+            rawSeeing = self.get('rawSeeing')
+
+        # Find the effective wavelength for the band.
+        wl = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
+
+        # Compute the atmospheric contribution.
+        FWHMatm = rawSeeing*(wl/500)**(-0.3)*X**(0.6)
+
+        # The worst case instrument contribution (see LSE-30).
+        FWHMsys = 0.4*X**(0.6)
+
+        # From LSST Document-20160, p. 8.
+        return 1.16*np.sqrt(FWHMsys**2 + 1.04*FWHMatm**2)
+
+
+    def FWHMgeom(self, rawSeeing=None, band=None, altitude=None):
+        """
+        FWHM of the "combined PSF".  This is FWHMtot from
+        LSST Document-20160, p. 8.
+
+        Parameters
+        ----------
+        rawSeeing: float
+            The "ideal" seeing in arcsec at zenith and at 500 nm.
+            reference: LSST Document-20160
+            [default: self.get('rawSeeing')]
+        band: str
+            The LSST ugrizy band.
+            [default: self.get('band')]
+        altitude: float
+            The altitude in degrees of the pointing.
+            [default: self.get('altitude')]
+
+        Returns
+        -------
+        float: FWHM of the combined PSF in arcsec.
+        """
+        return 0.822*self.FWHMeff(rawSeeing, band, altitude) + 0.052
+
+    def __getitem__(self, field):
+        return self.get(field)
 
     def get(self, field):
         if field not in self.meta:
@@ -609,6 +765,8 @@ class InstCatalogLoader(InputLoader):
                 'edge_pix' : float,
                 'sort_mag' : bool,
                 'flip_g2' : bool,
+                'min_source' : int,
+                'skip_invalid' : bool,
               }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
