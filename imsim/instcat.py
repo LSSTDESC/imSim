@@ -497,12 +497,13 @@ class OpsimMetaDict(object):
 
     def _read_opsim_db(self):
         """Read visit info from an opsim db file."""
-        # Query for the info for the desired visit.
         if self.visit is None:
             raise ValueError('The visit must be set when reading visit info from an opsim db file.')
 
         self.logger.warning('Reading info from opsim db file %s for visit %s',
                             self.file_name, self.visit)
+
+        # Query for the info for the desired visit.
         with sqlite3.connect(self.file_name) as con:
             table = 'observations'
             # Read the column names for the observations table
@@ -518,10 +519,6 @@ class OpsimMetaDict(object):
         if self.meta['snap'] >= self.meta['numExposures']:
             raise ValueError('Invalid snap value: %d. For this visit, snap < %d'
                              % (self.meta['snap'], self.meta['numExposures']))
-
-        if any(key not in self.meta for key in self._required_commands):
-            raise ValueError("Some required commands are missing. Required commands: {}".format(
-                             str(self._required_commands)))
 
         # Add a few derived quantities to meta values
         # Note a semantic distinction we make here:
@@ -571,6 +568,10 @@ class OpsimMetaDict(object):
                     self.meta[key] = float(value)
 
         self.logger.warning("Done reading meta information from instance catalog")
+
+        if any(key not in self.meta for key in self._required_commands):
+            raise ValueError("Some required commands are missing. Required commands: {}".format(
+                             str(self._required_commands)))
 
         # Add a few derived quantities to meta values
         # Note a semantic distinction we make here:
