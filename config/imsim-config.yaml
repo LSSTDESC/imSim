@@ -44,7 +44,7 @@ input:
 
         # The first 4 items are required.
         airmass: { type: OpsimMeta, field: airmass }
-        rawSeeing:  { type: OpsimMeta, field: seeing }
+        rawSeeing:  { type: OpsimMeta, field: rawSeeing }
         band:  { type: OpsimMeta, field: band }
         boresight:
             type: RADec

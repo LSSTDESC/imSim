@@ -440,15 +440,21 @@ class InstCatalog(object):
         ha = last - ra
         return ha
 
+
+def _is_sqlite3_file(filename):
+    """Check if a file is an sqlite3 db file."""
+    with open(filename, 'rb') as fd:
+        return fd.read(100).startswith(b'SQLite format 3')
+
+
 class OpsimMetaDict(object):
     """Read the exposure information from the opsim db file.
 
     The objects are handled by InstCatalog.
     """
-    _req_params = { 'file_name' : str,
-                    'visit' : int,
-                    'snap' : int}
-    _opt_params = {}
+    _req_params = {'file_name' : str}
+    _opt_params = {'visit' : int,
+                   'snap' : int}
     _single_params = []
     _takes_rng = False
 
@@ -472,15 +478,31 @@ class OpsimMetaDict(object):
                                 sunalt
                                 vistime""".split())
 
-    def __init__(self, file_name, visit, snap, logger=None):
-        logger = galsim.config.LoggerWrapper(logger)
+    def __init__(self, file_name, visit=None, snap=0, logger=None):
+        self.logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
         self.visit = visit
         self.meta = {'snap' : snap}
 
+        if _is_sqlite3_file(self.file_name):
+            self._read_opsim_db()
+        else:
+            self._read_instcat_header()
+
+        # Set some default values if these aren't present in input file.
+        self.meta['gain'] = self.meta.get('gain', 1)
+        self.meta['exptime'] = self.meta.get('exptime', 30)
+        self.meta['readnoise'] = self.meta.get('readnoise', 0)
+        self.meta['darkcurrent'] = self.meta.get('darkcurrent', 0)
+
+    def _read_opsim_db(self):
+        """Read visit info from an opsim db file."""
         # Query for the info for the desired visit.
-        logger.warning('Reading info from opsim db file %s for visit %s',
-                       self.file_name, self.visit)
+        if self.visit is None:
+            raise ValueError('The visit must be set when reading visit info from an opsim db file.')
+
+        self.logger.warning('Reading info from opsim db file %s for visit %s',
+                            self.file_name, self.visit)
         with sqlite3.connect(self.file_name) as con:
             table = 'observations'
             # Read the column names for the observations table
@@ -491,10 +513,11 @@ class OpsimMetaDict(object):
                       observationId={self.visit}"""
             for key, value in zip(columns, list(con.execute(sql))[0]):
                 self.meta[key] = value
-        logger.warning('Done reading visit info from opsim db file')
+        self.logger.warning('Done reading visit info from opsim db file')
 
-        if snap >= self.meta['numExposures']:
-            raise ValueError('Invalid snap value: %d. For this visit, snap < %d' % (snap, self.meta['numExposures']))
+        if self.meta['snap'] >= self.meta['numExposures']:
+            raise ValueError('Invalid snap value: %d. For this visit, snap < %d'
+                             % (self.meta['snap'], self.meta['numExposures']))
 
         if any(key not in self.meta for key in self._required_commands):
             raise ValueError("Some required commands are missing. Required commands: {}".format(
@@ -506,7 +529,8 @@ class OpsimMetaDict(object):
         # "bandpass" will be the real constructed galsim.Bandpass object.
         self.meta['band'] = self.meta['filter']
         self.meta['exptime'] = self.meta['visitExposureTime']/self.meta['numExposures']
-        readout_time = (self.meta['visitTime'] - self.meta['visitExposureTime'])/self.meta['numExposures']
+        readout_time \
+            = (self.meta['visitTime'] - self.meta['visitExposureTime'])/self.meta['numExposures']
         # Set "mjd" to be the midpoint of the exposure
         self.meta['mjd'] = (self.meta['observationStartMJD']
                             + (self.meta['snap']*(self.meta['exptime'] + readout_time)
@@ -516,13 +540,135 @@ class OpsimMetaDict(object):
         # seed.  TODO: Figure out how to make this depend on the snap
         # as well as the visit.
         self.meta['seed'] = self.meta['observationId']
-        # For use by the AtmosphericPSF, "seeing" should be set to the
+        # For use by the AtmosphericPSF, "rawSeeing" should be set to the
         # atmosphere-only PSF FWHM at 500nm at zenith.  Based on
         # https://smtn-002.lsst.io/, this should be the
         # "seeingFwhm500" column.
-        self.meta['seeing'] = self.meta['seeingFwhm500']
-        logger.debug("Bandpass = %s",self.meta['band'])
-        logger.debug("HA = %s",self.meta['HA'])
+        self.meta['rawSeeing'] = self.meta['seeingFwhm500']
+        self.meta['FWHMeff'] = self.FWHMeff()
+        self.meta['FWHMgeom'] = self.FWHMgeom()
+        self.logger.debug("Bandpass = %s",self.meta['band'])
+        self.logger.debug("HA = %s",self.meta['HA'])
+
+    def _read_instcat_header(self):
+        """Read visit info from the instance catalog header."""
+        self.logger.warning('Reading visit info from instance catalog %s',
+                            self.file_name)
+        with fopen(self.file_name, mode='rt') as _input:
+            for line in _input:
+                if line.startswith('#'):  # comments
+                    continue
+                if line.startswith('object'):
+                    # Assumes objects are all at the end.  Is this necessarily true?
+                    break
+
+                key, value = line.split()
+                self.logger.debug('meta value: %s = %s',key,value)
+                value = float(value)
+                if int(value) == value:
+                    self.meta[key] = int(value)
+                else:
+                    self.meta[key] = float(value)
+
+        self.logger.warning("Done reading meta information from instance catalog")
+
+        # Add a few derived quantities to meta values
+        # Note a semantic distinction we make here:
+        # "filter" is the number 0,1,2,3,4,5 from the input instance catalog.
+        # "band" is the character u,g,r,i,z,y.
+        # "bandpass" will be the real constructed galsim.Bandpass object.
+        self.meta['band'] = 'ugrizy'[self.meta['filter']]
+        self.meta['HA'] = self.getHourAngle(self.meta['mjd'], self.meta['rightascension'])
+        self.meta['rawSeeing'] = self.meta.pop('seeing')  # less ambiguous name
+        self.meta['airmass'] = self.getAirmass()
+        self.meta['FWHMeff'] = self.FWHMeff()
+        self.meta['FWHMgeom'] = self.FWHMgeom()
+        self.logger.debug("Bandpass = %s",self.meta['band'])
+        self.logger.debug("HA = %s",self.meta['HA'])
+
+        # Use the opsim db names for these quantities.
+        self.meta['fieldRA'] = self.meta['rightascension']
+        self.meta['fieldDec'] = self.meta['declination']
+        self.meta['rotTelPos'] = self.meta['rottelpos']
+        self.meta['observationId'] = self.meta['obshistid']
+
+    def getAirmass(self, altitude=None):
+        """
+        Function to compute the airmass from altitude using equation 3
+        of Krisciunas and Schaefer 1991.
+        Parameters
+        ----------
+        altitude: float
+            Altitude of pointing direction in degrees.
+            [default: self.get('altitude')]
+        Returns
+        -------
+        float: the airmass in units of sea-level airmass at the zenith.
+        """
+        if altitude is None:
+            altitude = self.get('altitude')
+        altRad = np.radians(altitude)
+        return 1.0/np.sqrt(1.0 - 0.96*(np.sin(0.5*np.pi - altRad))**2)
+
+    def FWHMeff(self, rawSeeing=None, band=None, altitude=None):
+        """
+        Compute the effective FWHM for a single Gaussian describing the PSF.
+        Parameters
+        ----------
+        rawSeeing: float
+            The "ideal" seeing in arcsec at zenith and at 500 nm.
+            reference: LSST Document-20160
+            [default: self.get('rawSeeing')]
+        band: str
+            The LSST ugrizy band.
+            [default: self.get('band')]
+        altitude: float
+            The altitude in degrees of the pointing.
+            [default: self.get('altitude')]
+        Returns
+        -------
+        float: Effective FWHM in arcsec.
+        """
+        X = self.getAirmass(altitude)
+
+        if band is None:
+            band = self.get('band')
+        if rawSeeing is None:
+            rawSeeing = self.get('rawSeeing')
+
+        # Find the effective wavelength for the band.
+        wl = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
+
+        # Compute the atmospheric contribution.
+        FWHMatm = rawSeeing*(wl/500)**(-0.3)*X**(0.6)
+
+        # The worst case instrument contribution (see LSE-30).
+        FWHMsys = 0.4*X**(0.6)
+
+        # From LSST Document-20160, p. 8.
+        return 1.16*np.sqrt(FWHMsys**2 + 1.04*FWHMatm**2)
+
+    def FWHMgeom(self, rawSeeing=None, band=None, altitude=None):
+        """
+        FWHM of the "combined PSF".  This is FWHMtot from
+        LSST Document-20160, p. 8.
+        Parameters
+        ----------
+        rawSeeing: float
+            The "ideal" seeing in arcsec at zenith and at 500 nm.
+            reference: LSST Document-20160
+            [default: self.get('rawSeeing')]
+        band: str
+            The LSST ugrizy band.
+            [default: self.get('band')]
+        altitude: float
+            The altitude in degrees of the pointing.
+            [default: self.get('altitude')]
+        Returns
+        -------
+        float: FWHM of the combined PSF in arcsec.
+        """
+        return 0.822*self.FWHMeff(rawSeeing, band, altitude) + 0.052
 
     @classmethod
     def from_dict(cls, d):
@@ -656,6 +802,7 @@ class OpsimMetaDict(object):
         last = time.sidereal_time('apparent').degree
         ha = last - ra
         return ha
+
 
 def OpsimMeta(config, base, value_type):
     """Return one of the meta values stored in the instance catalog.
