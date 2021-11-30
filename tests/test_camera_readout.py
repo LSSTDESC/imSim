@@ -108,8 +108,7 @@ class NoaoKeywordTestCase(unittest.TestCase):
         # geometry can be used.
         hdu = fits.ImageHDU()
         hdu.name = 'Segment00'
-        self.assertRaises(RuntimeError, desc.imsim.set_noao_keywords,
-                          hdu, 'S00')
+        self.assertRaises(RuntimeError, imsim.set_noao_keywords, hdu, 'S00')
 
         # Test keyword values written by this code against real TS8
         # raft level headers.
@@ -122,8 +121,7 @@ class NoaoKeywordTestCase(unittest.TestCase):
             for slot in ('S%i%i' % x for x in
                          itertools.product(range(3), range(3))):
                 ref_file \
-                    = os.path.join(lsstUtils.getPackageDir('imsim'), 'tests',
-                                   'data', '%s_raft_example_%s.fits.gz'
+                    = os.path.join('data', '%s_raft_example_%s.fits.gz'
                                    % (vendor, slot))
                 with fits.open(ref_file) as ref:
                     for amp in ('%i%i' % chan for chan in
@@ -131,7 +129,7 @@ class NoaoKeywordTestCase(unittest.TestCase):
                         hdu = fits.ImageHDU()
                         hdu.name = 'Segment%s' % amp
                         hdu.header['DETSIZE'] = detsize
-                        hdu = desc.imsim.set_noao_keywords(hdu, slot)
+                        hdu = imsim.set_noao_keywords(hdu, slot)
                         for keyword in hdu.header.keys():
                             if keyword not in exclude:
                                 self.assertEqual(hdu.header[keyword],
