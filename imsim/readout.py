@@ -2,11 +2,13 @@ import os
 import copy
 import numpy as np
 import scipy
+from collections import namedtuple
 from astropy.io import fits
 import galsim
 from galsim.config import ExtraOutputBuilder, RegisterExtraOutput
 from .bleed_trails import bleed_eimage
 from .camera import Camera
+from ._version import __version__
 
 def section_keyword(bounds, flipx=False, flipy=False):
     """Package image bounds as a NOAO image section keyword value."""
@@ -46,7 +48,7 @@ def cte_matrix(npix, cti, ntransfers=20):
 
     This implementation is from Mike Jarvis.
     """
-    my_matrix = np.zeros((npix, npix), dtype=np.float)
+    my_matrix = np.zeros((npix, npix), dtype=float)
     for i in range(1, npix+1):
         # On diagonal, there are i transfers of the electrons, so i chances to lose a fraction
         # cti into the later pixels.  Net charge is decreased by (1-cti)**i.
@@ -96,8 +98,7 @@ def get_primary_hdu(config, base, main_data, lsst_num='LCA-11021_RTM-000',
     phdu.header['HASTART'] = opsim_md.getHourAngle(mjd_obs, ratel)
     phdu.header['HAEND'] = opsim_md.getHourAngle(mjd_end, ratel)
     phdu.header['AMSTART'] = md.get('airmass')
-    # write hardwired version keywords for now.
-    phdu.header['IMSIMVER'] = 'unknown'
+    phdu.header['IMSIMVER'] = __version__
     phdu.header['PKG00000'] = 'throughputs'
     phdu.header['VER00000'] = '1.4'
     return phdu
@@ -106,21 +107,35 @@ def get_primary_hdu(config, base, main_data, lsst_num='LCA-11021_RTM-000',
 class CcdReadout:
     """Class to apply electronics readout effects to e-images using camera
     parameters from the lsst.obs.lsst package."""
-    def __init__(self, config, base, rng=None):
-        self.rng = rng
-        if self.rng is None:
-            seed = galsim.config.SetupConfigRNG(base)
-            self.rng = galsim.BaseDeviate(seed)
+    def __init__(self, config, base):
+        # det_name should already be set in base config by the main LSST CCD builder
         self.det_name = base['det_name']
-        camera = Camera(base['output']['camera'])
+        # camera is given in the output field, but defaults to LsstCam
+        camera = Camera(base['output'].get('camera','LsstCam'))
         self.ccd = camera[self.det_name]
         amp = list(self.ccd.values())[0]
-        scti = config['scti']
-        self.scte_matrix = (None if scti == 0
-                            else cte_matrix(amp.raw_bounds.xmax, scti))
-        pcti = config['pcti']
-        self.pcte_matrix = (None if pcti == 0
-                            else cte_matrix(amp.raw_bounds.ymax, pcti))
+
+        # Parse the required parameters
+        # XXX: Should any of these have defaults? Or keep them all as required parameters?
+        req = {
+            'readout_time': float,
+            'dark_current': float,
+            'bias_level': float,
+            'pcti': float,
+            'scti': float,
+        }
+        params = galsim.config.GetAllParams(config, base, req=req)[0]
+        self.readout_time = params['readout_time']
+        self.dark_current = params['dark_current']
+        self.bias_level = params['bias_level']
+        self.pcti = params['pcti']
+        self.scti = params['scti']
+
+        # Make the corresponding matrices for implementing the cti.
+        self.scte_matrix = (None if self.scti == 0
+                            else cte_matrix(amp.raw_bounds.xmax, self.scti))
+        self.pcte_matrix = (None if self.pcti == 0
+                            else cte_matrix(amp.raw_bounds.ymax, self.pcti))
 
     def apply_cte(self, amp_images):
         """Apply CTI to a list of amp images."""
@@ -163,11 +178,12 @@ class CcdReadout:
         eimage.array[:] = bleed_eimage(eimage.array, full_well=1e5)
 
         # Add dark current.
-        exp_time = base['exp_time']
-        dark_current = config['dark_current']
-        rng = galsim.PoissonDeviate(seed=self.rng, mean=dark_current*exp_time)
+        rng = galsim.config.GetRNG(config, base)
+        dark_time = base['exp_time'] + self.readout_time
+        dark_current = self.dark_current
+        poisson = galsim.PoissonDeviate(rng, mean=dark_current*dark_time)
         dc_data = np.zeros(np.prod(eimage.array.shape))
-        rng.generate(dc_data)
+        poisson.generate(dc_data)
         eimage += dc_data.reshape(eimage.array.shape)
 
         # Partition eimage into amp-level imaging segments, convert to ADUs,
@@ -196,11 +212,11 @@ class CcdReadout:
 
         # Add bias levels and read noise.
         for full_segment in amp_images:
-            full_segment += config['bias_level']
+            full_segment += self.bias_level
             # Setting gain=0 turns off the addition of Poisson noise,
             # which is already in the e-image, so that only the read
             # noise is added.
-            read_noise = galsim.CCDNoise(self.rng, gain=0,
+            read_noise = galsim.CCDNoise(rng, gain=0,
                                          read_noise=amp.read_noise)
             full_segment.addNoise(read_noise)
         return amp_images
