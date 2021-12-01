@@ -164,6 +164,12 @@ class BleedTrailTestCase(unittest.TestCase):
         for i in range(-1, -10, -1):
             self.assertEqual(bled_channel[i], 0)
 
+        # Repeat with non-zero (but non-saturated) values near the other end.
+        channel[-20:] = self.full_well/2.
+        bled_channel2 = imsim.bleed_channel(channel, self.full_well)
+        np.testing.assert_array_equal(bled_channel2[:50], bled_channel[:50])
+        np.testing.assert_array_equal(bled_channel2[-50:], channel[-50:])
+
         # Check the bleed stop end of the channel to be sure charge
         # doesn't wrap the other way.
         channel = np.zeros(self.nypix, dtype=int)
@@ -171,6 +177,13 @@ class BleedTrailTestCase(unittest.TestCase):
         bled_channel = imsim.bleed_channel(channel, self.full_well)
         for i in range(10):
             self.assertEqual(bled_channel[i], 0)
+
+        # Repeat with non-zero (but non-saturated) values near the other end.
+        channel[:20] = self.full_well/2.
+        bled_channel2 = imsim.bleed_channel(channel, self.full_well)
+        np.testing.assert_array_equal(bled_channel2[-50:], bled_channel[-50:])
+        np.testing.assert_array_equal(bled_channel2[:50], channel[:50])
+
 
 
 if __name__ == '__main__':

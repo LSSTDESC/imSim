@@ -133,18 +133,21 @@ class BleedCharge:
         -------
         bool: True if all excess charge has been redistributed.
         """
-        try:
+        if 0 <= xpix < len(self.imarr):
+            # The normal case: Add excess charge up to the full well and reduce this
+            # amount from the total excess charge to be redistributed.
             bled_charge = min(self.full_well - self.imarr[xpix],
                               self.excess_charge)
-            if xpix >= 0:
-                # Restrict charge redistribution to positive xpix
-                # values to avoid wrapping the bleed trail to the
-                # other end of the channel.  Charge bled off the end
-                # will still be removed from the excess charge pool.
-                self.imarr[xpix] += bled_charge
+            self.imarr[xpix] += bled_charge
             self.excess_charge -= bled_charge
-        except IndexError:
-            # Trying to bleed charge past end of the channel, so
-            # do nothing.
+        elif xpix < 0:
+            # Off the bottom end, the charge escapes into the electronics.
+            # We can reduce the excess charge by one full-well-worth.
+            # These electrons are not added to any pixel though.
+            self.excess_charge -= self.full_well
+        else:
+            # Electrons do not escape off the top end, so excess charge is not reduced
+            # when trying to bleed past the end of the channel.
             pass
+
         return self.excess_charge == 0
