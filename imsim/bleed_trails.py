@@ -79,14 +79,17 @@ def bleed_channel(channel, full_well):
     # Find contiguous sets of pixels that lie above full well, and
     # build a list of end point pairs identifying each set.
     my_channel = channel.copy()
-    padded = np.array([0] + list(my_channel) + [0])
-    index = np.where(padded > full_well)
-    mask = np.zeros(len(padded), dtype=int)
-    mask[index] += 1
-    diff = mask[1:] - mask[:-1]
-    end_points = []
-    for x0, x1 in zip(np.where(diff == 1)[0], np.where(diff == -1)[0]):
-        end_points.append((x0, x1))
+
+    # Add 0 at start and end, so saturated points are known to be all internal.
+    padded = np.concatenate([[0], my_channel, [0]])
+
+    # Find places where full well condition changes (either true to false or false to true).
+    end_points, = np.diff(padded > full_well).nonzero()
+
+    # Pairs of these are now the first saturated pixel in a run then the
+    # first subsequent unsaturated pixel.  Logically, they have to alternate.
+    # Reshape these into array of (start, end) pairs.
+    end_points = end_points.reshape(-1,2)
 
     # Loop over end point pairs.
     for x0, x1 in end_points:
