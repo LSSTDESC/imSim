@@ -75,6 +75,24 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         return all_wcs
 
+    def test_metadata_from_opsim_db(self):
+        """
+        Test reading of the visit metadata from an opsim db file.
+        """
+        opsim_db_file = os.path.join(imsim.meta_data.data_dir, 'small_opsim.db')
+        visit = 22184
+        md = imsim.OpsimMetaDict(opsim_db_file, visit=visit, snap=0)
+        self.assertAlmostEqual(md['observationId'], visit)
+        self.assertAlmostEqual(md['fieldRA'], 65.00821243449612)
+        self.assertAlmostEqual(md['fieldDec'], -33.20121826915378)
+        self.assertAlmostEqual(md['rawSeeing'], 0.5833528497734382)
+        self.assertAlmostEqual(md['FWHMeff'], 0.7790170013788277)
+        self.assertAlmostEqual(md['FWHMgeom'], 0.6923519751333964)
+        self.assertAlmostEqual(md['mjd'], 60248.33830784654 + 7.5/86400)
+        self.assertAlmostEqual(md['airmass'], 1.0763250938907971)
+        self.assertAlmostEqual(md['band'], 'z')
+        self.assertAlmostEqual(md['exptime'], 15)
+
     def test_required_commands_error(self):
         """
         Test that an error is raised if required commands are
