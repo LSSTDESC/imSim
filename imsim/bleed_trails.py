@@ -4,8 +4,24 @@ the camera readout code.
 """
 import numpy as np
 
-__all__ = ['bleed_eimage', 'bleed_channel']
+__all__ = ['bleed_eimage', 'bleed_channel', 'find_channels_with_saturation']
 
+def find_channels_with_saturation(eimage, full_well):
+    """Helper function to find which channels (x values) have at least one saturated pixel.
+
+    Parameters
+    ----------
+    eimage: numpy array
+        The "eimage" containing the image data in units of electrons per pixel.
+    full_well: int
+        The pixel full well/saturation value in electrons.
+
+    Returns
+    -------
+    set: A set of integers giving all x values with a saturated pixel.
+    """
+    # Find channels (by x-index) with signal above full_well.
+    return set(np.where(eimage > full_well)[1])
 
 def bleed_eimage(eimage, full_well, midline_stop=True):
     """
@@ -30,7 +46,7 @@ def bleed_eimage(eimage, full_well, midline_stop=True):
         bleeding applied.
     """
     # Find channels (by x-index) with signal above full_well.
-    channels = set(np.where(eimage > full_well)[1])
+    channels = find_channels_with_saturation(eimage, full_well)
 
     # Apply bleeding to each channel.
     for xpix in channels:
