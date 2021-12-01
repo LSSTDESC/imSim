@@ -92,12 +92,12 @@ def bleed_channel(channel, full_well):
     end_points = end_points.reshape(-1,2)
 
     # Loop over end point pairs.
-    for x0, x1 in end_points:
-        excess_charge = sum(my_channel[x0:x1]) - (x1 - x0)*full_well
-        my_channel[x0:x1] = full_well
+    for y0, y1 in end_points:
+        excess_charge = sum(my_channel[y0:y1]) - (y1 - y0)*full_well
+        my_channel[y0:y1] = full_well
         bleed_charge = BleedCharge(my_channel, excess_charge, full_well)
-        for dx in range(0, max(x0, len(my_channel) - x1)):
-            if bleed_charge(x0 - dx - 1) or bleed_charge(x1 + dx):
+        for dy in range(0, max(y0, len(my_channel) - y1)):
+            if bleed_charge(y0 - dy - 1) or bleed_charge(y1 + dy):
                 break
     return my_channel
 
@@ -121,11 +121,11 @@ class BleedCharge:
         self.excess_charge = excess_charge
         self.full_well = full_well
 
-    def __call__(self, xpix):
+    def __call__(self, ypix):
         """
         Parameters
         ----------
-        xpix: int
+        ypix: int
             Index of the pixel to which charge will be redistributed.
             If it is already at full_well, do nothing.
 
@@ -133,14 +133,14 @@ class BleedCharge:
         -------
         bool: True if all excess charge has been redistributed.
         """
-        if 0 <= xpix < len(self.imarr):
+        if 0 <= ypix < len(self.imarr):
             # The normal case: Add excess charge up to the full well and reduce this
             # amount from the total excess charge to be redistributed.
-            bled_charge = min(self.full_well - self.imarr[xpix],
+            bled_charge = min(self.full_well - self.imarr[ypix],
                               self.excess_charge)
-            self.imarr[xpix] += bled_charge
+            self.imarr[ypix] += bled_charge
             self.excess_charge -= bled_charge
-        elif xpix < 0:
+        elif ypix < 0:
             # Off the bottom end, the charge escapes into the electronics.
             # We can reduce the excess charge by one full-well-worth.
             # These electrons are not added to any pixel though.
