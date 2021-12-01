@@ -542,8 +542,8 @@ class OpsimMetaDict(object):
         # https://smtn-002.lsst.io/, this should be the
         # "seeingFwhm500" column.
         self.meta['rawSeeing'] = self.meta['seeingFwhm500']
-        self.meta['FWHMeff'] = self.FWHMeff()
-        self.meta['FWHMgeom'] = self.FWHMgeom()
+        self.meta['FWHMeff'] = self.meta['seeingFwhmEff']
+        self.meta['FWHMgeom'] = self.meta['seeingFwhmGeom']
         self.logger.debug("Bandpass = %s",self.meta['band'])
         self.logger.debug("HA = %s",self.meta['HA'])
 
