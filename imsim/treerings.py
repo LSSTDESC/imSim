@@ -2,7 +2,6 @@
 import os
 import numpy as np
 import galsim
-
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
 from .meta_data import data_dir
 
@@ -35,7 +34,6 @@ class TreeRings():
             self.file_name = os.path.join(data_dir, 'tree_ring_data', file_name)
         if not os.path.isfile(self.file_name):
             raise OSError("TreeRing file %s not found"%file_name)
-
         self.only_dets = only_dets
         self.numfreqs = 20 # Number of spatial frequencies
         self.cfreqs = np.zeros([self.numfreqs]) # Cosine frequencies
