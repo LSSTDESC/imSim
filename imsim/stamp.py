@@ -79,8 +79,8 @@ class LSST_SiliconBuilder(StampBuilder):
             md = galsim.config.GetInputObj('opsim_meta_dict', config, base, 'OpsimMeta').meta
             psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams,
                                                    airmass=md['airmass'],
-                                                   rawSeeing=md['seeing'],
-                                                   band='ugrizy'[md['filter']])
+                                                   rawSeeing=md['rawSeeing'],
+                                                   band=md['band'])
             image_size = psf.getGoodImageSize(self._pixel_scale)
             # No point in this being larger than a CCD.  Cut back to Nmax if larger than this.
             image_size = min(image_size, self._Nmax)

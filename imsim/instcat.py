@@ -3,6 +3,7 @@ import os
 import gzip
 import numpy as np
 import math
+import sqlite3
 import astropy
 import astropy.coordinates
 
@@ -439,13 +440,21 @@ class InstCatalog(object):
         ha = last - ra
         return ha
 
+
+def _is_sqlite3_file(filename):
+    """Check if a file is an sqlite3 db file."""
+    with open(filename, 'rb') as fd:
+        return fd.read(100).startswith(b'SQLite format 3')
+
+
 class OpsimMetaDict(object):
-    """This just handles the meta information at the start of the instance catalog file.
+    """Read the exposure information from the opsim db file.
 
     The objects are handled by InstCatalog.
     """
-    _req_params = { 'file_name' : str, }
-    _opt_params = {}
+    _req_params = {'file_name' : str}
+    _opt_params = {'visit' : int,
+                   'snap' : int}
     _single_params = []
     _takes_rng = False
 
@@ -469,12 +478,79 @@ class OpsimMetaDict(object):
                                 sunalt
                                 vistime""".split())
 
-    def __init__(self, file_name, logger=None):
-        logger = galsim.config.LoggerWrapper(logger)
+    def __init__(self, file_name, visit=None, snap=0, logger=None):
+        self.logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
-        self.meta = {}
+        self.visit = visit
+        self.meta = {'snap' : snap}
 
-        logger.warning('Reading instance catalog %s', self.file_name)
+        if _is_sqlite3_file(self.file_name):
+            self._read_opsim_db()
+        else:
+            self._read_instcat_header()
+
+        # Set some default values if these aren't present in input file.
+        self.meta['gain'] = self.meta.get('gain', 1)
+        self.meta['exptime'] = self.meta.get('exptime', 30)
+        self.meta['readnoise'] = self.meta.get('readnoise', 0)
+        self.meta['darkcurrent'] = self.meta.get('darkcurrent', 0)
+
+    def _read_opsim_db(self):
+        """Read visit info from an opsim db file."""
+        if self.visit is None:
+            raise ValueError('The visit must be set when reading visit info from an opsim db file.')
+
+        self.logger.warning('Reading info from opsim db file %s for visit %s',
+                            self.file_name, self.visit)
+
+        # Query for the info for the desired visit.
+        with sqlite3.connect(self.file_name) as con:
+            table = 'observations'
+            # Read the column names for the observations table
+            sql = f"select name from pragma_table_info('{table}')"
+            columns = [_[0] for _ in con.execute(sql)]
+            # Fill the self.meta dict
+            sql = f"""select {','.join(columns)} from {table} where
+                      observationId={self.visit}"""
+            for key, value in zip(columns, list(con.execute(sql))[0]):
+                self.meta[key] = value
+        self.logger.warning('Done reading visit info from opsim db file')
+
+        if self.meta['snap'] >= self.meta['numExposures']:
+            raise ValueError('Invalid snap value: %d. For this visit, snap < %d'
+                             % (self.meta['snap'], self.meta['numExposures']))
+
+        # Add a few derived quantities to meta values
+        # Note a semantic distinction we make here:
+        # "filter" or "band" is a character u,g,r,i,z,y.
+        # "bandpass" will be the real constructed galsim.Bandpass object.
+        self.meta['band'] = self.meta['filter']
+        self.meta['exptime'] = self.meta['visitExposureTime']/self.meta['numExposures']
+        readout_time \
+            = (self.meta['visitTime'] - self.meta['visitExposureTime'])/self.meta['numExposures']
+        # Set "mjd" to be the midpoint of the exposure
+        self.meta['mjd'] = (self.meta['observationStartMJD']
+                            + (self.meta['snap']*(self.meta['exptime'] + readout_time)
+                               + self.meta['exptime']/2)/24./3600.)
+        self.meta['HA'] = self.getHourAngle(self.meta['mjd'], self.meta['fieldRA'])
+        # Following instance catalog convention, use the visit as the
+        # seed.  TODO: Figure out how to make this depend on the snap
+        # as well as the visit.
+        self.meta['seed'] = self.meta['observationId']
+        # For use by the AtmosphericPSF, "rawSeeing" should be set to the
+        # atmosphere-only PSF FWHM at 500nm at zenith.  Based on
+        # https://smtn-002.lsst.io/, this should be the
+        # "seeingFwhm500" column.
+        self.meta['rawSeeing'] = self.meta['seeingFwhm500']
+        self.meta['FWHMeff'] = self.meta['seeingFwhmEff']
+        self.meta['FWHMgeom'] = self.meta['seeingFwhmGeom']
+        self.logger.debug("Bandpass = %s",self.meta['band'])
+        self.logger.debug("HA = %s",self.meta['HA'])
+
+    def _read_instcat_header(self):
+        """Read visit info from the instance catalog header."""
+        self.logger.warning('Reading visit info from instance catalog %s',
+                            self.file_name)
         with fopen(self.file_name, mode='rt') as _input:
             for line in _input:
                 if line.startswith('#'):  # comments
@@ -484,14 +560,14 @@ class OpsimMetaDict(object):
                     break
 
                 key, value = line.split()
-                logger.debug('meta value: %s = %s',key,value)
+                self.logger.debug('meta value: %s = %s',key,value)
                 value = float(value)
                 if int(value) == value:
                     self.meta[key] = int(value)
                 else:
                     self.meta[key] = float(value)
 
-        logger.warning("Done reading meta information from instance catalog")
+        self.logger.warning("Done reading meta information from instance catalog")
 
         if any(key not in self.meta for key in self._required_commands):
             raise ValueError("Some required commands are missing. Required commands: {}".format(
@@ -508,14 +584,14 @@ class OpsimMetaDict(object):
         self.meta['airmass'] = self.getAirmass()
         self.meta['FWHMeff'] = self.FWHMeff()
         self.meta['FWHMgeom'] = self.FWHMgeom()
-        logger.debug("Bandpass = %s",self.meta['band'])
-        logger.debug("HA = %s",self.meta['HA'])
+        self.logger.debug("Bandpass = %s",self.meta['band'])
+        self.logger.debug("HA = %s",self.meta['HA'])
 
-        # Set some default values if these aren't present in input file.
-        self.meta['gain'] = self.meta.get('gain', 1)
-        self.meta['exptime'] = self.meta.get('exptime', 30)
-        self.meta['readnoise'] = self.meta.get('readnoise', 0)
-        self.meta['darkcurrent'] = self.meta.get('darkcurrent', 0)
+        # Use the opsim db names for these quantities.
+        self.meta['fieldRA'] = self.meta['rightascension']
+        self.meta['fieldDec'] = self.meta['declination']
+        self.meta['rotTelPos'] = self.meta['rottelpos']
+        self.meta['observationId'] = self.meta['obshistid']
 
     @classmethod
     def from_dict(cls, d):
@@ -649,6 +725,7 @@ class OpsimMetaDict(object):
         last = time.sidereal_time('apparent').degree
         ha = last - ra
         return ha
+
 
 def OpsimMeta(config, base, value_type):
     """Return one of the meta values stored in the instance catalog.
