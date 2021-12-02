@@ -97,9 +97,6 @@ class LSST_CCDBuilder(OutputBuilder):
                         cosmic_ray_rate, cosmic_ray_catalog)
             exp_time = base['exp_time']
             det_name = base['det_name']
-            md = galsim.config.GetInputObj('opsim_meta_dict', config, base,
-                                           'OpsimMeta').meta
-            visit = md.get('obshistid')
             cosmic_rays = CosmicRays(cosmic_ray_rate, cosmic_ray_catalog)
             rng = galsim.config.GetRNG(config, base)
             cosmic_rays.paint(image.array, rng, exptime=exp_time)
