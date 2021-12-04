@@ -149,7 +149,6 @@ image:
         index_key: image_num    # This tells GalSim that this only changes with a new image num.
         treering_center: { type: TreeRingCenter, det_name: $det_name }
         treering_func: { type: TreeRingFunc, det_name: $det_name }
-        transpose: True
 
 
 # Define the PSF to use in the normal case (LSST_Silicon will override if doing a saturated star)
