@@ -587,6 +587,7 @@ class OpsimMetaDict(object):
         self.meta['fieldRA'] = self.meta['rightascension']
         self.meta['fieldDec'] = self.meta['declination']
         self.meta['rotTelPos'] = self.meta['rottelpos']
+        self.meta['rotSkyPos'] = self.meta['rotskypos']
         self.meta['observationId'] = self.meta['obshistid']
         self.set_defaults()
 
