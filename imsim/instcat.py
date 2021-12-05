@@ -588,6 +588,18 @@ class OpsimMetaDict(object):
         self.meta['fieldDec'] = self.meta['declination']
         self.meta['rotTelPos'] = self.meta['rottelpos']
         self.meta['observationId'] = self.meta['obshistid']
+        self.set_defaults()
+
+    def set_defaults(self):
+        # Set some default values if these aren't present in input file.
+        if 'gain' not in self.meta:
+            self.meta['gain'] = self.meta.get('gain', 1)
+        if 'exptime' not in self.meta:
+            self.meta['exptime'] = self.meta.get('exptime', 30)
+        if 'readnoise' not in self.meta:
+            self.meta['readnoise'] = self.meta.get('readnoise', 0)
+        if 'darkcurrent' not in self.meta:
+            self.meta['darkcurrent'] = self.meta.get('darkcurrent', 0)
 
     @classmethod
     def from_dict(cls, d):
@@ -598,6 +610,20 @@ class OpsimMetaDict(object):
         ret = cls.__new__(cls)
         ret.file_name = ''
         ret.meta = d
+        # If possible, add in the derived values.
+        if 'band' not in d and 'filter' in d:
+            ret.meta['band'] = 'ugrizy'[d['filter']]
+        if 'HA' not in d and 'mjd' in d and 'rightascension' in d:
+            ret.meta['HA'] = ret.getHourAngle(d['mjd'], d['rightascension'])
+        if 'rawSeeing' not in d and 'seeing' in d:
+            ret.meta['rawSeeing'] = ret.meta.pop('seeing')
+        if 'airmass' not in d and 'altitude' in d:
+            ret.meta['airmass'] = ret.getAirmass()
+        if 'FWHMeff' not in d and 'band' in d and 'rawSeeing' in d:
+            ret.meta['FWHMeff'] = ret.FWHMeff()
+        if 'FWHMgeom' not in d and 'band' in d and 'rawSeeing' in d:
+            ret.meta['FWHMgeom'] = ret.FWHMgeom()
+        ret.set_defaults()
         return ret
 
     def getAirmass(self, altitude=None):

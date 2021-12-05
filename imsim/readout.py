@@ -4,6 +4,7 @@ import numpy as np
 import scipy
 from collections import namedtuple
 from astropy.io import fits
+from astropy.time import Time
 import galsim
 from galsim.config import ExtraOutputBuilder, RegisterExtraOutput
 from .bleed_trails import bleed_eimage
@@ -267,42 +268,45 @@ def cte_matrix(npix, cti, ntransfers=20):
 
     return my_matrix
 
-def get_primary_hdu(config, base, main_data, lsst_num='LCA-11021_RTM-000',
-                    image_type='SKYEXP'):
+def get_primary_hdu(opsim_md, det_name, lsst_num='LCA-11021_RTM-000', image_type='SKYEXP',
+                    added_keywords={}):
     """Create a primary HDU for the output raw file with the keywords
     needed to process with the LSST Stack."""
-    opsim_md = galsim.config.GetInputObj('opsim_meta_dict', config, base,
-                                         'OpsimMeta')
-    md = opsim_md.meta
     phdu = fits.PrimaryHDU()
-    phdu.header['RUNNUM'] = md.get('obshistid')
-    phdu.header['OBSID'] = md.get('obshistid')
-    exp_time = base['exp_time']
+    phdu.header['RUNNUM'] = opsim_md.get('obshistid')
+    phdu.header['OBSID'] = opsim_md.get('obshistid')
+    exp_time = opsim_md.get('exptime')
     phdu.header['EXPTIME'] = exp_time
     phdu.header['DARKTIME'] = exp_time
-    phdu.header['FILTER'] = md.get('band')
+    phdu.header['FILTER'] = opsim_md.get('band')
     phdu.header['TIMESYS'] = 'TAI'
     phdu.header['LSST_NUM'] = lsst_num
     phdu.header['TESTTYPE'] = 'IMSIM'
     phdu.header['IMGTYPE'] = image_type
     phdu.header['OBSTYPE'] = image_type
     phdu.header['MONOWL'] = -1
-    raft, sensor = base['det_name'].split('_')
+    raft, sensor = det_name.split('_')
     phdu.header['RAFTNAME'] = raft
     phdu.header['SENSNAME'] = sensor
-    ratel = md.get('fieldRA')
+    ratel = opsim_md.get('fieldRA')
     phdu.header['RATEL'] = ratel
-    phdu.header['DECTEL'] = md.get('fieldDec')
-    phdu.header['ROTANGLE'] = md.get('rotSkyPos')
-    mjd_obs = md.get('mjd')
-    mjd_end = mjd_obs + base['exp_time']/86400.
+    phdu.header['DECTEL'] = opsim_md.get('fieldDec')
+    phdu.header['ROTANGLE'] = opsim_md.get('rotSkyPos')
+    mjd_obs = opsim_md.get('mjd')
+    mjd_end = mjd_obs + exp_time/86400.
     phdu.header['MJD-OBS'] = mjd_obs
     phdu.header['HASTART'] = opsim_md.getHourAngle(mjd_obs, ratel)
     phdu.header['HAEND'] = opsim_md.getHourAngle(mjd_end, ratel)
-    phdu.header['AMSTART'] = md.get('airmass')
+    phdu.header['AMSTART'] = opsim_md.get('airmass')
+    phdu.header['AMEND'] = phdu.header['AMSTART']  # XXX: This is not correct. Does anyone care?
     phdu.header['IMSIMVER'] = __version__
     phdu.header['PKG00000'] = 'throughputs'
     phdu.header['VER00000'] = '1.4'
+    phdu.header['CHIPID'] = det_name
+    phdu.header['DATE-OBS'] = Time(mjd_obs, format='mjd', scale='tai').to_value('isot')
+    phdu.header['DATE-END'] = Time(mjd_end, format='mjd', scale='tai').to_value('isot')
+
+    phdu.header.update(added_keywords)
     return phdu
 
 
@@ -447,15 +451,21 @@ class CameraReadout(ExtraOutputBuilder):
            An HDUList of the amplifier images in a CCD.
         """
         logger.warning("Making amplifier images")
+
+        if '_input_objs' not in base or 'opsim_meta_dict' not in base['_input_objs']:
+            raise galsim.config.GalSimConfigError(
+                "The readout extra output requires the opsim_meta_dict input object")
+        opsim_md = galsim.config.GetInputObj('opsim_meta_dict', config, base, 'readout')
+
         ccd_readout = CcdReadout(config, base)
         amps = ccd_readout.build_images(config, base, main_data)
-        det_name = base['det_name'].replace('-', '_')
+        det_name = base['det_name']
         channels = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
         x_seg_offset = (1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1)
         y_seg_offset = (0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2)
         wcs = main_data[0].wcs
         crpix1, crpix2 = wcs.crpix
-        hdus = fits.HDUList(get_primary_hdu(config, base, main_data))
+        hdus = fits.HDUList(get_primary_hdu(opsim_md, det_name))
         for amp_num, amp in enumerate(amps):
             channel = 'C' + channels[amp_num]
             amp_info = ccd_readout.ccd[channel]
