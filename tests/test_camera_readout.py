@@ -72,17 +72,12 @@ class ImageSourceTestCase(unittest.TestCase):
         hdu = hdus[1]
         self.assertEqual(hdu.header['EXTNAME'], "Segment10")
         self.assertEqual(hdu.header['DATASEC'], "[4:512,1:2000]")
-        # XXX: This test is currently failing.  This DETSEC now seems to correspond to
-        #      hdu 17, which is C00, not C10.  C10 has DETSEC = [509:1,4000:2001]
-        #      I don't know what should be changed to fix this.  Is it an error in the code?
-        #      Or is the test wrong now after some change to the camera layout?
-        #      Or did I screw something up in trying to adapt the test from the old code?
-        self.assertEqual(hdu.header['DETSEC'], "[509:1,1:2000]")
+        self.assertEqual(hdu.header['DETSEC'], "[509:1,4000:2001]")
 
-        hdu = hdus[7]
+        hdu = hdus[8]
         self.assertEqual(hdu.header['EXTNAME'], "Segment17")
         self.assertEqual(hdu.header['DATASEC'], "[4:512,1:2000]")
-        self.assertEqual(hdu.header['DETSEC'], "[4072:3564,1:2000]")
+        self.assertEqual(hdu.header['DETSEC'], "[4072:3564,4000:2001]")
 
     def test_raw_file_headers(self):
         "Test contents of raw file headers."
