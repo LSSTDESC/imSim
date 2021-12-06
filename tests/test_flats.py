@@ -83,8 +83,8 @@ class FlatTestCase(unittest.TestCase):
         print('mean = ',np.mean(flat.array))
         print('var = ',np.var(flat.array))
         np.testing.assert_allclose(np.mean(flat.array), tot_counts, rtol=1.e-2)
-        # It's smaller, but not much, so rtol=5e-2 still works.
-        np.testing.assert_allclose(np.var(flat.array), tot_counts, rtol=5.e-2)
+        # It's smaller, but still relatively similar, so rtol=1e-1 still works.
+        np.testing.assert_allclose(np.var(flat.array), tot_counts, rtol=1.e-1)
         assert np.var(flat.array) < tot_counts
 
         flat.array[:,:] -= np.mean(flat.array)
@@ -94,8 +94,8 @@ class FlatTestCase(unittest.TestCase):
         print('cov10 01 11 = ', cov10, cov01, cov11)
         # These are now all significantly non-zero (and positive).
         assert cov10 > 1.e-2*tot_counts
-        assert cov01 > 1.e-2*tot_counts
-        assert cov11 > 1.e-2*tot_counts
+        assert cov01 > 5.e-3*tot_counts
+        assert cov11 > 2.e-3*tot_counts
         # Also, 11 is the smallest, and there is more covariance in the y direction (10).
         assert cov10 > cov01 > cov11
 
@@ -140,7 +140,7 @@ class FlatTestCase(unittest.TestCase):
         pred_var = 0.5 * (tot_counts * tree_amp * 2*np.pi / tree_period)**2 + tot_counts
         print('pred_var = ',pred_var)
         np.testing.assert_allclose(np.mean(flat.array), tot_counts, rtol=1.e-2)
-        np.testing.assert_allclose(np.var(flat.array), pred_var, rtol=2.e-2)
+        np.testing.assert_allclose(np.var(flat.array), pred_var, rtol=3.e-2)
 
         # The covariance is mostly due to the tree rings now, so cov11 is about the same
         # as cov10 and cov01.

@@ -146,17 +146,13 @@ class LSST_FlatBuilder(ImageBuilder):
 
                     # What we have here is the expectation value in each pixel.
                     # We need to realize this according to Poisson statistics ith these means.
-                    print('Before AddNoise: ',np.mean(temp.array), np.var(temp.array))
                     galsim.config.AddNoise(base, temp, 0., logger)
-                    print('After AddNoise: ',np.mean(temp.array), np.var(temp.array))
 
                     # Finally, add this to the image we are building up for this section.
                     section += temp
-                    print('section: ',np.mean(section.array), np.var(section.array))
 
                 # Copy just the part that is officially part of this section.
                 image[sec_bounds] += section[sec_bounds]
-            print('image: ',np.mean(image.array), np.var(image.array))
 
     def getNObj(self, config, base, image_num, logger=None):
         """Get the number of objects that will be built for this image.
