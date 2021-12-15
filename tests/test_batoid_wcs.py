@@ -59,7 +59,7 @@ def test_wcs_fit():
 
         factory = imsim.BatoidWCSFactory(
             boresight, rotTelPos, obstime, fiducial_telescope, wavelength,
-            camera, temperature, pressure, H2O_pressure
+            temperature, pressure, H2O_pressure
         )
 
         aob, zob, hob, dob, rob, eo = factory._ICRF_to_observed(
@@ -186,7 +186,6 @@ def test_imsim():
     # cross-check some of the other values in the phosim cmd file.
     factory = imsim.BatoidWCSFactory(
         boresight, rotTelPos, obstime, fiducial_telescope, wavelength,
-        camera,
         temperature=temperature,
         pressure=0.0,
         H2O_pressure=H2O_pressure
@@ -216,12 +215,10 @@ def test_imsim():
     # For actual WCS check, we use a factory that _does_ know about refraction.
     factory = imsim.BatoidWCSFactory(
         boresight, rotTelPos, obstime, fiducial_telescope, wavelength,
-        camera,
         temperature=temperature,
         pressure=pressure,
         H2O_pressure=H2O_pressure
     )
-
     do_plot = False
     my_centers = []
     imsim_centers = []
@@ -363,7 +360,7 @@ def test_intermediate_coord_sys():
 
     factory = imsim.BatoidWCSFactory(
         boresight, rotTelPos, obstime, fiducial_telescope, wavelength,
-        camera, temperature, pressure, H2O_pressure
+        temperature, pressure, H2O_pressure
     )
 
     # How do thx, thy move when zob, aob are perturbed?
@@ -462,7 +459,6 @@ def test_config():
 
     factory = imsim.BatoidWCSFactory(
         boresight, rotTelPos, obstime, fiducial_telescope, wavelength,
-        camera,
         temperature=temperature,
         pressure=pressure,
         H2O_pressure=H2O_pressure
@@ -490,7 +486,6 @@ def test_config():
     for k in tqdm(wcss.keys()):
         name = k[18:25].replace('-', '_')
         det = camera[name]
-        cpix = det.getCenter(cameraGeom.PIXELS)
 
         wcs1 = factory.getWCS(det, order=2)
         config['image']['wcs']['det_name'] = name
@@ -538,7 +533,7 @@ def test_config():
     wcs7 = galsim.config.BuildWCS(config['image'], 'wcs', config)
     default_pressure = 101.325 * (1-2.25577e-5*2715)**5.25588
     wcs7a = imsim.BatoidWCSFactory(
-                boresight, rotTelPos, obstime, fiducial_telescope, wavelength, camera,
+                boresight, rotTelPos, obstime, fiducial_telescope, wavelength,
                 temperature=280,
                 pressure=default_pressure,
                 H2O_pressure=1.0,
@@ -554,7 +549,6 @@ def test_config():
     wcs8a = imsim.BatoidWCSFactory(
                 boresight, rotTelPos, obstime, fiducial_telescope,
                 wavelength=config['bandpass'].effective_wavelength,
-                camera=camera,
                 temperature=280,
                 pressure=default_pressure,
                 H2O_pressure=1.0,
@@ -583,7 +577,6 @@ def test_config():
     wcs9a = imsim.BatoidWCSFactory(
                 boresight, rotTelPos, obstime, fiducial_telescope,
                 wavelength=config['bandpass'].effective_wavelength,
-                camera=camera,
                 temperature=280,
                 pressure=default_pressure,
                 H2O_pressure=1.0,

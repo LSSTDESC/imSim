@@ -49,7 +49,6 @@ class BatoidWCSFactory:
         Telescope instance without applying the rotator.
     wavelength : float
         Nanometers
-    camera : lsst.afw.cameraGeom.Camera
     temperature : float
         Ambient temperature in Kelvin
     pressure : float
@@ -64,7 +63,6 @@ class BatoidWCSFactory:
         obstime,
         fiducial_telescope,
         wavelength,
-        camera,
         temperature,
         pressure,
         H2O_pressure
@@ -74,7 +72,6 @@ class BatoidWCSFactory:
         self.obstime = obstime
         self.fiducial_telescope = fiducial_telescope
         self.wavelength = wavelength
-        self.camera = camera
         self.temperature = temperature
         self.pressure = pressure
         self.H2O_pressure = H2O_pressure
@@ -549,6 +546,8 @@ class BatoidWCSBuilder(WCSBuilder):
             Detector name in the format e.g. R22_S11
         band : str
             The name of the bandpass
+        camera : str
+            The name of the camera.  [default: 'LsstCam']
         telescope : str
             The name of the telescope. [default: 'LSST']  Currenly only 'LSST' is functional.
         temperature : float
@@ -604,7 +603,7 @@ class BatoidWCSBuilder(WCSBuilder):
 
         # Finally, build the WCS.
         factory = BatoidWCSFactory(boresight, rotTelPos, obstime, fiducial_telescope,
-                                   wavelength, self.camera, temperature, pressure, H2O_pressure)
+                                   wavelength, temperature, pressure, H2O_pressure)
         return factory.getWCS(self.camera[det_name], order=order)
 
 RegisterWCSType('Batoid', BatoidWCSBuilder())
