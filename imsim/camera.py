@@ -5,6 +5,7 @@ import numpy as np
 import galsim
 from galsim.config import RegisterInputType, InputLoader
 import lsst.utils
+import lsst.afw.cameraGeom as cameraGeom
 
 
 __all__ = ['get_camera', 'Camera']
@@ -201,6 +202,65 @@ class CCD(dict):
         """Provide access to the attributes of the underlying lsst_ccd."""
         return getattr(self.lsst_ccd, attr)
 
+
+class _MockITLDetector:
+    # Quack like a Detector
+    def __init__(self, det):
+        from lsst.geom import PointD, BoxI, PointI
+        self._det = det
+        self._orientation = cameraGeom.Orientation(
+            det.getOrientation().getFpPosition(),
+            PointD(2036.5, 2000.5),
+        )
+        self._bbox = BoxI(PointI(0, 0), PointI(4071, 3999))
+
+    def getTransform(self, fromSys, toSys):
+        print("mock transform")
+        if fromSys == cameraGeom.FOCAL_PLANE and toSys == cameraGeom.PIXELS:
+            return self._orientation.makeFpPixelTransform(
+                self._det.getPixelSize()
+            )
+        if fromSys == cameraGeom.PIXELS and toSys == cameraGeom.FOCAL_PLANE:
+            return self._orientation.makePixelFpTransform(
+                self._det.getPixelSize()
+            )
+
+    def getPhysicalType(self):
+        return 'ITL'
+
+    def getOrientation(self):
+        return self._orientation
+
+    def getBBox(self):
+        return self._bbox
+
+    def __getattr__(self, name):
+        return getattr(self._det, name)
+
+
+class _MockITLCamera:
+    # Quack like a Camera
+    def __init__(self, camera):
+        self._camera = camera
+
+    @staticmethod
+    def convertToITL(det):
+        if det.getPhysicalType() == 'E2V':
+            det = _MockITLDetector(det)
+        return det
+
+    def __iter__(self):
+        for k, v in sorted(self._camera.getIdMap().items()):
+            yield self.convertToITL(v)
+
+    def __getitem__(self, key):
+        r = self._camera.get(key)
+        if r is None:
+            raise KeyError("Detector for key {} not found.".format(key))
+        return self.convertToITL(r)
+
+    def __getattr__(self, name):
+        return getattr(self._camera, name)
 
 _camera_cache = {}
 def get_camera(camera='LsstCam'):

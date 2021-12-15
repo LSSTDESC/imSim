@@ -4,7 +4,9 @@ import numpy as np
 import batoid
 import galsim
 import lsst.afw.cameraGeom as cameraGeom
+from lsst.geom import PointD
 from astropy.time import Time
+
 
 def sphere_dist(ra1, dec1, ra2, dec2):
     # Vectorizing CelestialCoord.distanceTo()
@@ -172,7 +174,7 @@ def test_imsim():
         y=991.66
     )
     wavelength = wavelength_dict[band]
-    camera = imsim.get_camera()
+    camera = imsim.camera._MockITLCamera(imsim.get_camera())
 
     rotTelPos =  cmds['rottelpos'] * galsim.degrees
 
@@ -288,7 +290,7 @@ def test_imsim():
     )
     np.testing.assert_array_less(
         np.rad2deg(np.mean(dist))*3600,
-        5.0
+        2.5
     )
     if do_plot:
         plt.hist(np.rad2deg(dist)*3600, bins=100)
@@ -349,7 +351,6 @@ def test_intermediate_coord_sys():
         y=991.66
     )
     wavelength = wavelength_dict[band]
-    camera = imsim.get_camera()
 
     rotTelPos =  cmds['rottelpos'] * galsim.degrees
 

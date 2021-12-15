@@ -9,26 +9,12 @@ import shutil
 import numpy as np
 import galsim
 import astropy.time
+import astropy.units as u
 import imsim
 from lsst.afw.cameraGeom import DetectorType
 
 from test_batoid_wcs import sphere_dist
 
-def sources_from_list(lines, obs_md, phot_params, file_name):
-    """Return a two-item tuple containing
-       * a list of GalSimCelestialObjects for each object entry in `lines`
-       * a dictionary of these objects disaggregated by chip_name.
-    """
-    target_chips = [det.getName() for det in imsim.get_camera()]
-    gs_object_dict = dict()
-    out_obj_dict = dict()
-    for chip_name in target_chips:
-        out_obj_dict[chip_name] \
-            = [_ for _ in imsim.GsObjectList(lines, obs_md, phot_params,
-                                             file_name, chip_name)]
-        for gsobj in out_obj_dict[chip_name]:
-            gs_object_dict[gsobj.uniqueId] = gsobj
-    return list(gs_object_dict.values()), out_obj_dict
 
 class InstanceCatalogParserTestCase(unittest.TestCase):
     """
@@ -60,10 +46,15 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         rotTelPos = obs_md['rottelpos'] * galsim.degrees
         obstime = astropy.time.Time(obs_md['mjd'], format='mjd', scale='tai')
         band = obs_md['band']
+        camera = imsim.get_camera()
         builder = imsim.BatoidWCSBuilder()
 
+        # Monkey-patch MockITLCamera into builder
+        camera = imsim.camera._MockITLCamera(imsim.get_camera())
+        builder._camera_name = 'LsstCam'
+        builder._camera = camera
+
         if sensors is None:
-            camera = imsim.get_camera()
             sensors = [det.getName() for det in camera
                        if det.getType() not in (DetectorType.WAVEFRONT, DetectorType.GUIDER)]
 
@@ -226,6 +217,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         dist = sphere_dist(ra_arr[index], dec_arr[index],
                            truth_data['raJ2000'], truth_data['decJ2000'])
         print("sphere dist = ",dist)
+        print('mean dist = ',np.mean(dist))
         print('max dist = ',np.max(dist))
         print('max dist (arcsec) = ',np.max(dist) * 180/np.pi * 3600)
         np.testing.assert_array_less(dist * 180/np.pi * 3600, 10.)  # largest is 9.97 arcscec.
