@@ -166,7 +166,7 @@ class InstCatalog(object):
                     # gamma1,gamma2,kappa
                     lens = (float(tokens[7]), g2_sign*float(tokens[8]), float(tokens[9]))
                     # what are 10,11?
-                    dust_index = dust_index_dict.get(tokens[12], default_dust_index)
+                    dust_index = dust_index_dict.get(tokens[12].lower(), default_dust_index)
                     objinfo = tokens[12:dust_index]
                     dust = tokens[dust_index:]
 
