@@ -7,3 +7,5 @@ if 'IMSIM_DATA_DIR' in os.environ: # pragma: no cover
     data_dir = os.environ['IMSIM_DATA_DIR']
 else:
     data_dir = os.path.join(imsim_dir, 'data')
+
+config_dir = os.path.join(imsim_dir, 'config')
