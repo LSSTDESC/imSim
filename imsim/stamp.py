@@ -99,6 +99,7 @@ class LSST_SiliconBuilder(StampBuilder):
             base['current_noise_image'] = base['current_image']
             noise_var = galsim.config.CalculateNoiseVariance(base)
             keep_sb_level = np.sqrt(noise_var)/3.
+            self._large_object_sb_level = 3*keep_sb_level
 
             # For bright things, defined as having an average of at least 10 photons per
             # pixel on average, try to be careful about not truncating the surface brightness
