@@ -15,6 +15,65 @@ import galsim
 
 from .meta_data import data_dir
 
+
+def get_radec_limits(wcs, logger, edge_pix):
+    """Min and max values for RA, Dec given the wcs."""
+    # Allow objects to be centered somewhat off the image.
+    min_x = 0 - edge_pix
+    min_y = 0 - edge_pix
+    # The image max_x,max_y isn't actually 4096, but close enough.
+    max_x = 4096 + edge_pix
+    max_y = 4096 + edge_pix
+
+    # Check the min/max ra and dec to faster remove objects that
+    # cannot be on image
+    ll = galsim.PositionD(min_x,min_y)
+    lr = galsim.PositionD(min_x,max_y)
+    ul = galsim.PositionD(max_x,min_y)
+    ur = galsim.PositionD(max_x,max_y)
+    ll = wcs.toWorld(ll)
+    lr = wcs.toWorld(lr)
+    ul = wcs.toWorld(ul)
+    ur = wcs.toWorld(ur)
+    min_ra = min([ll.ra.deg, lr.ra.deg, ul.ra.deg, ur.ra.deg])
+    max_ra = max([ll.ra.deg, lr.ra.deg, ul.ra.deg, ur.ra.deg])
+    min_dec = min([ll.dec.deg, lr.dec.deg, ul.dec.deg, ur.dec.deg])
+    max_dec = max([ll.dec.deg, lr.dec.deg, ul.dec.deg, ur.dec.deg])
+    logger.debug("RA range for image is %f .. %f", min_ra, max_ra)
+    logger.debug("Dec range for image is %f .. %f", min_dec, max_dec)
+    return min_ra, max_ra, min_dec, max_dec, min_x, min_y, max_x, max_y
+
+
+def getHourAngle(mjd, ra):
+    """
+    Compute the local hour angle of an object for the specified
+    MJD and RA.
+
+    Parameters
+    ----------
+    mjd: float
+        Modified Julian Date of the observation.
+    ra: float
+        Right Ascension (in degrees) of the object.
+
+    Returns
+    -------
+    float: hour angle in degrees
+    """
+    # cf. http://www.ctio.noao.edu/noao/content/coordinates-observatories-cerro-tololo-and-cerro-pachon
+    lsst_lat = '-30d 14m 40.68s'
+    lsst_long = '-70d 44m 57.90s'
+    lsst_elev = '2647m'
+    lsst_loc = astropy.coordinates.EarthLocation.from_geodetic(
+                    lsst_lat, lsst_long, lsst_elev)
+
+    time = astropy.time.Time(mjd, format='mjd', location=lsst_loc)
+    # Get the local apparent sidereal time.
+    last = time.sidereal_time('apparent').degree
+    ha = last - ra
+    return ha
+
+
 # Some helpers to read in a file that might be gzipped.
 @contextmanager
 def fopen(filename, **kwds):
@@ -88,27 +147,8 @@ class InstCatalog(object):
             self.sed_dir = sed_dir
         self.inst_dir = os.path.dirname(file_name)
 
-        # Allow objects to be centered somewhat off the image.
-        min_x = 0 - edge_pix
-        min_y = 0 - edge_pix
-        max_x = 4096 + edge_pix  # The image max_x,max_y isn't actually 4096, but close enough.
-        max_y = 4096 + edge_pix
-
-        # Check the min/max ra and dec to faster remove objects that cannot be on image
-        ll = galsim.PositionD(min_x,min_y)
-        lr = galsim.PositionD(min_x,max_y)
-        ul = galsim.PositionD(max_x,min_y)
-        ur = galsim.PositionD(max_x,max_y)
-        ll = wcs.toWorld(ll)
-        lr = wcs.toWorld(lr)
-        ul = wcs.toWorld(ul)
-        ur = wcs.toWorld(ur)
-        min_ra = min([ll.ra.deg, lr.ra.deg, ul.ra.deg, ur.ra.deg])
-        max_ra = max([ll.ra.deg, lr.ra.deg, ul.ra.deg, ur.ra.deg])
-        min_dec = min([ll.dec.deg, lr.dec.deg, ul.dec.deg, ur.dec.deg])
-        max_dec = max([ll.dec.deg, lr.dec.deg, ul.dec.deg, ur.dec.deg])
-        logger.debug("RA range for image is %f .. %f", min_ra, max_ra)
-        logger.debug("Dec range for image is %f .. %f", min_dec, max_dec)
+        min_ra, max_ra, min_dec, max_dec, min_x, min_y, max_x, max_y \
+            = get_radec_limits(wcs, logger, edge_pix)
 
         # What position do the dust parameters start, based on object type.
         dust_index_dict = {
@@ -369,7 +409,7 @@ class InstCatalog(object):
             else:
                 beta = float(90 + pa) * galsim.degrees
             npoints = int(params[4])
-            assert npoint > 0
+            assert npoints > 0
             hlr = (a * b)**0.5
             obj = galsim.RandomKnots(npoints=npoints, half_light_radius=hlr, rng=rng,
                                      gsparams=gsparams)
@@ -411,34 +451,6 @@ class InstCatalog(object):
             flux = sed.calculateFlux(bandpass) * fAt
             return obj.withFlux(flux)
 
-    def getHourAngle(self, mjd, ra):
-        """
-        Compute the local hour angle of an object for the specified
-        MJD and RA.
-
-        Parameters
-        ----------
-        mjd: float
-            Modified Julian Date of the observation.
-        ra: float
-            Right Ascension (in degrees) of the object.
-
-        Returns
-        -------
-        float: hour angle in degrees
-        """
-        # cf. http://www.ctio.noao.edu/noao/content/coordinates-observatories-cerro-tololo-and-cerro-pachon
-        lsst_lat = '-30d 14m 40.68s'
-        lsst_long = '-70d 44m 57.90s'
-        lsst_elev = '2647m'
-        lsst_loc = astropy.coordinates.EarthLocation.from_geodetic(
-                        lsst_lat, lsst_long, lsst_elev)
-
-        time = astropy.time.Time(mjd, format='mjd', location=lsst_loc)
-        # Get the local apparent sidereal time.
-        last = time.sidereal_time('apparent').degree
-        ha = last - ra
-        return ha
 
 
 def _is_sqlite3_file(filename):
@@ -532,7 +544,7 @@ class OpsimMetaDict(object):
         self.meta['mjd'] = (self.meta['observationStartMJD']
                             + (self.meta['snap']*(self.meta['exptime'] + readout_time)
                                + self.meta['exptime']/2)/24./3600.)
-        self.meta['HA'] = self.getHourAngle(self.meta['mjd'], self.meta['fieldRA'])
+        self.meta['HA'] = getHourAngle(self.meta['mjd'], self.meta['fieldRA'])
         # Following instance catalog convention, use the visit as the
         # seed.  TODO: Figure out how to make this depend on the snap
         # as well as the visit.
@@ -579,7 +591,7 @@ class OpsimMetaDict(object):
         # "band" is the character u,g,r,i,z,y.
         # "bandpass" will be the real constructed galsim.Bandpass object.
         self.meta['band'] = 'ugrizy'[self.meta['filter']]
-        self.meta['HA'] = self.getHourAngle(self.meta['mjd'], self.meta['rightascension'])
+        self.meta['HA'] = getHourAngle(self.meta['mjd'], self.meta['rightascension'])
         self.meta['rawSeeing'] = self.meta.pop('seeing')  # less ambiguous name
         self.meta['airmass'] = self.getAirmass()
         self.meta['FWHMeff'] = self.FWHMeff()
@@ -696,35 +708,6 @@ class OpsimMetaDict(object):
         if field not in self.meta:
             raise ValueError("OpsimMeta field %s not present in instance catalog"%field)
         return self.meta[field]
-
-    def getHourAngle(self, mjd, ra):
-        """
-        Compute the local hour angle of an object for the specified
-        MJD and RA.
-
-        Parameters
-        ----------
-        mjd: float
-            Modified Julian Date of the observation.
-        ra: float
-            Right Ascension (in degrees) of the object.
-
-        Returns
-        -------
-        float: hour angle in degrees
-        """
-        # cf. http://www.ctio.noao.edu/noao/content/coordinates-observatories-cerro-tololo-and-cerro-pachon
-        lsst_lat = '-30d 14m 40.68s'
-        lsst_long = '-70d 44m 57.90s'
-        lsst_elev = '2647m'
-        lsst_loc = astropy.coordinates.EarthLocation.from_geodetic(
-                        lsst_lat, lsst_long, lsst_elev)
-
-        time = astropy.time.Time(mjd, format='mjd', location=lsst_loc)
-        # Get the local apparent sidereal time.
-        last = time.sidereal_time('apparent').degree
-        ha = last - ra
-        return ha
 
 
 def OpsimMeta(config, base, value_type):
