@@ -1,0 +1,71 @@
+#  A sample sky catalog config for partially-faked catalog of stars & galaxies
+#  used as input to create equivalent instance catalogs
+catalog_name : sky_cat_9683
+area_partition :
+  { type: healpix, ordering : ring, nside : 32}
+root_directory: /global/cscratch1/sd/jrbogart/desc/skycatalogs/mag26_knots
+SED_models :
+  -
+    tophat :
+       units : angstrom
+       bin_parameters : [start, width]
+       bins : [[1000, 246],[1246, 306],[1552, 381],[1933, 474],[2407, 591],
+               [2998, 186],[3184, 197],[3381, 209],[3590, 222],[3812, 236],
+               [4048, 251],[4299, 266],[4565, 283],[4848, 300],[5148, 319],
+               [5467, 339],[5806, 360],[6166, 382],[6548, 406],[6954, 431],
+               [7385, 458],[7843, 486],[8329, 517],[8846, 549],[9395, 583],
+               [9978, 1489],[11467, 1710],[13177, 1966],[15143, 2259],
+               [17402, 2596],]
+    file :
+       units : nm
+
+MW_extinction_values :
+  r_v :
+    mode : constant
+    value : 3.1
+  a_v :
+    mode : lsst_band
+
+Cosmology :
+  Omega_c : 0.2648
+  Omega_b : 0.0448
+  h : 0.71
+  sigma8 : 0.8
+  n_s : 0.963
+
+object_types :
+  galaxy :
+      file_template : 'galaxy_(?P<healpix>\d+).parquet'
+      data_file_type : parquet
+      sed_file_root : '/global/cscratch1/sd/jrbogart/desc/sed_file_root/to_translate'
+      composite :
+        bulge : required
+        disk  : required
+        knots : optional
+  bulge_basic :
+      subtype : bulge
+      parent : galaxy
+      sed_model : tophat
+      internal_extinction : CCM
+      MW_extinction : CCM
+      spatial_model : sersic2D
+  disk_basic :
+      subtype : disk
+      parent : galaxy
+      sed_model : tophat
+      internal_extinction : CCM
+      MW_extinction : CCM
+      spatial_model :  sersic2D
+  knots_basic :
+      subtype : knots
+      parent : galaxy
+      sed_model : tophat
+      internal_extinction : CCM
+      MW_extinction : CCM
+      spatial_model :  knots
+  star :
+      file_template : 'pointsource_(?P<healpix>\d+).parquet'
+      data_file_type : parquet
+      sed_model : file
+      sed_file_root : '$SIMS_SED_LIBRARY_DIR'
+      MW_extinction : CCM

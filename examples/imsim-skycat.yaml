@@ -1,0 +1,47 @@
+# Use baseline configuration
+template: /global/homes/j/jchiang8/dev/imSim/config/imsim-config.yaml
+
+# Disable inputs from instance catalogs.
+input.instance_catalog: ""
+
+# Use skyCatalogs for obtaining the objects to render.
+input.sky_catalog:
+    file_name: /global/homes/j/jchiang8/dev/imSim/tests/data/sky_cat_9683.yaml
+    obj_types: [galaxy]   # restrict to galaxies to avoid bright stars
+
+input.opsim_meta_dict.file_name: /global/homes/j/jchiang8/dev/imSim/tests/data/small_opsim_9683.db
+input.opsim_meta_dict.visit: 449053
+
+input.tree_rings.only_dets: [R22_S11]
+
+# Disable the atmospheric PSF to run faster for testing.
+input.atm_psf: ""
+
+image.nobjects: 1000
+image.random_seed: 42
+
+image.wcs.boresight:
+    type: RADec
+    ra:
+        type: Degrees
+        theta: { type: OpsimMeta, field: fieldRA }
+    dec:
+        type: Degrees
+        theta: { type: OpsimMeta, field: fieldDec }
+
+psf:
+    type: Convolve
+    items:
+        -
+           type: Gaussian
+           fwhm: 0.8
+        -  type: Gaussian
+           fwhm: 0.3
+
+# Override the InstCat* defaults in the config/imsim-config.yaml baseline.
+gal.type: SkyCatObj
+stamp.sed.type: SkyCatSED
+stamp.world_pos.type: SkyCatWorldPos
+
+output.dir: output # default `fits`
+output.det_num.first: 94
