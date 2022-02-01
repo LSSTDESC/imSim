@@ -165,10 +165,10 @@ class LSST_SiliconBuilder(StampBuilder):
         N = obj.getGoodImageSize(pixel_scale)
         #print('N = ',N)
 
-        if isinstance(obj, galsim.RandomKnots):
+        if isinstance(obj.original, galsim.RandomKnots):
             # If the galaxy is a RandomKnots, extract the underlying profile for this calculation
             # rather than using the knotty version, which poses problems for the xValue function.
-            obj = obj._profile
+            obj = obj.original._profile
 
         # This can be too small for bright stars, so increase it in steps until the edges are
         # all below the requested sb level.
