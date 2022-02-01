@@ -44,36 +44,6 @@ def get_radec_limits(wcs, logger, edge_pix):
     return min_ra, max_ra, min_dec, max_dec, min_x, min_y, max_x, max_y
 
 
-def getHourAngle(mjd, ra):
-    """
-    Compute the local hour angle of an object for the specified
-    MJD and RA.
-
-    Parameters
-    ----------
-    mjd: float
-        Modified Julian Date of the observation.
-    ra: float
-        Right Ascension (in degrees) of the object.
-
-    Returns
-    -------
-    float: hour angle in degrees
-    """
-    # cf. http://www.ctio.noao.edu/noao/content/coordinates-observatories-cerro-tololo-and-cerro-pachon
-    lsst_lat = '-30d 14m 40.68s'
-    lsst_long = '-70d 44m 57.90s'
-    lsst_elev = '2647m'
-    lsst_loc = astropy.coordinates.EarthLocation.from_geodetic(
-                    lsst_lat, lsst_long, lsst_elev)
-
-    time = astropy.time.Time(mjd, format='mjd', location=lsst_loc)
-    # Get the local apparent sidereal time.
-    last = time.sidereal_time('apparent').degree
-    ha = last - ra
-    return ha
-
-
 # Some helpers to read in a file that might be gzipped.
 @contextmanager
 def fopen(filename, **kwds):
@@ -544,7 +514,7 @@ class OpsimMetaDict(object):
         self.meta['mjd'] = (self.meta['observationStartMJD']
                             + (self.meta['snap']*(self.meta['exptime'] + readout_time)
                                + self.meta['exptime']/2)/24./3600.)
-        self.meta['HA'] = getHourAngle(self.meta['mjd'], self.meta['fieldRA'])
+        self.meta['HA'] = self.getHourAngle(self.meta['mjd'], self.meta['fieldRA'])
         # Following instance catalog convention, use the visit as the
         # seed.  TODO: Figure out how to make this depend on the snap
         # as well as the visit.
@@ -591,7 +561,7 @@ class OpsimMetaDict(object):
         # "band" is the character u,g,r,i,z,y.
         # "bandpass" will be the real constructed galsim.Bandpass object.
         self.meta['band'] = 'ugrizy'[self.meta['filter']]
-        self.meta['HA'] = getHourAngle(self.meta['mjd'], self.meta['rightascension'])
+        self.meta['HA'] = self.getHourAngle(self.meta['mjd'], self.meta['rightascension'])
         self.meta['rawSeeing'] = self.meta.pop('seeing')  # less ambiguous name
         self.meta['airmass'] = self.getAirmass()
         self.meta['FWHMeff'] = self.FWHMeff()
@@ -708,6 +678,35 @@ class OpsimMetaDict(object):
         if field not in self.meta:
             raise ValueError("OpsimMeta field %s not present in instance catalog"%field)
         return self.meta[field]
+
+    def getHourAngle(self, mjd, ra):
+        """
+        Compute the local hour angle of an object for the specified
+        MJD and RA.
+
+        Parameters
+        ----------
+        mjd: float
+            Modified Julian Date of the observation.
+        ra: float
+            Right Ascension (in degrees) of the object.
+
+        Returns
+        -------
+        float: hour angle in degrees
+        """
+        # cf. http://www.ctio.noao.edu/noao/content/coordinates-observatories-cerro-tololo-and-cerro-pachon
+        lsst_lat = '-30d 14m 40.68s'
+        lsst_long = '-70d 44m 57.90s'
+        lsst_elev = '2647m'
+        lsst_loc = astropy.coordinates.EarthLocation.from_geodetic(
+                        lsst_lat, lsst_long, lsst_elev)
+
+        time = astropy.time.Time(mjd, format='mjd', location=lsst_loc)
+        # Get the local apparent sidereal time.
+        last = time.sidereal_time('apparent').degree
+        ha = last - ra
+        return ha
 
 
 def OpsimMeta(config, base, value_type):
