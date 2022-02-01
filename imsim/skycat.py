@@ -20,24 +20,52 @@ class SkyCatalogInterface:
     # from https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _rubin_area = 0.25 * np.pi * 649**2  # cm^2
 
-    def __init__(self, file_name, wcs, obj_types=('galaxy',),
-                 edge_pix=100, flip_g2=True, logger=None):
+    def __init__(self, file_name, wcs, obj_types=None, edge_pix=100,
+                 flip_g2=True, logger=None):
+        """
+        Parameters
+        ----------
+        file_name : str
+            Name of skyCatalogs yaml config file.
+        wcs : galsim.WCS
+            WCS of the image to render.
+        obj_types : list-like [None]
+            List or tuple of object types to render, e.g., ('star', 'galaxy').
+            If None, then consider all object types.
+        edge_pix : float [100]
+            Size in pixels of the buffer region around nominal image
+            to consider objects.
+        flip_g2 : bool [True]
+            Flag to flip sign of g2.
+        logger : logging.Logger
+            Logger object.
+        """
         logger = galsim.config.LoggerWrapper(logger)
+        if obj_types is not None:
+            logger.warning(f'Object types restricted to {obj_types}')
         self.file_name = file_name
         self.wcs = wcs
         self.flip_g2 = flip_g2
         sky_cat = skyCatalogs.open_catalog(file_name)
         region = skyCatalogs.Box(*get_radec_limits(wcs, logger, edge_pix)[:4])
-        obj_type_set = set(obj_types)
         self.objects = sky_cat.get_objects_by_region(region,
-                                                     obj_type_set=obj_type_set)
+                                                     obj_type_set=obj_types)
         self._index_subcomponents()
 
     def _index_subcomponents(self):
+        """
+        Create a list of all object subcompoents so that galsim.config
+        can use indexes corresponding the GSObjects, in contrast to
+        skyCatalog objects, which can correpond to composites of
+        GSObjects.
+        """
         self._index = []
         for i, obj in enumerate(self.objects):
             subcomponents = obj.subcomponents
             if not subcomponents:
+                # This object (e.g., a star) has no subcomponents, so
+                # set subcomponents to [None] so that skyCatalog
+                # methods can be called the same way for all objects.
                 subcomponents = [None]
             for component in subcomponents:
                 self._index.append((i, component))
@@ -84,6 +112,9 @@ class SkyCatalogInterface:
         wl, flambda, magnorm \
             = self.objects[obj_index].get_sed(component=component)
         if np.isinf(magnorm):
+            # Galaxy subcomponents, e.g., bulge components, can
+            # have zero-valued SEDs.  The skyCatalogs code returns
+            # magnorm=inf for these components.
             return None, magnorm
         sed_lut = galsim.LookupTable(wl, flambda)
         sed = galsim.SED(sed_lut, wave_type='nm', flux_type='flambda')
@@ -125,6 +156,8 @@ class SkyCatalogInterface:
         skycat_obj = self.get_skycat_obj(index)
         gamma1 = skycat_obj.get_native_attribute('shear_1')
         gamma2 = skycat_obj.get_native_attribute('shear_2')
+        if self.flip_g2:
+            gamma2 *= -1
         kappa =  skycat_obj.get_native_attribute('convergence')
         # Return reduced shears and magnification.
         g1 = gamma1/(1. - kappa)    # real part of reduced shear
@@ -147,7 +180,7 @@ class SkyCatalogInterface:
         (internal_av, internal_rv, galactic_av, galactic_rv)
         """
         skycat_obj = self.get_skycat_obj(index)
-        # For all objects, internal extinction is already part of SED,
+        # For all objects, internal extinction is already part of the SED,
         # so Milky Way dust is the only source of reddening.
         internal_av = 0
         internal_rv = 1.
@@ -243,6 +276,7 @@ class SkyCatalogLoader(InputLoader):
         opt = {
                'edge_pix' : float,
                'flip_g2' : bool,
+               'obj_types' : list
               }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
