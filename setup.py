@@ -45,6 +45,7 @@ def all_files_from(dir, ext=''):
     return files
 
 shared_data = all_files_from('data')
+configs = all_files_from('config', '.yaml')
 
 # Read in the version from imsim/_version.py
 # cf. http://stackoverflow.com/questions/458550/standard-way-to-embed-version-into-python-package
@@ -68,6 +69,6 @@ dist = setup(name="imSim",
     url="https://github.com/LSSTDESC/imSim",
     download_url="https://github.com/LSSTDESC/imSim/releases/tag/v%s.zip"%imsim_version,
     packages=packages,
-    package_data={'imsim': shared_data},
+    package_data={'imsim': shared_data + configs},
     install_requires=run_dep,
     )

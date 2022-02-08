@@ -26,7 +26,7 @@ class TreeRingsTestCase(unittest.TestCase):
 
         tr_filename = os.path.join(imsim.data_dir, 'tree_ring_data',
                                    'tree_ring_parameters_19mar18.txt')
-        tree_rings = imsim.TreeRings(tr_filename)
+        tree_rings = imsim.TreeRings(tr_filename, only_dets=self.detnames)
 
         for i, detname in enumerate(self.detnames):
             center = tree_rings.get_center(detname)
@@ -37,6 +37,23 @@ class TreeRingsTestCase(unittest.TestCase):
             self.assertAlmostEqual(shifted_center, self.centers[i], 1)
             r_value_test = tree_rings.get_func(detname)(self.rtest)
             self.assertAlmostEqual(r_value_test, self.rvalues[i], 6)
+
+        # Can also just give the file name, and imSim will find it in the data dir.
+        tr_filename = 'tree_ring_parameters_19mar18.txt'
+        tree_rings = imsim.TreeRings(tr_filename, only_dets=self.detnames)
+
+        for i, detname in enumerate(self.detnames):
+            center = tree_rings.get_center(detname)
+            print('center = ',center)
+            print('cf. ',self.centers)
+            shifted_center = (center.x - 2048.5,
+                              center.y - 2048.5)
+            self.assertAlmostEqual(shifted_center, self.centers[i], 1)
+            r_value_test = tree_rings.get_func(detname)(self.rtest)
+            self.assertAlmostEqual(r_value_test, self.rvalues[i], 6)
+
+        # If file not found, OSError
+        np.testing.assert_raises(OSError, imsim.TreeRings, 'invalid.txt')
 
 if __name__ == '__main__':
     unittest.main()

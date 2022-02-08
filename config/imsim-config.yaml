@@ -74,9 +74,9 @@ input:
         # This enables TreeRingCenter and TreeRungFunc, which are stored as a dict here based
         # on the detector name, so the right value can be accessed for each object.
         # This file lives in the imsim repo.
-        file_name: $os.environ.get('IMSIM_DIR') + "/data/tree_ring_data/tree_ring_parameters_2018-04-26.txt"
+        file_name: "tree_ring_parameters_2018-04-26.txt"
         # Can limit the detectors to read in.  This is handy while debugging, since it takes
-        # a minute or so to read all 189 detectors (the default behavior).
+        # half a minute or so to read all 189 detectors (the default behavior).
         # only_dets: [R22_S11]
 
 

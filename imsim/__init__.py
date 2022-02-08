@@ -13,3 +13,4 @@ from .batoid_wcs import *
 from .bleed_trails import *
 from .cosmic_rays import *
 from .skycat import *
+from .templates import *

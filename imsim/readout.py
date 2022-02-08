@@ -261,8 +261,8 @@ class CameraReadout(ExtraOutputBuilder):
                                                    flipy=amp_info.raw_flip_y)
             hdus.append(hdu)
             amp_name = '_'.join((det_name, channel))
-            logger.warning("Amp %s has bounds %s.", amp_name,
-                           hdu.header['DETSEC'])
+            logger.info("Amp %s has bounds %s.", amp_name,
+                        hdu.header['DETSEC'])
         return hdus
 
     def writeFile(self, file_name, config, base, logger):

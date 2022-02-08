@@ -1,11 +1,13 @@
-# Currently, you need to hardcode the path to the template. In the future we should
-# be able to use IMSIM_DIR
-#
-template: /Users/walter/LSST/imSim/config/imsim-config.yaml  # Use configuration
+
+# Use imSim custom modules
+modules:
+    - imsim
+
+# Get most of the configuration from the imSim named template
+template: imsim-config
 
 # Note: by default these config files assome that you have set the enviroment
-# variable IMSIM_DIR for the location of the imSim source directory and
-# SIMS_SED_LIBRARY_DIR for the location of the astrophysical SEDs.
+# variable SIMS_SED_LIBRARY_DIR for the location of the astrophysical SEDs.
 #
 # You can find the SEDS at NERSC at:
 # /cvmfs/sw.lsst.eu/linux-x86_64/lsst_sims/sims_w_2020_28/stack/current/Linux64/sims_sed_library/2017.01.24-1-g5b328a8
@@ -23,10 +25,16 @@ template: /Users/walter/LSST/imSim/config/imsim-config.yaml  # Use configuration
 # Overide the the values in the template configuration with the values below.
 
 # Here are examples of local parameters you might change for your simulation.
-input.instance_catalog.file_name: /Users/walter/LSST/work/imsim-config/00466749/phosim_cat_466749.txt
+input.instance_catalog.file_name: ../tests/tiny_instcat.txt
 input.instance_catalog.sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR') # current default
-
 input.instance_catalog.sort_mag: False
+
+# Our tiny instance catalog only uses one det, so save time not loading treerings for other dets.
+input.tree_rings.only_dets: [R22_S11]
+
+input.opsim_meta_dict:
+    file_name: ../tests/tiny_instcat.txt
+
 image.nobjects: 5
 
 output.dir: output # default `fits`
