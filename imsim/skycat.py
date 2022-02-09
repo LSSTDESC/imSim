@@ -21,7 +21,7 @@ class SkyCatalogInterface:
     _rubin_area = 0.25 * np.pi * 649**2  # cm^2
 
     def __init__(self, file_name, wcs, obj_types=None, edge_pix=100,
-                 flip_g2=True, logger=None):
+                 logger=None):
         """
         Parameters
         ----------
@@ -35,8 +35,6 @@ class SkyCatalogInterface:
         edge_pix : float [100]
             Size in pixels of the buffer region around nominal image
             to consider objects.
-        flip_g2 : bool [True]
-            Flag to flip sign of g2.
         logger : logging.Logger
             Logger object.
         """
@@ -45,7 +43,6 @@ class SkyCatalogInterface:
             logger.warning(f'Object types restricted to {obj_types}')
         self.file_name = file_name
         self.wcs = wcs
-        self.flip_g2 = flip_g2
         sky_cat = skyCatalogs.open_catalog(file_name)
         region = skyCatalogs.Box(*get_radec_limits(wcs, logger, edge_pix)[:4])
         self.objects = sky_cat.get_objects_by_region(region,
@@ -156,8 +153,6 @@ class SkyCatalogInterface:
         skycat_obj = self.get_skycat_obj(index)
         gamma1 = skycat_obj.get_native_attribute('shear_1')
         gamma2 = skycat_obj.get_native_attribute('shear_2')
-        if self.flip_g2:
-            gamma2 *= -1
         kappa =  skycat_obj.get_native_attribute('convergence')
         # Return reduced shears and magnification.
         g1 = gamma1/(1. - kappa)    # real part of reduced shear
@@ -224,10 +219,7 @@ class SkyCatalogInterface:
             b = skycat_obj.get_native_attribute(f'size_minor_{my_component}_true')
             assert a >= b
             pa = skycat_obj.get_native_attribute('position_angle_unlensed')
-            if self.flip_g2:
-                beta = float(90 - pa)*galsim.degrees
-            else:
-                beta = float(90 + pa)*galsim.degrees
+            beta = float(90 + pa)*galsim.degrees
             # TODO: check if should be hlr = a. See similar note in instcat.py.
             hlr = (a*b)**0.5   # approximation for half-light radius
             if component == 'knots':
@@ -275,7 +267,6 @@ class SkyCatalogLoader(InputLoader):
         req = {'file_name': str}
         opt = {
                'edge_pix' : float,
-               'flip_g2' : bool,
                'obj_types' : list
               }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
