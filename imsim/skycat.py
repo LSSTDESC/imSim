@@ -88,6 +88,11 @@ class SkyCatalogInterface:
         sed_lut = galsim.LookupTable(wl, flambda)
         sed = galsim.SED(sed_lut, wave_type='nm', flux_type='flambda')
         sed = sed.withMagnitude(0, self._bp500)
+        # TODO: apply internal extinction here
+        if 'redshift' in skycat_obj.native_columns:
+            redshift = skycat_obj.get_native_attribute('redshift')
+            sed = sed.atRedshift(redshift)
+        # TODO: apply MW extinction here
         return sed, magnorm
 
     def getWorldPos(self, index):
