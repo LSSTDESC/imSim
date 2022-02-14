@@ -267,7 +267,7 @@ class SkyCatalogInterface:
         if not gs_objs:
             return None
 
-        return galsim.Sum(gs_objs)
+        return galsim.Add(gs_objs)
 
 
 class SkyCatalogLoader(InputLoader):
