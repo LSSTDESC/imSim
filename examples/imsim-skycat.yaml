@@ -42,7 +42,6 @@ psf:
 
 # Override the InstCat* defaults in the config/imsim-config.yaml baseline.
 gal.type: SkyCatObj
-stamp.sed.type: SkyCatSED
 stamp.world_pos.type: SkyCatWorldPos
 
 output.dir: output # default `fits`
