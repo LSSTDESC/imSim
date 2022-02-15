@@ -1,15 +1,17 @@
 # Use baseline configuration
-template: /global/homes/j/jchiang8/dev/imSim/config/imsim-config.yaml
+modules:
+    - imsim
+template: imsim-config
 
 # Disable inputs from instance catalogs.
 input.instance_catalog: ""
 
 # Use skyCatalogs for obtaining the objects to render.
 input.sky_catalog:
-    file_name: /global/homes/j/jchiang8/dev/imSim/tests/data/sky_cat_9683.yaml
+    file_name: ../tests/data/sky_cat_9683.yaml
     obj_types: [galaxy]   # restrict to galaxies to avoid bright stars
 
-input.opsim_meta_dict.file_name: /global/homes/j/jchiang8/dev/imSim/tests/data/small_opsim_9683.db
+input.opsim_meta_dict.file_name: ../tests/data/small_opsim_9683.db
 input.opsim_meta_dict.visit: 449053
 
 input.tree_rings.only_dets: [R22_S11]
