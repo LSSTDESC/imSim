@@ -59,7 +59,7 @@ jobs:
                 pip install .
 
             - name: Install skyCatalogs
-              run:
+              run: |
                 git clone https://github.com/LSSTDESC/skyCatalogs.git
                 eups declare skyCatalogs -r ${PWD}/skyCatalogs -t current
                 setup skyCatalogs
