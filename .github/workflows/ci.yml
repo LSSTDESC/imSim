@@ -58,6 +58,11 @@ jobs:
               run:
                 pip install .
 
+            - name: Install skyCatalogs
+                git clone https://github.com/LSSTDESC/skyCatalogs.git
+                eups declare skyCatalogs -r ${PWD}/skyCatalogs -t current
+                setup skyCatalogs
+
             - name: Install test deps
               run:
                 conda install -y pytest nose
