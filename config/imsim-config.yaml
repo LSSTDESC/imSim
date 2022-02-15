@@ -182,9 +182,6 @@ stamp:
     fft_sb_thresh: 2.e5   # When to switch to fft and a simpler PSF and skip silicon
     max_flux_simple: 100  # When to switch to simple SED
 
-    sed:
-        type: InstCatSED
-
     world_pos:
         type: InstCatWorldPos
 
@@ -193,9 +190,6 @@ stamp:
             type: FRatioAngles
             fratio: 1.234
             obscuration: 0.606
-        -
-            type: WavelengthSampler
-            sed: "@current_sed"
         -
             type: PhotonDCR
             base_wavelength: $bandpass.effective_wavelength
@@ -291,5 +285,5 @@ output:
             dec: "$sky_pos.dec.deg"
             x: "$image_pos.x"
             y: "$image_pos.y"
-            flux: "$(@current_prof).flux"
+            flux: "$(@current_prof).calculateFlux(bandpass)"
             # TODO: ... more probably

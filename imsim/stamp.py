@@ -12,8 +12,6 @@ class LSST_SiliconBuilder(StampBuilder):
     """
     _ft_default = galsim.GSParams().folding_threshold
     _pixel_scale = 0.2
-    _trivial_sed = galsim.SED(galsim.LookupTable([100, 2000], [1,1], interpolant='linear'),
-                              wave_type='nm', flux_type='fphotons')
     _Nmax = 4096  # (Don't go bigger than 4096)
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
@@ -46,7 +44,9 @@ class LSST_SiliconBuilder(StampBuilder):
 
         # Check if the realized flux is 0.
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
-        self.realized_flux = galsim.PoissonDeviate(self.rng, mean=gal.flux)()
+        bandpass = base['bandpass']
+        flux = gal.calculateFlux(bandpass)
+        self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
         if self.realized_flux == 0:
             # If so, we'll skip everything after this.
             # The mechanism within GalSim to do this is to raise a special SkipThisObject class.
@@ -89,10 +89,11 @@ class LSST_SiliconBuilder(StampBuilder):
             # For extended objects, recreate the object to draw, but
             # convolved with the faster DoubleGaussian PSF.
             psf = self.DoubleGaussian()
-            obj = galsim.Convolve(gal, psf).withFlux(self.realized_flux)
+            obj = galsim.Convolve(gal, psf).withFlux(self.realized_flux, bandpass)
 
             # Start with GalSim's estimate of a good box size.
-            image_size = obj.getGoodImageSize(self._pixel_scale)
+            obj_at_eff_wl = obj.evaluateAtWavelength(bandpass.effective_wavelength)
+            image_size = obj_at_eff_wl.getGoodImageSize(self._pixel_scale)
 
             # Find a postage stamp region to draw onto.  Use (sky noise)/3. as the nominal
             # minimum surface brightness for rendering an extended object.
@@ -101,17 +102,18 @@ class LSST_SiliconBuilder(StampBuilder):
             keep_sb_level = np.sqrt(noise_var)/3.
             self._large_object_sb_level = 3*keep_sb_level
 
+            gal_at_eff_wl = gal.evaluateAtWavelength(bandpass.effective_wavelength)
             # For bright things, defined as having an average of at least 10 photons per
             # pixel on average, try to be careful about not truncating the surface brightness
             # at the edge of the box.
             if self.realized_flux > 10 * image_size**2:
-                image_size = self._getGoodPhotImageSize([gal, psf], keep_sb_level,
+                image_size = self._getGoodPhotImageSize([gal_at_eff_wl, psf], keep_sb_level,
                                                         pixel_scale=self._pixel_scale)
 
             # If the above size comes out really huge, scale back to what you get for
             # a somewhat brighter surface brightness limit.
             if image_size > self._Nmax:
-                image_size = self._getGoodPhotImageSize([gal, psf], self._large_object_sb_level,
+                image_size = self._getGoodPhotImageSize([gal_at_eff_wl, psf], self._large_object_sb_level,
                                                         pixel_scale=self._pixel_scale)
                 image_size = min(image_size, self._Nmax)
 
@@ -408,19 +410,14 @@ class LSST_SiliconBuilder(StampBuilder):
 
         max_flux_simple = config.get('max_flux_simple', 100)
         faint = self.realized_flux < max_flux_simple
+        bandpass = base['bandpass']
 
-        prof = prof.withFlux(self.realized_flux)
+        prof = prof.withFlux(self.realized_flux, bandpass)
 
         # This seems to be hard-coded to 1 in the imsim code.
         # XXX: Make this a parameter?  Or ok to leave like this?
         # Note: if it's just 1, it would be simpler to just remove it in this function.
         gain = 1.
-
-        if faint or 'sed' not in config:
-            sed = self._trivial_sed
-        else:
-            sed = galsim.config.BuildSED(config, 'sed', base, logger=logger)[0]
-        base['current_sed'] = sed
 
         wcs = base['wcs']
 
@@ -439,7 +436,8 @@ class LSST_SiliconBuilder(StampBuilder):
                 fft_offset = offset
 
             try:
-                prof.drawImage(method='fft',
+                prof.drawImage(bandpass,
+                               method='fft',
                                offset=fft_offset,
                                image=fft_image,
                                wcs=wcs,
@@ -479,7 +477,8 @@ class LSST_SiliconBuilder(StampBuilder):
                 if sensor is not None:
                     sensor.updateRNG(self.rng)
 
-            prof.drawImage(method='phot',
+            prof.drawImage(bandpass,
+                           method='phot',
                            offset=offset,
                            rng=self.rng,
                            maxN=int(1e6),

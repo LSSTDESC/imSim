@@ -1,10 +1,13 @@
 """
 Interface to obtain objects from skyCatalogs.
 """
+import os
 import math
 import numpy as np
+import astropy.units as u
+from dust_extinction.parameter_averages import F19
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
-    RegisterObjectType, RegisterSEDType
+    RegisterObjectType
 from galsim import CelestialCoord
 import galsim
 from desc.skycatalogs import skyCatalogs
@@ -20,7 +23,7 @@ class SkyCatalogInterface:
     # from https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _rubin_area = 0.25 * np.pi * 649**2  # cm^2
 
-    def __init__(self, file_name, wcs, obj_types=None, edge_pix=100,
+    def __init__(self, file_name, wcs, band, obj_types=None, edge_pix=100,
                  logger=None):
         """
         Parameters
@@ -29,6 +32,8 @@ class SkyCatalogInterface:
             Name of skyCatalogs yaml config file.
         wcs : galsim.WCS
             WCS of the image to render.
+        band : str
+            LSST band, e.g., 'u', 'g', 'r', 'i', 'z', or 'y'
         obj_types : list-like [None]
             List or tuple of object types to render, e.g., ('star', 'galaxy').
             If None, then consider all object types.
@@ -43,6 +48,7 @@ class SkyCatalogInterface:
             logger.warning(f'Object types restricted to {obj_types}')
         self.file_name = file_name
         self.wcs = wcs
+        self.band = band
         sky_cat = skyCatalogs.open_catalog(file_name)
         region = skyCatalogs.Box(*get_radec_limits(wcs, logger, edge_pix)[:4])
         self.objects = sky_cat.get_objects_by_region(region,
@@ -88,11 +94,25 @@ class SkyCatalogInterface:
         sed_lut = galsim.LookupTable(wl, flambda)
         sed = galsim.SED(sed_lut, wave_type='nm', flux_type='flambda')
         sed = sed.withMagnitude(0, self._bp500)
+        iAv, iRv, mwAv, mwRv = self.getDust(skycat_obj)
+
         # TODO: apply internal extinction here
+
+        # Apply redshift.
         if 'redshift' in skycat_obj.native_columns:
             redshift = skycat_obj.get_native_attribute('redshift')
             sed = sed.atRedshift(redshift)
-        # TODO: apply MW extinction here
+
+        # Apply Milky Way extinction
+        extinction = F19(Rv=mwRv)
+        wl = np.linspace(300, 1200, 901)
+        ext = extinction.extinguish(wl*u.nm, Av=mwAv)
+        spec = galsim.LookupTable(wl, ext)
+        mw_ext = galsim.SED(spec, wave_type='nm', flux_type='1')
+        sed = sed*mw_ext
+
+        sed = sed.thin()
+
         return sed, magnorm
 
     def getWorldPos(self, index):
@@ -137,7 +157,7 @@ class SkyCatalogInterface:
         mu = 1./((1. - kappa)**2 - (gamma1**2 + gamma2**2)) # magnification
         return g1, g2, mu
 
-    def getDust(self, skycat_obj, band='i'):
+    def getDust(self, skycat_obj):
         """
         Return the extinction parameters for the skyCatalog object
         corresponding to the specified index.
@@ -156,13 +176,12 @@ class SkyCatalogInterface:
         # so Milky Way dust is the only source of reddening.
         internal_av = 0
         internal_rv = 1.
-        MW_av_colname = f'MW_av_lsst_{band}'
+        MW_av_colname = f'MW_av_lsst_{self.band}'
         galactic_av = skycat_obj.get_native_attribute(MW_av_colname)
         galactic_rv = skycat_obj.get_native_attribute('MW_rv')
         return internal_av, internal_rv, galactic_av, galactic_rv
 
-    def get_gsobject(self, skycat_obj, component, gsparams, rng, bandpass,
-                     chromatic, exp_time):
+    def get_gsobject(self, skycat_obj, component, gsparams, rng, exp_time):
         """
         Return a galsim.GSObject for the specifed skyCatalogs object
         and component.
@@ -226,14 +245,9 @@ class SkyCatalogInterface:
         # This gives the normalization in photons/cm^2/sec.
         # Multiply by area and exptime to get photons.
         fAt = flux * self._rubin_area * exp_time
-        if chromatic:
-            return obj.withFlux(fAt) * sed
+        return obj.withFlux(fAt) * sed
 
-        flux = sed.calculateFlux(bandpass) * fAt
-        return obj.withFlux(flux)
-
-    def getObj(self, index, gsparams=None, rng=None, bandpass=None,
-               chromatic=False, exp_time=30):
+    def getObj(self, index, gsparams=None, rng=None, exp_time=30):
         """
         Return the galsim object for the skyCatalog object
         corresponding to the specified index.  If the skyCatalog
@@ -255,12 +269,11 @@ class SkyCatalogInterface:
             # Stars have an empty list as their subcomponents
             # attribute, indicating they are not composite objects
             # like galaxies, and can be returned directly.
-            return self.get_gsobject(skycat_obj, None, gsparams, rng,
-                                     bandpass, chromatic, exp_time)
+            return self.get_gsobject(skycat_obj, None, gsparams, rng,  exp_time)
         gs_objs = []
         for component in subcomponents:
             gs_obj = self.get_gsobject(skycat_obj, component, gsparams, rng,
-                                       bandpass, chromatic, exp_time)
+                                       exp_time)
             if gs_obj is not None:
                 gs_objs.append(gs_obj)
 
@@ -282,8 +295,11 @@ class SkyCatalogLoader(InputLoader):
               }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
+        meta = galsim.config.GetInputObj('opsim_meta_dict', config, base,
+                                         'SkyCatObj')
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
         kwargs['wcs'] = wcs
+        kwargs['band'] = meta.get('band')
         kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
         return kwargs, safe
 
@@ -306,11 +322,9 @@ def SkyCatObj(config, base, ignore, gsparams, logger):
     index = kwargs['index']
 
     rng = galsim.config.GetRNG(config, base, logger, 'SkyCatObj')
-    bp = base['bandpass']
     exp_time = base.get('exp_time', None)
 
-    obj = skycat.getObj(index, gsparams=gsparams, rng=rng, bandpass=bp,
-                        exp_time=exp_time)
+    obj = skycat.getObj(index, gsparams=gsparams, rng=rng, exp_time=exp_time)
 
     return obj, safe
 
@@ -335,58 +349,8 @@ def SkyCatWorldPos(config, base, value_type):
     pos = skycat.getWorldPos(index)
     return pos, safe
 
-
-class SkyCatSEDBuilder(galsim.config.SEDBuilder):
-    """A class for loading an SED from the sky catalog.
-    """
-    def buildSED(self, config, base, logger):
-        """Build the SED based on the specifications in the config dict.
-
-        Parameters:
-            config:     The configuration dict for the SED type.
-            base:       The base configuration dict.
-            logger:     If provided, a logger for logging debug statements.
-
-        Returns:
-            the constructed SED object.
-        """
-        skycat = galsim.config.GetInputObj('sky_catalog', config, base,
-                                           'SkyCatSEDBuilder')
-
-        # Setup the indexing sequence if it hasn't been specified.  The
-        # normal thing with a catalog is to just use each object in order,
-        # so we don't require the user to specify that by hand.  We can do
-        # it for them.
-        galsim.config.SetDefaultIndex(config, skycat.getNObjects())
-
-        req = { 'index' : int }
-        opt = { 'num' : int }
-        kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
-                                                  opt=opt)
-        index = kwargs['index']
-        skycat_obj = skycat.objects[index]
-        if skycat_obj.subcomponents:
-            for component in skycat_obj.subcomponents:
-                sed, _ = skycat.getSED_info(skycat_obj, component)
-                if sed is not None:
-                    # Use the first SED that's available.  This is wrong
-                    # in general for galaxies, but it's not clear what
-                    # should be done here for galsim.Sum objects.
-                    break
-        else:
-            # Stars have an empty .subcomponents attribute, so the
-            # .getSED_info call is different.
-            sed, _ = skycat.getSED_info(skycat_obj)
-
-        if sed is None:
-            raise RuntimeError('SED is None')
-
-        return sed, safe
-
-
 RegisterInputType('sky_catalog',
                   SkyCatalogLoader(SkyCatalogInterface, has_nobj=True))
 RegisterObjectType('SkyCatObj', SkyCatObj, input_type='sky_catalog')
 RegisterValueType('SkyCatWorldPos', SkyCatWorldPos, [CelestialCoord],
                   input_type='sky_catalog')
-RegisterSEDType('SkyCatSED', SkyCatSEDBuilder(), input_type='sky_catalog')

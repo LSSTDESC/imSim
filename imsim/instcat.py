@@ -6,10 +6,12 @@ import math
 import sqlite3
 import astropy
 import astropy.coordinates
+import astropy.units as u
+from dust_extinction.parameter_averages import F19
 
 from contextlib import contextmanager
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, RegisterObjectType
-from galsim.config import RegisterSEDType, RegisterBandpassType
+from galsim.config import RegisterBandpassType
 from galsim import CelestialCoord
 import galsim
 
@@ -284,10 +286,23 @@ class InstCatalog(object):
             sed = sed.withMagnitude(0, self._bp500)  # Normalize to mag 0
             self._sed_cache[name] = sed
 
-        # TODO: Handle the dust effects.  internal, then redshift, then galactic.
-        #       Also probably need to think about the normalization and how that interacts with
-        #       the flux and/or mag.
-        return sed.atRedshift(redshift)
+        iAv, iRv, mwAv, mwRv = self.getDust(index)
+
+        # TODO: apply internal extinction here
+
+        # Apply redshift.
+        sed = sed.atRedshift(redshift)
+
+        # Apply Milky Way extinction.
+        extinction = F19(Rv=mwRv)
+        wl = np.linspace(300, 1200, 901)
+        ext = extinction.extinguish(wl*u.nm, Av=mwAv)
+        spec = galsim.LookupTable(wl, ext)
+        mw_ext = galsim.SED(spec, wave_type='nm', flux_type='1')
+        sed = sed*mw_ext
+        sed = sed.thin()
+
+        return sed
 
     def getLens(self, index):
         # The galsim.lens(...) function wants to be passed reduced
@@ -302,7 +317,7 @@ class InstCatalog(object):
         return g1,g2,mu
 
     def getDust(self, index):
-        params = dust[index]
+        params = self.dust[index]
         if params[0].lower() != 'none':
             internal_av = float(params[1])
             internal_rv = float(params[2])
@@ -321,7 +336,7 @@ class InstCatalog(object):
 
         return internal_av, internal_rv, galactic_av, galactic_rv
 
-    def getObj(self, index, gsparams=None, rng=None, bandpass=None, chromatic=False, exp_time=30):
+    def getObj(self, index, gsparams=None, rng=None, exp_time=30):
         params = self.objinfo[index]
 
         magnorm = self.getMagNorm(index)
@@ -415,13 +430,7 @@ class InstCatalog(object):
         fAt = flux * self._rubin_area * exp_time
 
         sed = self.getSED(index)
-        if chromatic:
-            return obj.withFlux(fAt) * sed
-        else:
-            flux = sed.calculateFlux(bandpass) * fAt
-            return obj.withFlux(flux)
-
-
+        return obj.withFlux(fAt) * sed
 
 def _is_sqlite3_file(filename):
     """Check if a file is an sqlite3 db file."""
@@ -738,10 +747,9 @@ def InstCatObj(config, base, ignore, gsparams, logger):
     index = kwargs['index']
 
     rng = galsim.config.GetRNG(config, base, logger, 'InstCatObj')
-    bp = base['bandpass']
     exp_time = base.get('exp_time',None)
 
-    obj = inst.getObj(index, gsparams=gsparams, rng=rng, bandpass=bp, exp_time=exp_time)
+    obj = inst.getObj(index, gsparams=gsparams, rng=rng, exp_time=exp_time)
     return obj, safe
 
 def InstCatWorldPos(config, base, value_type):
@@ -762,30 +770,6 @@ def InstCatWorldPos(config, base, value_type):
     pos = inst.getWorldPos(index)
     return pos, safe
 
-class InstCatSEDBuilder(galsim.config.SEDBuilder):
-    """A class for loading an SED from the instance catalog.
-    """
-    def buildSED(self, config, base, logger):
-        """Build the SED based on the specifications in the config dict.
-
-        Parameters:
-            config:     The configuration dict for the SED type.
-            base:       The base configuration dict.
-            logger:     If provided, a logger for logging debug statements.
-
-        Returns:
-            the constructed SED object.
-        """
-        inst = galsim.config.GetInputObj('instance_catalog', config, base, 'InstCatWorldPos')
-
-        galsim.config.SetDefaultIndex(config, inst.getNObjects())
-
-        req = { 'index' : int }
-        opt = { 'num' : int }
-        kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
-        index = kwargs['index']
-        sed = inst.getSED(index)
-        return sed, safe
 
 class OpsimMetaBandpass(galsim.config.BandpassBuilder):
     """A class for loading a Bandpass for a given instcat
@@ -841,4 +825,3 @@ RegisterInputType('instance_catalog', InstCatalogLoader(InstCatalog, has_nobj=Tr
 RegisterValueType('InstCatWorldPos', InstCatWorldPos, [CelestialCoord],
                   input_type='instance_catalog')
 RegisterObjectType('InstCatObj', InstCatObj, input_type='instance_catalog')
-RegisterSEDType('InstCatSED', InstCatSEDBuilder(), input_type='instance_catalog')
