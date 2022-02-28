@@ -240,7 +240,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             wcs = all_wcs[det_name]
             cat = all_cats[det_name]
             for i in range(cat.nobjects):
-                obj = cat.getObj(i, bandpass=bp)
+                obj = cat.getObj(i)
                 if 0:
                     # XXX: The old test used the sims Sed class.  Circumventing this now,
                     #      but leaving the old code in case there is a way to use it eventually.
@@ -267,7 +267,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                 fAt = flux * rubin_area * exp_time
                 sed = cat.getSED(i)
                 flux = sed.calculateFlux(bp) * fAt
-                self.assertAlmostEqual(flux, obj.flux)
+                self.assertAlmostEqual(flux, obj.calculateFlux(bp))
 
         ######## test that objects are assigned to the right chip in
         ######## gs_object_dict
@@ -407,7 +407,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             wcs = all_wcs[det_name]
             cat = all_cats[det_name]
             for i in range(cat.nobjects):
-                obj = cat.getObj(i, bandpass=bp)
+                obj = cat.getObj(i)
                 i_obj = np.where(truth_data['uniqueId'] == cat.id[i])[0]
                 if len(i_obj) == 0: continue
                 i_obj = i_obj[0]
@@ -444,7 +444,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                 sed = cat.getSED(i) # This applies the redshift internally.
                 # TODO: We aren't applying dust terms currently.
                 flux = sed.calculateFlux(bp) * fAt
-                self.assertAlmostEqual(flux, obj.flux)
+                self.assertAlmostEqual(flux, obj.calculateFlux(bp))
 
         ######## test that objects are assigned to the right chip in
         ######## gs_object_dict
