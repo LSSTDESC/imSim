@@ -213,7 +213,6 @@ class SkyCatalogInterface:
             assert a >= b
             pa = skycat_obj.get_native_attribute('position_angle_unlensed')
             beta = float(90 + pa)*galsim.degrees
-            # TODO: check if should be hlr = a. See similar note in instcat.py.
             hlr = (a*b)**0.5   # approximation for half-light radius
             if component == 'knots':
                 npoints = skycat_obj.get_native_attribute('n_knots')
