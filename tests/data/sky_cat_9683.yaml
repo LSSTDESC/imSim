@@ -3,7 +3,7 @@
 catalog_name : sky_cat_9683
 area_partition :
   { type: healpix, ordering : ring, nside : 32}
-root_directory: /global/cscratch1/sd/jrbogart/desc/skycatalogs/mag26_knots
+root_directory: ../tests/data
 SED_models :
   -
     tophat :
@@ -35,7 +35,7 @@ Cosmology :
 
 object_types :
   galaxy :
-      file_template : 'galaxy_(?P<healpix>\d+).parquet'
+      file_template : 'galaxy_(?P<healpix>\d+)_449053_det94.parquet'
       data_file_type : parquet
       sed_file_root : '/global/cscratch1/sd/jrbogart/desc/sed_file_root/to_translate'
       composite :
@@ -64,7 +64,7 @@ object_types :
       MW_extinction : CCM
       spatial_model :  knots
   star :
-      file_template : 'pointsource_(?P<healpix>\d+).parquet'
+      file_template : 'pointsource_(?P<healpix>\d+)_449053_det94.parquet'
       data_file_type : parquet
       sed_model : file
       sed_file_root : '$SIMS_SED_LIBRARY_DIR'
