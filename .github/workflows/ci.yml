@@ -61,8 +61,8 @@ jobs:
             - name: Install skyCatalogs
               run: |
                 git clone https://github.com/LSSTDESC/skyCatalogs.git
-                eups declare skycatalogs -r ${PWD}/skyCatalogs -t current
-                setup skycatalogs
+                setup -r ${PWD}/skyCatalogs -j
+                eups list skycatalogs
 
             - name: Install test deps
               run:
