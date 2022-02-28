@@ -167,9 +167,21 @@ class LSST_SiliconBuilder(StampBuilder):
         N = obj.getGoodImageSize(pixel_scale)
         #print('N = ',N)
 
-        if isinstance(obj.original, galsim.RandomKnots):
-            # If the galaxy is a RandomKnots, extract the underlying profile for this calculation
-            # rather than using the knotty version, which poses problems for the xValue function.
+        if (isinstance(obj, galsim.Sum) and
+            any([isinstance(_.original, galsim.RandomKnots)
+                 for _ in obj.obj_list])):
+            # obj is a galsim.Sum object and contains a
+            # galsim.RandomKnots component, so make a new obj that's
+            # the sum of the non-knotty versions.
+            obj_list = []
+            for item in obj.obj_list:
+                if isinstance(item.original, galsim.RandomKnots):
+                    obj_list.append(item.original._profile)
+                else:
+                    obj_list.append(item)
+            obj = galsim.Add(obj_list)
+        elif isinstance(obj.original, galsim.RandomKnots):
+            # Handle RandomKnots object directly
             obj = obj.original._profile
 
         # This can be too small for bright stars, so increase it in steps until the edges are
@@ -315,7 +327,9 @@ class LSST_SiliconBuilder(StampBuilder):
         # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
         # to get photons/pixel, which we compare to fft_sb_thresh.
         fft_obj = galsim.Convolve(self.gal, fft_psf)
-        max_sb = fft_obj.max_sb/2. * self._pixel_scale**2
+        bandpass = base['bandpass']
+        fft_obj_at_eff_wl = fft_obj.evaluateAtWavelength(bandpass.effective_wavelength)
+        max_sb = fft_obj_at_eff_wl.max_sb/2. * self._pixel_scale**2
         logger.debug('max_sb = %s. cf. %s',max_sb,fft_sb_thresh)
         if max_sb > fft_sb_thresh:
             self.use_fft = True
