@@ -11,7 +11,7 @@ from dust_extinction.parameter_averages import F19
 
 from contextlib import contextmanager
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, RegisterObjectType
-from galsim.config import RegisterBandpassType
+from galsim.config import RegisterSEDType, RegisterBandpassType
 from galsim import CelestialCoord
 import galsim
 
@@ -770,6 +770,28 @@ def InstCatWorldPos(config, base, value_type):
     pos = inst.getWorldPos(index)
     return pos, safe
 
+class InstCatSEDBuilder(galsim.config.SEDBuilder):
+    """A class for loading an SED from the instance catalog.
+    """
+    def buildSED(self, config, base, logger):
+        """Build the SED based on the specifications in the config dict.
+        Parameters:
+            config:     The configuration dict for the SED type.
+            base:       The base configuration dict.
+            logger:     If provided, a logger for logging debug statements.
+        Returns:
+            the constructed SED object.
+        """
+        inst = galsim.config.GetInputObj('instance_catalog', config, base, 'InstCatWorldPos')
+
+        galsim.config.SetDefaultIndex(config, inst.getNObjects())
+
+        req = { 'index' : int }
+        opt = { 'num' : int }
+        kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
+        index = kwargs['index']
+        sed = inst.getSED(index)
+        return sed, safe
 
 class OpsimMetaBandpass(galsim.config.BandpassBuilder):
     """A class for loading a Bandpass for a given instcat
@@ -825,3 +847,4 @@ RegisterInputType('instance_catalog', InstCatalogLoader(InstCatalog, has_nobj=Tr
 RegisterValueType('InstCatWorldPos', InstCatWorldPos, [CelestialCoord],
                   input_type='instance_catalog')
 RegisterObjectType('InstCatObj', InstCatObj, input_type='instance_catalog')
+RegisterSEDType('InstCatSED', InstCatSEDBuilder(), input_type='instance_catalog')
