@@ -46,14 +46,7 @@ input:
         airmass: { type: OpsimMeta, field: airmass }
         rawSeeing:  { type: OpsimMeta, field: rawSeeing }
         band:  { type: OpsimMeta, field: band }
-        boresight:
-            type: RADec
-            ra:
-                type: Degrees
-                theta: { type: OpsimMeta, field: fieldRA }
-            dec:
-                type: Degrees
-                theta: { type: OpsimMeta, field: fieldDec }
+        boresight:  "@input.wcs.boresight"
 
         # Optional parameters:  (Unless otherwise stated, these are the default values.)
         t0: 0               # seconds
@@ -104,7 +97,15 @@ image:
 
         # These are required:
         camera: "@output.camera"
-        boresight: "@input.atm_psf.boresight"
+        boresight:
+            type: RADec
+            ra:
+                type: Degrees
+                theta: { type: OpsimMeta, field: fieldRA }
+            dec:
+                type: Degrees
+                theta: { type: OpsimMeta, field: fieldDec }
+
         rotTelPos:
             type: Degrees
             theta: { type: OpsimMeta, field: rotTelPos }
