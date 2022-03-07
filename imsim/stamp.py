@@ -428,11 +428,6 @@ class LSST_SiliconBuilder(StampBuilder):
 
         prof = prof.withFlux(self.realized_flux, bandpass)
 
-        # This seems to be hard-coded to 1 in the imsim code.
-        # XXX: Make this a parameter?  Or ok to leave like this?
-        # Note: if it's just 1, it would be simpler to just remove it in this function.
-        gain = 1.
-
         wcs = base['wcs']
 
         if method == 'fft':
@@ -454,8 +449,7 @@ class LSST_SiliconBuilder(StampBuilder):
                                method='fft',
                                offset=fft_offset,
                                image=fft_image,
-                               wcs=wcs,
-                               gain=gain)
+                               wcs=wcs)
             except galsim.errors.GalSimFFTSizeError as e:
                 # I think this shouldn't happen with the updates I made to how the image size
                 # is calculated, even for extremely bright things.  So it should be ok to
@@ -469,7 +463,6 @@ class LSST_SiliconBuilder(StampBuilder):
                 logger.info('fft_image = %s',fft_image)
                 logger.info('offset = %r',offset)
                 logger.info('wcs = %r',wcs)
-                logger.info('gain = %r',gain)
                 raise
             else:
                 # Some pixels can end up negative from FFT numerics.  Just set them to 0.
@@ -502,8 +495,7 @@ class LSST_SiliconBuilder(StampBuilder):
                            sensor=sensor,
                            photon_ops=photon_ops,
                            add_to_image=True,
-                           poisson_flux=False,
-                           gain=gain)
+                           poisson_flux=False)
         return image
 
 
