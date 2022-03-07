@@ -12,6 +12,8 @@ class LSST_SiliconBuilder(StampBuilder):
     """
     _ft_default = galsim.GSParams().folding_threshold
     _pixel_scale = 0.2
+    _trivial_sed = galsim.SED(galsim.LookupTable([100, 2000], [1,1], interpolant='linear'),
+                              wave_type='nm', flux_type='fphotons')
     _Nmax = 4096  # (Don't go bigger than 4096)
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
@@ -42,11 +44,19 @@ class LSST_SiliconBuilder(StampBuilder):
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
         self.gal = gal
 
-        # Check if the realized flux is 0.
+        # Compute or retrieve the realzed flux.
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
         bandpass = base['bandpass']
-        flux = gal.calculateFlux(bandpass)
-        self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
+        if hasattr(gal, 'realized_flux'):
+            self.realized_flux = gal.realized_flux
+        else:
+            if hasattr(gal, 'flux'):
+                flux = gal.flux
+            else:
+                flux = gal.calculateFlux(bandpass)
+                self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
+
+        # Check if the realized flux is 0.
         if self.realized_flux == 0:
             # If so, we'll skip everything after this.
             # The mechanism within GalSim to do this is to raise a special SkipThisObject class.
@@ -89,11 +99,17 @@ class LSST_SiliconBuilder(StampBuilder):
             # For extended objects, recreate the object to draw, but
             # convolved with the faster DoubleGaussian PSF.
             psf = self.DoubleGaussian()
-            obj = galsim.Convolve(gal, psf).withFlux(self.realized_flux, bandpass)
+            if hasattr(gal, 'flux'):
+                # Handle a non-Chromatic object.
+                obj = galsim.Convolve(gal, psf).withFlux(self.realized_flux)
+            else:
+                # For Chromatic objects, need to evaluate at the
+                # effective wavelength of the bandpass.
+                obj = galsim.Convolve(gal, psf).withFlux(self.realized_flux, bandpass)
+                obj = obj.evaluateAtWavelength(bandpass.effective_wavelength)
 
             # Start with GalSim's estimate of a good box size.
-            obj_at_eff_wl = obj.evaluateAtWavelength(bandpass.effective_wavelength)
-            image_size = obj_at_eff_wl.getGoodImageSize(self._pixel_scale)
+            image_size = obj.getGoodImageSize(self._pixel_scale)
 
             # Find a postage stamp region to draw onto.  Use (sky noise)/3. as the nominal
             # minimum surface brightness for rendering an extended object.
@@ -327,9 +343,10 @@ class LSST_SiliconBuilder(StampBuilder):
         # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
         # to get photons/pixel, which we compare to fft_sb_thresh.
         fft_obj = galsim.Convolve(self.gal, fft_psf)
-        bandpass = base['bandpass']
-        fft_obj_at_eff_wl = fft_obj.evaluateAtWavelength(bandpass.effective_wavelength)
-        max_sb = fft_obj_at_eff_wl.max_sb/2. * self._pixel_scale**2
+        if not hasattr(self.gal, 'flux'):
+            bandpass = base['bandpass']
+            fft_obj = fft_obj.evaluateAtWavelength(bandpass.effective_wavelength)
+        max_sb = fft_obj.max_sb/2. * self._pixel_scale**2
         logger.debug('max_sb = %s. cf. %s',max_sb,fft_sb_thresh)
         if max_sb > fft_sb_thresh:
             self.use_fft = True
@@ -427,6 +444,9 @@ class LSST_SiliconBuilder(StampBuilder):
         bandpass = base['bandpass']
 
         prof = prof.withFlux(self.realized_flux, bandpass)
+
+        if faint or 'sed' not in config:
+            base['current_sed'] = self._trivial_sed
 
         wcs = base['wcs']
 
