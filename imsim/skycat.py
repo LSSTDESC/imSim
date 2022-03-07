@@ -105,13 +105,17 @@ class SkyCatalogInterface:
 
         # Apply Milky Way extinction
         extinction = F19(Rv=mwRv)
-        wl = np.linspace(300, 1200, 901)
+        # Use SED wavelengths
+        wl = sed.wave_list
+        # Restrict to the range where F19 can be evaluated. F19.x_range is
+        # in units of 1/micron; convert to nm.
+        wl_min = 1e3/F19.x_range[1]
+        wl_max = 1e3/F19.x_range[0]
+        wl = wl[np.where((wl_min < wl) & (wl < wl_max))]
         ext = extinction.extinguish(wl*u.nm, Av=mwAv)
         spec = galsim.LookupTable(wl, ext)
         mw_ext = galsim.SED(spec, wave_type='nm', flux_type='1')
         sed = sed*mw_ext
-
-        sed = sed.thin()
 
         return sed, magnorm
 
