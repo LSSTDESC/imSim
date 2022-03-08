@@ -90,25 +90,23 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
             galaxy_id = obj.get_native_attribute('galaxy_id')
             row = self.df.query(f'galaxy_id == {galaxy_id}').iloc[0]
             for component in obj.subcomponents:
-                gs_obj_info = self.skycat.get_gsobject(
-                    obj, component, self.bandpass, None, None, 30.)
-                if gs_obj_info is None:
+                gs_obj = self.skycat.get_gsobject(obj, component, None, None, 30.)
+                if gs_obj is None:
                     sed, magnorm = self.skycat.getSED_info(obj, component)
                     if sed is not None:
                         # We are skipping objects with magnorm > 50.
                         self.assertGreater(magnorm, 50)
                     continue
-                gs_obj = gs_obj_info.gs_obj
                 if component in 'disk bulge':
                     # Check sersic index
-                    self.assertEqual(gs_obj.original.n,
+                    self.assertEqual(gs_obj.original.original.n,
                                      row[f'sersic_{component}'])
                 elif component == 'knots':
                     # Check number of knots
-                    self.assertEqual(gs_obj.original.npoints, row['n_knots'])
+                    self.assertEqual(gs_obj.original.original.npoints,
+                                     row['n_knots'])
                 # Check redshift
-                sed = gs_obj_info.sed
-                self.assertEqual(sed.redshift, row['redshift'])
+                self.assertEqual(gs_obj.SED.redshift, row['redshift'])
 
 
 if __name__ == '__main__':
