@@ -3,7 +3,6 @@ Interface to obtain objects from skyCatalogs.
 """
 import os
 import math
-from collections import namedtuple
 import numpy as np
 import astropy.units as u
 from dust_extinction.parameter_averages import F19
@@ -14,8 +13,6 @@ import galsim
 from desc.skycatalogs import skyCatalogs
 from .instcat import get_radec_limits
 
-
-GsObjectInfo = namedtuple('GsObjectInfo', ['gs_obj', 'sed', 'fAt', 'flux'])
 
 class SkyCatalogInterface:
     """Interface to skyCatalogs package."""
@@ -188,8 +185,7 @@ class SkyCatalogInterface:
         galactic_rv = skycat_obj.get_native_attribute('MW_rv')
         return internal_av, internal_rv, galactic_av, galactic_rv
 
-    def get_gsobject(self, skycat_obj, component, bandpass, gsparams, rng,
-                     exp_time):
+    def get_gsobject(self, skycat_obj, component, gsparams, rng, exp_time):
         """
         Return a galsim.GSObject for the specifed skyCatalogs object
         and component.
@@ -252,12 +248,10 @@ class SkyCatalogInterface:
         # This gives the normalization in photons/cm^2/sec.
         # Multiply by area and exptime to get photons.
         fAt = flux_500 * self._rubin_area * exp_time
-        flux = sed.calculateFlux(bandpass)*fAt
 
-        return GsObjectInfo(obj, sed, fAt, flux)
+        return obj.withFlux(fAt) * sed
 
-    def getObj(self, index, bandpass, max_flux_simple, gsparams=None, rng=None,
-               exp_time=30):
+    def getObj(self, index, gsparams=None, rng=None, exp_time=30):
         """
         Return the galsim object for the skyCatalog object
         corresponding to the specified index.  If the skyCatalog
@@ -283,28 +277,18 @@ class SkyCatalogInterface:
 
         gs_obj_list = []
         for component in subcomponents:
-            gs_obj_info = self.get_gsobject(skycat_obj, component, bandpass,
-                                            gsparams, rng, exp_time)
-            if gs_obj_info is not None:
-                gs_obj_list.append(gs_obj_info)
+            gs_obj = self.get_gsobject(skycat_obj, component, gsparams,
+                                       rng, exp_time)
+            if gs_obj is not None:
+                gs_obj_list.append(gs_obj)
 
         if not gs_obj_list:
             return None
 
-        flux = sum([_.flux for _ in gs_obj_list])
-        realized_flux = galsim.PoissonDeviate(rng, mean=flux)()
-        if  realized_flux < max_flux_simple:
-            # For faint objects, return as a non-Chromatic objects.
-            gs_objs = [_.gs_obj.withFlux(_.flux) for _ in gs_obj_list]
+        if len(gs_obj_list) == 1:
+            gs_object = gs_obj_list[0]
         else:
-            # Return as Chromatic objects.
-            gs_objs = [_.gs_obj.withFlux(_.fAt)*_.sed for _ in gs_obj_list]
-
-        if len(gs_objs) == 1:
-            gs_object = gs_objs[0]
-        else:
-            gs_object = galsim.Add(gs_objs)
-        gs_object.realized_flux = realized_flux
+            gs_object = galsim.Add(gs_obj_list)
 
         return gs_object
 
@@ -349,10 +333,8 @@ def SkyCatObj(config, base, ignore, gsparams, logger):
 
     rng = galsim.config.GetRNG(config, base, logger, 'SkyCatObj')
     exp_time = base.get('exp_time', None)
-    max_flux_simple = config.get('max_flux_simple', 100)
 
-    obj = skycat.getObj(index, base['bandpass'], max_flux_simple,
-                        gsparams=gsparams, rng=rng, exp_time=exp_time)
+    obj = skycat.getObj(index, gsparams=gsparams, rng=rng, exp_time=exp_time)
 
     return obj, safe
 
