@@ -6,7 +6,7 @@ altitude 43.6990272
 azimuth 73.7707957
 filter 2
 rotskypos 69.0922930
-rottelpos 0.000
+rottelpos 1.000
 dist2moon 145.1095257
 moonalt -11.1383568
 moondec -18.7702120

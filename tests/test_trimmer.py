@@ -29,7 +29,8 @@ class InstCatTrimmerTestCase(unittest.TestCase):
         band = obs_md['band']
 
         builder = imsim.BatoidWCSBuilder()
-        return builder.makeWCS(boresight, rotTelPos, obstime, det_name, band)
+        factory = builder.makeWCSFactory(boresight, rotTelPos, obstime, band)
+        return factory.getWCS(builder.camera[det_name])
 
     def test_InstCatTrimmer(self):
         """Unit test for InstCatTrimmer class."""

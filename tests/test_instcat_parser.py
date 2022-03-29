@@ -72,7 +72,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         all_wcs = {}
         for det_name in sensors:
             if det_name not in all_wcs:
-                wcs = builder.makeWCS(boresight, rotTelPos, obstime, det_name, band)
+                factory = builder.makeWCSFactory(boresight, rotTelPos, obstime, band)
+                wcs = factory.getWCS(builder.camera[det_name])
                 all_wcs[det_name] = wcs
 
         return all_wcs
