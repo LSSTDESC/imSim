@@ -348,20 +348,7 @@ class BatoidWCSFactory:
         result = least_squares(resid, np.zeros(2*N))
         return result.x[:N], result.x[N:]
 
-    def getWCS(self, det, order=3):
-        """
-        Parameters
-        ----------
-        det : lsst.afw.cameraGeom.Detector
-            Detector of interest.
-        order : int
-            SIP order for fit.
-
-        Returns
-        -------
-        wcs : galsim.fitswcs.GSFitsWCS
-            WCS transformation between ICRF <-> pixels.
-        """
+    def get_field_samples(self, det):
         # Get field angle of detector center.
         fpx, fpy = det.getCenter(cameraGeom.FOCAL_PLANE)
         thx, thy = self._focal_to_field(fpx, fpy)
@@ -378,6 +365,23 @@ class BatoidWCSFactory:
             ths.extend([ith/nth*2*np.pi for ith in range(nth)])
         thxs = thx + np.deg2rad(np.array(rs) * np.cos(ths))
         thys = thy + np.deg2rad(np.array(rs) * np.sin(ths))
+        return thxs, thys
+
+    def getWCS(self, det, order=3):
+        """
+        Parameters
+        ----------
+        det : lsst.afw.cameraGeom.Detector
+            Detector of interest.
+        order : int
+            SIP order for fit.
+
+        Returns
+        -------
+        wcs : galsim.fitswcs.GSFitsWCS
+            WCS transformation between ICRF <-> pixels.
+        """
+        thxs, thys = self.get_field_samples(det)
 
         # trace both directions (field -> ICRF and field -> pixel)
         # then fit TanSIP to ICRF -> pixel.
@@ -427,6 +431,14 @@ class BatoidWCSFactory:
         rob, dob = self._field_to_observed(thx, thy)
         rc, dc = self._observed_to_ICRF(rob, dob)
         return rc, dc
+
+    def get_icrf_to_field(self, det, order=3):
+        thxs, thys = self.get_field_samples(det)
+
+        rob, dob = self._field_to_observed(thxs, thys)
+        rc, dc = self._observed_to_ICRF(rob, dob)
+
+        return galsim.FittedSIPWCS(thxs, thys, rc, dc, order=order)
 
 
 class BatoidWCSBuilder(WCSBuilder):
@@ -478,15 +490,22 @@ class BatoidWCSBuilder(WCSBuilder):
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         logger.info("Building Batoid WCS for %s", kwargs['det_name'])
         kwargs['bandpass'] = base.get('bandpass', None)
-        return self.makeWCS(**kwargs)
+        order = kwargs.pop('order', 3)
+        det_name = kwargs.pop('det_name')
+        factory = self.makeWCSFactory(**kwargs)
+        det = self.camera[det_name]
+        wcs = factory.getWCS(det, order=order)
+        base['_icrf_to_field'] = factory.get_icrf_to_field(det, order=order)
+        base['_telescope'] = factory._telescope
+        return wcs
 
-    def makeWCS(self, boresight, rotTelPos, obstime, det_name, band, camera='LsstCam',
-                telescope='LSST', temperature=None, pressure=None, H2O_pressure=None,
-                wavelength=None, bandpass=None, order=3):
-        """Make the WCS object given the parameters explicitly rather than via a config dict.
+    def makeWCSFactory(self, boresight, rotTelPos, obstime, band, camera='LsstCam',
+                       telescope='LSST', temperature=None, pressure=None, H2O_pressure=None,
+                       wavelength=None, bandpass=None):
+        """Make the WCS factory given the parameters explicitly rather than via a config dict.
 
-        It mostly just calls the BatoidWCSFactory.getWCS function, but it has sensible defaults
-        for many parameters.
+        It mostly just constructs BatoidWCSFactory, but it has sensible defaults for many
+        parameters.
 
         Parameters
         ----------
@@ -499,8 +518,6 @@ class BatoidWCSBuilder(WCSBuilder):
         obstime : astropy.time.Time or str
             Mean time of observation.  Note: if this is a string, it is assumed to be in TAI scale,
             which seems to be standard in the Rubin project.
-        det_name : str
-            Detector name in the format e.g. R22_S11
         band : str
             The name of the bandpass
         telescope : str
@@ -516,11 +533,9 @@ class BatoidWCSBuilder(WCSBuilder):
         bandpass : galsim.Bandpass
             If wavelegnth is None, use this to get the effective wavelength. [default: None,
             which means the default LSST bandpass will be used given the (required) band parameter.
-        order : int
-            The order of the SIP polynomial to use. [default: 3]
 
         Returns:
-            the constructed WCS object (a galsim.GSFitsWCS instance)
+            the constructed WCSFactory
         """
 
         # If a string, convert it to astropy.time.Time.
@@ -555,8 +570,8 @@ class BatoidWCSBuilder(WCSBuilder):
             H2O_pressure = 1.0 # kPa
 
         # Finally, build the WCS.
-        factory = BatoidWCSFactory(boresight, rotTelPos, obstime, fiducial_telescope,
-                                   wavelength, self.camera, temperature, pressure, H2O_pressure)
-        return factory.getWCS(self.camera[det_name], order=order)
+        return BatoidWCSFactory(boresight, rotTelPos, obstime, fiducial_telescope,
+                                wavelength, self.camera, temperature, pressure, H2O_pressure)
+
 
 RegisterWCSType('Batoid', BatoidWCSBuilder())

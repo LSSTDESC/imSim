@@ -14,3 +14,4 @@ from .bleed_trails import *
 from .cosmic_rays import *
 from .skycat import *
 from .templates import *
+from .photon_ops import *
