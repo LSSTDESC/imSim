@@ -12,17 +12,10 @@ from galsim import CelestialCoord
 import galsim
 from desc.skycatalogs import skyCatalogs
 from .instcat import get_radec_limits
-
+from .skycat_object_wrapper import SkyCatalogObjectWrapper
 
 class SkyCatalogInterface:
     """Interface to skyCatalogs package."""
-    _bp500 = galsim.Bandpass(galsim.LookupTable([499,500,501],[0,1,0]),
-                             wave_type='nm').withZeropoint('AB')
-
-    # Using area-weighted effective aperture over FOV
-    # from https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
-    _rubin_area = 0.25 * np.pi * 649**2  # cm^2
-
     def __init__(self, file_name, wcs, band, obj_types=None, edge_pix=100,
                  logger=None):
         """
@@ -66,59 +59,6 @@ class SkyCatalogInterface:
     def nobjects(self):
         return self.getNObjects()
 
-    def getSED_info(self, skycat_obj, component):
-        """
-        Return the SED and magnorm value of the skyCatalog object
-        corresponding to the specified index.
-
-        Parameters
-        ----------
-        skycat_obj : skycatalogs.BaseObject
-            The skycatalogs object, e.g., star or galaxy, which can
-            have several subcomponents, e.g., disk, bulge, knots.
-        component : str
-            Name of the subcomponent.
-
-        Returns
-        -------
-        (galsim.SED, float)
-        """
-
-        wl, flambda, magnorm \
-            = skycat_obj.get_sed(component=component)
-        if np.isinf(magnorm):
-            # Galaxy subcomponents, e.g., bulge components, can
-            # have zero-valued SEDs.  The skyCatalogs code returns
-            # magnorm=inf for these components.
-            return None, magnorm
-        sed_lut = galsim.LookupTable(wl, flambda)
-        sed = galsim.SED(sed_lut, wave_type='nm', flux_type='flambda')
-        sed = sed.withMagnitude(0, self._bp500)
-        iAv, iRv, mwAv, mwRv = self.getDust(skycat_obj)
-
-        # TODO: apply internal extinction here
-
-        # Apply redshift.
-        if 'redshift' in skycat_obj.native_columns:
-            redshift = skycat_obj.get_native_attribute('redshift')
-            sed = sed.atRedshift(redshift)
-
-        # Apply Milky Way extinction
-        extinction = F19(Rv=mwRv)
-        # Use SED wavelengths
-        wl = sed.wave_list
-        # Restrict to the range where F19 can be evaluated. F19.x_range is
-        # in units of 1/micron; convert to nm.
-        wl_min = 1e3/F19.x_range[1]
-        wl_max = 1e3/F19.x_range[0]
-        wl = wl[np.where((wl_min < wl) & (wl < wl_max))]
-        ext = extinction.extinguish(wl*u.nm, Av=mwAv)
-        spec = galsim.LookupTable(wl, ext)
-        mw_ext = galsim.SED(spec, wave_type='nm', flux_type='1')
-        sed = sed*mw_ext
-
-        return sed, magnorm
-
     def getWorldPos(self, index):
         """
         Return the sky coordinates of the skyCatalog object
@@ -137,120 +77,6 @@ class SkyCatalogInterface:
         ra, dec = skycat_obj.ra, skycat_obj.dec
         return galsim.CelestialCoord(ra*galsim.degrees, dec*galsim.degrees)
 
-    def getLens(self, skycat_obj):
-        """
-        Return the weak lensing parameters for the skyCatalog object
-        corresponding to the specified index.
-
-        Parameters
-        ----------
-        skycat_obj : skycatalogs.BaseObject
-            The skycatalogs object, e.g., star or galaxy, which can
-            have several subcomponents, e.g., disk, bulge, knots.
-
-        Returns
-        -------
-        (g1, g2, mu)
-        """
-        gamma1 = skycat_obj.get_native_attribute('shear_1')
-        gamma2 = skycat_obj.get_native_attribute('shear_2')
-        kappa =  skycat_obj.get_native_attribute('convergence')
-        # Return reduced shears and magnification.
-        g1 = gamma1/(1. - kappa)    # real part of reduced shear
-        g2 = gamma2/(1. - kappa)    # imaginary part of reduced shear
-        mu = 1./((1. - kappa)**2 - (gamma1**2 + gamma2**2)) # magnification
-        return g1, g2, mu
-
-    def getDust(self, skycat_obj):
-        """
-        Return the extinction parameters for the skyCatalog object
-        corresponding to the specified index.
-
-        Parameters
-        ----------
-        skycat_obj : skycatalogs.BaseObject
-            The skycatalogs object, e.g., star or galaxy, which can
-            have several subcomponents, e.g., disk, bulge, knots.
-
-        Returns
-        -------
-        (internal_av, internal_rv, galactic_av, galactic_rv)
-        """
-        # For all objects, internal extinction is already part of the SED,
-        # so Milky Way dust is the only source of reddening.
-        internal_av = 0
-        internal_rv = 1.
-        MW_av_colname = f'MW_av_lsst_{self.band}'
-        galactic_av = skycat_obj.get_native_attribute(MW_av_colname)
-        galactic_rv = skycat_obj.get_native_attribute('MW_rv')
-        return internal_av, internal_rv, galactic_av, galactic_rv
-
-    def get_gsobject(self, skycat_obj, component, gsparams, rng, exp_time):
-        """
-        Return a galsim.GSObject for the specifed skyCatalogs object
-        and component.
-
-        Parameters
-        ----------
-        skycat_obj : skyCatalogs.BaseObject
-            A skyCatalogs object, e.g., a star or galaxy.
-        component : str
-            The name of the sub-component of the skyCatalogs object
-            to consider.
-        """
-        sed, magnorm = self.getSED_info(skycat_obj, component)
-        if sed is None or magnorm >= 50:
-            return None
-
-        if gsparams is not None:
-            gsparams = galsim.GSParams(**gsparams)
-
-        if skycat_obj.object_type == 'star':
-            obj = galsim.DeltaFunction(gsparams=gsparams)
-        elif (skycat_obj.object_type == 'galaxy' and
-              component in ('bulge', 'disk', 'knots')):
-            my_component = component
-            if my_component == 'knots':
-                my_component = 'disk'
-            a = skycat_obj.get_native_attribute(f'size_{my_component}_true')
-            b = skycat_obj.get_native_attribute(f'size_minor_{my_component}_true')
-            assert a >= b
-            pa = skycat_obj.get_native_attribute('position_angle_unlensed')
-            beta = float(90 + pa)*galsim.degrees
-            hlr = (a*b)**0.5   # approximation for half-light radius
-            if component == 'knots':
-                npoints = skycat_obj.get_native_attribute('n_knots')
-                assert npoints > 0
-                obj =  galsim.RandomKnots(npoints=npoints,
-                                          half_light_radius=hlr, rng=rng,
-                                          gsparams=gsparams)
-            else:
-                n = skycat_obj.get_native_attribute(f'sersic_{component}')
-                # Quantize the n values at 0.05 so that galsim can
-                # possibly amortize sersic calculations from the previous
-                # galaxy.
-                n = round(n*20.)/20.
-                obj = galsim.Sersic(n=n, half_light_radius=hlr,
-                                    gsparams=gsparams)
-            shear = galsim.Shear(q=b/a, beta=beta)
-            obj = obj._shear(shear)
-            g1, g2, mu = self.getLens(skycat_obj)
-            obj = obj._lens(g1, g2, mu)
-        else:
-            raise RuntimeError("Do not know how to handle object type: %s" %
-                               component)
-
-        # The seds are normalized to correspond to magnorm=0.
-        # The flux for the given magnorm is 10**(-0.4*magnorm)
-        # The constant here, 0.9210340371976184 = 0.4 * log(10)
-        flux_500 = math.exp(-0.9210340371976184 * magnorm)
-
-        # This gives the normalization in photons/cm^2/sec.
-        # Multiply by area and exptime to get photons.
-        fAt = flux_500 * self._rubin_area * exp_time
-
-        return obj.withFlux(fAt) * sed
-
     def getObj(self, index, gsparams=None, rng=None, exp_time=30):
         """
         Return the galsim object for the skyCatalog object
@@ -267,20 +93,13 @@ class SkyCatalogInterface:
         -------
         galsim.GSObject
         """
-        skycat_obj = self.objects[index]
-        subcomponents = skycat_obj.subcomponents
-        if not subcomponents:
-            # Stars have an empty list as their subcomponents, so
-            # providing an single element list with None will allow us
-            # to handle stars and galaxies the same way below.
-            subcomponents = [None]
+        skycat_obj = SkyCatalogObjectWrapper(self.objects[index], self.band)
+        gsobjs = skycat_obj.get_gsobject_components(gsparams, rng)
+        seds = skycat_obj.get_sed_components()
 
         gs_obj_list = []
-        for component in subcomponents:
-            gs_obj = self.get_gsobject(skycat_obj, component, gsparams,
-                                       rng, exp_time)
-            if gs_obj is not None:
-                gs_obj_list.append(gs_obj)
+        for component in gsobjs:
+            gs_obj_list.append(gsobjs[component]*seds[component]*exp_time)
 
         if not gs_obj_list:
             return None
@@ -289,6 +108,9 @@ class SkyCatalogInterface:
             gs_object = gs_obj_list[0]
         else:
             gs_object = galsim.Add(gs_obj_list)
+
+        # Compute the flux or get the cached value.
+        gs_object.flux = skycat_obj.get_flux()*exp_time
 
         return gs_object
 

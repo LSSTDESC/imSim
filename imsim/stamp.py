@@ -47,7 +47,10 @@ class LSST_SiliconBuilder(StampBuilder):
         # Compute or retrieve the realzed flux.
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
         bandpass = base['bandpass']
-        flux = gal.calculateFlux(bandpass)
+        if hasattr(gal, 'flux'):
+            flux = gal.flux
+        else:
+            flux = gal.calculateFlux(bandpass)
         self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
 
         # Check if the realized flux is 0.
