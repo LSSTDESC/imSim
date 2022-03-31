@@ -1,3 +1,6 @@
+"""
+Wrapper class for SkyCatalog objects.
+"""
 import numpy as np
 import astropy.units as u
 from dust_extinction.parameter_averages import F19
@@ -13,17 +16,37 @@ class SkyCatalogObjectWrapper:
     """
     _bp500 = galsim.Bandpass(galsim.LookupTable([499, 500, 501],[0, 1, 0]),
                              wave_type='nm').withZeropoint('AB')
-    # Using area-weighted effective aperture over FOV
-    # from https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
-    _rubin_area = 0.25 * np.pi * 649**2  # cm^2
 
-    def __init__(self, skycat_obj, band):
+    def __init__(self, skycat_obj, band, bandpass=None, eff_area=None):
+        """
+        Parameters
+        ----------
+        skycat_obj : desc.skycatalogs.objects.BaseObject
+            The skyCatalogs object to be rendered, e.g., a star or galaxy.
+        band : str
+            LSST band, one of 'ugrizy'
+        bandpass : galsim.Bandpass [None]
+            Bandpass object.  If None, then the galsim versions of the
+            LSST throughputs will be used.
+        eff_area : float [None]
+            Area-weighted effective aperture over FOV.  If None, then
+            LSST value computed from
+            https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
+            will be used.
+        """
         self.skycat_obj = skycat_obj
         self.band = band
-        self.bandpass = galsim.Bandpass(f'LSST_{band}.dat', wave_type='nm')
+        if bandpass is None:
+            self.bandpass = galsim.Bandpass(f'LSST_{band}.dat', wave_type='nm')
+        else:
+            self.bandpass = bandpass
+        if eff_area is None:
+            self.eff_area = 0.25 * np.pi * 649**2  # cm^2, Rubin value
+        else:
+            self.eff_area = eff_area
 
     def get_dust(self):
-        """Return the Av, Rv parameters for internal and Milky Way extinction"""
+        """Return the Av, Rv parameters for internal and Milky Way extinction."""
         internal_av = 0
         internal_rv = 1.
         MW_av_colname = f'MW_av_lsst_{self.band}'
@@ -32,11 +55,11 @@ class SkyCatalogObjectWrapper:
         return internal_av, internal_rv, galactic_av, galactic_rv
 
     def get_wl_params(self):
-        """Return the weak lensing parameters, g1, g2, mu"""
+        """Return the weak lensing parameters, g1, g2, mu."""
         gamma1 = self.skycat_obj.get_native_attribute('shear_1')
         gamma2 = self.skycat_obj.get_native_attribute('shear_2')
         kappa =  self.skycat_obj.get_native_attribute('convergence')
-        # Return reduced shears and magnification.
+        # Compute reduced shears and magnification.
         g1 = gamma1/(1. - kappa)    # real part of reduced shear
         g2 = gamma2/(1. - kappa)    # imaginary part of reduced shear
         mu = 1./((1. - kappa)**2 - (gamma1**2 + gamma2**2)) # magnification
@@ -45,7 +68,7 @@ class SkyCatalogObjectWrapper:
     def get_gsobject_components(self, gsparams=None, rng=None):
         """
         Return a dictionary of the GSObject components for the
-        SkyCatalogs object.
+        SkyCatalogs object, keyed by component name.
         """
         if gsparams is not None:
             gsparams = galsim.GSParams(**gsparams)
@@ -54,8 +77,9 @@ class SkyCatalogObjectWrapper:
         if self.skycat_obj.object_type != 'galaxy':
             raise RuntimeError("Do not know how to handle object type "
                                f"{self.skycat_obj.object_type}")
-        obj_dict = dict()
+        obj_dict = {}
         for component in self.skycat_obj.subcomponents:
+            # knots use the same major/minor axes as the disk component.
             my_component = 'disk' if component != 'bulge' else 'bulge'
             a = self.skycat_obj.get_native_attribute(
                 f'size_{my_component}_true')
@@ -87,11 +111,16 @@ class SkyCatalogObjectWrapper:
 
     def get_sed_component(self, component):
         """
-        Return the SED for the specified subcomponent of the SkyCatalog object.
+        Return the SED for the specified subcomponent of the SkyCatalog
+        object, applying internal extinction, redshift, and Milky Way
+        extinction.
+
+        For Milky Way extinction, the Fitzpatrick, et al. (2019) (F19)
+        model, as implemented in the dust_extinction package, is used.
         """
         wl, flambda, magnorm = self.skycat_obj.get_sed(component=component)
         if np.isinf(magnorm):
-            # This subcomponent has zero emisson so return None.
+            # This subcomponent has zero emission so return None.
             return None
 
         # Create a galsim.SED for this subcomponent.
@@ -102,7 +131,7 @@ class SkyCatalogObjectWrapper:
         # Apply magnorm and multiply by the Rubin effective area so that
         # the SED is in units of photons/nm/s.
         flux_500 = np.exp(-0.9210340371976184 * magnorm)
-        sed = sed*flux_500*self._rubin_area
+        sed = sed*flux_500*self.eff_area
 
         iAv, iRv, mwAv, mwRv = self.get_dust()
         if iAv > 0:
@@ -114,12 +143,12 @@ class SkyCatalogObjectWrapper:
             redshift = self.skycat_obj.get_native_attribute('redshift')
             sed = sed.atRedshift(redshift)
 
-        # Apply Milky Way extinction
+        # Apply Milky Way extinction.
         extinction = F19(Rv=mwRv)
         # Use SED wavelengths
         wl = sed.wave_list
         # Restrict to the range where F19 can be evaluated. F19.x_range is
-        # in units of 1/micron; convert to nm.
+        # in units of 1/micron, so convert to nm.
         wl_min = 1e3/F19.x_range[1]
         wl_max = 1e3/F19.x_range[0]
         wl = wl[np.where((wl_min < wl) & (wl < wl_max))]
@@ -132,9 +161,9 @@ class SkyCatalogObjectWrapper:
 
     def get_sed_components(self):
         """
-        Return a dictionary of the the SEDs.
+        Return a dictionary of the SEDs, keyed by component name.
         """
-        sed_components = dict()
+        sed_components = {}
         subcomponents = [None] if not self.skycat_obj.subcomponents \
             else self.skycat_obj.subcomponents
         for component in subcomponents:
@@ -159,7 +188,7 @@ class SkyCatalogObjectWrapper:
 
     def get_flux(self):
         """
-        Return the total object flux over the LSST bandpass in photons/sec.
+        Return the total object flux over the bandpass in photons/sec.
         """
         sed = self.get_total_sed()
         return sed.calculateFlux(self.bandpass)
