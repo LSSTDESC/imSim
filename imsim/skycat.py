@@ -1,15 +1,9 @@
 """
 Interface to obtain objects from skyCatalogs.
 """
-import os
-import math
-import numpy as np
-import astropy.units as u
-from dust_extinction.parameter_averages import F19
+import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
     RegisterObjectType
-from galsim import CelestialCoord
-import galsim
 from desc.skycatalogs import skyCatalogs
 from .instcat import get_radec_limits
 from .skycat_object_wrapper import SkyCatalogObjectWrapper
@@ -184,5 +178,5 @@ def SkyCatWorldPos(config, base, value_type):
 RegisterInputType('sky_catalog',
                   SkyCatalogLoader(SkyCatalogInterface, has_nobj=True))
 RegisterObjectType('SkyCatObj', SkyCatObj, input_type='sky_catalog')
-RegisterValueType('SkyCatWorldPos', SkyCatWorldPos, [CelestialCoord],
+RegisterValueType('SkyCatWorldPos', SkyCatWorldPos, [galsim.CelestialCoord],
                   input_type='sky_catalog')
