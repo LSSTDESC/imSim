@@ -17,17 +17,14 @@ class SkyCatalogObjectWrapper:
     _bp500 = galsim.Bandpass(galsim.LookupTable([499, 500, 501],[0, 1, 0]),
                              wave_type='nm').withZeropoint('AB')
 
-    def __init__(self, skycat_obj, band, bandpass=None, eff_area=None):
+    def __init__(self, skycat_obj, bandpass, eff_area=None):
         """
         Parameters
         ----------
         skycat_obj : desc.skycatalogs.objects.BaseObject
             The skyCatalogs object to be rendered, e.g., a star or galaxy.
-        band : str
-            LSST band, one of 'ugrizy'
         bandpass : galsim.Bandpass [None]
-            Bandpass object.  If None, then the galsim versions of the
-            LSST throughputs will be used.
+            Bandpass object used for computing fluxes.
         eff_area : float [None]
             Area-weighted effective aperture over FOV.  If None, then
             LSST value computed from
@@ -35,11 +32,7 @@ class SkyCatalogObjectWrapper:
             will be used.
         """
         self.skycat_obj = skycat_obj
-        self.band = band
-        if bandpass is None:
-            self.bandpass = galsim.Bandpass(f'LSST_{band}.dat', wave_type='nm')
-        else:
-            self.bandpass = bandpass
+        self.bandpass = bandpass
         if eff_area is None:
             self.eff_area = 0.25 * np.pi * 649**2  # cm^2, Rubin value
         else:
@@ -49,8 +42,10 @@ class SkyCatalogObjectWrapper:
         """Return the Av, Rv parameters for internal and Milky Way extinction."""
         internal_av = 0
         internal_rv = 1.
-        MW_av_colname = f'MW_av_lsst_{self.band}'
-        galactic_av = self.skycat_obj.get_native_attribute(MW_av_colname)
+        # The Milky Way Av calculation in skyCatalogs is incorrect.
+        # This is a workaround until it's fixed.
+        galactic_av = self.skycat_obj.get_native_attribute('MW_av_lsst_y')
+        galactic_av *= (2.742/(3.1*1.088))
         galactic_rv = self.skycat_obj.get_native_attribute('MW_rv')
         return internal_av, internal_rv, galactic_av, galactic_rv
 
@@ -117,6 +112,8 @@ class SkyCatalogObjectWrapper:
 
         For Milky Way extinction, the Fitzpatrick, et al. (2019) (F19)
         model, as implemented in the dust_extinction package, is used.
+
+        The SEDs are computed assuming exposure times of 1 second.
         """
         wl, flambda, magnorm = self.skycat_obj.get_sed(component=component)
         if np.isinf(magnorm):
@@ -188,17 +185,19 @@ class SkyCatalogObjectWrapper:
 
     def get_flux(self):
         """
-        Return the total object flux over the bandpass in photons/sec.
+        Return the total object flux integrated over the bandpass
+        in photons/sec.
         """
         sed = self.get_total_sed()
         return sed.calculateFlux(self.bandpass)
+
 
 if __name__ == '__main__':
     skycat_file = '../tests/data/sky_cat_9683.yaml'
     skycat = skyCatalogs.open_catalog(skycat_file)
     objs = skycat.get_objects_by_hp(9683)
 
-    band = 'i'
+    bandpass = galsim.Bandpass('LSST_i.dat', wave_type='nm')
     for obj in objs[0:10]:
-        foo = SkyCatalogObjectWrapper(obj, band)
+        foo = SkyCatalogObjectWrapper(obj, bandpass)
         print(foo.get_flux())

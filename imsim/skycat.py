@@ -10,8 +10,8 @@ from .skycat_object_wrapper import SkyCatalogObjectWrapper
 
 class SkyCatalogInterface:
     """Interface to skyCatalogs package."""
-    def __init__(self, file_name, wcs, band, obj_types=None, edge_pix=100,
-                 logger=None):
+    def __init__(self, file_name, wcs, bandpass, obj_types=None,
+                 edge_pix=100, logger=None):
         """
         Parameters
         ----------
@@ -19,8 +19,8 @@ class SkyCatalogInterface:
             Name of skyCatalogs yaml config file.
         wcs : galsim.WCS
             WCS of the image to render.
-        band : str
-            LSST band, e.g., 'u', 'g', 'r', 'i', 'z', or 'y'
+        bandpass : galsim.Bandpass
+            Bandpass to use for flux calculations.
         obj_types : list-like [None]
             List or tuple of object types to render, e.g., ('star', 'galaxy').
             If None, then consider all object types.
@@ -35,7 +35,7 @@ class SkyCatalogInterface:
             logger.warning(f'Object types restricted to {obj_types}')
         self.file_name = file_name
         self.wcs = wcs
-        self.band = band
+        self.bandpass = bandpass
         sky_cat = skyCatalogs.open_catalog(file_name)
         region = skyCatalogs.Box(*get_radec_limits(wcs, logger, edge_pix)[:4])
         self.objects = sky_cat.get_objects_by_region(region,
@@ -48,10 +48,6 @@ class SkyCatalogInterface:
         GSObject.
         """
         return len(self.objects)
-
-    @property
-    def nobjects(self):
-        return self.getNObjects()
 
     def getWorldPos(self, index):
         """
@@ -87,7 +83,7 @@ class SkyCatalogInterface:
         -------
         galsim.GSObject
         """
-        skycat_obj = SkyCatalogObjectWrapper(self.objects[index], self.band)
+        skycat_obj = SkyCatalogObjectWrapper(self.objects[index], self.bandpass)
         gsobjs = skycat_obj.get_gsobject_components(gsparams, rng)
         seds = skycat_obj.get_sed_components()
 
@@ -121,11 +117,9 @@ class SkyCatalogLoader(InputLoader):
               }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
-        meta = galsim.config.GetInputObj('opsim_meta_dict', config, base,
-                                         'SkyCatObj')
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
         kwargs['wcs'] = wcs
-        kwargs['band'] = meta.get('band')
+        kwargs['bandpass'] = base['bandpass']
         kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
         return kwargs, safe
 
