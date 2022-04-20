@@ -187,10 +187,10 @@ stamp:
         type: InstCatWorldPos
 
     photon_ops:
-        -
-            type: FRatioAngles
-            fratio: 1.234
-            obscuration: 0.606
+        # -
+        #     type: FRatioAngles
+        #     fratio: 1.234
+        #     obscuration: 0.606
         -
             type: PhotonDCR
             base_wavelength: $bandpass.effective_wavelength
@@ -198,6 +198,11 @@ stamp:
             HA:
                 type: Degrees
                 theta: { type: OpsimMeta, field: HA }
+        -
+            type: lsst_optics
+            telescope: LSST
+            band: { type: OpsimMeta, field: band }
+            boresight: "@input.atm_psf.boresight"
         -
             # Note: If FocusDepth is before Refraction, then the depth is the amount of focus
             #       change required relative to the rays coming to a focus at the surface.
