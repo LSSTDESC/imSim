@@ -5,6 +5,7 @@ import numpy as np
 import batoid
 from batoid import Optic
 from galsim import PhotonArray, PhotonOp
+from galsim.config import RegisterPhotonOpType, PhotonOpBuilder, GetAllParams
 
 from galsim.celestial import CelestialCoord
 from galsim.config.util import get_cls_params
@@ -113,3 +114,27 @@ def ray_vector_to_photon_array(
     out.dydz = ray_vector.vy / ray_vector.vz
     out.flux[ray_vector.vignetted] = 0.0
     return out
+
+
+class LsstOpticsFactory(PhotonOpBuilder):
+    """Build the LsstOptics PhotonOp.
+
+    Returns:
+         the constructed LsstOptics object.
+    """
+
+    def buildPhotonOp(self, config, base, logger):
+        req, opt, single, _takes_rng = get_cls_params(LsstOptics)
+        kwargs, _safe = GetAllParams(config, base, req, opt, single)
+
+        return LsstOptics(
+            telescope=base["_telescope"],
+            boresight=kwargs["boresight"],
+            sky_pos=base["sky_pos"],
+            image_pos=base["image_pos"],
+            icrf_to_field=base["_icrf_to_field"],
+            det_name=base["det_name"],
+        )
+
+
+RegisterPhotonOpType("lsst_optics", LsstOpticsFactory())
