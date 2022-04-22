@@ -1,10 +1,12 @@
-
+import os
 import imsim
 import numpy as np
 import batoid
 import galsim
 import lsst.afw.cameraGeom as cameraGeom
 from astropy.time import Time
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 
 def sphere_dist(ra1, dec1, ra2, dec2):
     # Vectorizing CelestialCoord.distanceTo()
@@ -136,11 +138,11 @@ def test_imsim():
     from numpy import array
     import coord
 
-    with open("data/wcs_466749.yaml", 'r') as f:
+    with open(os.path.join(DATA_DIR, "wcs_466749.yaml"), 'r') as f:
         wcss = yaml.safe_load(f)
 
     cmds = {}
-    with open("data/phosim_cat_466749.txt", 'r') as f:
+    with open(os.path.join(DATA_DIR, "phosim_cat_466749.txt"), 'r') as f:
         for line in f:
             k, v = line.split()
             try:
@@ -316,11 +318,11 @@ def test_intermediate_coord_sys():
     from numpy import array
     import coord
 
-    with open("data/wcs_466749.yaml", "r") as f:
+    with open(os.path.join(DATA_DIR, "wcs_466749.yaml"), "r") as f:
         wcss = yaml.safe_load(f)
 
     cmds = {}
-    with open("data/phosim_cat_466749.txt", 'r') as f:
+    with open(os.path.join(DATA_DIR, "phosim_cat_466749.txt"), 'r') as f:
         for line in f:
             k, v = line.split()
             try:
@@ -415,11 +417,11 @@ def test_config():
 
     # Same test suite as used in test_imsim above.
     # This time, we just use this for the det names.
-    with open("data/wcs_466749.yaml", 'r') as f:
+    with open(os.path.join(DATA_DIR, "wcs_466749.yaml"), 'r') as f:
         wcss = yaml.safe_load(f)
 
     cmds = {}
-    with open("data/phosim_cat_466749.txt", 'r') as f:
+    with open(os.path.join(DATA_DIR, "phosim_cat_466749.txt"), 'r') as f:
         for line in f:
             k, v = line.split()
             try:

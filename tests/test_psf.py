@@ -13,7 +13,7 @@ class PsfTestCase(unittest.TestCase):
     """
     def setUp(self):
         self.test_dir = 'psf_tests_dir'
-        instcat = 'tiny_instcat.txt'
+        instcat = os.path.join(os.path.dirname(__file__), 'tiny_instcat.txt')
         self.obs_md = imsim.OpsimMetaDict(instcat)
         if not os.path.exists(self.test_dir):
             os.makedirs(self.test_dir)

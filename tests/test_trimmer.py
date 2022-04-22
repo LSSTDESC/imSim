@@ -31,7 +31,7 @@ class InstCatTrimmerTestCase(unittest.TestCase):
 
     def test_InstCatTrimmer(self):
         """Unit test for InstCatTrimmer class."""
-        instcat_file = 'tiny_instcat.txt'
+        instcat_file = os.path.join(os.path.dirname(__file__), 'tiny_instcat.txt')
         sensor = 'R22_S11'
         wcs = self.make_wcs(instcat_file, sensor)
 
@@ -60,7 +60,7 @@ class InstCatTrimmerTestCase(unittest.TestCase):
         underflows, floating point exceptions, etc.. from badly formed
         entries.
         """
-        instcat_file = 'bad_instcat.txt'
+        instcat_file = os.path.join(os.path.dirname(__file__), 'bad_instcat.txt')
         sensor = 'R22_S11'
         wcs = self.make_wcs(instcat_file, sensor)
 

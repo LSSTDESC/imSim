@@ -3,7 +3,6 @@ Unit tests for instance catalog parsing code.
 """
 import os
 import unittest
-import warnings
 import tempfile
 import shutil
 import numpy as np
@@ -36,7 +35,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
     """
     @classmethod
     def setUpClass(cls):
-        cls.data_dir = 'data'
+        cls.data_dir = os.path.join(os.path.dirname(__file__), 'data')
         cls.scratch_dir = tempfile.mkdtemp(prefix=cls.data_dir)
 
     @classmethod
@@ -487,7 +486,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
     def test_validate_phosim_object_list(self):
         "Test the validation of the rows of the phoSimObjects DataFrame."
-        cat_file = 'tiny_instcat.txt'
+        cat_file = os.path.join(os.path.dirname(__file__), 'tiny_instcat.txt')
 
         camera = imsim.get_camera()
         sensors = [det.getName() for det in camera
