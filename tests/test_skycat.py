@@ -77,8 +77,7 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
             # extinction included, so should have iAv=0, iRv=1.
             self.assertEqual(iAv, 0)
             self.assertEqual(iRv, 1)
-            colname = f'MW_av_lsst_{self.skycat.band}'
-            self.assertEqual(gAv, row[colname])
+            self.assertEqual(gAv, row['MW_av'])
             self.assertEqual(gRv, row['MW_rv'])
 
     def test_get_gsobject(self):

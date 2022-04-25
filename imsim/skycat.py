@@ -176,8 +176,7 @@ class SkyCatalogInterface:
         # so Milky Way dust is the only source of reddening.
         internal_av = 0
         internal_rv = 1.
-        MW_av_colname = f'MW_av_lsst_{self.band}'
-        galactic_av = skycat_obj.get_native_attribute(MW_av_colname)
+        galactic_av = skycat_obj.get_native_attribute('MW_av')
         galactic_rv = skycat_obj.get_native_attribute('MW_rv')
         return internal_av, internal_rv, galactic_av, galactic_rv
 
