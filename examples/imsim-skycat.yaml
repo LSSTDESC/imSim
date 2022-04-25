@@ -22,15 +22,6 @@ input.atm_psf: ""
 image.nobjects: 1000
 image.random_seed: 42
 
-image.wcs.boresight:
-    type: RADec
-    ra:
-        type: Degrees
-        theta: { type: OpsimMeta, field: fieldRA }
-    dec:
-        type: Degrees
-        theta: { type: OpsimMeta, field: fieldDec }
-
 psf:
     type: Convolve
     items:
