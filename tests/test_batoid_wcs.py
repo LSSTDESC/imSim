@@ -2,12 +2,13 @@ from pathlib import Path
 import numpy as np
 import batoid
 import galsim
-import lsst.afw.cameraGeom as cameraGeom
+from lsst.afw import cameraGeom
 from astropy.time import Time
 
 import imsim
 
 DATA_DIR = Path(__file__).parent / 'data'
+
 
 def sphere_dist(ra1, dec1, ra2, dec2):
     # Vectorizing CelestialCoord.distanceTo()
@@ -600,8 +601,3 @@ def test_config():
     np.testing.assert_raises(NotImplementedError,
                              galsim.config.BuildWCS, config['image'], 'wcs', config)
 
-if __name__ == "__main__":
-    test_wcs_fit()
-    test_imsim()
-    test_intermediate_coord_sys()
-    test_config()
