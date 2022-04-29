@@ -1,6 +1,6 @@
 
 # These need conda (via stackvana).  Not pip-installable
-import lsst.afw.cameraGeom as cameraGeom
+from lsst.afw import cameraGeom
 
 # This is not on conda yet, but is pip installable.
 # We'll need to get Matt to add this to conda-forge probably.
@@ -13,6 +13,8 @@ import astropy.time
 import galsim
 from galsim.config import WCSBuilder, RegisterWCSType
 from .camera import get_camera
+from .batoid_utils import load_telescope
+from .utils import pixel_to_focal, focal_to_pixel
 
 
 # There are 5 coordinate systems to handle.  In order:
@@ -346,54 +348,6 @@ class BatoidWCSFactory:
         result = least_squares(resid, np.zeros(2*N))
         return result.x[:N], result.x[N:]
 
-    def _focal_to_pixel(self, fpx, fpy, det):
-        """
-        Parameters
-        ----------
-        fpx, fpy : array
-            Focal plane position in millimeters in DVCS
-            See https://lse-349.lsst.io/
-        det : lsst.afw.cameraGeom.Detector
-            Detector of interest.
-
-        Returns
-        -------
-        x, y : array
-            Pixel coordinates.
-        """
-        tx = det.getTransform(cameraGeom.FOCAL_PLANE, cameraGeom.PIXELS)
-        x, y = np.vsplit(
-            tx.getMapping().applyForward(
-                np.vstack((fpx, fpy))
-            ),
-            2
-        )
-        return x.ravel(), y.ravel()
-
-    def _pixel_to_focal(self, x, y, det):
-        """
-        Parameters
-        ----------
-        x, y : array
-            Pixel coordinates.
-        det : lsst.afw.cameraGeom.Detector
-            Detector of interest.
-
-        Returns
-        -------
-        fpx, fpy : array
-            Focal plane position in millimeters in DVCS
-            See https://lse-349.lsst.io/
-        """
-        tx = det.getTransform(cameraGeom.PIXELS, cameraGeom.FOCAL_PLANE)
-        fpx, fpy = np.vsplit(
-            tx.getMapping().applyForward(
-                np.vstack((x, y))
-            ),
-            2
-        )
-        return fpx.ravel(), fpy.ravel()
-
     def getWCS(self, det, order=3):
         """
         Parameters
@@ -428,7 +382,7 @@ class BatoidWCSFactory:
         # trace both directions (field -> ICRF and field -> pixel)
         # then fit TanSIP to ICRF -> pixel.
         fpxs, fpys = self._field_to_focal(thxs, thys)
-        xs, ys = self._focal_to_pixel(fpxs, fpys, det)
+        xs, ys = focal_to_pixel(fpxs, fpys, det)
         rob, dob = self._field_to_observed(thxs, thys)
         rc, dc = self._observed_to_ICRF(rob, dob)
 
@@ -451,7 +405,7 @@ class BatoidWCSFactory:
         rob, dob = self._ICRF_to_observed(rc, dc)
         thx, thy = self._observed_to_field(rob, dob)
         fpx, fpy = self._field_to_focal(thx, thy)
-        x, y = self._focal_to_pixel(fpx, fpy, det)
+        x, y = focal_to_pixel(fpx, fpy, det)
         return x, y
 
     def pixel_to_ICRF(self, x, y, det):
@@ -468,7 +422,7 @@ class BatoidWCSFactory:
         rc, dc : array
             right ascension and declination in ICRF in radians
         """
-        fpx, fpy = self._pixel_to_focal(x, y, det)
+        fpx, fpy = pixel_to_focal(x, y, det)
         thx, thy = self._focal_to_field(fpx, fpy)
         rob, dob = self._field_to_observed(thx, thy)
         rc, dc = self._observed_to_ICRF(rob, dob)
@@ -573,9 +527,7 @@ class BatoidWCSBuilder(WCSBuilder):
         if isinstance(obstime, str):
             obstime = astropy.time.Time(obstime, scale='tai')
 
-        if telescope != 'LSST':
-            raise NotImplementedError("Batoid WCS only valid for telescope='LSST' currently")
-        fiducial_telescope = batoid.Optic.fromYaml(f"{telescope}_{band}.yaml")
+        fiducial_telescope = load_telescope(telescope, band)
         self._camera_name = camera
 
         # Update optional kwargs
