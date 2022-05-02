@@ -63,6 +63,12 @@ jobs:
                 cd ..
                 git clone https://github.com/LSSTDESC/skyCatalogs.git
 
+            - name: Install main branch of GalSim
+              run: |
+                # need to make sure GalSim 2.4.0 is installed before
+                # the next imsim release:
+                pip install git+https://github.com/GalSim-developers/GalSim.git@main
+                
             - name: Install test deps
               run:
                 conda install -y pytest nose
