@@ -50,6 +50,10 @@ class LSST_SiliconBuilder(StampBuilder):
         if hasattr(gal, 'flux'):
             flux = gal.flux
         else:
+            # TODO: This calculation is slow, so we'd like to avoid
+            # doing here it for faint objects.  Eventually, this call
+            # will be replaced by retrieving precomputed/cached values
+            # via skyCatalogs.
             flux = gal.calculateFlux(bandpass)
         self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
 
@@ -98,8 +102,8 @@ class LSST_SiliconBuilder(StampBuilder):
             psf = self.DoubleGaussian()
             # For Chromatic objects, need to evaluate at the
             # effective wavelength of the bandpass.
-            obj = galsim.Convolve(gal, psf).withFlux(self.realized_flux, bandpass)
-            obj = obj.evaluateAtWavelength(bandpass.effective_wavelength)
+            gal_achrom = gal.evaluateAtWavelength(bandpass.effective_wavelength)
+            obj = galsim.Convolve(gal_achrom, psf).withFlux(self.realized_flux)
 
             # Start with GalSim's estimate of a good box size.
             image_size = obj.getGoodImageSize(self._pixel_scale)
