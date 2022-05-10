@@ -44,9 +44,20 @@ class LSST_SiliconBuilder(StampBuilder):
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
         self.gal = gal
 
-        # Check if the realized flux is 0.
+        # Compute or retrieve the realzed flux.
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
-        self.realized_flux = galsim.PoissonDeviate(self.rng, mean=gal.flux)()
+        bandpass = base['bandpass']
+        if hasattr(gal, 'flux'):
+            flux = gal.flux
+        else:
+            # TODO: This calculation is slow, so we'd like to avoid
+            # doing here it for faint objects.  Eventually, this call
+            # will be replaced by retrieving precomputed/cached values
+            # via skyCatalogs.
+            flux = gal.calculateFlux(bandpass)
+        self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
+
+        # Check if the realized flux is 0.
         if self.realized_flux == 0:
             # If so, we'll skip everything after this.
             # The mechanism within GalSim to do this is to raise a special SkipThisObject class.
@@ -89,7 +100,10 @@ class LSST_SiliconBuilder(StampBuilder):
             # For extended objects, recreate the object to draw, but
             # convolved with the faster DoubleGaussian PSF.
             psf = self.DoubleGaussian()
-            obj = galsim.Convolve(gal, psf).withFlux(self.realized_flux)
+            # For Chromatic objects, need to evaluate at the
+            # effective wavelength of the bandpass.
+            gal_achrom = gal.evaluateAtWavelength(bandpass.effective_wavelength)
+            obj = galsim.Convolve(gal_achrom, psf).withFlux(self.realized_flux)
 
             # Start with GalSim's estimate of a good box size.
             image_size = obj.getGoodImageSize(self._pixel_scale)
@@ -99,18 +113,20 @@ class LSST_SiliconBuilder(StampBuilder):
             base['current_noise_image'] = base['current_image']
             noise_var = galsim.config.CalculateNoiseVariance(base)
             keep_sb_level = np.sqrt(noise_var)/3.
+            self._large_object_sb_level = 3*keep_sb_level
 
+            gal_at_eff_wl = gal.evaluateAtWavelength(bandpass.effective_wavelength)
             # For bright things, defined as having an average of at least 10 photons per
             # pixel on average, try to be careful about not truncating the surface brightness
             # at the edge of the box.
             if self.realized_flux > 10 * image_size**2:
-                image_size = self._getGoodPhotImageSize([gal, psf], keep_sb_level,
+                image_size = self._getGoodPhotImageSize([gal_at_eff_wl, psf], keep_sb_level,
                                                         pixel_scale=self._pixel_scale)
 
             # If the above size comes out really huge, scale back to what you get for
             # a somewhat brighter surface brightness limit.
             if image_size > self._Nmax:
-                image_size = self._getGoodPhotImageSize([gal, psf], self._large_object_sb_level,
+                image_size = self._getGoodPhotImageSize([gal_at_eff_wl, psf], self._large_object_sb_level,
                                                         pixel_scale=self._pixel_scale)
                 image_size = min(image_size, self._Nmax)
 
@@ -164,10 +180,22 @@ class LSST_SiliconBuilder(StampBuilder):
         N = obj.getGoodImageSize(pixel_scale)
         #print('N = ',N)
 
-        if isinstance(obj, galsim.RandomKnots):
-            # If the galaxy is a RandomKnots, extract the underlying profile for this calculation
-            # rather than using the knotty version, which poses problems for the xValue function.
-            obj = obj._profile
+        if (isinstance(obj, galsim.Sum) and
+            any([isinstance(_.original, galsim.RandomKnots)
+                 for _ in obj.obj_list])):
+            # obj is a galsim.Sum object and contains a
+            # galsim.RandomKnots component, so make a new obj that's
+            # the sum of the non-knotty versions.
+            obj_list = []
+            for item in obj.obj_list:
+                if isinstance(item.original, galsim.RandomKnots):
+                    obj_list.append(item.original._profile)
+                else:
+                    obj_list.append(item)
+            obj = galsim.Add(obj_list)
+        elif isinstance(obj.original, galsim.RandomKnots):
+            # Handle RandomKnots object directly
+            obj = obj.original._profile
 
         # This can be too small for bright stars, so increase it in steps until the edges are
         # all below the requested sb level.
@@ -312,6 +340,8 @@ class LSST_SiliconBuilder(StampBuilder):
         # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
         # to get photons/pixel, which we compare to fft_sb_thresh.
         fft_obj = galsim.Convolve(self.gal, fft_psf)
+        bandpass = base['bandpass']
+        fft_obj = fft_obj.evaluateAtWavelength(bandpass.effective_wavelength)
         max_sb = fft_obj.max_sb/2. * self._pixel_scale**2
         logger.debug('max_sb = %s. cf. %s',max_sb,fft_sb_thresh)
         if max_sb > fft_sb_thresh:
@@ -407,19 +437,10 @@ class LSST_SiliconBuilder(StampBuilder):
 
         max_flux_simple = config.get('max_flux_simple', 100)
         faint = self.realized_flux < max_flux_simple
-
-        prof = prof.withFlux(self.realized_flux)
-
-        # This seems to be hard-coded to 1 in the imsim code.
-        # XXX: Make this a parameter?  Or ok to leave like this?
-        # Note: if it's just 1, it would be simpler to just remove it in this function.
-        gain = 1.
-
-        if faint or 'sed' not in config:
-            sed = self._trivial_sed
-        else:
-            sed = galsim.config.BuildSED(config, 'sed', base, logger=logger)[0]
-        base['current_sed'] = sed
+        if faint:
+            prof.SED = self._trivial_sed
+        bandpass = base['bandpass']
+        prof = prof.withFlux(self.realized_flux, bandpass)
 
         wcs = base['wcs']
 
@@ -438,11 +459,11 @@ class LSST_SiliconBuilder(StampBuilder):
                 fft_offset = offset
 
             try:
-                prof.drawImage(method='fft',
+                prof.drawImage(bandpass,
+                               method='fft',
                                offset=fft_offset,
                                image=fft_image,
-                               wcs=wcs,
-                               gain=gain)
+                               wcs=wcs)
             except galsim.errors.GalSimFFTSizeError as e:
                 # I think this shouldn't happen with the updates I made to how the image size
                 # is calculated, even for extremely bright things.  So it should be ok to
@@ -456,7 +477,6 @@ class LSST_SiliconBuilder(StampBuilder):
                 logger.info('fft_image = %s',fft_image)
                 logger.info('offset = %r',offset)
                 logger.info('wcs = %r',wcs)
-                logger.info('gain = %r',gain)
                 raise
             else:
                 # Some pixels can end up negative from FFT numerics.  Just set them to 0.
@@ -478,7 +498,8 @@ class LSST_SiliconBuilder(StampBuilder):
                 if sensor is not None:
                     sensor.updateRNG(self.rng)
 
-            prof.drawImage(method='phot',
+            prof.drawImage(bandpass,
+                           method='phot',
                            offset=offset,
                            rng=self.rng,
                            maxN=int(1e6),
@@ -488,8 +509,7 @@ class LSST_SiliconBuilder(StampBuilder):
                            sensor=sensor,
                            photon_ops=photon_ops,
                            add_to_image=True,
-                           poisson_flux=False,
-                           gain=gain)
+                           poisson_flux=False)
         return image
 
 

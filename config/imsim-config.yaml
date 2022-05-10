@@ -46,14 +46,7 @@ input:
         airmass: { type: OpsimMeta, field: airmass }
         rawSeeing:  { type: OpsimMeta, field: rawSeeing }
         band:  { type: OpsimMeta, field: band }
-        boresight:
-            type: RADec
-            ra:
-                type: Degrees
-                theta: { type: OpsimMeta, field: fieldRA }
-            dec:
-                type: Degrees
-                theta: { type: OpsimMeta, field: fieldDec }
+        boresight:  "@input.wcs.boresight"
 
         # Optional parameters:  (Unless otherwise stated, these are the default values.)
         t0: 0               # seconds
@@ -104,7 +97,15 @@ image:
 
         # These are required:
         camera: "@output.camera"
-        boresight: "@input.atm_psf.boresight"
+        boresight:
+            type: RADec
+            ra:
+                type: Degrees
+                theta: { type: OpsimMeta, field: fieldRA }
+            dec:
+                type: Degrees
+                theta: { type: OpsimMeta, field: fieldDec }
+
         rotTelPos:
             type: Degrees
             theta: { type: OpsimMeta, field: rotTelPos }
@@ -182,9 +183,6 @@ stamp:
     fft_sb_thresh: 2.e5   # When to switch to fft and a simpler PSF and skip silicon
     max_flux_simple: 100  # When to switch to simple SED
 
-    sed:
-        type: InstCatSED
-
     world_pos:
         type: InstCatWorldPos
 
@@ -193,9 +191,6 @@ stamp:
             type: FRatioAngles
             fratio: 1.234
             obscuration: 0.606
-        -
-            type: WavelengthSampler
-            sed: "@current_sed"
         -
             type: PhotonDCR
             base_wavelength: $bandpass.effective_wavelength
@@ -291,5 +286,4 @@ output:
             dec: "$sky_pos.dec.deg"
             x: "$image_pos.x"
             y: "$image_pos.y"
-            flux: "$(@current_prof).flux"
             # TODO: ... more probably
