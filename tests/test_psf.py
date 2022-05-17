@@ -2,10 +2,14 @@
 Unit tests for PSF-related code.
 """
 import os
+from pathlib import Path
 import glob
 import unittest
 import imsim
 import galsim
+
+DATA_DIR = Path(__file__).parent / 'data'
+
 
 class PsfTestCase(unittest.TestCase):
     """
@@ -13,8 +17,8 @@ class PsfTestCase(unittest.TestCase):
     """
     def setUp(self):
         self.test_dir = 'psf_tests_dir'
-        instcat = os.path.join(os.path.dirname(__file__), 'tiny_instcat.txt')
-        self.obs_md = imsim.OpsimMetaDict(instcat)
+        instcat = DATA_DIR / 'tiny_instcat.txt'
+        self.obs_md = imsim.OpsimMetaDict(str(instcat))
         if not os.path.exists(self.test_dir):
             os.makedirs(self.test_dir)
 

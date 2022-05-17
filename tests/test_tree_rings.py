@@ -2,10 +2,13 @@
 Unit tests for tree rings code.  Just tests that the tree ring data was found and could be read.
 """
 import os
+from pathlib import Path
 import unittest
 import numpy as np
 import galsim
 import imsim
+
+DATA_DIR = Path(__file__).parent / 'data'
 
 
 class TreeRingsTestCase(unittest.TestCase):
@@ -13,7 +16,7 @@ class TreeRingsTestCase(unittest.TestCase):
     def setUp(self):
         self.sensors = ['R:2,2 S:1,1', 'R:3,4 S:2,2']
         self.detnames = ['R22_S11', 'R34_S22']
-        self.instcat_file = os.path.join(os.path.dirname(__file__), 'tiny_instcat.txt')
+        self.instcat_file = str(DATA_DIR / 'tiny_instcat.txt')
         self.rtest = 5280.0 # Just a value to test the radial function at
         self.rvalues = [.0030205, -.0034135] # Expected results
         self.centers = [(-3026.3, -3001.0), (3095.5, -2971.3)] # Input center values

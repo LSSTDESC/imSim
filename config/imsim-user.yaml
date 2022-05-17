@@ -25,7 +25,7 @@ template: imsim-config
 # Overide the the values in the template configuration with the values below.
 
 # Here are examples of local parameters you might change for your simulation.
-input.instance_catalog.file_name: ../tests/tiny_instcat.txt
+input.instance_catalog.file_name: ../tests/data/tiny_instcat.txt
 input.instance_catalog.sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR') # current default
 input.instance_catalog.sort_mag: False
 
@@ -33,7 +33,7 @@ input.instance_catalog.sort_mag: False
 input.tree_rings.only_dets: [R22_S11]
 
 input.opsim_meta_dict:
-    file_name: ../tests/tiny_instcat.txt
+    file_name: ../tests/data/tiny_instcat.txt
 
 image.nobjects: 5
 

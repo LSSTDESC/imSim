@@ -1,9 +1,13 @@
+from pathlib import Path
 import unittest
 import astropy.time
 import numpy as np
 import pandas as pd
 import galsim
 import imsim
+
+DATA_DIR = Path(__file__).parent / 'data'
+
 
 class SkyCatalogInterfaceTestCase(unittest.TestCase):
     """
@@ -12,7 +16,7 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Read in the sky catalog data used by the various tests."""
-        opsim_db_file = 'data/small_opsim_9683.db'
+        opsim_db_file = str(DATA_DIR / 'small_opsim_9683.db')
         visit = 449053
         det_name = 'R22_S11'   # detector 94
 
@@ -30,13 +34,13 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
                                   cls.band)
 
         # Create the sky catalog interface object.
-        skycat_file = 'data/sky_cat_9683.yaml'
+        skycat_file = str(DATA_DIR / 'sky_cat_9683.yaml')
         cls.skycat = imsim.SkyCatalogInterface(skycat_file, wcs, cls.bandpass,
                                                obj_types=['galaxy'])
 
         # Read in the data from the parquet file directly for
         # comparison to the outputs from the sky catalog interface.
-        cls.df = pd.read_parquet('data/galaxy_9683_449053_det94.parquet')
+        cls.df = pd.read_parquet(str(DATA_DIR / 'galaxy_9683_449053_det94.parquet'))
 
     def setUp(self):
         """Select some objects to test."""

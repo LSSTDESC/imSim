@@ -3,7 +3,7 @@
 catalog_name : sky_cat_9683
 area_partition :
   { type: healpix, ordering : ring, nside : 32}
-root_directory: ../tests/data
+root_directory: ./tests/data
 SED_models :
   -
     tophat :
