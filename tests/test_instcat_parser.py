@@ -2,8 +2,8 @@
 Unit tests for instance catalog parsing code.
 """
 import os
+from pathlib import Path
 import unittest
-import warnings
 import tempfile
 import shutil
 import numpy as np
@@ -13,6 +13,8 @@ import imsim
 from lsst.afw.cameraGeom import DetectorType
 
 from test_batoid_wcs import sphere_dist
+
+DATA_DIR = Path(__file__).parent / 'data'
 
 def sources_from_list(lines, obs_md, phot_params, file_name):
     """Return a two-item tuple containing
@@ -36,8 +38,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
     """
     @classmethod
     def setUpClass(cls):
-        cls.data_dir = 'data'
-        cls.scratch_dir = tempfile.mkdtemp(prefix=cls.data_dir)
+        cls.data_dir = DATA_DIR
+        cls.scratch_dir = tempfile.mkdtemp(prefix=str(cls.data_dir))
 
     @classmethod
     def tearDownClass(cls):
@@ -47,7 +49,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             shutil.rmtree(cls.scratch_dir)
 
     def setUp(self):
-        self.phosim_file = os.path.join(self.data_dir, 'phosim_stars.txt')
+        self.phosim_file = str(self.data_dir / 'phosim_stars.txt')
 
     def make_wcs(self, instcat_file=None, sensors=None):
         # Make a wcs to use for this instance catalog.
@@ -487,7 +489,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
     def test_validate_phosim_object_list(self):
         "Test the validation of the rows of the phoSimObjects DataFrame."
-        cat_file = 'tiny_instcat.txt'
+        cat_file = str(DATA_DIR / 'tiny_instcat.txt')
 
         camera = imsim.get_camera()
         sensors = [det.getName() for det in camera
