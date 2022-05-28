@@ -89,7 +89,8 @@ class SkyCatalogInterface:
 
         gs_obj_list = []
         for component in gsobjs:
-            gs_obj_list.append(gsobjs[component]*seds[component]*exp_time)
+            if component in seds:
+                gs_obj_list.append(gsobjs[component]*seds[component]*exp_time)
 
         if not gs_obj_list:
             return None
