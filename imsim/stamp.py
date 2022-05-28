@@ -44,7 +44,7 @@ class LSST_SiliconBuilder(StampBuilder):
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
         self.gal = gal
 
-        # Compute or retrieve the realzed flux.
+        # Compute or retrieve the realized flux.
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
         bandpass = base['bandpass']
         if hasattr(gal, 'flux'):
@@ -340,9 +340,9 @@ class LSST_SiliconBuilder(StampBuilder):
         # of giving us an underestimate of the max surface brightness.
         # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
         # to get photons/pixel, which we compare to fft_sb_thresh.
-        fft_obj = galsim.Convolve(self.gal, fft_psf)
         bandpass = base['bandpass']
-        fft_obj = fft_obj.evaluateAtWavelength(bandpass.effective_wavelength)
+        gal_achrom = self.gal.evaluateAtWavelength(bandpass.effective_wavelength)
+        fft_obj = galsim.Convolve(gal_achrom, fft_psf).withFlux(self.realized_flux)
         max_sb = fft_obj.max_sb/2. * self._pixel_scale**2
         logger.debug('max_sb = %s. cf. %s',max_sb,fft_sb_thresh)
         if max_sb > fft_sb_thresh:
