@@ -72,9 +72,27 @@ output:
     dir: flats
     file_name:
         type: FormattedStr
-        format : flat_%05d-%s-%s-det%03d.fits
+        format : flat_eimage_%05d-%s-%s-det%03d.fits
         items:
             - 1  # When making multiple flats, probably should increment this for each file.
             - "@image.wcs.band"
             - "$det_name"   # A value stored in the dict by LSST_CCD
             - "@output.det_num"
+
+    readout:
+        # Convert from e-image to realized amp images
+        readout_time: 3.
+        dark_current: 0.02
+        bias_level: 1000.
+        pcti: 1.e-6
+        scti: 1.e-6
+        filter: "@image.wcs.band"
+
+        file_name:
+            type: FormattedStr
+            format : flat_amp_%05d-%s-%s-det%03d.fits.fz
+            items:
+                - "@output.file_name.items.0"
+                - "@image.wcs.band"
+                - "$det_name"
+                - "@output.det_num"
