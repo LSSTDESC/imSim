@@ -62,6 +62,7 @@ jobs:
               run: |
                 cd ..
                 git clone https://github.com/LSSTDESC/skyCatalogs.git
+                pip install skyCatalogs/
 
             - name: Install test deps
               run:
@@ -69,5 +70,4 @@ jobs:
 
             - name: Run tests
               run: |
-                setup -r ../skyCatalogs -j
                 pytest
