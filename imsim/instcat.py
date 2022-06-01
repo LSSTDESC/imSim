@@ -4,6 +4,7 @@ import gzip
 import numpy as np
 import math
 import sqlite3
+import warnings
 import astropy
 import astropy.coordinates
 import astropy.units as u
@@ -745,7 +746,11 @@ class OpsimMetaDict(object):
 
         time = astropy.time.Time(mjd, format='mjd', location=lsst_loc)
         # Get the local apparent sidereal time.
-        last = time.sidereal_time('apparent').degree
+        with warnings.catch_warnings():
+            # Astropy likes to emit obnoxious warnings about this maybe being slightly inaccurate
+            # if the user hasn't updated to the absolute latest IERS data.  Ignore them.
+            warnings.simplefilter("ignore")
+            last = time.sidereal_time('apparent').degree
         ha = last - ra
         return ha
 
