@@ -1,15 +1,19 @@
 """
 Interface to obtain objects from skyCatalogs.
 """
+import numpy as np
 import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
     RegisterObjectType
 from desc.skycatalogs import skyCatalogs
 from .instcat import get_radec_limits
-from .skycat_object_wrapper import SkyCatalogObjectWrapper
+
 
 class SkyCatalogInterface:
     """Interface to skyCatalogs package."""
+    # Rubin effective area computed using numbers at
+    # https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
+    _eff_area = 0.25 * np.pi * 649**2  # cm^2
     def __init__(self, file_name, wcs, bandpass, obj_types=None,
                  edge_pix=100, logger=None):
         """
@@ -83,14 +87,15 @@ class SkyCatalogInterface:
         -------
         galsim.GSObject
         """
-        skycat_obj = SkyCatalogObjectWrapper(self.objects[index], self.bandpass)
+        skycat_obj = self.objects[index]
         gsobjs = skycat_obj.get_gsobject_components(gsparams, rng)
-        seds = skycat_obj.get_sed_components()
+        seds = skycat_obj.get_observer_sed_components()
 
         gs_obj_list = []
         for component in gsobjs:
             if component in seds:
-                gs_obj_list.append(gsobjs[component]*seds[component]*exp_time)
+                gs_obj_list.append(gsobjs[component]*seds[component]
+                                   *exp_time*self._eff_area)
 
         if not gs_obj_list:
             return None
@@ -101,7 +106,8 @@ class SkyCatalogInterface:
             gs_object = galsim.Add(gs_obj_list)
 
         # Compute the flux or get the cached value.
-        gs_object.flux = skycat_obj.get_flux()*exp_time
+        gs_object.flux \
+            = skycat_obj.get_flux(self.bandpass)*exp_time*self._eff_area
 
         return gs_object
 
