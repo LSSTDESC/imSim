@@ -2,11 +2,14 @@
 Unit tests for electronics readout simulation code.
 """
 import os
+from pathlib import Path
 import itertools
 import unittest
 import astropy.io.fits as fits
 import imsim
 import galsim
+
+DATA_DIR = Path(__file__).parent / 'data'
 
 def transpose(image):
     # TODO: This should be a method of the galsim.Image class.
@@ -22,7 +25,8 @@ class ImageSourceTestCase(unittest.TestCase):
         #       Now this raft is set to be e2v, so we need to fake the numbers below
         #       to pretend it is still an ITL raft.
         #       This is why we use R20_S11 for the det_name below.
-        self.eimage_file = os.path.join('data', 'lsst_e_161899_R22_S11_r.fits.gz')
+        self.eimage_file = str(DATA_DIR / 'lsst_e_161899_R22_S11_r.fits.gz')
+        instcat_file = str(DATA_DIR / 'tiny_instcat.txt')
         self.image = galsim.fits.read(self.eimage_file)
         # Also, this file was made in phosim convention, which swaps x,y relative
         # to the normal convention.  So we need to transpose the image after reading it.
@@ -30,7 +34,7 @@ class ImageSourceTestCase(unittest.TestCase):
         self.config = {
             'image': {'random_seed': 1234},
             'input': {
-                'opsim_meta_dict': {'file_name': 'tiny_instcat.txt'},
+                'opsim_meta_dict': {'file_name': instcat_file}
             },
             'output': {
                 'readout' : {
@@ -115,9 +119,7 @@ class NoaoKeywordTestCase(unittest.TestCase):
         for vendor, detsize in ccd_geoms.items():
             for slot in ('S%i%i' % x for x in
                          itertools.product(range(3), range(3))):
-                ref_file \
-                    = os.path.join('data', '%s_raft_example_%s.fits.gz'
-                                   % (vendor, slot))
+                ref_file = str(DATA_DIR / ('%s_raft_example_%s.fits.gz'%(vendor, slot)))
                 with fits.open(ref_file) as ref:
                     for amp in ('%i%i' % chan for chan in
                                 itertools.product((0, 1), range(8))):
