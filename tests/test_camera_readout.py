@@ -12,10 +12,12 @@ import galsim
 DATA_DIR = Path(__file__).parent / 'data'
 
 def transpose(image):
-    # TODO: This should be a method of the galsim.Image class.
+    # TODO: This will be a method of galsim.Image in GalSim v2.3.
+    #       Can remove this monkey-patch once we're using that.
     b1 = image.bounds
     b2 = galsim.BoundsI(b1.ymin, b1.ymax, b1.xmin, b1.xmax)
     return galsim._Image(image.array.T, b2, image.wcs)
+galsim.Image.transpose = transpose
 
 class ImageSourceTestCase(unittest.TestCase):
     "TestCase class for ImageSource."
@@ -30,7 +32,7 @@ class ImageSourceTestCase(unittest.TestCase):
         self.image = galsim.fits.read(self.eimage_file)
         # Also, this file was made in phosim convention, which swaps x,y relative
         # to the normal convention.  So we need to transpose the image after reading it.
-        self.image = transpose(self.image)
+        self.image = self.image.transpose()
         self.config = {
             'image': {'random_seed': 1234},
             'input': {
