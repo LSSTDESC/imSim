@@ -594,13 +594,11 @@ class OpsimMetaDict(object):
 
     def set_defaults(self):
         # Set some default values if these aren't present in input file.
-        if 'gain' not in self.meta:
-            self.meta['gain'] = self.meta.get('gain', 1)
         if 'exptime' not in self.meta:
             self.meta['exptime'] = self.meta.get('exptime', 30)
-        if 'readnoise' not in self.meta:
-            self.meta['readnoise'] = self.meta.get('readnoise', 0)
         if 'darkcurrent' not in self.meta:
+            # TODO: Eventually, get this from Camera object during readout (when we actually need
+            #       it), but this value is not currently available from the lsst.camera object.
             self.meta['darkcurrent'] = self.meta.get('darkcurrent', 0)
 
     @classmethod

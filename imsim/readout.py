@@ -119,8 +119,9 @@ class CcdReadout:
         amp = list(self.ccd.values())[0]
 
         # Parse the required parameters
-        # XXX: Should any of these have defaults? Or keep them all as required parameters?
         req = {
+            # TODO: Eventually, the rest of these should be optional, and if not present, get them
+            #       from the camera object.  But these are not (yet?) available there.
             'readout_time': float,
             'dark_current': float,
             'bias_level': float,
