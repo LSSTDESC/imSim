@@ -70,8 +70,8 @@ def get_primary_hdu(opsim_md, det_name, lsst_num='LCA-11021_RTM-000', image_type
     """Create a primary HDU for the output raw file with the keywords
     needed to process with the LSST Stack."""
     phdu = fits.PrimaryHDU()
-    phdu.header['RUNNUM'] = opsim_md.get('obshistid')
-    phdu.header['OBSID'] = opsim_md.get('obshistid')
+    phdu.header['RUNNUM'] = opsim_md.get('observationId')
+    phdu.header['OBSID'] = opsim_md.get('observationId')
     exp_time = opsim_md.get('exptime')
     phdu.header['EXPTIME'] = exp_time
     phdu.header['DARKTIME'] = exp_time

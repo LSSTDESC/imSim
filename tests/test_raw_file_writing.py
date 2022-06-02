@@ -31,7 +31,7 @@ class RawFileOutputTestCase(unittest.TestCase):
                  rotSkyPos=69.0922930,
                  mjd=59797.2854090,
                  band='r',
-                 obshistid=161899,
+                 observationId=161899,
                  FWHMgeom=0.7,
                  altitude=43.6990272,
                  rawSeeing=0.6))
