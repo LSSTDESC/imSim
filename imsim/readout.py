@@ -120,6 +120,7 @@ class CcdReadout:
 
         # Parse the required parameters
         req = {
+            'file_name': str,
             # TODO: Eventually, the rest of these should be optional, and if not present, get them
             #       from the camera object.  But these are not (yet?) available there.
             'readout_time': float,

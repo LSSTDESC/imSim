@@ -38,6 +38,7 @@ class ImageSourceTestCase(unittest.TestCase):
             },
             'output': {
                 'readout' : {
+                    'file_name': 'amp.fits',
                     'readout_time': 3,
                     'dark_current': 0.02,
                     'bias_level': 1000.,
