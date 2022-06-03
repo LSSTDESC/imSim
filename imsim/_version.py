@@ -10,6 +10,8 @@
 #
 # cf. https://semver.org/ for more info
 
+__all__ = ['__version__', '__version_info__']
+
 # This should be updated before a release.
 __version__ = '2.0'
 

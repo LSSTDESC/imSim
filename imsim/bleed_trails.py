@@ -4,8 +4,24 @@ the camera readout code.
 """
 import numpy as np
 
-__all__ = ['bleed_eimage', 'bleed_channel']
+__all__ = ['bleed_eimage', 'bleed_channel', 'find_channels_with_saturation']
 
+def find_channels_with_saturation(eimage, full_well):
+    """Helper function to find which channels (x values) have at least one saturated pixel.
+
+    Parameters
+    ----------
+    eimage: numpy array
+        The "eimage" containing the image data in units of electrons per pixel.
+    full_well: int
+        The pixel full well/saturation value in electrons.
+
+    Returns
+    -------
+    set: A set of integers giving all x values with a saturated pixel.
+    """
+    # Find channels (by x-index) with signal above full_well.
+    return set(np.where(eimage > full_well)[1])
 
 def bleed_eimage(eimage, full_well, midline_stop=True):
     """
@@ -30,7 +46,7 @@ def bleed_eimage(eimage, full_well, midline_stop=True):
         bleeding applied.
     """
     # Find channels (by x-index) with signal above full_well.
-    channels = set(np.where(eimage > full_well)[1])
+    channels = find_channels_with_saturation(eimage, full_well)
 
     # Apply bleeding to each channel.
     for xpix in channels:
@@ -63,22 +79,25 @@ def bleed_channel(channel, full_well):
     # Find contiguous sets of pixels that lie above full well, and
     # build a list of end point pairs identifying each set.
     my_channel = channel.copy()
-    padded = np.array([0] + list(my_channel) + [0])
-    index = np.where(padded > full_well)
-    mask = np.zeros(len(padded), dtype=int)
-    mask[index] += 1
-    diff = mask[1:] - mask[:-1]
-    end_points = []
-    for x0, x1 in zip(np.where(diff == 1)[0], np.where(diff == -1)[0]):
-        end_points.append((x0, x1))
+
+    # Add 0 at start and end, so saturated points are known to be all internal.
+    padded = np.concatenate([[0], my_channel, [0]])
+
+    # Find places where full well condition changes (either true to false or false to true).
+    end_points, = np.diff(padded > full_well).nonzero()
+
+    # Pairs of these are now the first saturated pixel in a run then the
+    # first subsequent unsaturated pixel.  Logically, they have to alternate.
+    # Reshape these into array of (start, end) pairs.
+    end_points = end_points.reshape(-1,2)
 
     # Loop over end point pairs.
-    for x0, x1 in end_points:
-        excess_charge = sum(my_channel[x0:x1]) - (x1 - x0)*full_well
-        my_channel[x0:x1] = full_well
+    for y0, y1 in end_points:
+        excess_charge = sum(my_channel[y0:y1]) - (y1 - y0)*full_well
+        my_channel[y0:y1] = full_well
         bleed_charge = BleedCharge(my_channel, excess_charge, full_well)
-        for dx in range(0, max(x0, len(my_channel) - x1)):
-            if bleed_charge(x0 - dx - 1) or bleed_charge(x1 + dx):
+        for dy in range(0, max(y0, len(my_channel) - y1)):
+            if bleed_charge(y0 - dy - 1) or bleed_charge(y1 + dy):
                 break
     return my_channel
 
@@ -102,11 +121,11 @@ class BleedCharge:
         self.excess_charge = excess_charge
         self.full_well = full_well
 
-    def __call__(self, xpix):
+    def __call__(self, ypix):
         """
         Parameters
         ----------
-        xpix: int
+        ypix: int
             Index of the pixel to which charge will be redistributed.
             If it is already at full_well, do nothing.
 
@@ -114,18 +133,21 @@ class BleedCharge:
         -------
         bool: True if all excess charge has been redistributed.
         """
-        try:
-            bled_charge = min(self.full_well - self.imarr[xpix],
+        if 0 <= ypix < len(self.imarr):
+            # The normal case: Add excess charge up to the full well and reduce this
+            # amount from the total excess charge to be redistributed.
+            bled_charge = min(self.full_well - self.imarr[ypix],
                               self.excess_charge)
-            if xpix >= 0:
-                # Restrict charge redistribution to positive xpix
-                # values to avoid wrapping the bleed trail to the
-                # other end of the channel.  Charge bled off the end
-                # will still be removed from the excess charge pool.
-                self.imarr[xpix] += bled_charge
+            self.imarr[ypix] += bled_charge
             self.excess_charge -= bled_charge
-        except IndexError:
-            # Trying to bleed charge past end of the channel, so
-            # do nothing.
+        elif ypix < 0:
+            # Off the bottom end, the charge escapes into the electronics.
+            # We can reduce the excess charge by one full-well-worth.
+            # These electrons are not added to any pixel though.
+            self.excess_charge -= self.full_well
+        else:
+            # Electrons do not escape off the top end, so excess charge is not reduced
+            # when trying to bleed past the end of the channel.
             pass
+
         return self.excess_charge == 0

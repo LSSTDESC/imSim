@@ -251,7 +251,6 @@ output:
         nobj: 500
         cleanup: True
 
-    # TODO: There is only a skeleton implementation of this so far.
     readout:
         # Convert from e-image to realized amp images
         readout_time: 3.
