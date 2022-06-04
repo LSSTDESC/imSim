@@ -46,7 +46,7 @@ input:
         airmass: { type: OpsimMeta, field: airmass }
         rawSeeing:  { type: OpsimMeta, field: rawSeeing }
         band:  { type: OpsimMeta, field: band }
-        boresight:  "@input.wcs.boresight"
+        boresight:  "@image.wcs.boresight"
 
         # Optional parameters:  (Unless otherwise stated, these are the default values.)
         t0: 0               # seconds
