@@ -253,7 +253,7 @@ class BatoidWCSFactory:
         """WCS for converting between observed position and field angle.
         """
         cq, sq = np.cos(self.q), np.sin(self.q)
-        affine = galsim.AffineTransform(cq, -sq, sq, cq)
+        affine = galsim.AffineTransform(cq, sq, sq, -cq)
         return galsim.TanWCS(
             affine, self.obs_boresight, units=galsim.radians
         )
@@ -296,7 +296,7 @@ class BatoidWCSFactory:
         """
         return self.fiducial_telescope.withLocallyRotatedOptic(
             "LSSTCamera",
-            batoid.RotZ(-self.rotTelPos)
+            batoid.RotZ(self.rotTelPos)
         )
 
     def _field_to_focal(self, thx, thy):
@@ -318,9 +318,8 @@ class BatoidWCSFactory:
             wavelength=self.wavelength*1e-9
         )
         self._telescope.trace(rv)
-        # x -> -x to map batoid x to EDCS x.
         # x/y transpose to convert from EDCS to DVCS
-        return rv.y*1e3, -rv.x*1e3
+        return rv.y*1e3, rv.x*1e3
 
     def _focal_to_field(self, fpx, fpy):
         """
