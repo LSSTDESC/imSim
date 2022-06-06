@@ -51,18 +51,13 @@ jobs:
               run: |
                 # We need to get batoid onto conda, but for now, this is a separate step.
                 pip install batoid
+                pip install git+https://github.com/LSSTDESC/skyCatalogs.git@master
                 conda info
                 conda list
 
             - name: Install imSim
               run:
                 pip install .
-
-            - name: Install skyCatalogs
-              run: |
-                cd ..
-                git clone https://github.com/LSSTDESC/skyCatalogs.git
-                pip install skyCatalogs/
 
             - name: Install test deps
               run:
