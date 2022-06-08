@@ -1,6 +1,7 @@
 """
 Interface to obtain objects from skyCatalogs.
 """
+import os
 import numpy as np
 import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
@@ -15,9 +16,8 @@ class SkyCatalogInterface:
     # https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _eff_area = 0.25 * np.pi * 649**2  # cm^2
     def __init__(self, file_name, wcs, bandpass, obj_types=None,
-                 edge_pix=100, logger=None):
-        """
-        Parameters
+                 skycatalog_root=None, edge_pix=100, logger=None):
+        """Parameters
         ----------
         file_name : str
             Name of skyCatalogs yaml config file.
@@ -28,11 +28,16 @@ class SkyCatalogInterface:
         obj_types : list-like [None]
             List or tuple of object types to render, e.g., ('star', 'galaxy').
             If None, then consider all object types.
+        skycatalog_root : str [None]
+            Root directory containing skyCatalogs files.  If None,
+            then set skycatalog_root to the same directory containing
+            the yaml config file.
         edge_pix : float [100]
             Size in pixels of the buffer region around nominal image
             to consider objects.
         logger : logging.Logger
             Logger object.
+
         """
         logger = galsim.config.LoggerWrapper(logger)
         if obj_types is not None:
@@ -40,7 +45,10 @@ class SkyCatalogInterface:
         self.file_name = file_name
         self.wcs = wcs
         self.bandpass = bandpass
-        sky_cat = skyCatalogs.open_catalog(file_name)
+        if skycatalog_root is None:
+            skycatalog_root = os.path.dirname(os.path.abspath(file_name))
+        sky_cat = skyCatalogs.open_catalog(file_name,
+                                           skycatalog_root=skycatalog_root)
         region = skyCatalogs.Box(*get_radec_limits(wcs, logger, edge_pix)[:4])
         self.objects = sky_cat.get_objects_by_region(region,
                                                      obj_type_set=obj_types)
