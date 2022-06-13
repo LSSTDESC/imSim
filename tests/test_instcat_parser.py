@@ -121,15 +121,15 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         from InstanceCatalogs.
         """
         metadata = imsim.OpsimMetaDict(self.phosim_file)
-        self.assertAlmostEqual(metadata['rightascension'], 53.00913847303155535, 16)
-        self.assertAlmostEqual(metadata['declination'], -27.43894880881512321, 16)
+        self.assertAlmostEqual(metadata['fieldRA'], 53.00913847303155535, 16)
+        self.assertAlmostEqual(metadata['fieldDec'], -27.43894880881512321, 16)
         self.assertAlmostEqual(metadata['mjd'], 59580.13974597222113516, 16)
         self.assertAlmostEqual(metadata['altitude'], 66.34657337061349835, 16)
         self.assertAlmostEqual(metadata['azimuth'], 270.27655488919378968, 16)
         self.assertEqual(metadata['filter'], 2)
         self.assertIsInstance(metadata['filter'], int)
         self.assertEqual(metadata['band'], 'r')
-        self.assertAlmostEqual(metadata['rotskypos'], 256.7507532, 7)
+        self.assertAlmostEqual(metadata['rotSkyPos'], 256.7507532, 7)
         self.assertAlmostEqual(metadata['dist2moon'], 124.2838277, 7)
         self.assertAlmostEqual(metadata['moonalt'], -36.1323801, 7)
         self.assertAlmostEqual(metadata['moondec'], -23.4960252, 7)

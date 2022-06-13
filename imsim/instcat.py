@@ -4,6 +4,7 @@ import gzip
 import numpy as np
 import math
 import sqlite3
+import warnings
 import astropy
 import astropy.coordinates
 import astropy.units as u
@@ -587,7 +588,18 @@ class OpsimMetaDict(object):
         self.meta['fieldRA'] = self.meta['rightascension']
         self.meta['fieldDec'] = self.meta['declination']
         self.meta['rotTelPos'] = self.meta['rottelpos']
+        self.meta['rotSkyPos'] = self.meta['rotskypos']
         self.meta['observationId'] = self.meta['obshistid']
+        self.set_defaults()
+
+    def set_defaults(self):
+        # Set some default values if these aren't present in input file.
+        if 'exptime' not in self.meta:
+            self.meta['exptime'] = self.meta.get('exptime', 30)
+        if 'darkcurrent' not in self.meta:
+            # TODO: Eventually, get this from Camera object during readout (when we actually need
+            #       it), but this value is not currently available from the lsst.camera object.
+            self.meta['darkcurrent'] = self.meta.get('darkcurrent', 0)
 
     @classmethod
     def from_dict(cls, d):
@@ -598,6 +610,20 @@ class OpsimMetaDict(object):
         ret = cls.__new__(cls)
         ret.file_name = ''
         ret.meta = d
+        # If possible, add in the derived values.
+        if 'band' not in d and 'filter' in d:
+            ret.meta['band'] = 'ugrizy'[d['filter']]
+        if 'HA' not in d and 'mjd' in d and 'rightascension' in d:
+            ret.meta['HA'] = ret.getHourAngle(d['mjd'], d['rightascension'])
+        if 'rawSeeing' not in d and 'seeing' in d:
+            ret.meta['rawSeeing'] = ret.meta.pop('seeing')
+        if 'airmass' not in d and 'altitude' in d:
+            ret.meta['airmass'] = ret.getAirmass()
+        if 'FWHMeff' not in d and 'band' in d and 'rawSeeing' in d:
+            ret.meta['FWHMeff'] = ret.FWHMeff()
+        if 'FWHMgeom' not in d and 'band' in d and 'rawSeeing' in d:
+            ret.meta['FWHMgeom'] = ret.FWHMgeom()
+        ret.set_defaults()
         return ret
 
     def getAirmass(self, altitude=None):
@@ -718,7 +744,11 @@ class OpsimMetaDict(object):
 
         time = astropy.time.Time(mjd, format='mjd', location=lsst_loc)
         # Get the local apparent sidereal time.
-        last = time.sidereal_time('apparent').degree
+        with warnings.catch_warnings():
+            # Astropy likes to emit obnoxious warnings about this maybe being slightly inaccurate
+            # if the user hasn't updated to the absolute latest IERS data.  Ignore them.
+            warnings.simplefilter("ignore")
+            last = time.sidereal_time('apparent').degree
         ha = last - ra
         return ha
 

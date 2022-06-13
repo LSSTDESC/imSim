@@ -3,6 +3,7 @@ import unittest
 import astropy.time
 import numpy as np
 import pandas as pd
+import yaml
 import galsim
 import imsim
 
@@ -35,6 +36,17 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
 
         # Create the sky catalog interface object.
         skycat_file = str(DATA_DIR / 'sky_cat_9683.yaml')
+
+        # The root_directory item in the skycat_file is not portable.  Fix it in case it's wrong.
+        # TODO: Fix this API in skyCatalogs -- shouldn't require a root_directory at all.
+        #       Or at least allow runtime edits to a items in the input yaml.
+        with open(skycat_file, 'r') as fin:
+            tmp_dict = yaml.safe_load(fin)
+        tmp_dict['root_directory'] = str(DATA_DIR)
+        skycat_file = skycat_file.replace('.yaml', '_fixed.yaml')
+        with open(skycat_file, 'w') as fout:
+            yaml.dump(tmp_dict, fout)
+
         cls.skycat = imsim.SkyCatalogInterface(skycat_file, wcs, cls.bandpass,
                                                obj_types=['galaxy'])
 
