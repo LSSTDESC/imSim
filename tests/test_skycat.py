@@ -37,16 +37,6 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
         # Create the sky catalog interface object.
         skycat_file = str(DATA_DIR / 'sky_cat_9683.yaml')
 
-        # The root_directory item in the skycat_file is not portable.  Fix it in case it's wrong.
-        # TODO: Fix this API in skyCatalogs -- shouldn't require a root_directory at all.
-        #       Or at least allow runtime edits to a items in the input yaml.
-        with open(skycat_file, 'r') as fin:
-            tmp_dict = yaml.safe_load(fin)
-        tmp_dict['root_directory'] = str(DATA_DIR)
-        skycat_file = skycat_file.replace('.yaml', '_fixed.yaml')
-        with open(skycat_file, 'w') as fout:
-            yaml.dump(tmp_dict, fout)
-
         cls.skycat = imsim.SkyCatalogInterface(skycat_file, wcs, cls.bandpass,
                                                obj_types=['galaxy'])
 
@@ -81,8 +71,7 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
             obj = self.skycat.objects[index]
             galaxy_id = obj.get_native_attribute('galaxy_id')
             row = self.df.query(f'galaxy_id == {galaxy_id}').iloc[0]
-            g1, g2, mu = imsim.SkyCatalogObjectWrapper(obj, self.bandpass)\
-                              .get_wl_params()
+            g1, g2, mu = obj.get_wl_params()
             gamma1 = row['shear_1']
             gamma2 = row['shear_2']
             kappa = row['convergence']
@@ -99,8 +88,7 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
             obj = self.skycat.objects[index]
             galaxy_id = obj.get_native_attribute('galaxy_id')
             row = self.df.query(f'galaxy_id == {galaxy_id}').iloc[0]
-            iAv, iRv, gAv, gRv \
-                = imsim.SkyCatalogObjectWrapper(obj, self.bandpass).get_dust()
+            iAv, iRv, gAv, gRv = obj.get_dust()
             # For galaxies, we use the SED values that have internal
             # extinction included, so should have iAv=0, iRv=1.
             self.assertEqual(iAv, 0)
@@ -115,8 +103,7 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
             obj = self.skycat.objects[index]
             galaxy_id = obj.get_native_attribute('galaxy_id')
             row = self.df.query(f'galaxy_id == {galaxy_id}').iloc[0]
-            skycat_obj = imsim.SkyCatalogObjectWrapper(obj, self.bandpass)
-            gs_objs = skycat_obj.get_gsobject_components(None, None)
+            gs_objs = obj.get_gsobject_components(None, None)
             for component, gs_obj in gs_objs.items():
                 if component in 'disk bulge':
                     # Check sersic index
@@ -133,8 +120,7 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
             obj = self.skycat.objects[index]
             galaxy_id = obj.get_native_attribute('galaxy_id')
             row = self.df.query(f'galaxy_id == {galaxy_id}').iloc[0]
-            skycat_obj = imsim.SkyCatalogObjectWrapper(obj, self.bandpass)
-            seds = skycat_obj.get_sed_components()
+            seds = obj.get_observer_sed_components()
             for component, sed in seds.items():
                 if sed is not None:
                     self.assertEqual(sed.redshift, row['redshift'])
