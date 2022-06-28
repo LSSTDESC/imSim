@@ -28,7 +28,8 @@ class RawFileOutputTestCase(unittest.TestCase):
         opsim_md = imsim.OpsimMetaDict.from_dict(
             dict(fieldRA=31.1133844,
                  fieldDec=-10.0970060,
-                 rotSkyPos=69.0922930,
+                 rotSkyPos=146.24369132422518,
+                 rotTelPos=1.,
                  mjd=59797.2854090,
                  band='r',
                  observationId=161899,
