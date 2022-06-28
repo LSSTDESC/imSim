@@ -25,11 +25,13 @@ class InstCatTrimmerTestCase(unittest.TestCase):
         boresight = galsim.CelestialCoord(ra=obs_md['rightascension'] * galsim.degrees,
                                           dec=obs_md['declination'] * galsim.degrees)
         rotTelPos = obs_md['rottelpos'] * galsim.degrees
+        rotTelPos += 180*galsim.degrees  # We used to simulate the camera upside down.
         obstime = astropy.time.Time(obs_md['mjd'], format='mjd', scale='tai')
         band = obs_md['band']
 
         builder = imsim.BatoidWCSBuilder()
-        return builder.makeWCS(boresight, rotTelPos, obstime, det_name, band)
+        factory = builder.makeWCSFactory(boresight, rotTelPos, obstime, band)
+        return factory.getWCS(builder.camera[det_name])
 
     def test_InstCatTrimmer(self):
         """Unit test for InstCatTrimmer class."""

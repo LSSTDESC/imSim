@@ -60,6 +60,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         boresight = galsim.CelestialCoord(ra=obs_md['rightascension'] * galsim.degrees,
                                           dec=obs_md['declination'] * galsim.degrees)
         rotTelPos = obs_md['rottelpos'] * galsim.degrees
+        rotTelPos += 180*galsim.degrees  # We used to simulate the camera upside down...
         obstime = astropy.time.Time(obs_md['mjd'], format='mjd', scale='tai')
         band = obs_md['band']
         builder = imsim.BatoidWCSBuilder()
@@ -72,7 +73,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         all_wcs = {}
         for det_name in sensors:
             if det_name not in all_wcs:
-                wcs = builder.makeWCS(boresight, rotTelPos, obstime, det_name, band)
+                factory = builder.makeWCSFactory(boresight, rotTelPos, obstime, band)
+                wcs = factory.getWCS(builder.camera[det_name])
                 all_wcs[det_name] = wcs
 
         return all_wcs

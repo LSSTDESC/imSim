@@ -31,8 +31,8 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
         cls.bandpass = galsim.Bandpass(f'LSST_{cls.band}.dat',
                                        wave_type='nm').withZeropoint('AB')
         wcs_builder = imsim.BatoidWCSBuilder()
-        wcs = wcs_builder.makeWCS(boresight, rottelpos, obstime, det_name,
-                                  cls.band)
+        factory = wcs_builder.makeWCSFactory(boresight, rottelpos, obstime, cls.band)
+        wcs = factory.getWCS(wcs_builder.camera[det_name])
 
         # Create the sky catalog interface object.
         skycat_file = str(DATA_DIR / 'sky_cat_9683.yaml')

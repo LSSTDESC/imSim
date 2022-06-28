@@ -2,12 +2,13 @@ from pathlib import Path
 import numpy as np
 import batoid
 import galsim
-import lsst.afw.cameraGeom as cameraGeom
+from lsst.afw import cameraGeom
 from astropy.time import Time
 
 import imsim
 
 DATA_DIR = Path(__file__).parent / 'data'
+
 
 def sphere_dist(ra1, dec1, ra2, dec2):
     # Vectorizing CelestialCoord.distanceTo()
@@ -216,6 +217,11 @@ def test_imsim():
         rtol=0, atol=30.0,
     )
 
+    # We accidentally simulated DC2 with the camera rotated 180 degrees too far.
+    # That includes the regression test data here.  So to fix the WCS code, but
+    # still use the same regression data, we need to add 180 degrees here.
+    rotTelPos += 180 * galsim.degrees
+
     # For actual WCS check, we use a factory that _does_ know about refraction.
     factory = imsim.BatoidWCSFactory(
         boresight, rotTelPos, obstime, fiducial_telescope, wavelength,
@@ -389,13 +395,13 @@ def test_intermediate_coord_sys():
         rtol=0, atol=1e-10
     )
     # Now decrease zenith angle, so moves higher in the sky.
-    # thx should stay the same and thy should increase.
+    # thx should stay the same and thy should decrease.
     dz = 0.001
     rc, dc = factory._observed_az_to_ICRF(aob, zob-dz)
     rob, dob = factory._ICRF_to_observed(rc, dc)
     thx, thy = factory._observed_to_field(rob, dob)
     np.testing.assert_allclose(thx, 0.0, rtol=0, atol=1e-14)
-    np.testing.assert_allclose(thy, dz, rtol=0, atol=1e-8)
+    np.testing.assert_allclose(thy, -dz, rtol=0, atol=1e-8)
 
     # Now increase azimuth angle, so moves towards the ground East.  What happens to thx, thy?
     dz = 0.001
@@ -600,8 +606,3 @@ def test_config():
     np.testing.assert_raises(NotImplementedError,
                              galsim.config.BuildWCS, config['image'], 'wcs', config)
 
-if __name__ == "__main__":
-    test_wcs_fit()
-    test_imsim()
-    test_intermediate_coord_sys()
-    test_config()
