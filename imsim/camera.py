@@ -211,13 +211,13 @@ def get_camera(camera='LsstCam'):
     ----------
     camera : str
        The class name of the LSST camera object. Valid names
-       are 'LsstCam', 'LsstComCam'. [default: 'LsstCam']
+       are 'LsstCam', 'LsstComCam', 'LsstCamImSim'. [default: 'LsstCam']
 
     Returns
     -------
     lsst.afw.cameraGeom.Camera
     """
-    valid_cameras = ('LsstCam', 'LsstComCam')
+    valid_cameras = ('LsstCam', 'LsstComCam', 'LsstCamImSim')
     if camera not in valid_cameras:
         raise ValueError('Invalid camera: %s', camera)
     if camera not in _camera_cache:

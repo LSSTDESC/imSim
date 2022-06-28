@@ -259,7 +259,12 @@ class CameraReadout(ExtraOutputBuilder):
         det_name = base['det_name']
         channels = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
         x_seg_offset = (1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1)
-        y_seg_offset = (0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2)
+        if camera_name == 'LsstCamImSim':
+            y_seg_offset = (0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2)
+            cd_matrix_sign = -1
+        else:
+            y_seg_offset = (2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0)
+            cd_matrix_sign = 1
         wcs = main_data[0].wcs
         crpix1, crpix2 = wcs.crpix
 
@@ -295,10 +300,10 @@ class CameraReadout(ExtraOutputBuilder):
             height, width = raw_data_bounds.numpyShape()
             hdu.header['CRPIX1'] = xsign*crpix1 + x_seg_offset[amp_num]*width
             hdu.header['CRPIX2'] = ysign*crpix2 + y_seg_offset[amp_num]*height
-            hdu.header['CD1_2'] *= -xsign
-            hdu.header['CD2_2'] *= -xsign
-            hdu.header['CD1_1'] *= -ysign
-            hdu.header['CD2_1'] *= -ysign
+            hdu.header['CD1_2'] *= cd_matrix_sign*xsign
+            hdu.header['CD2_2'] *= cd_matrix_sign*xsign
+            hdu.header['CD1_1'] *= cd_matrix_sign*ysign
+            hdu.header['CD2_1'] *= cd_matrix_sign*ysign
             hdu.header['DATASEC'] = section_keyword(raw_data_bounds)
             hdu.header['DETSEC'] = section_keyword(amp_info.bounds,
                                                    flipx=amp_info.raw_flip_x,
