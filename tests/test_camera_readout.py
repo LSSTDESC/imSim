@@ -6,6 +6,8 @@ from pathlib import Path
 import itertools
 import unittest
 import astropy.io.fits as fits
+import lsst.geom
+from lsst.obs.base import createInitialSkyWcsFromBoresight
 import imsim
 import galsim
 
@@ -140,6 +142,47 @@ class ImageSourceTestCase(unittest.TestCase):
         readout.writeFile(outfile, self.readout_config, self.config, self.logger)
         with fits.open(outfile) as hdus:
             self.assertEqual(hdus[0].header['FILTER'], 'r')
+
+
+def sky_coord(ra, dec, units=lsst.geom.degrees):
+    """Sky coordinate object in Rubin DM code."""
+    return lsst.geom.SpherePoint(lsst.geom.Angle(ra, units),
+                                 lsst.geom.Angle(dec, units))
+
+
+def test_compute_rotSkyPos():
+    ra0 = 54.9348753510528
+    dec0 = -35.8385705255579
+    rottelpos = 341.776422048124
+    obsmjd = 60232.3635999295
+    band = 'i'
+    camera_name = 'LsstCamImSim'
+    detector = 94
+
+    batoid_wcs = imsim.readout.make_batoid_wcs(ra0, dec0, rottelpos, obsmjd,
+                                               band, camera_name)
+
+    # Undo the sign change and 90 deg rotation needed for
+    # compatibility with the imsim config in
+    # astro_metadata_translator.
+    rotSkyPos = 90 - imsim.readout.compute_rotSkyPos(ra0, dec0, rottelpos,
+                                                     obsmjd, band,
+                                                     camera_name=camera_name)
+
+    boresight = sky_coord(ra0, dec0)
+    orientation = lsst.geom.Angle(rotSkyPos, lsst.geom.degrees)
+    camera = imsim.get_camera(camera_name)
+
+    lsst_wcs = createInitialSkyWcsFromBoresight(boresight, orientation,
+                                                camera[detector])
+
+    value = 0
+    for x, y in ((0, 0), (4000, 0), (4000, 4000), (0, 4000)):
+        ra, dec = batoid_wcs.xyToradec(x, y, units='degrees')
+        batoid_coord = sky_coord(ra, dec)
+        lsst_coord = lsst_wcs.pixelToSky(x, y)
+        value += batoid_coord.separation(lsst_coord).asDegrees()*3600./0.2
+    assert(value < 5.)
 
 
 if __name__ == '__main__':
