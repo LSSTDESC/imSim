@@ -75,6 +75,7 @@ class LSST_FlatBuilder(ImageBuilder):
             a blank image and the current noise variance in the image (=0) as a tuple
         """
         image = galsim.ImageF(self.xsize, self.ysize, wcs=base['wcs'])
+        base['image_type'] = 'FLAT'
         return image, 0
 
     def addNoise(self, image, config, base, image_num, obj_num, current_var, logger):

@@ -9,6 +9,7 @@ import galsim
 from galsim.config import ExtraOutputBuilder, RegisterExtraOutput
 from .bleed_trails import bleed_eimage
 from .camera import Camera
+from .instcat import OpsimMetaDict
 from ._version import __version__
 
 def section_keyword(bounds, flipx=False, flipy=False):
@@ -70,8 +71,8 @@ def get_primary_hdu(opsim_md, det_name, lsst_num='LCA-11021_RTM-000', image_type
     """Create a primary HDU for the output raw file with the keywords
     needed to process with the LSST Stack."""
     phdu = fits.PrimaryHDU()
-    phdu.header['RUNNUM'] = opsim_md.get('observationId')
-    phdu.header['OBSID'] = opsim_md.get('observationId')
+    phdu.header['RUNNUM'] = opsim_md.get('observationId', 'N/A')
+    phdu.header['OBSID'] = opsim_md.get('observationId', 'N/A')
     exp_time = opsim_md.get('exptime')
     phdu.header['EXPTIME'] = exp_time
     phdu.header['DARKTIME'] = exp_time
@@ -85,23 +86,25 @@ def get_primary_hdu(opsim_md, det_name, lsst_num='LCA-11021_RTM-000', image_type
     raft, sensor = det_name.split('_')
     phdu.header['RAFTNAME'] = raft
     phdu.header['SENSNAME'] = sensor
-    ratel = opsim_md.get('fieldRA')
+    ratel = opsim_md.get('fieldRA', 'N/A')
     phdu.header['RATEL'] = ratel
-    phdu.header['DECTEL'] = opsim_md.get('fieldDec')
-    phdu.header['ROTANGLE'] = opsim_md.get('rotSkyPos')
-    mjd_obs = opsim_md.get('mjd')
-    mjd_end = mjd_obs + exp_time/86400.
+    phdu.header['DECTEL'] = opsim_md.get('fieldDec', 'N/A')
+    phdu.header['ROTANGLE'] = opsim_md.get('rotSkyPos', 'N/A')
+    mjd_obs = opsim_md.get('mjd', 'N/A')
     phdu.header['MJD-OBS'] = mjd_obs
-    phdu.header['HASTART'] = opsim_md.getHourAngle(mjd_obs, ratel)
-    phdu.header['HAEND'] = opsim_md.getHourAngle(mjd_end, ratel)
-    phdu.header['AMSTART'] = opsim_md.get('airmass')
+    if mjd_obs != 'N/A':
+        mjd_end = mjd_obs + exp_time/86400.
+        phdu.header['DATE-OBS'] = Time(mjd_obs, format='mjd', scale='tai').to_value('isot')
+        phdu.header['DATE-END'] = Time(mjd_end, format='mjd', scale='tai').to_value('isot')
+    if mjd_obs != 'N/A' and ratel != 'N/A':
+        phdu.header['HASTART'] = opsim_md.getHourAngle(mjd_obs, ratel)
+        phdu.header['HAEND'] = opsim_md.getHourAngle(mjd_end, ratel)
+    phdu.header['AMSTART'] = opsim_md.get('airmass', 'N/A')
     phdu.header['AMEND'] = phdu.header['AMSTART']  # XXX: This is not correct. Does anyone care?
     phdu.header['IMSIMVER'] = __version__
     phdu.header['PKG00000'] = 'throughputs'
     phdu.header['VER00000'] = '1.4'
     phdu.header['CHIPID'] = det_name
-    phdu.header['DATE-OBS'] = Time(mjd_obs, format='mjd', scale='tai').to_value('isot')
-    phdu.header['DATE-END'] = Time(mjd_end, format='mjd', scale='tai').to_value('isot')
 
     phdu.header.update(added_keywords)
     return phdu
@@ -129,7 +132,8 @@ class CcdReadout:
             'pcti': float,
             'scti': float,
         }
-        params = galsim.config.GetAllParams(config, base, req=req)[0]
+        ignore=['filter']
+        params = galsim.config.GetAllParams(config, base, req=req, ignore=ignore)[0]
         self.readout_time = params['readout_time']
         self.dark_current = params['dark_current']
         self.bias_level = params['bias_level']
@@ -251,11 +255,6 @@ class CameraReadout(ExtraOutputBuilder):
         """
         logger.warning("Making amplifier images")
 
-        if '_input_objs' not in base or 'opsim_meta_dict' not in base['_input_objs']:
-            raise galsim.config.GalSimConfigError(
-                "The readout extra output requires the opsim_meta_dict input object")
-        opsim_md = galsim.config.GetInputObj('opsim_meta_dict', config, base, 'readout')
-
         ccd_readout = CcdReadout(config, base)
         amps = ccd_readout.build_images(config, base, main_data)
         det_name = base['det_name']
@@ -264,7 +263,23 @@ class CameraReadout(ExtraOutputBuilder):
         y_seg_offset = (0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2)
         wcs = main_data[0].wcs
         crpix1, crpix2 = wcs.crpix
-        hdus = fits.HDUList(get_primary_hdu(opsim_md, det_name))
+
+        # If we don't have an OpsimMeta, then skip some header items.
+        # E.g. when reading out flat field images, most of these don't apply.
+        # The only exception is filter, which we look for in config and use that if present.
+        try:
+            opsim_md = galsim.config.GetInputObj('opsim_meta_dict', config, base,
+                                                 'CameraReadout')
+        except galsim.GalSimConfigError:
+            filt = config.get('filter', 'N/A')
+            opsim_md = OpsimMetaDict.from_dict(
+                dict(band=filt,
+                     exptime = base['exp_time']
+                     )
+            )
+        # FlatBuilder overrides this
+        image_type = base.get('image_type', 'SKYEXP')
+        hdus = fits.HDUList(get_primary_hdu(opsim_md, det_name, image_type=image_type))
         for amp_num, amp in enumerate(amps):
             channel = 'C' + channels[amp_num]
             amp_info = ccd_readout.ccd[channel]
