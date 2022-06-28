@@ -716,7 +716,7 @@ class OpsimMetaDict(object):
 
     def get(self, field, default=None):
         if field not in self.meta and default is None:
-            raise ValueError("OpsimMeta field %s not present in instance catalog"%field)
+            raise KeyError("OpsimMeta field %s not present in instance catalog"%field)
         return self.meta.get(field, default)
 
     def getHourAngle(self, mjd, ra):
