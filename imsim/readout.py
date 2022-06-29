@@ -72,7 +72,7 @@ def get_primary_hdu(opsim_md, det_name, lsst_num='LCA-11021_RTM-000', image_type
     needed to process with the LSST Stack."""
     phdu = fits.PrimaryHDU()
     phdu.header['RUNNUM'] = opsim_md.get('observationId', 'N/A')
-    phdu.header['OBSID'] = opsim_md.get('observationId', 'N/A')
+    phdu.header['OBSID'] = opsim_md.get('observationId', -999)
     exp_time = opsim_md.get('exptime')
     phdu.header['EXPTIME'] = exp_time
     phdu.header['DARKTIME'] = exp_time
@@ -86,17 +86,16 @@ def get_primary_hdu(opsim_md, det_name, lsst_num='LCA-11021_RTM-000', image_type
     raft, sensor = det_name.split('_')
     phdu.header['RAFTNAME'] = raft
     phdu.header['SENSNAME'] = sensor
-    ratel = opsim_md.get('fieldRA', 'N/A')
+    ratel = opsim_md.get('fieldRA', 0.)
     phdu.header['RATEL'] = ratel
-    phdu.header['DECTEL'] = opsim_md.get('fieldDec', 'N/A')
-    phdu.header['ROTANGLE'] = opsim_md.get('rotSkyPos', 'N/A')
-    mjd_obs = opsim_md.get('mjd', 'N/A')
+    phdu.header['DECTEL'] = opsim_md.get('fieldDec', 0.)
+    phdu.header['ROTANGLE'] = opsim_md.get('rotSkyPos', 0.)
+    mjd_obs = opsim_md.get('mjd', 99999)
     phdu.header['MJD-OBS'] = mjd_obs
-    if mjd_obs != 'N/A':
+    if mjd_obs != 99999:
         mjd_end = mjd_obs + exp_time/86400.
         phdu.header['DATE-OBS'] = Time(mjd_obs, format='mjd', scale='tai').to_value('isot')
         phdu.header['DATE-END'] = Time(mjd_end, format='mjd', scale='tai').to_value('isot')
-    if mjd_obs != 'N/A' and ratel != 'N/A':
         phdu.header['HASTART'] = opsim_md.getHourAngle(mjd_obs, ratel)
         phdu.header['HAEND'] = opsim_md.getHourAngle(mjd_end, ratel)
     phdu.header['AMSTART'] = opsim_md.get('airmass', 'N/A')
