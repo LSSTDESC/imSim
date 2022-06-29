@@ -122,7 +122,7 @@ class ImageSourceTestCase(unittest.TestCase):
         with fits.open(outfile) as hdus:
             self.assertEqual(hdus[0].header['IMSIMVER'], imsim.__version__)
             self.assertEqual(hdus[0].header['FILTER'], 'N/A')
-            self.assertEqual(hdus[0].header['MJD-OBS'], 99999)
+            self.assertEqual(hdus[0].header['MJD-OBS'], 51544)
         os.remove(outfile)
 
         # Filter is option in the readout section to show up in the header.
