@@ -11,6 +11,5 @@ testpaths = [
 addopts = """
 --ignore=tests/test_skyModel.py
 --ignore=tests/test_get_stack_products.py
---ignore=tests/test_flats.py
 --ignore=tests/test_imageSimulator.py
 """

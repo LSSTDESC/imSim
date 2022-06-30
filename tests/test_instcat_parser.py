@@ -97,6 +97,13 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertAlmostEqual(md['band'], 'z')
         self.assertAlmostEqual(md['exptime'], 15)
 
+        # KeyError if key is invalid, unless using get with default (just like a dict)
+        with np.testing.assert_raises(KeyError):
+            md['exp_time']
+        with np.testing.assert_raises(KeyError):
+            md.get('exp_time')
+        assert md.get('exp_time', 15) == 15
+
     def test_required_commands_error(self):
         """
         Test that an error is raised if required commands are

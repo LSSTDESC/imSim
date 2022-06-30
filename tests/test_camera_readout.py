@@ -94,6 +94,53 @@ class ImageSourceTestCase(unittest.TestCase):
             self.assertEqual(hdus[0].header['IMSIMVER'], imsim.__version__)
         os.remove(outfile)
 
+    def test_no_opsim(self):
+        "Test running readout without OpsimMeta (e.g. for flats)"
+        outfile = 'raw_no_opsim_test.fits'
+        config = {  # Same as above, but no input field.
+            'image': {'random_seed': 1234},
+            'output': {
+                'readout' : {
+                    'file_name': 'amp.fits',
+                    'readout_time': 3,
+                    'dark_current': 0.02,
+                    'bias_level': 1000.,
+                    'pcti': 1.e-6,
+                    'scti': 1.e-6,
+                }
+            },
+            'index_key': 'image_num',
+            'image_num': 0,
+            'det_name': 'R20_S00',
+            'exp_time': 30,
+        }
+        readout = imsim.CameraReadout()
+        readout_config = config['output']['readout']
+        readout.initialize(None,None, readout_config, config, self.logger)
+        readout.ensureFinalized(readout_config, config, [self.image], self.logger)
+        readout.writeFile(outfile, self.readout_config, self.config, self.logger)
+        with fits.open(outfile) as hdus:
+            self.assertEqual(hdus[0].header['IMSIMVER'], imsim.__version__)
+            self.assertEqual(hdus[0].header['FILTER'], 'N/A')
+            self.assertEqual(hdus[0].header['MJD-OBS'], 51544)
+        os.remove(outfile)
+
+        # Filter is option in the readout section to show up in the header.
+        readout_config['filter'] = 'r'
+        readout.initialize(None,None, readout_config, config, self.logger)
+        readout.ensureFinalized(readout_config, config, [self.image], self.logger)
+        readout.writeFile(outfile, self.readout_config, self.config, self.logger)
+        with fits.open(outfile) as hdus:
+            self.assertEqual(hdus[0].header['FILTER'], 'r')
+
+        # Make sure it parses it, not just gets it.
+        readout_config['filter'] = '$"Happy Birthday!"[8]'
+        readout.initialize(None,None, readout_config, config, self.logger)
+        readout.ensureFinalized(readout_config, config, [self.image], self.logger)
+        readout.writeFile(outfile, self.readout_config, self.config, self.logger)
+        with fits.open(outfile) as hdus:
+            self.assertEqual(hdus[0].header['FILTER'], 'r')
+
 
 if __name__ == '__main__':
     unittest.main()
