@@ -133,6 +133,14 @@ class ImageSourceTestCase(unittest.TestCase):
         with fits.open(outfile) as hdus:
             self.assertEqual(hdus[0].header['FILTER'], 'r')
 
+        # Make sure it parses it, not just gets it.
+        readout_config['filter'] = '$"Happy Birthday!"[8]'
+        readout.initialize(None,None, readout_config, config, self.logger)
+        readout.ensureFinalized(readout_config, config, [self.image], self.logger)
+        readout.writeFile(outfile, self.readout_config, self.config, self.logger)
+        with fits.open(outfile) as hdus:
+            self.assertEqual(hdus[0].header['FILTER'], 'r')
+
 
 if __name__ == '__main__':
     unittest.main()

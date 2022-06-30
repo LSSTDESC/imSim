@@ -270,7 +270,10 @@ class CameraReadout(ExtraOutputBuilder):
             opsim_md = galsim.config.GetInputObj('opsim_meta_dict', config, base,
                                                  'CameraReadout')
         except galsim.GalSimConfigError:
-            filt = config.get('filter', 'N/A')
+            if 'filter' in config:
+                filt = galsim.config.ParseValue(config, 'filter', base, str)[0]
+            else:
+                filt = 'N/A'
             opsim_md = OpsimMetaDict.from_dict(
                 dict(band=filt,
                      exptime = base['exp_time']
