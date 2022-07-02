@@ -21,7 +21,7 @@ _rotSkyPos_cache = {}
 def make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name,
                     logger=None):
     """
-    Create a WCS object from Opsim parameters for the center
+    Create a WCS object from Opsim db parameters for the center
     science CCD.
 
     Parameters

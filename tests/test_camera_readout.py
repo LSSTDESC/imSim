@@ -151,6 +151,14 @@ def sky_coord(ra, dec, units=lsst.geom.degrees):
 
 
 def test_compute_rotSkyPos():
+    """
+    Test rotSkyPos (= ROTANGLE in FITS header) calculation.  This
+    angle is used by LSST code to find the initial WCS from raw
+    images.
+    """
+    # Pointing info for observationId=11873 from the
+    # baseline_v2.0_10yrs.db cadence file at
+    # http://astro-lsst-01.astro.washington.edu:8080/
     ra0 = 54.9348753510528
     dec0 = -35.8385705255579
     rottelpos = 341.776422048124
@@ -162,13 +170,15 @@ def test_compute_rotSkyPos():
     batoid_wcs = imsim.readout.make_batoid_wcs(ra0, dec0, rottelpos, obsmjd,
                                                band, camera_name)
 
-    # Undo the sign change and 90 deg rotation needed for
-    # compatibility with the imsim config in
+    # Compute rotSkyPos and undo the sign change and 90 deg rotation
+    # needed for compatibility with the imsim config in
     # astro_metadata_translator.
     rotSkyPos = 90 - imsim.readout.compute_rotSkyPos(ra0, dec0, rottelpos,
                                                      obsmjd, band,
                                                      camera_name=camera_name)
 
+    # Create an initial WCS using the LSST code, given the boresight
+    # direction and computed rotSkyPos value.
     boresight = sky_coord(ra0, dec0)
     orientation = lsst.geom.Angle(rotSkyPos, lsst.geom.degrees)
     camera = imsim.get_camera(camera_name)
@@ -176,12 +186,17 @@ def test_compute_rotSkyPos():
     lsst_wcs = createInitialSkyWcsFromBoresight(boresight, orientation,
                                                 camera[detector])
 
+    # Compare coordinates for locations on the CCD near each corner
+    # and compute the sum of the offsets between WCSs in pixel units.
     value = 0
     for x, y in ((0, 0), (4000, 0), (4000, 4000), (0, 4000)):
         ra, dec = batoid_wcs.xyToradec(x, y, units='degrees')
         batoid_coord = sky_coord(ra, dec)
         lsst_coord = lsst_wcs.pixelToSky(x, y)
         value += batoid_coord.separation(lsst_coord).asDegrees()*3600./0.2
+
+    # Check that the summed offsets are less than about 1 pixel per
+    # location.
     assert(value < 5.)
 
 
