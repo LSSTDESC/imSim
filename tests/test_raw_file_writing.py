@@ -48,9 +48,13 @@ class RawFileOutputTestCase(unittest.TestCase):
         hdr = hdu.header
 
         # Test some keywords.
-        self.assertAlmostEqual(hdr['RATEL'], opsim_md['fieldRA'])
-        self.assertAlmostEqual(hdr['DECTEL'], opsim_md['fieldDec'])
-        self.assertAlmostEqual(hdr['ROTANGLE'], opsim_md['rotSkyPos'])
+        if hdr.get('TESTTYPE', None) == 'IMSIM':
+            self.assertAlmostEqual(hdr['RATEL'], opsim_md['fieldRA'])
+            self.assertAlmostEqual(hdr['DECTEL'], opsim_md['fieldDec'])
+        else:  # All other cameras, e.g., LsstCam, LsstComCam, etc..
+            self.assertAlmostEqual(hdr['RA'], opsim_md['fieldRA'])
+            self.assertAlmostEqual(hdr['DEC'], opsim_md['fieldDec'])
+        self.assertAlmostEqual(hdr['ROTANGLE'], opsim_md['rotSkyPos'], places=5)
         self.assertEqual(hdr['CHIPID'], det_name)
 
         # Ensure the following keywords are set.
