@@ -198,26 +198,39 @@ def get_primary_hdu(opsim_md, det_name, lsst_num='LCA-11021_RTM-000', image_type
     phdu = fits.PrimaryHDU()
     phdu.header['RUNNUM'] = opsim_md.get('observationId', 'N/A')
     phdu.header['OBSID'] = opsim_md.get('observationId', -999)
+    date = Time(opsim_md.get('mjd', 51544), format='mjd')
+    phdu.header['DATE'] = date.isot
+    phdu.header['MJD'] = date.mjd
+    phdu.header['DAYOBS'] = date.strftime('%Y%m%d')
+    phdu.header['SEQNUM'] = opsim_md.get('seqnum', 0)
     exp_time = opsim_md.get('exptime')
     phdu.header['EXPTIME'] = exp_time
     phdu.header['DARKTIME'] = exp_time
     phdu.header['TIMESYS'] = 'TAI'
     phdu.header['LSST_NUM'] = lsst_num
-    phdu.header['TESTTYPE'] = 'IMSIM'
     phdu.header['IMGTYPE'] = image_type
     phdu.header['OBSTYPE'] = image_type
     phdu.header['MONOWL'] = -1
     raft, sensor = det_name.split('_')
-    phdu.header['RAFTNAME'] = raft
-    phdu.header['SENSNAME'] = sensor
     ratel = opsim_md.get('fieldRA', 0.)
     dectel = opsim_md.get('fieldDec', 0.)
     rottelpos = opsim_md.get('rotTelPos', 0.)
     band = opsim_md.get('band')
-    mjd_obs = opsim_md.get('mjd', 51544)  # Jan 1, 2000.  I.e. not real.
+    mjd_obs = opsim_md.get('observationStartMJD', 51544)  # Jan 1, 2000.  I.e. not real.
     mjd_end = mjd_obs + exp_time/86400.
-    phdu.header['RATEL'] = ratel
-    phdu.header['DECTEL'] = dectel
+    if camera_name == 'LsstCamImSim':
+        phdu.header['TESTTYPE'] = 'IMSIM'
+        phdu.header['RAFTNAME'] = raft
+        phdu.header['SENSNAME'] = sensor
+        phdu.header['RATEL'] = ratel
+        phdu.header['DECTEL'] = dectel
+    else:
+        phdu.header['INSTRUME'] = 'LSSTCam'
+        phdu.header['RAFTBAY'] = raft
+        phdu.header['CCDSLOT'] = sensor
+        phdu.header['RA'] = ratel
+        phdu.header['DEC'] = dectel
+        phdu.header['ROTCOORD'] = 'sky'
     # Compute rotSkyPos instead of using likely inconsistent values
     # from the instance catalog or opsim db.
     phdu.header['ROTANGLE'] = compute_rotSkyPos(

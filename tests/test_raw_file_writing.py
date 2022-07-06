@@ -30,7 +30,7 @@ class RawFileOutputTestCase(unittest.TestCase):
                  fieldDec=-10.0970060,
                  rotSkyPos=146.24369132422518,
                  rotTelPos=1.,
-                 mjd=59797.2854090,
+                 observationStartMJD=59797.2854090,
                  band='r',
                  observationId=161899,
                  FWHMgeom=0.7,
