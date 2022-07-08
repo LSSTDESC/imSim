@@ -160,6 +160,7 @@ def SkyCatObj(config, base, ignore, gsparams, logger):
     exp_time = base.get('exp_time', None)
 
     obj = skycat.getObj(index, gsparams=gsparams, rng=rng, exp_time=exp_time)
+    base['object_id'] = skycat.objects[index].id
 
     return obj, safe
 
