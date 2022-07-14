@@ -18,6 +18,7 @@ $$ p(\tan(\phi_d)) = \frac{1}{\sqrt{2\pi} \phi^\ast} \exp\left[-\frac{1}{2} \lef
 Probability for the diffraction angle $\phi_d$ in terms of
 
 $$ \phi^* = \tan^{-1}\left( \frac{1}{2k \delta} \right), $$
+
 where
 $k = \frac{2\pi}{\lambda}$
 and $\delta$ is the distance to the aperture edge.
