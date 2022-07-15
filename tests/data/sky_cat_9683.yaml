@@ -7,7 +7,6 @@ area_partition :
 skycatalog_root: ./tests/data
 catalog_dir: .
 SED_models :
-  -
     tophat :
        units : angstrom
        bin_parameters : [start, width]
