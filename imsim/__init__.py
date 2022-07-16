@@ -16,3 +16,4 @@ from .skycat import *
 from .templates import *
 from .photon_ops import *
 from .flat import *
+from .sky_model import *

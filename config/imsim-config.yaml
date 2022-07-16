@@ -39,6 +39,12 @@ input:
         visit: 19500
         snap: 1
 
+    sky_model:
+        # Use the rubin_sim.skybrightness model to compute the sky
+        # background level.
+        exptime: { type: OpsimMeta, field: exptime }
+        mjd: { type: OpsimMeta, field: mjd }
+
     atm_psf:
         # This enables the AtmosphericPSF type for the PSF
 
@@ -132,8 +138,7 @@ image:
         gain: 1
         read_noise: 0  # The read noise is applied later.  Only sky noise here.
 
-    # TODO: Port the skyModel code from imsim  (Currently uses lsst.sims)
-    sky_level: 500  # ADU / arcsec**2
+    sky_level: { type: sky_level }  # Computed from input.sky_model.
 
     use_flux_sky_areas: False   # This means don't bother with the BFE from sky flux when computing
                                 # the pixel areas for drawing the sky.
