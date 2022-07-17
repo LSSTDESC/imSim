@@ -31,8 +31,7 @@ class LSST_CCDBuilder(OutputBuilder):
         base['det_name'] = det_name
         if 'eval_variables' not in base:
             base['eval_variables'] = {}
-        if 'sdet_name' not in base['eval_variables']:
-            base['eval_variables']['sdet_name'] = det_name
+        base['eval_variables']['sdet_name'] = det_name
 
         base['exp_time'] = float(config.get('exp_time', 30))
 
