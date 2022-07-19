@@ -14,6 +14,7 @@ def test_sky_model():
     # http://astro-lsst-01.astro.washington.edu:8080/
     ra = 54.9348753510528
     dec = -35.8385705255579
+    skyCoord = galsim.CelestialCoord(ra*galsim.degrees, dec*galsim.degrees)
     mjd = 60232.3635999295
     exptime = 30.
 
@@ -29,6 +30,6 @@ def test_sky_model():
     for band in 'ugrizy':
         bandpass = galsim.Bandpass(f'LSST_{band}.dat', wave_type='nm')
         sky_model = SkyModel(exptime, mjd, bandpass)
-        sky_level = sky_model.get_sky_level(ra, dec)
+        sky_level = sky_model.get_sky_level(skyCoord)
         np.testing.assert_approx_equal(sky_level, expected_sky_levels[band],
                                        significant=5)

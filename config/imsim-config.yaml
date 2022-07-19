@@ -138,7 +138,7 @@ image:
         gain: 1
         read_noise: 0  # The read noise is applied later.  Only sky noise here.
 
-    sky_level: { type: sky_level }  # Computed from input.sky_model.
+    sky_level: { type: SkyLevel }  # Computed from input.sky_model.
 
     use_flux_sky_areas: False   # This means don't bother with the BFE from sky flux when computing
                                 # the pixel areas for drawing the sky.

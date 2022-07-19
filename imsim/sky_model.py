@@ -38,17 +38,15 @@ class SkyModel:
         self.logger = logger
         self._rubin_sim_sky_model = skybrightness.SkyModel()
 
-    def get_sky_level(self, ra, dec):
+    def get_sky_level(self, skyCoord):
         """
         Return the sky level in units of photons/arcsec^2 at the
-        specified coordinates.
+        specified coordinate.
 
         Parameters
         ----------
-        ra : `float`
-            Right Ascension in degrees.
-        dec : `float`
-            Declination in degrees.
+        skyCoord : `galsim.CelestialCoord`
+            Sky coordinate at which to compute the sky background level.
 
         Returns
         -------
@@ -62,7 +60,8 @@ class SkyModel:
         with warnings.catch_warnings():
             # Silence astropy IERS warnings.
             warnings.simplefilter('ignore')
-            rubin_sim_sky_model.setRaDecMjd(ra, dec, self.mjd, degrees=True)
+            rubin_sim_sky_model.setRaDecMjd(skyCoord.ra.deg, skyCoord.dec.deg,
+                                            self.mjd, degrees=True)
 
         # Compute the flux in units of photons/cm^2/s/arcsec^2
         wave, spec = rubin_sim_sky_model.returnWaveSpec()
@@ -75,7 +74,8 @@ class SkyModel:
 
         if self.logger is not None:
             self.logger.info("Setting sky level to %.2f photons/arcsec^2 "
-                             "at (ra, dec) = (%s, %s)", value, ra, dec)
+                             "at (ra, dec) = %s, %s", value,
+                             skyCoord.ra.deg, skyCoord.dec.deg)
         return value
 
 
@@ -93,21 +93,19 @@ class SkyModelLoader(InputLoader):
         return kwargs, safe
 
 
-def sky_level(config, base, value_type):
+def SkyLevel(config, base, value_type):
     """
     Use the rubin_sim skybrightness model to return the sky level in
-    photons/arcsec^2 at the center of the current WCS.
+    photons/arcsec^2 at the center of the image.
     """
-    sky_model = galsim.config.GetInputObj('sky_model', config, base, 'sky_level')
+    sky_model = galsim.config.GetInputObj('sky_model', config, base, 'SkyLevel')
 
     kwargs, safe = galsim.config.GetAllParams(config, base)
 
-    wcs = galsim.config.BuildWCS(base['image'], 'wcs', base)
-    value = sky_model.get_sky_level(wcs.center.ra/galsim.degrees,
-                                    wcs.center.dec/galsim.degrees)
+    value = sky_model.get_sky_level(base['world_center'])
 
     return value, safe
 
 
 RegisterInputType('sky_model', SkyModelLoader(SkyModel, takes_logger=True))
-RegisterValueType('sky_level', sky_level, [float], input_type='sky_model')
+RegisterValueType('SkyLevel', SkyLevel, [float], input_type='sky_model')
