@@ -4,7 +4,6 @@ import warnings
 import numpy as np
 import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
-from rubin_sim import skybrightness
 
 
 RUBIN_AREA = 0.25 * np.pi * 649**2  # cm^2
@@ -31,6 +30,7 @@ class SkyModel:
         logger : `logging.Logger`
             Logger object.
         """
+        from rubin_sim import skybrightness
         self.exptime = exptime
         self.mjd = mjd
         self.eff_area = eff_area
