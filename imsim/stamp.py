@@ -76,7 +76,11 @@ class LSST_SiliconBuilder(StampBuilder):
             base['current_noise_image'] = base['current_image']
             noise_var = galsim.config.CalculateNoiseVariance(base)
             folding_threshold = noise_var/self.realized_flux
-            if folding_threshold >= self._ft_default:
+            if folding_threshold >= self._ft_default or folding_threshold == 0:
+                # a) Don't gratuitously raise folding_threshold above the normal default.
+                # b) If sky_level = 0, then folding_threshold=0.  This is bad (stepk=0 below),
+                #    but if the user is doing this to avoid sky noise, then they probably care about
+                #    other things than detailed large-scale behavior of very bright stars.
                 gsparams = None
             else:
                 # Every different folding threshold requires a new initialization of Kolmogorov,
