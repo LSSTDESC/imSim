@@ -63,7 +63,7 @@ input:
         airmass: { type: OpsimMeta, field: airmass }
         rawSeeing:  { type: OpsimMeta, field: rawSeeing }
         band:  { type: OpsimMeta, field: band }
-        boresight:  "$boresight"
+        boresight: "$boresight"
 
         # Optional parameters:  (Unless otherwise stated, these are the default values.)
         t0: 0               # seconds
@@ -114,7 +114,7 @@ image:
 
         # These are required:
         camera: "@output.camera"
-        boresight:  "$boresight"
+        boresight: "$boresight"
         rotTelPos:
             type: Degrees
             theta: { type: OpsimMeta, field: rotTelPos }
@@ -209,7 +209,7 @@ stamp:
             type: lsst_optics
             telescope: LSST
             band: { type: OpsimMeta, field: band }
-            boresight:  "$boresight"
+            boresight: "$boresight"
         -
             # Note: If FocusDepth is before Refraction, then the depth is the amount of focus
             #       change required relative to the rays coming to a focus at the surface.
