@@ -517,7 +517,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                               [34307989098524, 811883374597, 34304522113056]])
 
         # Note: these used to be skipped for having dust=none in one or both components, but
-        # we now allow them and treat them as Av=0, Rv=1:
+        # we now allow them and treat them as Av=0, Rv=3.1:
         #    811883374596, 956090392580, 34307989098523,
         # cf. Issue #213
 

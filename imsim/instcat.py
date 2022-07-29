@@ -331,7 +331,7 @@ class InstCatalog(object):
             params = params[3:]
         else:
             internal_av = 0.
-            internal_rv = 1.
+            internal_rv = 3.1
             params = params[1:]
 
         if params[0].lower() != 'none':
@@ -339,7 +339,7 @@ class InstCatalog(object):
             galactic_rv = float(params[2])
         else:
             galactic_av = 0.
-            galactic_rv = 1.
+            galactic_rv = 3.1
 
         return internal_av, internal_rv, galactic_av, galactic_rv
 
