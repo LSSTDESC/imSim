@@ -7,10 +7,135 @@ from astropy.io import fits
 from astropy.time import Time
 import galsim
 from galsim.config import ExtraOutputBuilder, RegisterExtraOutput
+from lsst.afw import cameraGeom
+import lsst.obs.lsst
 from .bleed_trails import bleed_eimage
-from .camera import Camera
 from .instcat import OpsimMetaDict
+from .camera import Camera, get_camera
+from .batoid_wcs import BatoidWCSBuilder
 from ._version import __version__
+
+
+_rotSkyPos_cache = {}
+
+def make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name,
+                    logger=None):
+    """
+    Create a WCS object from Opsim db parameters for the center
+    science CCD.
+
+    Parameters
+    ----------
+    ra0 : float
+        RA of boresight direction in degrees.
+    dec0 : float
+        Dec of boresight direction in degrees.
+    rottelpos : float
+        Angle of the telescope rotator with respect to the mount in degrees.
+    obsmjd : float
+        MJD of the observation.
+    band : str
+        One of `ugrizy`.
+    camera_name : str ['LsstCam']
+        Class name of the camera to be simulated.  Valid values are
+        'LsstCam', 'LsstComCam', 'LsstCamImSim'.
+    logger : logger.Logger [None]
+        Logger object.
+
+    Returns
+    -------
+    galsim.GSFitsWCS
+    """
+    if band not in 'ugrizy':
+        if logger is not None:
+            logger.info(f'Requested band is "{band}.  Setting it to "r"')
+        band = 'r'
+    obstime = Time(obsmjd, format='mjd')
+    boresight = galsim.CelestialCoord(ra0*galsim.degrees, dec0*galsim.degrees)
+    factory = BatoidWCSBuilder().makeWCSFactory(
+        boresight, rottelpos*galsim.degrees, obstime, band, camera=camera_name)
+
+    # Use the science sensor at the center of the focal plane.
+    camera = get_camera(camera_name)
+    detectors = [i for i, det in enumerate(camera)
+                 if det.getType() == cameraGeom.DetectorType.SCIENCE]
+    det = camera[int(np.median(detectors))]
+    return factory.getWCS(det)
+
+
+def compute_rotSkyPos(ra0, dec0, rottelpos, obsmjd, band,
+                      camera_name='LsstCam', dxy=100, pixel_scale=0.2,
+                      logger=None):
+    """
+    Compute the nominal rotation angle of the focal plane wrt
+    Celestial North using the +y direction in pixel coordinates as the
+    reference direction for the focal plane.
+
+    Parameters
+    ----------
+    ra0 : float
+        RA of boresight direction in degrees.
+    dec0 : float
+        Dec of boresight direction in degrees.
+    rottelpos : float
+        Angle of the telescope rotator with respect to the mount in degrees.
+    obsmjd : float
+        MJD of the observation.
+    band : str
+        One of `ugrizy`.
+    camera_name : str ['LsstCam']
+        Class name of the camera to be simulated.  Valid values are
+        'LsstCam', 'LsstComCam', 'LsstCamImSim'.
+    dxy : float [100]
+        Size (in pixels) of legs of the triangle to use for computing the
+        angle between North and the +y direction in the focal plane.
+    pixel_scale : float [0.2]
+        Pixel scale in arcsec.
+    logger : logger.Logger [None]
+        Logger object.
+
+    Returns
+    -------
+    float  The rotSkyPos angle in degrees.
+    """
+    args = ra0, dec0, rottelpos, obsmjd, band, camera_name
+    if args in _rotSkyPos_cache:
+        return _rotSkyPos_cache[args]
+
+    wcs = make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name)
+
+    # CCD center
+    x0, y0 = wcs.crpix
+    # Offset position towards top of CCD.
+    x1, y1 = x0, y0 + dxy
+    # Offset position towards Celestial North.
+    ra = wcs.center.ra
+    dec = wcs.center.dec + pixel_scale*dxy/3600.*galsim.degrees
+    pos = wcs.toImage(galsim.CelestialCoord(ra, dec))
+    x2, y2 = pos.x, pos.y
+    # Use law of cosines to find rotskypos:
+    a2 = (x1 - x0)**2 + (y1 - y0)**2
+    b2 = (x2 - x0)**2 + (y2 - y0)**2
+    c2 = (x1 - x2)**2 + (y2 - y1)**2
+    cos_theta = (a2 + b2 - c2)/2./np.sqrt(a2*b2)
+
+    theta = np.degrees(np.arccos(cos_theta))
+    # Define angle between focal plane y-axis and North as positive
+    # if North is counter-clockwise from y-axis.
+    if x2 < x1:
+        theta = 360 - theta
+
+    if camera_name == 'LsstCamImSim':
+        # For historical reasons, the rotation angle for imSim data is
+        # assumed by the LSST code to have a sign change and 90
+        # rotation.  See
+        # https://github.com/lsst/obs_lsst/blob/main/python/lsst/obs/lsst/translators/imsim.py#L104
+        theta = 90 - theta
+    if theta < 0:
+        theta += 360
+    _rotSkyPos_cache[args] = theta
+    return theta
+
 
 def section_keyword(bounds, flipx=False, flipy=False):
     """Package image bounds as a NOAO image section keyword value."""
@@ -67,37 +192,56 @@ def cte_matrix(npix, cti, ntransfers=20):
     return my_matrix
 
 def get_primary_hdu(opsim_md, det_name, lsst_num='LCA-11021_RTM-000', image_type='SKYEXP',
-                    added_keywords={}):
+                    camera_name='LsstCam', added_keywords={}, logger=None):
     """Create a primary HDU for the output raw file with the keywords
     needed to process with the LSST Stack."""
     phdu = fits.PrimaryHDU()
     phdu.header['RUNNUM'] = opsim_md.get('observationId', 'N/A')
     phdu.header['OBSID'] = opsim_md.get('observationId', -999)
+    date = Time(opsim_md.get('mjd', 51544), format='mjd')
+    phdu.header['DATE'] = date.isot
+    phdu.header['MJD'] = date.mjd
+    phdu.header['DAYOBS'] = date.strftime('%Y%m%d')
+    phdu.header['SEQNUM'] = opsim_md.get('seqnum', 0)
     exp_time = opsim_md.get('exptime')
     phdu.header['EXPTIME'] = exp_time
     phdu.header['DARKTIME'] = exp_time
-    phdu.header['FILTER'] = opsim_md.get('band')
     phdu.header['TIMESYS'] = 'TAI'
     phdu.header['LSST_NUM'] = lsst_num
-    phdu.header['TESTTYPE'] = 'IMSIM'
     phdu.header['IMGTYPE'] = image_type
     phdu.header['OBSTYPE'] = image_type
     phdu.header['MONOWL'] = -1
     raft, sensor = det_name.split('_')
-    phdu.header['RAFTNAME'] = raft
-    phdu.header['SENSNAME'] = sensor
     ratel = opsim_md.get('fieldRA', 0.)
-    phdu.header['RATEL'] = ratel
-    phdu.header['DECTEL'] = opsim_md.get('fieldDec', 0.)
-    phdu.header['ROTANGLE'] = opsim_md.get('rotSkyPos', 0.)
-    mjd_obs = opsim_md.get('mjd', 51544)  # Jan 1, 2000.  I.e. not real.
+    dectel = opsim_md.get('fieldDec', 0.)
+    rottelpos = opsim_md.get('rotTelPos', 0.)
+    band = opsim_md.get('band')
+    mjd_obs = opsim_md.get('observationStartMJD', 51544)  # Jan 1, 2000.  I.e. not real.
+    mjd_end = mjd_obs + exp_time/86400.
+    if camera_name == 'LsstCamImSim':
+        phdu.header['TESTTYPE'] = 'IMSIM'
+        phdu.header['RAFTNAME'] = raft
+        phdu.header['SENSNAME'] = sensor
+        phdu.header['RATEL'] = ratel
+        phdu.header['DECTEL'] = dectel
+    else:
+        phdu.header['INSTRUME'] = 'LSSTCam'
+        phdu.header['RAFTBAY'] = raft
+        phdu.header['CCDSLOT'] = sensor
+        phdu.header['RA'] = ratel
+        phdu.header['DEC'] = dectel
+        phdu.header['ROTCOORD'] = 'sky'
+    # Compute rotSkyPos instead of using likely inconsistent values
+    # from the instance catalog or opsim db.
+    phdu.header['ROTANGLE'] = compute_rotSkyPos(
+        ratel, dectel, rottelpos, mjd_obs, band, camera_name=camera_name,
+        logger=logger)
     phdu.header['MJD-OBS'] = mjd_obs
-    if mjd_obs != 99999:
-        mjd_end = mjd_obs + exp_time/86400.
-        phdu.header['DATE-OBS'] = Time(mjd_obs, format='mjd', scale='tai').to_value('isot')
-        phdu.header['DATE-END'] = Time(mjd_end, format='mjd', scale='tai').to_value('isot')
-        phdu.header['HASTART'] = opsim_md.getHourAngle(mjd_obs, ratel)
-        phdu.header['HAEND'] = opsim_md.getHourAngle(mjd_end, ratel)
+    phdu.header['FILTER'] = band
+    phdu.header['HASTART'] = opsim_md.getHourAngle(mjd_obs, ratel)
+    phdu.header['HAEND'] = opsim_md.getHourAngle(mjd_end, ratel)
+    phdu.header['DATE-OBS'] = Time(mjd_obs, format='mjd', scale='tai').to_value('isot')
+    phdu.header['DATE-END'] = Time(mjd_end, format='mjd', scale='tai').to_value('isot')
     phdu.header['AMSTART'] = opsim_md.get('airmass', 'N/A')
     phdu.header['AMEND'] = phdu.header['AMSTART']  # XXX: This is not correct. Does anyone care?
     phdu.header['IMSIMVER'] = __version__
@@ -254,12 +398,18 @@ class CameraReadout(ExtraOutputBuilder):
         """
         logger.warning("Making amplifier images")
 
+        camera_name = base['output'].get('camera', 'LsstCam')
         ccd_readout = CcdReadout(config, base)
         amps = ccd_readout.build_images(config, base, main_data)
         det_name = base['det_name']
         channels = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
         x_seg_offset = (1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1)
-        y_seg_offset = (0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2)
+        if camera_name == 'LsstCamImSim':
+            y_seg_offset = (0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2)
+            cd_matrix_sign = -1
+        else:
+            y_seg_offset = (2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0)
+            cd_matrix_sign = 1
         wcs = main_data[0].wcs
         crpix1, crpix2 = wcs.crpix
 
@@ -281,7 +431,9 @@ class CameraReadout(ExtraOutputBuilder):
             )
         # FlatBuilder overrides this
         image_type = base.get('image_type', 'SKYEXP')
-        hdus = fits.HDUList(get_primary_hdu(opsim_md, det_name, image_type=image_type))
+        hdus = fits.HDUList(
+            get_primary_hdu(opsim_md, det_name, image_type=image_type,
+                            camera_name=camera_name, logger=logger))
         for amp_num, amp in enumerate(amps):
             channel = 'C' + channels[amp_num]
             amp_info = ccd_readout.ccd[channel]
@@ -295,10 +447,10 @@ class CameraReadout(ExtraOutputBuilder):
             height, width = raw_data_bounds.numpyShape()
             hdu.header['CRPIX1'] = xsign*crpix1 + x_seg_offset[amp_num]*width
             hdu.header['CRPIX2'] = ysign*crpix2 + y_seg_offset[amp_num]*height
-            hdu.header['CD1_2'] *= -xsign
-            hdu.header['CD2_2'] *= -xsign
-            hdu.header['CD1_1'] *= -ysign
-            hdu.header['CD2_1'] *= -ysign
+            hdu.header['CD1_2'] *= cd_matrix_sign*xsign
+            hdu.header['CD2_2'] *= cd_matrix_sign*xsign
+            hdu.header['CD1_1'] *= cd_matrix_sign*ysign
+            hdu.header['CD2_1'] *= cd_matrix_sign*ysign
             hdu.header['DATASEC'] = section_keyword(raw_data_bounds)
             hdu.header['DETSEC'] = section_keyword(amp_info.bounds,
                                                    flipx=amp_info.raw_flip_x,

@@ -9,6 +9,7 @@ import astropy
 import astropy.coordinates
 import astropy.units as u
 from dust_extinction.parameter_averages import F19
+import pandas as pd
 
 from contextlib import contextmanager
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, RegisterObjectType
@@ -511,10 +512,19 @@ class OpsimMetaDict(object):
                       observationId={self.visit}"""
             for key, value in zip(columns, list(con.execute(sql))[0]):
                 self.meta[key] = value
+
+            # Determine the daily sequence number for this exposure by
+            # counting the number of snaps since int(observationStartMJD).
+            t0 = int(self.meta['observationStartMJD'])
+            sql = f'''select numExposures from observations where
+                      {t0} < observationStartMJD and
+                      observationId < {self.visit}'''
+            df = pd.read_sql(sql, con)
+            self.meta['seqnum'] = sum(df['numExposures']) + self.meta['snap']
         self.logger.warning('Done reading visit info from opsim db file')
 
         if self.meta['snap'] >= self.meta['numExposures']:
-            raise ValueError('Invalid snap value: %d. For this visit, snap < %d'
+            raise ValueError('Invalid snap value: %d. For this visit, must have snap < %d'
                              % (self.meta['snap'], self.meta['numExposures']))
 
         # Add a few derived quantities to meta values

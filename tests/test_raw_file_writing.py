@@ -28,8 +28,9 @@ class RawFileOutputTestCase(unittest.TestCase):
         opsim_md = imsim.OpsimMetaDict.from_dict(
             dict(fieldRA=31.1133844,
                  fieldDec=-10.0970060,
-                 rotSkyPos=69.0922930,
-                 mjd=59797.2854090,
+                 rotSkyPos=146.24369132422518,
+                 rotTelPos=1.,
+                 observationStartMJD=59797.2854090,
                  band='r',
                  observationId=161899,
                  FWHMgeom=0.7,
@@ -47,9 +48,13 @@ class RawFileOutputTestCase(unittest.TestCase):
         hdr = hdu.header
 
         # Test some keywords.
-        self.assertAlmostEqual(hdr['RATEL'], opsim_md['fieldRA'])
-        self.assertAlmostEqual(hdr['DECTEL'], opsim_md['fieldDec'])
-        self.assertAlmostEqual(hdr['ROTANGLE'], opsim_md['rotSkyPos'])
+        if hdr.get('TESTTYPE', None) == 'IMSIM':
+            self.assertAlmostEqual(hdr['RATEL'], opsim_md['fieldRA'])
+            self.assertAlmostEqual(hdr['DECTEL'], opsim_md['fieldDec'])
+        else:  # All other cameras, e.g., LsstCam, LsstComCam, etc..
+            self.assertAlmostEqual(hdr['RA'], opsim_md['fieldRA'])
+            self.assertAlmostEqual(hdr['DEC'], opsim_md['fieldDec'])
+        self.assertAlmostEqual(hdr['ROTANGLE'], opsim_md['rotSkyPos'], places=5)
         self.assertEqual(hdr['CHIPID'], det_name)
 
         # Ensure the following keywords are set.
