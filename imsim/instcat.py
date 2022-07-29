@@ -415,7 +415,8 @@ class InstCatalog(object):
             obj = obj._lens(g1, g2, mu)
 
         elif (params[0].endswith('.fits') or params[0].endswith('.fits.gz')):
-            fits_file = find_file_path(params[0], get_image_dirs())
+            # Assume the fits file is given relative to the location of the instance catalog.
+            fits_file = os.path.join(self.inst_dir, params[0])
             pixel_scale = float(params[1])
             theta = float(params[2])
             obj = galsim.InterpolatedImage(fits_file, scale=pixel_scale, gsparams=gsparams)
