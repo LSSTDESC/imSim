@@ -21,6 +21,17 @@ eval_variables:
     # So to use this in an Eval string, you would write just run, not srun.
     srun: '0001'
 
+    # Put this here for convenience, since it is used by several fields.
+    cboresight:
+        type: RADec
+        ra:
+            type: Degrees
+            theta: { type: OpsimMeta, field: fieldRA }
+        dec:
+            type: Degrees
+            theta: { type: OpsimMeta, field: fieldDec }
+
+
 # Any input data is set here.  These are read in at the start of the program and potentially
 # updated for each output file.
 # Also includes things that need some set up at the start of an exposure, like the atmospheric PSF.
@@ -52,7 +63,7 @@ input:
         airmass: { type: OpsimMeta, field: airmass }
         rawSeeing:  { type: OpsimMeta, field: rawSeeing }
         band:  { type: OpsimMeta, field: band }
-        boresight:  "@image.wcs.boresight"
+        boresight: "$boresight"
 
         # Optional parameters:  (Unless otherwise stated, these are the default values.)
         t0: 0               # seconds
@@ -103,15 +114,7 @@ image:
 
         # These are required:
         camera: "@output.camera"
-        boresight:
-            type: RADec
-            ra:
-                type: Degrees
-                theta: { type: OpsimMeta, field: fieldRA }
-            dec:
-                type: Degrees
-                theta: { type: OpsimMeta, field: fieldDec }
-
+        boresight: "$boresight"
         rotTelPos:
             type: Degrees
             theta: { type: OpsimMeta, field: rotTelPos }
@@ -206,7 +209,7 @@ stamp:
             type: lsst_optics
             telescope: LSST
             band: { type: OpsimMeta, field: band }
-            boresight: "@image.wcs.boresight"
+            boresight: "$boresight"
         -
             # Note: If FocusDepth is before Refraction, then the depth is the amount of focus
             #       change required relative to the rays coming to a focus at the surface.
