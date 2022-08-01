@@ -20,14 +20,13 @@ import galsim
 from .meta_data import data_dir
 
 
-def get_radec_limits(wcs, logger, edge_pix):
+def get_radec_limits(wcs, xsize, ysize, logger, edge_pix):
     """Min and max values for RA, Dec given the wcs."""
     # Allow objects to be centered somewhat off the image.
     min_x = 0 - edge_pix
     min_y = 0 - edge_pix
-    # The image max_x,max_y isn't actually 4096, but close enough.
-    max_x = 4096 + edge_pix
-    max_y = 4096 + edge_pix
+    max_x = xsize + edge_pix
+    max_y = ysize + edge_pix
 
     # Check the min/max ra and dec to faster remove objects that
     # cannot be on image
@@ -108,7 +107,7 @@ class InstCatalog(object):
     # from https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _rubin_area = 0.25 * np.pi * 649**2  # cm^2
 
-    def __init__(self, file_name, wcs, sed_dir=None, edge_pix=100, sort_mag=True, flip_g2=True,
+    def __init__(self, file_name, wcs, xsize, ysize, sed_dir=None, edge_pix=100, sort_mag=True, flip_g2=True,
                  min_source=None, skip_invalid=True, logger=None):
         logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
@@ -122,7 +121,7 @@ class InstCatalog(object):
         self.inst_dir = os.path.dirname(file_name)
 
         min_ra, max_ra, min_dec, max_dec, min_x, min_y, max_x, max_y \
-            = get_radec_limits(wcs, logger, edge_pix)
+            = get_radec_limits(wcs, xsize, ysize, logger, edge_pix)
 
         # What position do the dust parameters start, based on object type.
         dust_index_dict = {
@@ -883,6 +882,8 @@ class InstCatalogLoader(InputLoader):
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
         kwargs['wcs'] = wcs
+        kwargs['xsize'] = base['xsize']
+        kwargs['ysize'] = base['ysize']
         kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
         return kwargs, safe
 

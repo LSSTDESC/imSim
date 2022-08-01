@@ -32,6 +32,12 @@ class LSST_CCDBuilder(OutputBuilder):
         if 'eval_variables' not in base:
             base['eval_variables'] = {}
         base['eval_variables']['sdet_name'] = det_name
+        # Get detector size in pixels.
+        det_bbox = camera[detnum].getBBox()
+        base['xsize'] = det_bbox.width
+        base['eval_variables']['ixsize'] = det_bbox.width
+        base['ysize'] = det_bbox.height
+        base['eval_variables']['iysize'] = det_bbox.height
 
         base['exp_time'] = float(config.get('exp_time', 30))
 

@@ -15,7 +15,7 @@ class SkyCatalogInterface:
     # Rubin effective area computed using numbers at
     # https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _eff_area = 0.25 * np.pi * 649**2  # cm^2
-    def __init__(self, file_name, wcs, bandpass, obj_types=None,
+    def __init__(self, file_name, wcs, bandpass, xsize, ysize, obj_types=None,
                  skycatalog_root=None, edge_pix=100, logger=None):
         """Parameters
         ----------
@@ -25,6 +25,10 @@ class SkyCatalogInterface:
             WCS of the image to render.
         bandpass : galsim.Bandpass
             Bandpass to use for flux calculations.
+        xsize : int
+            Size in pixels of CCD in x-direction.
+        ysize : int
+            Size in pixels of CCD in y-direction.
         obj_types : list-like [None]
             List or tuple of object types to render, e.g., ('star', 'galaxy').
             If None, then consider all object types.
@@ -49,7 +53,7 @@ class SkyCatalogInterface:
             skycatalog_root = os.path.dirname(os.path.abspath(file_name))
         sky_cat = skyCatalogs.open_catalog(file_name,
                                            skycatalog_root=skycatalog_root)
-        region = skyCatalogs.Box(*get_radec_limits(wcs, logger, edge_pix)[:4])
+        region = skyCatalogs.Box(*get_radec_limits(wcs, xsize, ysize, logger, edge_pix)[:4])
         self.objects = sky_cat.get_objects_by_region(region,
                                                      obj_type_set=obj_types)
 
@@ -135,6 +139,8 @@ class SkyCatalogLoader(InputLoader):
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
         kwargs['wcs'] = wcs
         kwargs['bandpass'] = base['bandpass']
+        kwargs['xsize'] = base['xsize']
+        kwargs['ysize'] = base['ysize']
         kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
         return kwargs, safe
 
