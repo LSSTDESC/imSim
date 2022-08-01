@@ -15,7 +15,7 @@ class SkyCatalogInterface:
     # Rubin effective area computed using numbers at
     # https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _eff_area = 0.25 * np.pi * 649**2  # cm^2
-    def __init__(self, file_name, wcs, bandpass, xsize, ysize, obj_types=None,
+    def __init__(self, file_name, wcs, bandpass, xsize=4096, ysize=4096, obj_types=None,
                  skycatalog_root=None, edge_pix=100, logger=None):
         """Parameters
         ----------

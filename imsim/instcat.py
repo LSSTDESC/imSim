@@ -107,7 +107,7 @@ class InstCatalog(object):
     # from https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _rubin_area = 0.25 * np.pi * 649**2  # cm^2
 
-    def __init__(self, file_name, wcs, xsize, ysize, sed_dir=None, edge_pix=100, sort_mag=True, flip_g2=True,
+    def __init__(self, file_name, wcs, xsize=4096, ysize=4096, sed_dir=None, edge_pix=100, sort_mag=True, flip_g2=True,
                  min_source=None, skip_invalid=True, logger=None):
         logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
