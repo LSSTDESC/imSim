@@ -175,10 +175,7 @@ class LSST_FlatBuilder(ImageBuilder):
                         logger.info('mean level => %s',section.array.mean())
                     else:
                         temp_no_wcs = temp.view(scale=1.0)
-                        print('temp average = ',temp_no_wcs.array.mean())
                         photons = galsim.PhotonArray.makeFromImage(temp_no_wcs, rng=rng)
-                        print('sum photon flux = ',np.sum(photons.flux))
-                        print('sum photon flux / pixel = ',np.sum(photons.flux)/np.prod(temp_no_wcs.array.shape))
                         wavelength_sampler.applyTo(photons, rng=rng)
                         sensor.accumulate(photons, section)
                         logger.info('added %d photons: mean level => %s',

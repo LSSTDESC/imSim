@@ -53,9 +53,13 @@ image:
 
     sed: "$galsim.SED(lambda x: 1, flux_type='flambda', wave_type='nm', _blue_limit=840, _red_limit=850)"
 
-    bandpass:
-        file_name: 'LSST_z.dat'
-        wave_type: 'nm'
+    # For a custom function bandpass
+    bandpass: "$galsim.Bandpass(lambda x: 1, wave_type='nm', blue_limit=700, red_limit=1200)"
+
+    # For a bandpass from a file
+    #bandpass:
+        #file_name: 'LSST_y.dat'
+        #wave_type: 'nm'
 
 
 
