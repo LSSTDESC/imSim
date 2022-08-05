@@ -45,6 +45,7 @@ class LSST_FlatBuilder(ImageBuilder):
                 'nx': int,
                 'ny': int,
               }
+        ignore = ignore + ['sed']
         params = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)[0]
 
         self.counts_per_pixel = params['counts_per_pixel']
@@ -52,8 +53,19 @@ class LSST_FlatBuilder(ImageBuilder):
         self.ysize = params['ysize']
         self.buffer_size = params.get("buffer_size", 2)
         self.max_counts_per_iter = params.get("max_counts_per_iter", 1000)
-        self.nx = params.get('nx', 8)
-        self.ny = params.get('ny', 2)
+        if 'sed' in config:
+            self.sed = galsim.config.BuildSED(config, 'sed', base, logger=logger)[0]
+            # When using an SED, we want smaller sections to avoid shooting billions of photons.
+            # Still let the user specify, but increase the defaults.
+            self.nx = params.get('nx', 16)
+            self.ny = params.get('ny', 16)
+        else:
+            self.sed = None
+            self.nx = params.get('nx', 8)
+            self.ny = params.get('ny', 2)
+        if 'sensor' in config and 'nrecalc' not in config['sensor']:
+            config['sensor']['nrecalc'] = self.max_counts_per_iter * self.xsize * self.ysize
+            logger.debug('setting nrecalc = %d',config['sensor']['nrecalc'])
 
         return self.xsize, self.ysize
 
@@ -94,11 +106,13 @@ class LSST_FlatBuilder(ImageBuilder):
         sensor = base.get('sensor', galsim.Sensor())
 
         # Update the rng to be appropriate for this image.
-        sensor.updateRNG(galsim.config.GetRNG(config, base, logger=logger, tag='LSST_Flat'))
+        rng = galsim.config.GetRNG(config, base, logger=logger, tag='LSST_Flat')
+        sensor.updateRNG(rng)
 
         # Calculate how many iterations to do.
         niter = int(np.ceil(self.counts_per_pixel / self.max_counts_per_iter))
         counts_per_iter = self.counts_per_pixel / niter
+        logger.info('Making flat: niter = %d, counts_per_iter = %d',niter,counts_per_iter)
 
         # Create a noise-free base image to add at each iteration.
         nrow, ncol = image.array.shape
@@ -111,6 +125,11 @@ class LSST_FlatBuilder(ImageBuilder):
         mean_pixel_area = base_image.array.mean()
         sky_level_per_iter = counts_per_iter/mean_pixel_area
         base_image *= sky_level_per_iter
+
+        if self.sed is not None:
+            if 'bandpass' not in base:
+                raise RuntimeError('Using sed with flat builder requires a valid bandpass')
+            wavelength_sampler = galsim.WavelengthSampler(self.sed, base['bandpass'])
 
         # Now we account for the sensor effects (i.e. brighter-fatter).
         # Build up the full CCD in sections to limit the memory required.
@@ -133,7 +152,7 @@ class LSST_FlatBuilder(ImageBuilder):
                 # Start at 0.
                 section.setZero()
                 for it in range(niter):
-                    logger.debug("iter %d", it)
+                    logger.info("iter %d", it)
 
                     # Calculate the area of each pixel in the section image so far.
                     # This includes tree rings and BFE.
@@ -150,7 +169,20 @@ class LSST_FlatBuilder(ImageBuilder):
                     galsim.config.AddNoise(base, temp, 0., logger)
 
                     # Finally, add this to the image we are building up for this section.
-                    section += temp
+                    if self.sed is None:
+                        # Simple case where we don't care about conversion depth
+                        section += temp
+                        logger.info('mean level => %s',section.array.mean())
+                    else:
+                        temp_no_wcs = temp.view(scale=1.0)
+                        print('temp average = ',temp_no_wcs.array.mean())
+                        photons = galsim.PhotonArray.makeFromImage(temp_no_wcs, rng=rng)
+                        print('sum photon flux = ',np.sum(photons.flux))
+                        print('sum photon flux / pixel = ',np.sum(photons.flux)/np.prod(temp_no_wcs.array.shape))
+                        wavelength_sampler.applyTo(photons, rng=rng)
+                        sensor.accumulate(photons, section)
+                        logger.info('added %d photons: mean level => %s',
+                                    len(photons), section.array.mean())
 
                 # Copy just the part that is officially part of this section.
                 image[sec_bounds] += section[sec_bounds]
