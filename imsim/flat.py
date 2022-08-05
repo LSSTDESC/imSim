@@ -118,13 +118,15 @@ class LSST_FlatBuilder(ImageBuilder):
         nrow, ncol = image.array.shape
         base_image = galsim.ImageF(image.bounds.withBorder(self.buffer_size), wcs=image.wcs)
 
-        # Start with flux in each pixel due to the variable pixel area from the WCS.
-        base_image.wcs.makeSkyImage(base_image, sky_level=1.)
+        # Note: if using an SED, the accumulate step will apply tree rings, so don't do it here.
+        if self.sed is None:
+            # Start with flux in each pixel due to the variable pixel area from the WCS.
+            base_image.wcs.makeSkyImage(base_image, sky_level=1.)
 
-        # Rescale so that the mean sky level is counts_per_iter
-        mean_pixel_area = base_image.array.mean()
-        sky_level_per_iter = counts_per_iter/mean_pixel_area
-        base_image *= sky_level_per_iter
+            # Rescale so that the mean sky level is counts_per_iter
+            mean_pixel_area = base_image.array.mean()
+            sky_level_per_iter = counts_per_iter/mean_pixel_area
+            base_image *= sky_level_per_iter
 
         if self.sed is not None:
             if 'bandpass' not in base:
@@ -152,37 +154,56 @@ class LSST_FlatBuilder(ImageBuilder):
                 # Start at 0.
                 section.setZero()
                 for it in range(niter):
-                    logger.info("iter %d", it)
+                    logger.debug("iter %d", it)
 
-                    # Calculate the area of each pixel in the section image so far.
-                    # This includes tree rings and BFE.
-                    area = sensor.calculate_pixel_areas(section)
-
-                    # Multiply the right part of the base image by the relative areas
-                    # to get the right mean level and WCS effects.
-                    temp = base_image[bounds].copy()
-                    if isinstance(area, galsim.Image):
-                        temp *= area / np.mean(area.array)
-
-                    # What we have here is the expectation value in each pixel.
-                    # We need to realize this according to Poisson statistics ith these means.
-                    galsim.config.AddNoise(base, temp, 0., logger)
-
-                    # Finally, add this to the image we are building up for this section.
                     if self.sed is None:
-                        # Simple case where we don't care about conversion depth
+                        # Calculate the area of each pixel in the section image so far.
+                        # This includes tree rings and BFE.
+                        area = sensor.calculate_pixel_areas(section)
+
+                        # Multiply the right part of the base image by the relative areas
+                        # to get the right mean level and WCS effects.
+                        temp = base_image[bounds].copy()
+                        if isinstance(area, galsim.Image):
+                            temp *= area / np.mean(area.array)
+
+                        # What we have here is the expectation value in each pixel.
+                        # We need to realize this according to Poisson statistics ith these means.
+                        galsim.config.AddNoise(base, temp, 0., logger)
+
+                        # Finally, add this to the image we are building up for this section.
                         section += temp
-                        logger.info('mean level => %s',section.array.mean())
+                        logger.debug('mean level => %s',section[sec_bounds].array.mean())
+
                     else:
-                        temp_no_wcs = temp.view(scale=1.0)
-                        photons = galsim.PhotonArray.makeFromImage(temp_no_wcs, rng=rng)
+                        # If we care about the correct abosrption depth as a function of
+                        # wavelength, then do this differently.
+                        # We need to do the accumulate step to get the right absorption depth,
+                        # but that step will also apply tree rings and current pixel boundaries.
+                        # So don't also do them above.  The photons here should just be uniform
+                        # over the area of the current section.
+                        nphotons = counts_per_iter * bounds.area()
+                        # Poisson realization of the actual count
+                        pd = galsim.PoissonDeviate(rng, mean=nphotons)
+                        nphotons = int(pd())
+                        photons = galsim.PhotonArray(nphotons)
+                        # Generate random positions in area
+                        ud = galsim.UniformDeviate(rng)
+                        ud.generate(photons.x)
+                        ud.generate(photons.y)
+                        photons.x = photons.x * (bounds.xmax - bounds.xmin + 1) + bounds.xmin - 0.5
+                        photons.y = photons.y * (bounds.ymax - bounds.ymin + 1) + bounds.ymin - 0.5
+                        photons.flux = 1
+                        # Apply wavelengths from sed
                         wavelength_sampler.applyTo(photons, rng=rng)
+                        # Accumulate the photons on the image
                         sensor.accumulate(photons, section)
-                        logger.info('added %d photons: mean level => %s',
-                                    len(photons), section.array.mean())
+                        logger.debug('added %d photons: mean level => %s',
+                                     len(photons), section[sec_bounds].array.mean())
 
                 # Copy just the part that is officially part of this section.
                 image[sec_bounds] += section[sec_bounds]
+                logger.info('Done section: mean level => %s', image[sec_bounds].array.mean())
 
     def getNObj(self, config, base, image_num, logger=None):
         """Get the number of objects that will be built for this image.

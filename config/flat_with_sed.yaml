@@ -51,7 +51,15 @@ image:
         treering_center: { type: TreeRingCenter, det_name: $det_name }
         treering_func: { type: TreeRingFunc, det_name: $det_name }
 
-    sed: "$galsim.SED(lambda x: 1, flux_type='flambda', wave_type='nm', _blue_limit=840, _red_limit=850)"
+    # If you provide an sed item, the code will take into account the absorption depth of
+    # the photons in the silicon according to their wavelength.
+    # This is significantly slower than not providing an sed, since it needs to run an extra
+    # (slow) step of generating a photon array from the sky image, converting them all into
+    # electrons at the right depth, and then accumulating them on the pixels.
+    # This is much slower than just computing the right amount of flux to add based on the
+    # current pixel area at each iteration.
+    # Note: when using an sed, you also need a bandpass.
+    sed: "$galsim.SED(galsim.LookupTable([930,940,950,960],[0,1,1,0]), 'nm', '1')"
 
     # For a custom function bandpass
     bandpass: "$galsim.Bandpass(lambda x: 1, wave_type='nm', blue_limit=700, red_limit=1200)"

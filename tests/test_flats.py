@@ -5,6 +5,7 @@ from collections import namedtuple
 import unittest
 import numpy as np
 import logging
+import sys
 import galsim
 import imsim
 
@@ -152,6 +153,51 @@ class FlatTestCase(unittest.TestCase):
         assert cov10 > 0.5*tot_counts
         assert cov01 > 0.5*tot_counts
         assert cov11 > 0.5*tot_counts
+
+    def test_sed_flat(self):
+        """Test LSST_Flat with an sed item"""
+
+        counts_per_iter = 1_000
+        niter = 5
+        tot_counts = counts_per_iter * niter
+        # Use an SED with a tight wavelength range in the z band
+        sed = galsim.SED(galsim.LookupTable([530,540,550,560],[0,1,1,0]), 'nm', '1')
+        bandpass = galsim.Bandpass(lambda x: 1, wave_type='nm', blue_limit=400, red_limit=1200)
+        config = {
+            'image': {
+                'type': 'LSST_Flat',
+                'random_seed': 1234,
+                'xsize': 64,
+                'ysize': 64,
+                'counts_per_pixel': tot_counts,
+                'max_counts_per_iter': counts_per_iter,
+                'wcs': galsim.PixelScale(0.2),
+                'noise': {'type': 'Poisson'},
+                'sensor': { 'type': 'Silicon' },
+                'sed': sed,
+                'bandpass': bandpass,
+            },
+        }
+        #logger = logging.getLogger('test_sed_flat')
+        #logger.addHandler(logging.StreamHandler(sys.stdout))
+        #logger.setLevel(logging.INFO)
+        flat = galsim.config.BuildImage(config)
+
+        # At these wavelengths, everything converts near the surface, so basically they all
+        # get accumulated.
+        print('mean realized counts = ',flat.array.mean())
+        print('target counts = ',tot_counts)
+        np.testing.assert_allclose(flat.array, tot_counts, atol=5*np.sqrt(tot_counts))
+
+        # In y band, many photons fall out the bottom of the ccd.
+        # So the mean counts are significantly less than the target counts.
+        sed = galsim.SED(galsim.LookupTable([930,940,950,960],[0,1,1,0]), 'nm', '1')
+        config['image']['sed'] = sed
+        flat = galsim.config.BuildImage(config)
+        print('mean realized counts = ',flat.array.mean())
+        print('target counts = ',tot_counts)
+        np.testing.assert_array_less(flat.array, tot_counts)
+
 
 
 if __name__ == '__main__':
