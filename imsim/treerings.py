@@ -35,6 +35,7 @@ class TreeRings():
         if not os.path.isfile(self.file_name):
             raise OSError("TreeRing file %s not found"%file_name)
         self.only_dets = only_dets
+        self.logger = galsim.config.LoggerWrapper(logger)
         self.numfreqs = 20 # Number of spatial frequencies
         self.cfreqs = np.zeros([self.numfreqs]) # Cosine frequencies
         self.cphases = np.zeros([self.numfreqs])
@@ -45,15 +46,14 @@ class TreeRings():
         self.npoints = int(self.r_max / dr) + 1 # Number of points in tree ring function
 
         # Make a dict indexed by det_name (a string that looks like Rxy-Sxy)
-        self.make_dict(logger)
+        self.make_dict()
 
-    def make_dict(self, logger):
+    def make_dict(self):
         """Read the tree rings file and save the information therein to a dict, self.info.
         """
-        logger = galsim.config.LoggerWrapper(logger)
-        logger.warning("Reading TreeRing file %s", self.file_name)
+        self.logger.warning("Reading TreeRing file %s", self.file_name)
         if self.only_dets:
-            logger.info("Only reading in detnames: %s",self.only_dets)
+            self.logger.info("Only reading in detnames: %s",self.only_dets)
         with open(self.file_name, 'r') as input_:
             lines = input_.readlines()
 
@@ -67,7 +67,7 @@ class TreeRings():
 
             det_name = "R%s%s_S%s%s"%(tuple(items[:4]))
             if self.only_dets and det_name not in self.only_dets: continue
-            logger.info(det_name)
+            self.logger.info(det_name)
 
             Cx = float(items[4]) + xCenterPix
             Cy = float(items[5]) + yCenterPix
@@ -91,13 +91,15 @@ class TreeRings():
         if det_name in self.info:
             return self.info[det_name][0]
         else:
-            raise TreeRingsError("No treering information available for %s"%det_name)
+            self.logger.warning("No treering information available for %s.  Setting treering_center to PositionD(0, 0)." % det_name)
+            return galsim.PositionD(0,0)
 
     def get_func(self, det_name):
         if det_name in self.info:
             return self.info[det_name][1]
         else:
-            raise TreeRingsError("No treering information available for %s"%det_name)
+            self.logger.warning("No treering information available for %s.  Setting treering_func to None." % det_name)
+            return None
 
     def tree_ring_radial_function(self, r):
         """
