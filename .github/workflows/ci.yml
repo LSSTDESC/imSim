@@ -89,4 +89,5 @@ jobs:
             - name: Run tests
               run: |
                 export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
+                eups list lsst_distrib
                 pytest
