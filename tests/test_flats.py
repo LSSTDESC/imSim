@@ -6,6 +6,7 @@ import unittest
 import numpy as np
 import logging
 import sys
+import os
 import galsim
 import imsim
 
@@ -33,12 +34,15 @@ class FlatTestCase(unittest.TestCase):
                 'max_counts_per_iter': counts_per_iter,
                 'wcs': galsim.PixelScale(0.2),
                 'noise': {'type': 'Poisson'},
-            }
+            },
+            'output': {
+                'dir': 'output',
+                'file_name': 'simple_flat.fits',
+            },
         }
         flat = galsim.config.BuildImage(config)
         self.assertLess(np.abs(niter*counts_per_iter - flat.array.mean()),
                         flat.array.std())
-        flat.write('output/simple_flat.fits')
 
         # Without any BFE or tree rings, the variance should be close to the mean,
         # and the covariance beteen pixels should be negligible.
@@ -47,14 +51,20 @@ class FlatTestCase(unittest.TestCase):
         np.testing.assert_allclose(np.mean(flat.array), tot_counts, rtol=1.e-2)
         np.testing.assert_allclose(np.var(flat.array), tot_counts, rtol=1.e-2)
 
-        flat.array[:,:] -= np.mean(flat.array)
-        cov10 = np.mean(flat.array[1:,:] * flat.array[:-1,:])
-        cov01 = np.mean(flat.array[:,1:] * flat.array[:,:-1])
-        cov11 = np.mean(flat.array[1:,1:] * flat.array[:-1,:-1])
+        flatx = flat - np.mean(flat.array)
+        cov10 = np.mean(flatx.array[1:,:] * flatx.array[:-1,:])
+        cov01 = np.mean(flatx.array[:,1:] * flatx.array[:,:-1])
+        cov11 = np.mean(flatx.array[1:,1:] * flatx.array[:-1,:-1])
         print('cov10 01 11 = ', cov10, cov01, cov11)
         assert np.abs(cov10) < 1.e-2*tot_counts
         assert np.abs(cov01) < 1.e-2*tot_counts
         assert np.abs(cov11) < 1.e-2*tot_counts
+
+        # Test full end-to-end output
+        galsim.config.Process(config)
+        flat2 = galsim.fits.read(os.path.join('output','simple_flat.fits'))
+        np.testing.assert_array_equal(flat2.array, flat.array)
+        assert flat2 == flat
 
     def test_silicon_flat(self):
         """Test LSST_Flat with Silicon sensor but no treerings."""
@@ -198,6 +208,12 @@ class FlatTestCase(unittest.TestCase):
         print('target counts = ',tot_counts)
         np.testing.assert_array_less(flat.array, tot_counts)
 
+        # Bandpass is required when using sed.
+        del config['image']['bandpass']
+        del config['bandpass']
+        config = galsim.config.CleanConfig(config)
+        with np.testing.assert_raises(RuntimeError):
+            galsim.config.BuildImage(config)
 
 
 if __name__ == '__main__':
