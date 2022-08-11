@@ -25,7 +25,12 @@ image:
     xsize: 4096
     ysize: 4096
 
-    counts_per_pixel: 800
+    # This is a ~typical count level for a flat.  But beware that with this value, this
+    # simulation run for just a single sensor takes more than a day to run on a typical
+    # machine.  Unless you really, really need to simulate the wavelength dependence of the
+    # sensor effects (such as brighter-fatter), you most likely want to use the regular
+    # flat.yaml configuration, which ignores the wavelength dependence.
+    counts_per_pixel: 80000
 
     wcs:
         type: Batoid
