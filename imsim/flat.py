@@ -2,6 +2,7 @@
 imSim module to make flats.
 """
 import numpy as np
+import time
 import galsim
 from galsim.config import ImageBuilder, RegisterImageType
 
@@ -57,6 +58,9 @@ class LSST_FlatBuilder(ImageBuilder):
             self.sed = galsim.config.BuildSED(config, 'sed', base, logger=logger)[0]
             # When using an SED, we want smaller sections to avoid shooting billions of photons.
             # Still let the user specify, but increase the defaults.
+            # This default (with the default max_counts_per_iter) implies 1000 x 256 x 256 photons
+            # shot at a time.  This is 64 x 10^6, which is pretty reasonable in terms of memory
+            # required (about 2GB).
             self.nx = params.get('nx', 16)
             self.ny = params.get('ny', 16)
         else:
@@ -64,7 +68,10 @@ class LSST_FlatBuilder(ImageBuilder):
             self.nx = params.get('nx', 8)
             self.ny = params.get('ny', 2)
         if 'sensor' in config and 'nrecalc' not in config['sensor']:
-            config['sensor']['nrecalc'] = self.max_counts_per_iter * self.xsize * self.ysize
+            # Should recalc pixel boundaries every 10,000 electrons per pixel.
+            # TODO: If we update GalSim to base nrecalc on the surface brightness rather than
+            #       flux, we should revisit this.
+            config['sensor']['nrecalc'] = 10_000 * self.xsize * self.ysize / (self.nx * self.ny)
             logger.debug('setting nrecalc = %d',config['sensor']['nrecalc'])
 
         return self.xsize, self.ysize
@@ -132,6 +139,8 @@ class LSST_FlatBuilder(ImageBuilder):
             if 'bandpass' not in base:
                 raise RuntimeError('Using sed with flat builder requires a valid bandpass')
             wavelength_sampler = galsim.WavelengthSampler(self.sed, base['bandpass'])
+            tot_nphot = 0
+            t0 = time.time()
 
         # Now we account for the sensor effects (i.e. brighter-fatter).
         # Build up the full CCD in sections to limit the memory required.
@@ -144,6 +153,9 @@ class LSST_FlatBuilder(ImageBuilder):
             if i == self.nx-1: xmax = ncol
             for j in range(self.ny):
                 logger.info("section: %d, %d (of %d,%d)", i, j, self.nx, self.ny)
+                if self.sed is not None:
+                    sec_nphot = 0
+                    t1 = time.time()
                 ymin = j*dy + 1
                 ymax = (j + 1)*dy
                 if j == self.ny-1: ymax = nrow
@@ -197,13 +209,22 @@ class LSST_FlatBuilder(ImageBuilder):
                         # Apply wavelengths from sed
                         wavelength_sampler.applyTo(photons, rng=rng)
                         # Accumulate the photons on the image
-                        sensor.accumulate(photons, section)
+                        sensor.accumulate(photons, section, resume=(it>0))
+                        tot_nphot += len(photons)
                         logger.debug('added %d photons: mean level => %s',
                                      len(photons), section[sec_bounds].array.mean())
 
                 # Copy just the part that is officially part of this section.
                 image[sec_bounds] += section[sec_bounds]
                 logger.info('Done section: mean level => %s', image[sec_bounds].array.mean())
+                if self.sed is not None:
+                    t2 = time.time()
+                    logger.info('Accumulated %s photons in this section. Time = %s min',
+                                sec_nphot, (t2-t1)/60.)
+                    tot_nphot += sec_nphot
+        if self.sed is not None:
+            logger.info('Accumulated %s photons in total. Total time = %s min',
+                        tot_nphot, (t2-t0)/60.)
 
     def getNObj(self, config, base, image_num, logger=None):
         """Get the number of objects that will be built for this image.
