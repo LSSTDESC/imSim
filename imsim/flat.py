@@ -210,7 +210,7 @@ class LSST_FlatBuilder(ImageBuilder):
                         wavelength_sampler.applyTo(photons, rng=rng)
                         # Accumulate the photons on the image
                         sensor.accumulate(photons, section, resume=(it>0))
-                        tot_nphot += len(photons)
+                        sec_nphot += len(photons)
                         logger.debug('added %d photons: mean level => %s',
                                      len(photons), section[sec_bounds].array.mean())
 
