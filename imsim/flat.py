@@ -52,7 +52,7 @@ class LSST_FlatBuilder(ImageBuilder):
         self.counts_per_pixel = params['counts_per_pixel']
         self.xsize = params['xsize']
         self.ysize = params['ysize']
-        self.buffer_size = params.get("buffer_size", 2)
+        self.buffer_size = params.get("buffer_size", 5)
         self.max_counts_per_iter = params.get("max_counts_per_iter", 1000)
         if 'sed' in config:
             self.sed = galsim.config.BuildSED(config, 'sed', base, logger=logger)[0]
