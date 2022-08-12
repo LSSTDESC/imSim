@@ -331,7 +331,7 @@ class InstCatalog(object):
             params = params[3:]
         else:
             internal_av = 0.
-            internal_rv = 1.
+            internal_rv = 3.1
             params = params[1:]
 
         if params[0].lower() != 'none':
@@ -339,7 +339,7 @@ class InstCatalog(object):
             galactic_rv = float(params[2])
         else:
             galactic_av = 0.
-            galactic_rv = 1.
+            galactic_rv = 3.1
 
         return internal_av, internal_rv, galactic_av, galactic_rv
 
@@ -415,7 +415,8 @@ class InstCatalog(object):
             obj = obj._lens(g1, g2, mu)
 
         elif (params[0].endswith('.fits') or params[0].endswith('.fits.gz')):
-            fits_file = find_file_path(params[0], get_image_dirs())
+            # Assume the fits file is given relative to the location of the instance catalog.
+            fits_file = os.path.join(self.inst_dir, params[0])
             pixel_scale = float(params[1])
             theta = float(params[2])
             obj = galsim.InterpolatedImage(fits_file, scale=pixel_scale, gsparams=gsparams)

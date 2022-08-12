@@ -88,7 +88,9 @@ class SkyModelLoader(InputLoader):
                'mjd': float}
         opt = {'eff_area': float}
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
-        kwargs['bandpass'] = base['bandpass']
+        bandpass, safe1 = galsim.config.BuildBandpass(base['image'], 'bandpass', base, logger)
+        safe = safe and safe1
+        kwargs['bandpass'] = bandpass
         kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
         return kwargs, safe
 
