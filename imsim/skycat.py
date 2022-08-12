@@ -138,9 +138,11 @@ class SkyCatalogLoader(InputLoader):
                                                   opt=opt)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
         kwargs['wcs'] = wcs
-        kwargs['bandpass'] = base['bandpass']
         kwargs['xsize'] = base['xsize']
         kwargs['ysize'] = base['ysize']
+        bandpass, safe1 = galsim.config.BuildBandpass(base['image'], 'bandpass', base, logger)
+        safe = safe and safe1
+        kwargs['bandpass'] = bandpass
         kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
         return kwargs, safe
 
