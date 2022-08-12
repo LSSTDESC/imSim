@@ -21,7 +21,7 @@ class FlatTestCase(unittest.TestCase):
     def test_simple_flat(self):
         """Test of basic LSST_Flat functionality."""
 
-        counts_per_iter = 1_000
+        counts_per_iter = 10_000
         niter = 10
         tot_counts = counts_per_iter * niter
         config = {
@@ -105,7 +105,7 @@ class FlatTestCase(unittest.TestCase):
         print('cov10 01 11 = ', cov10, cov01, cov11)
         # These are now all significantly non-zero (and positive).
         assert cov10 > 1.e-2*tot_counts
-        assert cov01 > 5.e-3*tot_counts
+        assert cov01 > 3.e-3*tot_counts
         assert cov11 > 2.e-3*tot_counts
         # Also, 11 is the smallest, and there is more covariance in the y direction (10).
         assert cov10 > cov01 > cov11
@@ -113,7 +113,7 @@ class FlatTestCase(unittest.TestCase):
     def test_treerings_flat(self):
         """Test LSST_Flat with Silicon sensor and treerings."""
 
-        counts_per_iter = 1_000
+        counts_per_iter = 10_000
         niter = 10
         tot_counts = counts_per_iter * niter
         tree_amp = 0.26
@@ -167,7 +167,7 @@ class FlatTestCase(unittest.TestCase):
     def test_sed_flat(self):
         """Test LSST_Flat with an sed item"""
 
-        counts_per_iter = 1_000
+        counts_per_iter = 100
         niter = 5
         tot_counts = counts_per_iter * niter
         # Use an SED with a tight wavelength range in the z band
