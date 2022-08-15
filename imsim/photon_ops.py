@@ -152,6 +152,9 @@ class LsstOpticsFactory(PhotonOpBuilder):
         req, opt, single, _takes_rng = get_cls_params(LsstOptics)
         kwargs, _safe = GetAllParams(config, base, req, opt, single)
 
+        shift_optics = kwargs.get("shift_optics")
+        if shift_optics is None:
+            shift_optics = base.get("shift_optics", None)
         return LsstOptics(
             telescope=base["_telescope"],
             boresight=kwargs["boresight"],
@@ -159,7 +162,7 @@ class LsstOpticsFactory(PhotonOpBuilder):
             image_pos=base["image_pos"],
             icrf_to_field=base["_icrf_to_field"],
             det_name=base["det_name"],
-            shift_optics=kwargs.get("shift_optics"),
+            shift_optics=shift_optics,
         )
 
 
