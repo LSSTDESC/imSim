@@ -209,6 +209,8 @@ class InstCatalog(object):
         assert nuse == len(id_list)
         logger.warning("Total objects in file = %d",ntot)
         logger.warning("Found %d objects potentially on image", nuse)
+        if nuse == 0:
+            logger.warning("No objects found on image")
 
         # Sort the object lists by mag and convert to numpy arrays.
         self.id = np.array(id_list, dtype=str)
@@ -343,6 +345,8 @@ class InstCatalog(object):
         return internal_av, internal_rv, galactic_av, galactic_rv
 
     def getObj(self, index, gsparams=None, rng=None, exp_time=30):
+        if self.objinfo.size == 0:
+            raise RuntimeError("Trying to get an object from an empty instance catalog")
         params = self.objinfo[index]
 
         magnorm = self.getMagNorm(index)
