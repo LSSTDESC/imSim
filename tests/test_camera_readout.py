@@ -142,6 +142,7 @@ class ImageSourceTestCase(unittest.TestCase):
         readout.writeFile(outfile, self.readout_config, self.config, self.logger)
         with fits.open(outfile) as hdus:
             self.assertEqual(hdus[0].header['FILTER'], 'r')
+        os.remove(outfile)
 
 
 def sky_coord(ra, dec, units=lsst.geom.degrees):
