@@ -20,12 +20,12 @@ def test_sky_model():
 
     # Expected sky bg values from running the rubin_sim.skybrightness code
     # by hand.
-    expected_sky_levels = {'u': 940.7937085596119,
-                           'g': 8041.527171090393,
-                           'r': 16237.629525864833,
-                           'i': 28067.051704336685,
-                           'z': 47779.887841007076,
-                           'y': 46624.44436047136}
+    expected_sky_levels = {'u': 940.8063879564563,
+                           'g': 8041.5851235691625,
+                           'r': 16237.67541651461,
+                           'i': 28067.137304469303,
+                           'z': 47780.00064197293,
+                           'y': 46624.55973988414}
 
     for band in 'ugrizy':
         bandpass = galsim.Bandpass(f'LSST_{band}.dat', wave_type='nm')
