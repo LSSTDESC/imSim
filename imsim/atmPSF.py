@@ -153,9 +153,10 @@ class AtmosphericPSF(object):
         else:
             if logger:
                 logger.warning(f"Using {nproc} processes to build the phase screens")
-            with ctx.Pool(nproc, initializer=galsim.phase_screens.initWorker,
-                          initargs=galsim.phase_screens.initWorkerArgs()) as pool:
-                self.atm.instantiate(pool=pool, kmax=kmax, check='phot')
+            with galsim.utilities.single_threaded():
+                with ctx.Pool(nproc, initializer=galsim.phase_screens.initWorker,
+                              initargs=galsim.phase_screens.initWorkerArgs()) as pool:
+                    self.atm.instantiate(pool=pool, kmax=kmax, check='phot')
 
         if logger:
             logger.info("Finished building atmosphere")
