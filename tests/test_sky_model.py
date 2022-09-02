@@ -1,6 +1,12 @@
+import os
+from pathlib import Path
 import numpy as np
+import json
 import galsim
 from imsim import SkyModel
+
+
+DATA_DIR = Path(__file__).parent / 'data'
 
 
 def test_sky_model():
@@ -18,14 +24,10 @@ def test_sky_model():
     mjd = 60232.3635999295
     exptime = 30.
 
-    # Expected sky bg values from running the rubin_sim.skybrightness code
-    # by hand.
-    expected_sky_levels = {'u': 940.8063879564563,
-                           'g': 8041.5851235691625,
-                           'r': 16237.67541651461,
-                           'i': 28067.137304469303,
-                           'z': 47780.00064197293,
-                           'y': 46624.55973988414}
+    # Load expected sky bg values obtained from running the
+    # rubin_sim.skybrightness code using sky_level_reference_values.py script.
+    with open(os.path.join(DATA_DIR, 'reference_sky_levels.json')) as fobj:
+        expected_sky_levels = json.load(fobj)
 
     for band in 'ugrizy':
         bandpass = galsim.Bandpass(f'LSST_{band}.dat', wave_type='nm')
