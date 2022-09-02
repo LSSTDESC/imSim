@@ -64,23 +64,13 @@ jobs:
                 pip install -e .
                 cd ..
                 mkdir rubin_sim_data
-                cd rubin_sim_data
                 # Just get the skybrightness and throughputs data for now.
-                curl -O https://lsst.ncsa.illinois.edu/sim-data/rubin_sim_data/skybrightness_may_2021.tgz
-                tar xzf skybrightness_may_2021.tgz
-                curl -O https://lsst.ncsa.illinois.edu/sim-data/rubin_sim_data/throughputs_aug_2021.tgz
-                tar xzf throughputs_aug_2021.tgz
-                cd ..
+                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
+                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
 
             - name: Install imSim
               run:
                 pip install .
-
-            - name: Install main branch of GalSim
-              run: |
-                # need to make sure GalSim 2.4.0 is installed before
-                # the next imsim release:
-                pip install git+https://github.com/GalSim-developers/GalSim.git@main
 
             - name: Install test deps
               run:
