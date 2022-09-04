@@ -104,8 +104,8 @@ image:
                 # the main process for all of the (many) vert faint sources, which only shoot
                 # a small numer of photons.
 
-    xsize: 4096
-    ysize: 4096
+    xsize: "$xsize"
+    ysize: "$ysize"
 
     bandpass: { type: OpsimMetaBandpass }
 
