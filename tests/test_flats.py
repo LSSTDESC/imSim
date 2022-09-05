@@ -170,7 +170,7 @@ class FlatTestCase(unittest.TestCase):
         counts_per_iter = 100
         niter = 5
         tot_counts = counts_per_iter * niter
-        # Use an SED with a tight wavelength range in the z band
+        # Use an SED with a tight wavelength range in the g band
         sed = galsim.SED(galsim.LookupTable([530,540,550,560],[0,1,1,0]), 'nm', '1')
         bandpass = galsim.Bandpass(lambda x: 1, wave_type='nm', blue_limit=400, red_limit=1200)
         config = {
