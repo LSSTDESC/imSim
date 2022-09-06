@@ -1,0 +1,122 @@
+# This is an example of how to make a flat-field image with imsim.
+
+
+# Load the imsim modules.
+modules:
+    - imsim
+
+input:
+
+    tree_rings:
+        # This enables TreeRingCenter and TreeRungFunc, which are stored as a dict here based
+        # on the detector name, so the right value can be accessed for each object.
+        # This file lives in the imsim repo.
+        file_name: "tree_ring_parameters_2018-04-26.txt"
+        # Can limit the detectors to read in.  This is handy while debugging, since it takes
+        # a minute or so to read all 189 detectors (the default behavior).
+        only_dets: [R22_S11]
+
+
+image:
+    type: LSST_Flat
+
+    random_seed: 1234
+
+    xsize: 4096
+    ysize: 4096
+
+    # This is a ~typical count level for a flat.  But beware that with this value, this
+    # simulation run for just a single sensor takes more than a day to run on a typical
+    # machine.  Unless you really, really need to simulate the wavelength dependence of the
+    # sensor effects (such as brighter-fatter), you most likely want to use the regular
+    # flat.yaml configuration, which ignores the wavelength dependence.
+    counts_per_pixel: 80000
+
+    wcs:
+        type: Batoid
+
+        # These are required, but the actual values don't matter for a flat field.
+        boresight:
+            type: RADec
+            ra: "0 degrees"
+            dec: "-30 degrees"
+        rotTelPos: "0 degrees"
+        obstime: "2024-01-01"
+
+        # These are relevant for a flat, so should make sure to get these right.
+        det_name: $det_name
+        band: y
+
+    noise:
+        type: Poisson
+
+    sensor:
+        type: Silicon
+        strength: 1.0
+        treering_center: { type: TreeRingCenter, det_name: $det_name }
+        treering_func: { type: TreeRingFunc, det_name: $det_name }
+
+    # If you provide an sed item, the code will take into account the absorption depth of
+    # the photons in the silicon according to their wavelength.
+    # This is significantly slower than not providing an sed, since it needs to run an extra
+    # (slow) step of generating a photon array from the sky image, converting them all into
+    # electrons at the right depth, and then accumulating them on the pixels.
+    # This is much slower than just computing the right amount of flux to add based on the
+    # current pixel area at each iteration.
+    # Note: when using an sed, you also need a bandpass.
+    sed: "$galsim.SED(galsim.LookupTable([930,940,950,960],[0,1,1,0]), 'nm', '1')"
+
+    # For a custom function bandpass
+    bandpass: "$galsim.Bandpass(lambda x: 1, wave_type='nm', blue_limit=700, red_limit=1200)"
+
+    # For a bandpass from a file
+    #bandpass:
+        #file_name: 'LSST_y.dat'
+        #wave_type: 'nm'
+
+
+
+# This defines both the output files and some basic things about the overall exposure/fov.
+output:
+    type: LSST_CCD
+    nproc: 1    # Change this to work on multiple CCDs at once.
+    nfiles: 1   # Default is all 189 CCDs.  Set to 1 while testing.
+
+    camera: LsstCam
+
+    exp_time: 30
+
+    cosmic_ray_rate: 0.2
+
+    det_num:
+        type: Sequence
+        nitems: 189
+        first: 94  # Can set first to something if you want to do a specific sensor.
+
+    dir: flats
+    file_name:
+        type: FormattedStr
+        format : flat_eimage_%05d-%s-%s-det%03d.fits
+        items:
+            - 1  # When making multiple flats, probably should increment this for each file.
+            - "@image.wcs.band"
+            - "$det_name"   # A value stored in the dict by LSST_CCD
+            - "@output.det_num"
+
+    readout:
+        # Convert from e-image to realized amp images
+        readout_time: 3.
+        dark_current: 0.02
+        bias_level: 1000.
+        pcti: 1.e-6
+        scti: 1.e-6
+        filter: "@image.wcs.band"
+
+        file_name:
+            type: FormattedStr
+            format : flat_amp_%05d-%s-%s-det%03d.fits.fz
+            items:
+                - "@output.file_name.items.0"
+                - "@image.wcs.band"
+                - "$det_name"
+                - "@output.det_num"
