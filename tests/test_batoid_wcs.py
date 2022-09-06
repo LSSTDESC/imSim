@@ -205,7 +205,7 @@ def test_imsim():
     )
     np.testing.assert_allclose(
         (90-np.rad2deg(zob))*3600, cmds['altitude']*3600,
-        rtol=0, atol=5.0,
+        rtol=0, atol=6.0,
     )
     q = factory.q * galsim.radians
     rotSkyPos = rotTelPos - q

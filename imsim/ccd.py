@@ -5,6 +5,12 @@ from .cosmic_rays import CosmicRays
 from .meta_data import data_dir
 from .camera import get_camera
 
+
+# Add `xsize` and `ysize` to the list of preset variables. These are
+# evaluated below in LSST_CCDBuilder.setup.
+galsim.config.eval_base_variables.extend(('xsize', 'ysize'))
+
+
 class LSST_CCDBuilder(OutputBuilder):
     """This runs the overall generation of an LSST CCD file.
 
@@ -33,13 +39,29 @@ class LSST_CCDBuilder(OutputBuilder):
             base['eval_variables'] = {}
         base['eval_variables']['sdet_name'] = det_name
 
+        # Get detector size in pixels.
+        det_bbox = camera[detnum].getBBox()
+        base['xsize'] = det_bbox.width
+        base['ysize'] = det_bbox.height
+
         base['exp_time'] = float(config.get('exp_time', 30))
+
+        # Get detector z-offset, if available.
+        ccd_orientation = camera[detnum].getOrientation()
+        if hasattr(ccd_orientation, 'getHeight'):
+            z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
+            logger.info("Setting CCD z-offset to %.2e m", z_offset)
+        else:
+            z_offset = 0
+        if "shift_optics" not in base:
+            base["shift_optics"] = {}
+        base["shift_optics"]["Detector"] = [0, 0, z_offset]
 
     def getNFiles(self, config, base, logger=None):
         """Returns the number of files to be built.
 
         nfiles can be specified if you want.
-        
+
         But the default is 189, not 1.
 
         Parameters:

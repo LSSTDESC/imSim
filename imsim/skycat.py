@@ -15,8 +15,8 @@ class SkyCatalogInterface:
     # Rubin effective area computed using numbers at
     # https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _eff_area = 0.25 * np.pi * 649**2  # cm^2
-    def __init__(self, file_name, wcs, bandpass, obj_types=None,
-                 skycatalog_root=None, edge_pix=100, logger=None):
+    def __init__(self, file_name, wcs, bandpass, xsize=4096, ysize=4096, obj_types=None,
+                 skycatalog_root=None, edge_pix=100, max_flux=None, logger=None):
         """Parameters
         ----------
         file_name : str
@@ -25,6 +25,10 @@ class SkyCatalogInterface:
             WCS of the image to render.
         bandpass : galsim.Bandpass
             Bandpass to use for flux calculations.
+        xsize : int
+            Size in pixels of CCD in x-direction.
+        ysize : int
+            Size in pixels of CCD in y-direction.
         obj_types : list-like [None]
             List or tuple of object types to render, e.g., ('star', 'galaxy').
             If None, then consider all object types.
@@ -35,6 +39,9 @@ class SkyCatalogInterface:
         edge_pix : float [100]
             Size in pixels of the buffer region around nominal image
             to consider objects.
+        max_flux : float [None]
+            If object flux exceeds max_flux, the return None for that object.
+            if max_flux == None, then don't apply a maximum flux cut.
         logger : logging.Logger
             Logger object.
 
@@ -45,11 +52,12 @@ class SkyCatalogInterface:
         self.file_name = file_name
         self.wcs = wcs
         self.bandpass = bandpass
+        self.max_flux = max_flux
         if skycatalog_root is None:
             skycatalog_root = os.path.dirname(os.path.abspath(file_name))
         sky_cat = skyCatalogs.open_catalog(file_name,
                                            skycatalog_root=skycatalog_root)
-        region = skyCatalogs.Box(*get_radec_limits(wcs, logger, edge_pix)[:4])
+        region = skyCatalogs.Box(*get_radec_limits(wcs, xsize, ysize, logger, edge_pix)[:4])
         self.objects = sky_cat.get_objects_by_region(region,
                                                      obj_type_set=obj_types)
 
@@ -117,6 +125,9 @@ class SkyCatalogInterface:
         gs_object.flux \
             = skycat_obj.get_flux(self.bandpass)*exp_time*self._eff_area
 
+        if self.max_flux is not None and gs_object.flux > self.max_flux:
+            return None
+
         return gs_object
 
 
@@ -128,12 +139,15 @@ class SkyCatalogLoader(InputLoader):
         req = {'file_name': str}
         opt = {
                'edge_pix' : float,
-               'obj_types' : list
+               'obj_types' : list,
+               'max_flux' : float
               }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
         kwargs['wcs'] = wcs
+        kwargs['xsize'] = base['xsize']
+        kwargs['ysize'] = base['ysize']
         bandpass, safe1 = galsim.config.BuildBandpass(base['image'], 'bandpass', base, logger)
         safe = safe and safe1
         kwargs['bandpass'] = bandpass
