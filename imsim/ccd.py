@@ -4,6 +4,7 @@ from galsim.config import OutputBuilder, RegisterOutputType
 from .cosmic_rays import CosmicRays
 from .meta_data import data_dir
 from .camera import get_camera
+from .opsim_meta import get_opsim_md
 
 
 # Add `xsize` and `ysize` to the list of preset variables. These are
