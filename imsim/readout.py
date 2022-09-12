@@ -260,16 +260,40 @@ def get_primary_hdu(eimage, lsst_num='LCA-11021_RTM-000', image_type=None,
 
 
 class CcdReadout:
-    def __init__(self, eimage, logger, ccd_params=None):
+    """
+    Class to convert eimage to a "raw" FITS file with 1 amplifier segment
+    per image HDU, simulating the electronics readout effects for each amp.
+    """
+    def __init__(self, eimage, logger, camera_name=None, ccd_params=None):
+        """
+        Parameters
+        ----------
+        eimage : GalSim.Image
+            The eimage with the rendered scene, wcs, and header information.
+        logger : logging.Logger
+            Logger object
+        camera_name : str [None]
+            Camera class to use, e.g., 'LsstCam', 'LsstCamImSim'.  If None,
+            then use camera name from eimage header.
+        ccd_params : dict [None]
+            Parameters describing the CCD readout parameters, i.e.,
+            readout_time [2 s], dark_current [0.02 e-/s],
+            bias_level [1000 ADU], scti [1e-6], pcti [1e-6],
+            full_well [1e5 e-], that are not yet available from the
+            camera object.
+        """
         self.eimage = eimage
         self.det_name = eimage.header['DET_NAME']
-        self.camera_name = eimage.header['CAMERA']
+        if camera_name is None:
+            self.camera_name = eimage.header['CAMERA']
+        else:
+            self.camera_name = camera_name
         self.logger = logger
         camera = Camera(self.camera_name)
         self.ccd = camera[self.det_name]
+        self.exp_time = self.eimage.header['EXPTIME']
         if ccd_params is None:
             ccd_params = {}
-        self.exp_time = ccd_params.get('exp_time', 30.0)  # seconds
         self.readout_time = ccd_params.get('readout_time', 2.0)  # seconds
         self.dark_current = ccd_params.get('dark_current', 0.02)  # e-/s
         self.bias_level = ccd_params.get('bias_level', 1000.0)  # ADU
