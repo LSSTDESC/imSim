@@ -19,7 +19,7 @@ DESC GitHub organization.  Other questions can be directed to Chris Walter at Du
 
 ## imSim models
 
-Details on the models implemented by imSim including their validations can be found in the [imSim Feature Matrix](https://github.com/LSSTDESC/imSim/wiki/Feature-Matrix).
+Details on the models implemented by imSim including their validations can be found in the [imSim Feature Matrix](https://lsstdesc.github.io/imSim/features.html).
 
 ## Set up
 Set up the `lsst_sims` distribution, then enter the following from
