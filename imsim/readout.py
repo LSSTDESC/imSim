@@ -193,7 +193,7 @@ def cte_matrix(npix, cti, ntransfers=20):
 
 
 # TODO: get lsst_num from camera object.
-def get_primary_hdu(eimage, lsst_num='LCA-11021_RTM-000', image_type=None,
+def get_primary_hdu(eimage, lsst_num='LCA-11021_RTM-000', camera_name=None,
                     added_keywords={}, logger=None):
     """
     Create a primary HDU for the output raw file with the keywords
@@ -217,7 +217,8 @@ def get_primary_hdu(eimage, lsst_num='LCA-11021_RTM-000', image_type=None,
     phdu.header['MONOWL'] = -1
     det_name = eimage.header['DET_NAME']
     raft, sensor = det_name.split('_')
-    camera_name = eimage.header['CAMERA']
+    if camera_name is None:
+        camera_name = eimage.header['CAMERA']
     ratel = eimage.header['RATEL']
     dectel = eimage.header['DECTEL']
     rottelpos = eimage.header['ROTTELPOS']
@@ -407,7 +408,9 @@ class CcdReadout:
         wcs = self.eimage.wcs
         crpix1, crpix2 = wcs.crpix
 
-        hdus = fits.HDUList(get_primary_hdu(self.eimage, logger=self.logger))
+        phdu = get_primary_hdu(self.eimage, camera_name=self.camera_name,
+                               logger=self.logger)
+        hdus = fits.HDUList(phdu)
         for amp_num, amp in enumerate(self.amp_images):
             channel = 'C' + channels[amp_num]
             amp_info = self.ccd[channel]
