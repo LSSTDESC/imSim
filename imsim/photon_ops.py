@@ -148,7 +148,8 @@ def ray_vector_to_photon_array(
 
     Stores into an already existing galsim.PhotonArray out"""
 
-    assert all(np.abs(ray_vector.z) < 1.0e-15)
+    w = ~ray_vector.vignetted
+    assert all(np.abs(ray_vector.z[w]) < 1.0e-15)
     out.x, out.y = focal_to_pixel(ray_vector.y * 1e3, ray_vector.x * 1e3, detector)
 
     out.dxdz = ray_vector.vx / ray_vector.vz
