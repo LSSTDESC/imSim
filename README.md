@@ -22,17 +22,8 @@ DESC GitHub organization.  Other questions can be directed to Chris Walter at Du
 Details on the models implemented by imSim including their validations can be found in the [imSim Feature Matrix](https://lsstdesc.github.io/imSim/features.html).
 
 ## Set up
-Set up the `lsst_sims` distribution, then enter the following from
-this repo directory:
-```
-$ eups declare -r . imsim -t current
-$ setup imsim
-$ scons
-```
-Once you have `eups declared` a package like this, you only need to
-execute the `setup imsim` command, and that command can be issued from
-any directory.  The `scons` build step needs only to be re-run if a
-new command line executable is added to the `bin.src` folder.
+
+Please visit the [docs about installation](https://lsstdesc.github.io/imSim/install.html).
 
 ## Usage
 The executables in the `bin` folder should be in your path and so
