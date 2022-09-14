@@ -10,4 +10,4 @@ Contents
    install.rst
    features.rst
    data-formats.rst
-   
+   usage.rst
