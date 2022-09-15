@@ -4,13 +4,14 @@ import numpy as np
 
 import batoid
 from batoid import Optic
-from galsim import PhotonArray, PhotonOp
+from galsim import PhotonArray, PhotonOp, GaussianDeviate
 from galsim.config import RegisterPhotonOpType, PhotonOpBuilder, GetAllParams
 
 from galsim.celestial import CelestialCoord
 from galsim.config.util import get_cls_params
 from .camera import get_camera
 from .utils import focal_to_pixel
+from .diffraction import LSST_SPIDER_GEOMETRY, diffraction_kick
 
 
 class LsstOptics(PhotonOp):
@@ -38,12 +39,12 @@ class LsstOptics(PhotonOp):
             shift_optics:
               Detector: [0, 0, 1.5e-3]
               M2: [3.0e-3, 0, 0]
-
-
+    use_diffraction : bool
+        Enable / disable diffraction (default: enabled)
     """
 
     _req_params = {"telescope": Optic, "band": str, "boresight": CelestialCoord}
-    _opt_params = {"shift_optics": dict}
+    _opt_params = {"shift_optics": dict, "use_diffraction": bool}
 
     def __init__(
         self,
@@ -54,6 +55,7 @@ class LsstOptics(PhotonOp):
         icrf_to_field,
         det_name,
         shift_optics=None,
+        use_diffraction=True,
     ):
         if shift_optics is not None:
             for optics_key, shift in shift_optics.items():
@@ -64,6 +66,18 @@ class LsstOptics(PhotonOp):
         self.sky_pos = sky_pos
         self.image_pos = image_pos
         self.icrf_to_field = icrf_to_field
+
+        if use_diffraction:
+            deviate = GaussianDeviate()
+
+            def diffraction_rng(phi):
+                var = phi**2
+                deviate.generate_from_variance(var)
+                return var
+
+            self.diffraction_rng = diffraction_rng
+        else:
+            self.diffraction_rng = None
 
     def applyTo(self, photon_array, local_wcs=None, rng=None):
         """Apply the photon operator to a PhotonArray.
@@ -99,6 +113,8 @@ class LsstOptics(PhotonOp):
 
         x, y = photon_array.pupil_u, photon_array.pupil_v
         z = self.telescope.stopSurface.surface.sag(x, y)
+        if self.diffraction_rng is not None:
+            apply_spider_diffraction(x, y, vx, vy, vz, wavelength, self.diffraction_rng)
         ray_vec = batoid.RayVector._directInit(
             x,
             y,
@@ -132,7 +148,8 @@ def ray_vector_to_photon_array(
 
     Stores into an already existing galsim.PhotonArray out"""
 
-    assert all(np.abs(ray_vector.z) < 1.0e-15)
+    w = ~ray_vector.vignetted
+    assert all(np.abs(ray_vector.z[w]) < 1.0e-15)
     out.x, out.y = focal_to_pixel(ray_vector.y * 1e3, ray_vector.x * 1e3, detector)
 
     out.dxdz = ray_vector.vx / ray_vector.vz
@@ -152,9 +169,11 @@ class LsstOpticsFactory(PhotonOpBuilder):
         req, opt, single, _takes_rng = get_cls_params(LsstOptics)
         kwargs, _safe = GetAllParams(config, base, req, opt, single)
 
-        shift_optics = kwargs.get("shift_optics")
+        opt_kwargs = {key: kwargs.get(key) for key in LsstOptics._opt_params.keys()}
+        shift_optics = opt_kwargs.pop("shift_optics")
         if shift_optics is None:
             shift_optics = base.get("shift_optics", None)
+
         return LsstOptics(
             telescope=base["_telescope"],
             boresight=kwargs["boresight"],
@@ -163,7 +182,25 @@ class LsstOpticsFactory(PhotonOpBuilder):
             icrf_to_field=base["_icrf_to_field"],
             det_name=base["det_name"],
             shift_optics=shift_optics,
+            **opt_kwargs
         )
+
+
+def apply_spider_diffraction(x, y, vx, vy, vz, wavelength, rng):
+    """Statistically diffract photons."""
+    pos = np.empty(x.shape + (2,))
+    pos[:, 0] = x
+    pos[:, 1] = y
+    shift = diffraction_kick(pos, vz, wavelength, LSST_SPIDER_GEOMETRY, rng)
+    v_before = np.linalg.norm(np.c_[vx, vy, vz], axis=-1)
+    vx += shift[:, 0]
+    vy += shift[:, 1]
+    # renormalize (leave norm invariant)
+    v_after = np.linalg.norm(np.c_[vx, vy, vz], axis=-1)
+    f_scale = v_before / v_after
+    vx *= f_scale
+    vy *= f_scale
+    vz *= f_scale
 
 
 RegisterPhotonOpType("lsst_optics", LsstOpticsFactory())
