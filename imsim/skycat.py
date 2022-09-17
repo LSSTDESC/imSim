@@ -10,6 +10,54 @@ from desc.skycatalogs import skyCatalogs
 from .instcat import get_radec_limits
 
 
+def get_skycat_objects(sky_cat, wcs, xsize, ysize, edge_pix, logger, obj_types):
+    """
+    Find skycat objects that land on the CCD + edge_pix buffer region.
+
+    Parameters
+    ----------
+    sky_cat : desc.skycatalogs.SkyCatalog
+        SkyCatalog object.
+    wcs : GalSim.GSFitsWCS
+        WCS object for the current CCD.
+    xsize : int
+        Size in pixels of CCD in x-direction.
+    ysize : int
+        Size in pixels of CCD in y-direction.
+    edge_pix : float
+        Size in pixels of the buffer region around nominal image
+        to consider objects.
+    logger : logging.Logger
+        Logger object.
+    obj_types : list-like
+        List or tuple of object types to render, e.g., ('star', 'galaxy').
+        If None, then consider all object types.
+
+    Returns
+    -------
+    list of skyCatalogs objects
+    """
+    # Get range of ra, dec values given CCD size + edge_pix buffer.
+    radec_limits = get_radec_limits(wcs, xsize, ysize, logger, edge_pix)
+
+    # Initial pass using skyCatalogs.Box in ra, dec.
+    region = skyCatalogs.Box(*radec_limits[:4])
+    candidates = sky_cat.get_objects_by_region(region, obj_type_set=obj_types)
+
+    # Compute pixel coords of candidate objects and downselect in pixel
+    # coordinates.
+    min_x, min_y, max_x, max_y = radec_limits[4:]
+    objects = []
+    for candidate in candidates:
+        sky_coords = galsim.CelestialCoord(candidate.ra*galsim.degrees,
+                                           candidate.dec*galsim.degrees)
+        pixel_coords = wcs.toImage(sky_coords)
+        if ((min_x < pixel_coords.x < max_x) and
+            (min_y < pixel_coords.y < max_y)):
+            objects.append(candidate)
+    return objects
+
+
 class SkyCatalogInterface:
     """Interface to skyCatalogs package."""
     # Rubin effective area computed using numbers at
@@ -17,7 +65,8 @@ class SkyCatalogInterface:
     _eff_area = 0.25 * np.pi * 649**2  # cm^2
     def __init__(self, file_name, wcs, bandpass, xsize=4096, ysize=4096, obj_types=None,
                  skycatalog_root=None, edge_pix=100, max_flux=None, logger=None):
-        """Parameters
+        """
+        Parameters
         ----------
         file_name : str
             Name of skyCatalogs yaml config file.
@@ -57,9 +106,8 @@ class SkyCatalogInterface:
             skycatalog_root = os.path.dirname(os.path.abspath(file_name))
         sky_cat = skyCatalogs.open_catalog(file_name,
                                            skycatalog_root=skycatalog_root)
-        region = skyCatalogs.Box(*get_radec_limits(wcs, xsize, ysize, logger, edge_pix)[:4])
-        self.objects = sky_cat.get_objects_by_region(region,
-                                                     obj_type_set=obj_types)
+        self.objects = get_skycat_objects(sky_cat, wcs, xsize, ysize,
+                                          edge_pix, logger, obj_types)
 
     def getNObjects(self):
         """
