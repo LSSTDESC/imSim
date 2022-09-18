@@ -120,17 +120,17 @@ Assuming you have `Docker <https://docs.docker.com/get-docker/>`_ installed, the
 
     CMD source /opt/lsst/software/stack/loadLSST.bash; setup lsst_distrib; export RUBIN_SIM_DATA_DIR=/opt/lsst/software/stack/rubin_sim_data; bash
 
-The final `CMD` line sets up the runtime environment in bash.
+The final ``CMD`` line sets up the runtime environment in bash.
 
-Note that the file containing these commands should literally be called `Dockerfile`.
+Note that the file containing these commands should literally be called ``Dockerfile``.
 
-Here we've used one of the `prebuilt Docker images <https://hub.docker.com/r/lsstsqre/centos/tags>`_ produced by Rubin Data Management team that are available from Docker Hub.  Standard images are produced on a weekly basis and track the `on-going development of the LSST Stack <https://lsst-dm.github.io/lsst_git_changelog/weekly/summary.html>`_.  For weekly `w_2022_22` and later, python 3.10 is the baseline version provided with the prebuilt Rubin Docker images.
+Here we've used one of the `prebuilt Docker images <https://hub.docker.com/r/lsstsqre/centos/tags>`_ produced by Rubin Data Management team that are available from Docker Hub.  Standard images are produced on a weekly basis and track the `on-going development of the LSST Stack <https://lsst-dm.github.io/lsst_git_changelog/weekly/summary.html>`_.  For weekly ``w_2022_22`` and later, python 3.10 is the baseline version provided with the prebuilt Rubin Docker images.
 
 Various components, e.g., GalSim, imSim, etc., can be omitted from the Dockerfile build and installed separately as shown in the conda/stackvana method.
 
 Setting user and group ids
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-The prebuilt Rubin images set the default linux user and group both to `lsst` with `uid=1000` and `gid=1000`.   If the desired user and group on the host system have the same ids, then the `lsst` user and group in the Docker image can be renamed with the following, replacing the line
+The prebuilt Rubin images set the default linux user and group both to ``lsst`` with ``uid=1000`` and ``gid=1000``.   If the desired user and group on the host system have the same ids, then the ``lsst`` user and group in the Docker image can be renamed with the following, replacing the line
 
 .. code-block:: sh
 
@@ -148,7 +148,7 @@ with
     USER ${user}
     WORKDIR /home/${user}
 
-Alternatively, if the `lsst` user doesn't conflict with the desired user/group, the latter can be added to the image and set as the default user:
+Alternatively, if the ``lsst`` user doesn't conflict with the desired user/group, the latter can be added to the image and set as the default user:
 
 .. code-block:: sh
 
@@ -170,7 +170,7 @@ Assuming the above Dockerfile is in the current directory, then the following co
 
     docker build ./ -t <repository>:<tag>
 
-where `\<repository\>` and `\<tag\>` are chosen by the user.
+where ``<repository>`` and ``<tag>`` are chosen by the user.
 
 The available images can be listed via
 
@@ -187,4 +187,4 @@ To run the image do
 
     docker run -it --privileged --rm -v ${HOME}:/home/<user> <repository>:<tag>
 
-The `-v ${HOME}:/home/\<user\>` option maps the user's home directory on the host system to `/home/\<user\>` in the Docker image.
+The ``-v ${HOME}:/home/<user>`` option maps the user's home directory on the host system to ``/home/<user>`` in the Docker image.
