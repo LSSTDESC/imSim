@@ -60,6 +60,9 @@ class SkyCatalogInterface:
         region = skyCatalogs.Box(*get_radec_limits(wcs, xsize, ysize, logger, edge_pix)[:4])
         self.objects = sky_cat.get_objects_by_region(region,
                                                      obj_type_set=obj_types)
+        if not self.objects and logger is not None:
+            logger.warning("No objects found on image")
+
 
     def getNObjects(self):
         """
@@ -103,6 +106,9 @@ class SkyCatalogInterface:
         -------
         galsim.GSObject
         """
+        if not self.objects:
+            raise RuntimeError("Trying to get an object from an empty sky catalog")
+
         skycat_obj = self.objects[index]
         gsobjs = skycat_obj.get_gsobject_components(gsparams, rng)
         seds = skycat_obj.get_observer_sed_components()
