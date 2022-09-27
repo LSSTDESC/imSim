@@ -112,13 +112,11 @@ class LsstOptics(PhotonOp):
         # ICRF to field
         thx, thy = self.icrf_to_field.radecToxy(ra, dec, units="rad")
 
-        vx, vy, vz = batoid.utils.gnomonicToDirCos(thx, thy)
+        v = np.array(batoid.utils.gnomonicToDirCos(thx, thy))
         # Adjust for refractive index of air
         wavelength = photon_array.wavelength * 1e-9
         n = self.telescope.inMedium.getN(wavelength)
-        vx /= n
-        vy /= n
-        vz /= n
+        v /= n
 
         if not photon_array.hasAllocatedPupil():
             op = PupilAnnulusSampler(R_inner=2.5, R_outer=4.18)
@@ -126,14 +124,14 @@ class LsstOptics(PhotonOp):
         x, y = photon_array.pupil_u, photon_array.pupil_v
         z = self.telescope.stopSurface.surface.sag(x, y)
         if self.diffraction_rng is not None:
-            apply_spider_diffraction(x, y, vx, vy, vz, wavelength, self.diffraction_rng)
+            apply_spider_diffraction(x, y, v, wavelength, self.diffraction_rng)
         ray_vec = batoid.RayVector._directInit(
             x,
             y,
             z,
-            vx,
-            vy,
-            vz,
+            v[0],
+            v[1],
+            v[2],
             t=np.zeros_like(x),
             wavelength=wavelength,
             flux=photon_array.flux,
@@ -213,21 +211,15 @@ class LsstOpticsFactory(PhotonOpBuilder):
         )
 
 
-def apply_spider_diffraction(x, y, vx, vy, vz, wavelength, rng):
+def apply_spider_diffraction(x, y, v, wavelength, rng) -> None:
     """Statistically diffract photons."""
-    pos = np.empty(x.shape + (2,))
-    pos[:, 0] = x
-    pos[:, 1] = y
-    shift = diffraction_kick(pos, vz, wavelength, LSST_SPIDER_GEOMETRY, rng)
-    v_before = np.linalg.norm(np.c_[vx, vy, vz], axis=-1)
-    vx += shift[:, 0]
-    vy += shift[:, 1]
+    shift = diffraction_kick(np.c_[x, y], v[2], wavelength, LSST_SPIDER_GEOMETRY, rng)
+    v_before = np.linalg.norm(v, axis=0)
+    v[:2] += shift.T
     # renormalize (leave norm invariant)
-    v_after = np.linalg.norm(np.c_[vx, vy, vz], axis=-1)
+    v_after = np.linalg.norm(v, axis=0)
     f_scale = v_before / v_after
-    vx *= f_scale
-    vy *= f_scale
-    vz *= f_scale
+    v *= f_scale
 
 
 RegisterPhotonOpType("lsst_optics", LsstOpticsFactory())
