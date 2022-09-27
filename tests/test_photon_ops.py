@@ -36,6 +36,10 @@ def test_lsst_optics() -> None:
         icrf_to_field=factory.get_icrf_to_field(camera[det_name]),
         det_name=det_name,
         camera=camera,
+        latitude=-30.24463,
+        azimuth=45.0,
+        altitude=45.0,
+        telescope_rotation_angle=0.0,
     )
     photon_array = galsim.PhotonArray(
         5,

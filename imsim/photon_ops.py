@@ -2,6 +2,7 @@
 
 import numpy as np
 
+import galsim
 import batoid
 from batoid import Optic
 from galsim import PhotonArray, PhotonOp, GaussianDeviate
@@ -12,8 +13,11 @@ from galsim.celestial import CelestialCoord
 from galsim.config.util import get_cls_params
 from .camera import get_camera
 from .utils import focal_to_pixel
-from .diffraction import LSST_SPIDER_GEOMETRY, diffraction_kick
 import lsst.afw.cameraGeom
+from .diffraction import (
+    LSST_SPIDER_GEOMETRY,
+    apply_diffraction_delta,
+)
 
 
 class LsstOptics(PhotonOp):
@@ -27,6 +31,9 @@ class LsstOptics(PhotonOp):
         The ICRF coordinate of light that reaches the boresight.  Note that this
         is distinct from the spherical coordinates of the boresight with respect
         to the ICRF axes.
+    latitude : float
+        Geographic latitude of telescope. Needed to calculate the field rotation
+        for the spider diffraction.
     sky_pos : galsim.CelestialCoord
     image_pos : galsim.PositionD
     icrf_to_field : galsim.GSFitsWCS
@@ -50,13 +57,17 @@ class LsstOptics(PhotonOp):
         "telescope": Optic,
         "band": str,
         "boresight": CelestialCoord,
-        "camera": str
+        "camera": str,
+        "latitude": float,
     }
     _opt_params = {"shift_optics": dict, "use_diffraction": bool}
 
     def __init__(
         self,
         telescope,
+        latitude,
+        altitude,
+        azimuth,
         boresight,
         sky_pos,
         image_pos,
@@ -71,6 +82,9 @@ class LsstOptics(PhotonOp):
                 telescope = telescope.withGloballyShiftedOptic(optics_key, shift)
         self.telescope = telescope
         self.detector = camera[det_name]
+        self.latitude = latitude
+        self.azimuth = azimuth
+        self.altitude = altitude
         self.boresight = boresight
         self.sky_pos = sky_pos
         self.image_pos = image_pos
@@ -112,11 +126,11 @@ class LsstOptics(PhotonOp):
         # ICRF to field
         thx, thy = self.icrf_to_field.radecToxy(ra, dec, units="rad")
 
-        v = np.array(batoid.utils.gnomonicToDirCos(thx, thy))
+        v = np.array(batoid.utils.gnomonicToDirCos(thx, thy)).T
         # Adjust for refractive index of air
         wavelength = photon_array.wavelength * 1e-9
         n = self.telescope.inMedium.getN(wavelength)
-        v /= n
+        v /= n[:, None]
 
         if not photon_array.hasAllocatedPupil():
             op = PupilAnnulusSampler(R_inner=2.5, R_outer=4.18)
@@ -124,14 +138,24 @@ class LsstOptics(PhotonOp):
         x, y = photon_array.pupil_u, photon_array.pupil_v
         z = self.telescope.stopSurface.surface.sag(x, y)
         if self.diffraction_rng is not None:
-            apply_spider_diffraction(x, y, v, wavelength, self.diffraction_rng)
+            v = apply_diffraction_delta(
+                np.c_[x, y],
+                v,
+                photon_array.time,
+                wavelength,
+                lat=self.latitude,
+                az=self.azimuth,
+                alt=self.altitude,
+                geometry=LSST_SPIDER_GEOMETRY,
+                distribution=self.diffraction_rng,
+            )
         ray_vec = batoid.RayVector._directInit(
             x,
             y,
             z,
-            v[0],
-            v[1],
-            v[2],
+            v[:, 0],
+            v[:, 1],
+            v[:, 2],
             t=np.zeros_like(x),
             wavelength=wavelength,
             flux=photon_array.flux,
@@ -198,12 +222,16 @@ class LsstOpticsFactory(PhotonOpBuilder):
         if shift_optics is None:
             shift_optics = base.get("shift_optics", None)
 
-        if self._camera_name != kwargs['camera']:
-            self._camera_name = kwargs['camera']
+        if self._camera_name != kwargs["camera"]:
+            self._camera_name = kwargs["camera"]
             self._camera = get_camera(self._camera_name)
+        opsim_meta = galsim.config.GetInputObj(
+            "opsim_meta_dict", config, base, "opsim_meta_dict"
+        )
 
         return LsstOptics(
             telescope=base["_telescope"],
+            latitude=kwargs["latitude"],
             boresight=kwargs["boresight"],
             sky_pos=base["sky_pos"],
             image_pos=base["image_pos"],
@@ -211,19 +239,10 @@ class LsstOpticsFactory(PhotonOpBuilder):
             det_name=base["det_name"],
             camera=self.camera,
             shift_optics=shift_optics,
+            altitude=opsim_meta["altitude"],
+            azimuth=opsim_meta["azimuth"],
             **opt_kwargs
         )
-
-
-def apply_spider_diffraction(x, y, v, wavelength, rng) -> None:
-    """Statistically diffract photons."""
-    shift = diffraction_kick(np.c_[x, y], v[2], wavelength, LSST_SPIDER_GEOMETRY, rng)
-    v_before = np.linalg.norm(v, axis=0)
-    v[:2] += shift.T
-    # renormalize (leave norm invariant)
-    v_after = np.linalg.norm(v, axis=0)
-    f_scale = v_before / v_after
-    v *= f_scale
 
 
 RegisterPhotonOpType("lsst_optics", LsstOpticsFactory())
