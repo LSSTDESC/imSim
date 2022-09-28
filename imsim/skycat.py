@@ -63,7 +63,7 @@ class SkyCatalogInterface:
     # Rubin effective area computed using numbers at
     # https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _eff_area = 0.25 * np.pi * 649**2  # cm^2
-    def __init__(self, file_name, wcs, bandpass, xsize=4096, ysize=4096, obj_types=None,
+    def __init__(self, file_name, wcs, band, xsize=4096, ysize=4096, obj_types=None,
                  skycatalog_root=None, edge_pix=100, max_flux=None, logger=None):
         """
         Parameters
@@ -72,8 +72,8 @@ class SkyCatalogInterface:
             Name of skyCatalogs yaml config file.
         wcs : galsim.WCS
             WCS of the image to render.
-        bandpass : galsim.Bandpass
-            Bandpass to use for flux calculations.
+        band : str
+            LSST band, one of ugrizy
         xsize : int
             Size in pixels of CCD in x-direction.
         ysize : int
@@ -100,7 +100,7 @@ class SkyCatalogInterface:
             logger.warning(f'Object types restricted to {obj_types}')
         self.file_name = file_name
         self.wcs = wcs
-        self.bandpass = bandpass
+        self.band = band
         self.max_flux = max_flux
         if skycatalog_root is None:
             skycatalog_root = os.path.dirname(os.path.abspath(file_name))
@@ -171,7 +171,7 @@ class SkyCatalogInterface:
 
         # Compute the flux or get the cached value.
         gs_object.flux \
-            = skycat_obj.get_flux(self.bandpass)*exp_time*self._eff_area
+            = skycat_obj.get_LSST_flux(self.band)*exp_time*self._eff_area
 
         if self.max_flux is not None and gs_object.flux > self.max_flux:
             return None
@@ -190,15 +190,18 @@ class SkyCatalogLoader(InputLoader):
                'obj_types' : list,
                'max_flux' : float
               }
+        meta = galsim.config.GetInputObj('opsim_meta_dict', config, base,
+                                         'SkyCatalogLoader')
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
         kwargs['wcs'] = wcs
         kwargs['xsize'] = base['xsize']
         kwargs['ysize'] = base['ysize']
-        bandpass, safe1 = galsim.config.BuildBandpass(base['image'], 'bandpass', base, logger)
-        safe = safe and safe1
-        kwargs['bandpass'] = bandpass
+        # The skyCatalogs code will use the LSST bandpasses from the
+        # throughputs distribution, so just need the LSST band (=filter)
+        # from the opsim metadata object.
+        kwargs['band'] = meta.get('filter')
         kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
         return kwargs, safe
 
