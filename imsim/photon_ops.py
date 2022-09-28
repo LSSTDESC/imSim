@@ -189,8 +189,12 @@ class LsstOpticsFactory(PhotonOpBuilder):
         req, opt, single, _takes_rng = get_cls_params(LsstOptics)
         kwargs, _safe = GetAllParams(config, base, req, opt, single)
 
-        opt_kwargs = {key: kwargs.get(key) for key in LsstOptics._opt_params.keys()}
-        shift_optics = opt_kwargs.pop("shift_optics")
+        opt_kwargs = {
+            key: kwargs.get(key)
+            for key in LsstOptics._opt_params.keys()
+            if kwargs.get(key) is not None
+        }
+        shift_optics = opt_kwargs.pop("shift_optics", None)
         if shift_optics is None:
             shift_optics = base.get("shift_optics", None)
 
