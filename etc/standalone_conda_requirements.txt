@@ -1,4 +1,4 @@
-# conda install --file conda_requirements should install all required dependencies of imSim.
+# conda install --file etc/standalone_conda_requirements should install all required dependencies of imSim including a conda based version of the Rubin pipelines.
 
 stackvana>=0.2021.30
 galsim>=2.4
