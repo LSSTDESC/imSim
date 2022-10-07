@@ -3,11 +3,39 @@ import unittest
 import astropy.time
 import numpy as np
 import pandas as pd
-import yaml
 import galsim
 import imsim
 
 DATA_DIR = Path(__file__).parent / 'data'
+
+def load_test_skycat():
+    """Read in the sky catalog data used by the various tests."""
+    opsim_db_file = str(DATA_DIR / "small_opsim_9683.db")
+    visit = 449053
+    det_name = "R22_S11"  # detector 94
+
+    # Make the WCS object.
+    obs_md = imsim.OpsimMetaDict(opsim_db_file, visit=visit)
+    boresight = galsim.CelestialCoord(
+        ra=obs_md["fieldRA"] * galsim.degrees,
+        dec=obs_md["fieldDec"] * galsim.degrees,
+    )
+    rottelpos = obs_md["rotTelPos"] * galsim.degrees
+    obstime = astropy.time.Time(obs_md["mjd"], format="mjd", scale="tai")
+    band = obs_md["band"]
+    bandpass = galsim.Bandpass(
+        f"LSST_{band}.dat", wave_type="nm"
+    ).withZeropoint("AB")
+    wcs_builder = imsim.BatoidWCSBuilder()
+    factory = wcs_builder.makeWCSFactory(boresight, rottelpos, obstime, band)
+    wcs = factory.getWCS(wcs_builder.camera[det_name])
+
+    # Create the sky catalog interface object.
+    skycat_file = str(DATA_DIR / "sky_cat_9683.yaml")
+
+    return imsim.SkyCatalogInterface(
+        skycat_file, wcs, bandpass, obj_types=["galaxy"]
+    )
 
 
 class SkyCatalogInterfaceTestCase(unittest.TestCase):
@@ -16,29 +44,8 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
     """
     @classmethod
     def setUpClass(cls):
-        """Read in the sky catalog data used by the various tests."""
-        opsim_db_file = str(DATA_DIR / 'small_opsim_9683.db')
-        visit = 449053
-        det_name = 'R22_S11'   # detector 94
-
-        # Make the WCS object.
-        obs_md = imsim.OpsimMetaDict(opsim_db_file, visit=visit)
-        boresight = galsim.CelestialCoord(ra=obs_md['fieldRA']*galsim.degrees,
-                                          dec=obs_md['fieldDec']*galsim.degrees)
-        rottelpos = obs_md['rotTelPos']*galsim.degrees
-        obstime = astropy.time.Time(obs_md['mjd'], format='mjd', scale='tai')
-        cls.band = obs_md['band']
-        cls.bandpass = galsim.Bandpass(f'LSST_{cls.band}.dat',
-                                       wave_type='nm').withZeropoint('AB')
-        wcs_builder = imsim.BatoidWCSBuilder()
-        factory = wcs_builder.makeWCSFactory(boresight, rottelpos, obstime, cls.band)
-        wcs = factory.getWCS(wcs_builder.camera[det_name])
-
-        # Create the sky catalog interface object.
-        skycat_file = str(DATA_DIR / 'sky_cat_9683.yaml')
-
-        cls.skycat = imsim.SkyCatalogInterface(skycat_file, wcs, cls.bandpass,
-                                               obj_types=['galaxy'])
+        """Prepare a test skycat and read in a parquet file into a pandas dataframe."""
+        cls.skycat = load_test_skycat()
 
         # Read in the data from the parquet file directly for
         # comparison to the outputs from the sky catalog interface.
@@ -124,6 +131,20 @@ class SkyCatalogInterfaceTestCase(unittest.TestCase):
             for component, sed in seds.items():
                 if sed is not None:
                     self.assertEqual(sed.redshift, row['redshift'])
+
+class EmptySkyCatalogInterfaceTestCase(unittest.TestCase):
+    """TestCase for empty catalogs."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Setup an empty catalog"""
+        cls.skycat = load_test_skycat()
+        cls.skycat.objects = type(cls.skycat.objects)()
+
+    def test_empty_catalog_raises_on_get_obj(self):
+        with self.assertRaises(RuntimeError):
+            self.skycat.getObj(0)
+
 
 if __name__ == '__main__':
     unittest.main()
