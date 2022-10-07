@@ -1,6 +1,0 @@
-# conda install --file conda_requirements should install all required dependencies of imSim.
-
-stackvana>=0.2021.30
-galsim>=2.4
-dust_extinction>=1.0
-palpy>=1.8.1

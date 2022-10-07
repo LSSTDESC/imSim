@@ -43,7 +43,7 @@ jobs:
                 conda info
                 conda list
                 conda install -y mamba
-                mamba install -y --file conda_requirements.txt
+                mamba install -y --file etc/standalone_conda_requirements.txt
                 conda info
                 conda list
 
