@@ -212,6 +212,10 @@ class SkyCatalogLoader(InputLoader):
         # from the opsim metadata object.
         kwargs['band'] = meta.get('filter')
         kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
+
+        # Sky catalog object lists are created per CCD, so they are
+        # not safe to reuse.
+        safe = False
         return kwargs, safe
 
 
