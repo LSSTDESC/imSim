@@ -35,7 +35,7 @@ def get_skycat_objects(sky_cat, wcs, xsize, ysize, edge_pix, logger, obj_types):
 
     Returns
     -------
-    list of skyCatalogs objects
+    list of skyCatalogs objects, CCD center as galsim.CelestialCoord
     """
     # Get range of ra, dec values given CCD size + edge_pix buffer.
     radec_limits = get_radec_limits(wcs, xsize, ysize, logger, edge_pix)
@@ -55,7 +55,9 @@ def get_skycat_objects(sky_cat, wcs, xsize, ysize, edge_pix, logger, obj_types):
         if ((min_x < pixel_coords.x < max_x) and
             (min_y < pixel_coords.y < max_y)):
             objects.append(candidate)
-    return objects
+
+    ccd_center = wcs.toWorld(galsim.PositionD(xsize/2.0, ysize/2.0))
+    return objects, ccd_center
 
 
 class SkyCatalogInterface:
@@ -107,8 +109,9 @@ class SkyCatalogInterface:
         sky_cat = skyCatalogs.open_catalog(file_name,
                                            skycatalog_root=skycatalog_root)
 
-        self.objects = get_skycat_objects(sky_cat, wcs, xsize, ysize,
-                                          edge_pix, logger, obj_types)
+        self.objects, self.ccd_center \
+            = get_skycat_objects(sky_cat, wcs, xsize, ysize,
+                                 edge_pix, logger, obj_types)
         if not self.objects and logger is not None:
             logger.warning("No objects found on image")
 
@@ -217,6 +220,22 @@ def SkyCatObj(config, base, ignore, gsparams, logger):
     Build an object according to info in the sky catalog.
     """
     skycat = galsim.config.GetInputObj('sky_catalog', config, base, 'SkyCatObj')
+
+    # Ensure that this sky catalog matches the CCD being simulated by
+    # comparing center locations on the sky.
+    world_center = base['world_center']
+    sep = skycat.ccd_center.distanceTo(base['world_center'])/galsim.arcsec
+    # Centers must agree to within at least 1 arcsec:
+    if sep > 1.0:
+        message = ("skyCatalogs selection and CCD center do not agree: \n"
+                   "skycat.ccd_center: "
+                   f"{skycat.ccd_center.ra/galsim.degrees:.5f}, "
+                   f"{skycat.ccd_center.dec/galsim.degrees:.5f}\n"
+                   "world_center: "
+                   f"{world_center.ra/galsim.degrees:.5f}, "
+                   f"{world_center.dec/galsim.degrees:.5f} \n"
+                   f"Separation: {sep:.2e} arcsec")
+        raise RuntimeError(message)
 
     # Setup the indexing sequence if it hasn't been specified.  The
     # normal thing with a catalog is to just use each object in order,
