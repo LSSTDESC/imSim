@@ -129,7 +129,7 @@ System Throughputs
 All of the system throughputs are recorded in
 `baseline <https://github.com/lsst/throughputs/tree/master/baseline>`_.
 This information is copied from the System Engineering database.  More information can be
-found in the `REAMDE <https://github.com/lsst/throughputs/blob/master/baseline/README.md>`_ file.
+found in the `README <https://github.com/lsst/throughputs/blob/master/baseline/README.md>`_ file.
 In that directory you can find a graphical representation of the total throughput along with datafile
 representing each component and the total throughput. The file representing each throughput curve is
 referenced below. [It looks like the README might be a bit out of date with the files..
