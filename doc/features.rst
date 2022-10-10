@@ -45,25 +45,22 @@ peformed.
      - :doc:`validation/tree-ring`
 
    * - CTE
-     - camera_readout.py
+     - readout.py
      -
      -
      -
 
    * - Noise Rate
-     - camera_readout.py
+     - readout.py
      -
      -
      - Noise rate is YYY
 
    * - Xtalk
-     - camera_readout.py
+     - readout.py
      - Currently Unknown
      -
-     - Currently xtalk values come from a PhoSim segmentation.txt. A notebook for
-       parsing the file can be found `here
-       <https://github.com/LSSTDESC/DC2_Repo/blob/master/Notebooks/PhoSim%20Instrumental%20Configuration.ipynb>`__.
-       The values used by imSim are a local copy.
+     - Crosstalk values are read from obs_lsst.
 
    * - Hot Pixels/Rows
      - See Note
@@ -81,7 +78,7 @@ peformed.
 
    * - Cosmic Rays
      - cosmic_rays.py: Approximately 10K cosmic rays which are randomly addd to
-       the exposures can be be found in cosmic_ray_catalog. fits.gz
+       the exposures can be be found in cosmic_ray_catalog.fits.gz
      - Template data taken from ITL test stands at UofA.
      -
      - We should normalize to mountain level.
