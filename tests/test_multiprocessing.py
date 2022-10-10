@@ -3,6 +3,7 @@ Script to test that the sky catalog object lists match the
 CCD being simulated in multi-CCD runs.
 """
 import os
+import glob
 import argparse
 from pathlib import Path
 import numpy as np
