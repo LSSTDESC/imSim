@@ -250,7 +250,7 @@ output:
     dir: fits
     file_name:
         type: FormattedStr
-        format : raw_%08d-%1d-%s-%s-det%03d.fits
+        format : eimage_%08d-%1d-%s-%s-det%03d.fits
         items:
             - { type: OpsimMeta, field: observationId }
             - { type: OpsimMeta, field: snap }

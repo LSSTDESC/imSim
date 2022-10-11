@@ -10,7 +10,6 @@ from galsim.config import ExtraOutputBuilder, RegisterExtraOutput
 from lsst.afw import cameraGeom
 import lsst.obs.lsst
 from .bleed_trails import bleed_eimage
-from .instcat import OpsimMetaDict
 from .camera import Camera, get_camera
 from .batoid_wcs import BatoidWCSBuilder
 from ._version import __version__
@@ -147,6 +146,7 @@ def section_keyword(bounds, flipx=False, flipy=False):
         ymin, ymax = ymax, ymin
     return '[%i:%i,%i:%i]' % (xmin, xmax, ymin, ymax)
 
+
 def cte_matrix(npix, cti, ntransfers=20):
     """
     Compute the CTE matrix so that the apparent charge q_i in the i-th
@@ -191,33 +191,38 @@ def cte_matrix(npix, cti, ntransfers=20):
 
     return my_matrix
 
-def get_primary_hdu(opsim_md, det_name, lsst_num='LCA-11021_RTM-000', image_type='SKYEXP',
-                    camera_name='LsstCam', added_keywords={}, logger=None):
-    """Create a primary HDU for the output raw file with the keywords
-    needed to process with the LSST Stack."""
+
+# TODO: get lsst_num from camera object.
+def get_primary_hdu(eimage, lsst_num='LCA-11021_RTM-000', camera_name=None,
+                    added_keywords={}, logger=None):
+    """
+    Create a primary HDU for the output raw file with the keywords
+    needed to process with the LSST Stack.
+    """
     phdu = fits.PrimaryHDU()
-    phdu.header['RUNNUM'] = opsim_md.get('observationId', 'N/A')
-    phdu.header['OBSID'] = opsim_md.get('observationId', -999)
-    date = Time(opsim_md.get('mjd', 51544), format='mjd')
+    phdu.header['RUNNUM'] = eimage.header['OBSID']
+    phdu.header['OBSID'] = eimage.header['OBSID']
+    phdu.header['MJD'] = eimage.header['MJD']
+    date = Time(eimage.header['MJD'], format='mjd')
     phdu.header['DATE'] = date.isot
-    phdu.header['MJD'] = date.mjd
     phdu.header['DAYOBS'] = date.strftime('%Y%m%d')
-    phdu.header['SEQNUM'] = opsim_md.get('seqnum', 0)
-    exp_time = opsim_md.get('exptime')
-    phdu.header['EXPTIME'] = exp_time
-    phdu.header['DARKTIME'] = exp_time
+    phdu.header['SEQNUM'] = eimage.header['SEQNUM']
+    exptime = eimage.header['EXPTIME']
+    phdu.header['EXPTIME'] = exptime
+    phdu.header['DARKTIME'] = exptime
     phdu.header['TIMESYS'] = 'TAI'
     phdu.header['LSST_NUM'] = lsst_num
-    phdu.header['IMGTYPE'] = image_type
-    phdu.header['OBSTYPE'] = image_type
+    phdu.header['IMGTYPE'] = eimage.header['IMGTYPE']
+    phdu.header['OBSTYPE'] = eimage.header['IMGTYPE']
     phdu.header['MONOWL'] = -1
+    det_name = eimage.header['DET_NAME']
     raft, sensor = det_name.split('_')
-    ratel = opsim_md.get('fieldRA', 0.)
-    dectel = opsim_md.get('fieldDec', 0.)
-    rottelpos = opsim_md.get('rotTelPos', 0.)
-    band = opsim_md.get('band')
-    mjd_obs = opsim_md.get('observationStartMJD', 51544)  # Jan 1, 2000.  I.e. not real.
-    mjd_end = mjd_obs + exp_time/86400.
+    if camera_name is None:
+        camera_name = eimage.header['CAMERA']
+    ratel = eimage.header['RATEL']
+    dectel = eimage.header['DECTEL']
+    rottelpos = eimage.header['ROTTELPOS']
+    band = eimage.header['FILTER']
     if camera_name == 'LsstCamImSim':
         phdu.header['TESTTYPE'] = 'IMSIM'
         phdu.header['RAFTNAME'] = raft
@@ -233,17 +238,19 @@ def get_primary_hdu(opsim_md, det_name, lsst_num='LCA-11021_RTM-000', image_type
         phdu.header['ROTCOORD'] = 'sky'
     # Compute rotSkyPos instead of using likely inconsistent values
     # from the instance catalog or opsim db.
+    mjd_obs = eimage.header['MJD-OBS']
+    mjd_end =  mjd_obs + exptime/86400.
     phdu.header['ROTANGLE'] = compute_rotSkyPos(
         ratel, dectel, rottelpos, mjd_obs, band, camera_name=camera_name,
         logger=logger)
     phdu.header['MJD-OBS'] = mjd_obs
     phdu.header['FILTER'] = band
-    phdu.header['HASTART'] = opsim_md.getHourAngle(mjd_obs, ratel)
-    phdu.header['HAEND'] = opsim_md.getHourAngle(mjd_end, ratel)
+    phdu.header['HASTART'] = eimage.header['HASTART']
+    phdu.header['HAEND'] = eimage.header['HAEND']
     phdu.header['DATE-OBS'] = Time(mjd_obs, format='mjd', scale='tai').to_value('isot')
     phdu.header['DATE-END'] = Time(mjd_end, format='mjd', scale='tai').to_value('isot')
-    phdu.header['AMSTART'] = opsim_md.get('airmass', 'N/A')
-    phdu.header['AMEND'] = phdu.header['AMSTART']  # XXX: This is not correct. Does anyone care?
+    phdu.header['AMSTART'] = eimage.header['AMSTART']
+    phdu.header['AMEND'] = eimage.header['AMEND']
     phdu.header['IMSIMVER'] = __version__
     phdu.header['PKG00000'] = 'throughputs'
     phdu.header['VER00000'] = '1.4'
@@ -254,40 +261,52 @@ def get_primary_hdu(opsim_md, det_name, lsst_num='LCA-11021_RTM-000', image_type
 
 
 class CcdReadout:
-    """Class to apply electronics readout effects to e-images using camera
-    parameters from the lsst.obs.lsst package."""
-    def __init__(self, config, base):
-        # det_name should already be set in base config by the main LSST CCD builder
-        self.det_name = base['det_name']
-        # camera is given in the output field, but defaults to LsstCam
-        camera = Camera(base['output'].get('camera','LsstCam'))
+    """
+    Class to convert eimage to a "raw" FITS file with 1 amplifier segment
+    per image HDU, simulating the electronics readout effects for each amp.
+    """
+    def __init__(self, eimage, logger, camera_name=None, ccd_params=None):
+        """
+        Parameters
+        ----------
+        eimage : GalSim.Image
+            The eimage with the rendered scene, wcs, and header information.
+        logger : logging.Logger
+            Logger object
+        camera_name : str [None]
+            Camera class to use, e.g., 'LsstCam', 'LsstCamImSim'.  If None,
+            then use camera name from eimage header.
+        ccd_params : dict [None]
+            Parameters describing the CCD readout parameters, i.e.,
+            readout_time [2 s], dark_current [0.02 e-/s],
+            bias_level [1000 ADU], scti [1e-6], pcti [1e-6],
+            full_well [1e5 e-], that are not yet available from the
+            camera object.
+        """
+        self.eimage = eimage
+        self.det_name = eimage.header['DET_NAME']
+        if camera_name is None:
+            self.camera_name = eimage.header['CAMERA']
+        else:
+            self.camera_name = camera_name
+        self.logger = logger
+        camera = Camera(self.camera_name)
         self.ccd = camera[self.det_name]
-        amp = list(self.ccd.values())[0]
+        self.exp_time = self.eimage.header['EXPTIME']
+        if ccd_params is None:
+            ccd_params = {}
+        self.readout_time = ccd_params.get('readout_time', 2.0)  # seconds
+        self.dark_current = ccd_params.get('dark_current', 0.02)  # e-/s
+        self.bias_level = ccd_params.get('bias_level', 1000.0)  # ADU
+        scti = ccd_params.get('scti', 1.0e-6)  # serial CTI
+        pcti = ccd_params.get('pcti', 1.0e-6)  # parallel CTI
+        self.full_well = ccd_params.get('full_well', 1e5)  # e-
 
-        # Parse the required parameters
-        req = {
-            'file_name': str,
-            # TODO: Eventually, the rest of these should be optional, and if not present, get them
-            #       from the camera object.  But these are not (yet?) available there.
-            'readout_time': float,
-            'dark_current': float,
-            'bias_level': float,
-            'pcti': float,
-            'scti': float,
-        }
-        ignore=['filter']
-        params = galsim.config.GetAllParams(config, base, req=req, ignore=ignore)[0]
-        self.readout_time = params['readout_time']
-        self.dark_current = params['dark_current']
-        self.bias_level = params['bias_level']
-        self.pcti = params['pcti']
-        self.scti = params['scti']
-
-        # Make the corresponding matrices for implementing the cti.
-        self.scte_matrix = (None if self.scti == 0
-                            else cte_matrix(amp.raw_bounds.xmax, self.scti))
-        self.pcte_matrix = (None if self.pcti == 0
-                            else cte_matrix(amp.raw_bounds.ymax, self.pcti))
+        amp_bounds = list(self.ccd.values())[0].raw_bounds
+        self.scte_matrix = (None if scti == 0
+                            else cte_matrix(amp_bounds.xmax, scti))
+        self.pcte_matrix = (None if pcti == 0
+                            else cte_matrix(amp_bounds.ymax, pcti))
 
     def apply_cte(self, amp_images):
         """Apply CTI to a list of amp images."""
@@ -311,7 +330,7 @@ class CcdReadout:
                           sum([x*y for x, y in zip(amp_arrays, xtalk_row)]))
         return output
 
-    def build_images(self, config, base, main_data):
+    def build_amp_images(self, rng):
         """Build the amplifier images from the "electron-image".
         The steps are
         * add dark current
@@ -324,25 +343,22 @@ class CcdReadout:
         * apply charge transfer efficiency effects
         * add bias levels and read noise
         """
-        eimage = copy.deepcopy(main_data[0])
-
         # Bleed trail processing. TODO: Get full_well from the camera.
-        eimage.array[:] = bleed_eimage(eimage.array, full_well=1e5)
+        self.eimage.array[:] = bleed_eimage(self.eimage.array, full_well=self.full_well)
 
         # Add dark current.
-        rng = galsim.config.GetRNG(config, base)
-        dark_time = base['exp_time'] + self.readout_time
+        dark_time = self.exp_time + self.readout_time
         dark_current = self.dark_current
         poisson = galsim.PoissonDeviate(rng, mean=dark_current*dark_time)
-        dc_data = np.zeros(np.prod(eimage.array.shape))
+        dc_data = np.zeros(np.prod(self.eimage.array.shape))
         poisson.generate(dc_data)
-        eimage += dc_data.reshape(eimage.array.shape)
+        self.eimage += dc_data.reshape(self.eimage.array.shape)
 
         # Partition eimage into amp-level imaging segments, convert to ADUs,
         # and apply the readout flips.
         amp_arrays = []
         for amp in self.ccd.values():
-            amp_data = eimage[amp.bounds].array/amp.gain
+            amp_data = self.eimage[amp.bounds].array/amp.gain
             if amp.raw_flip_x:
                 amp_data = amp_data[:, ::-1]
             if amp.raw_flip_y:
@@ -353,17 +369,17 @@ class CcdReadout:
         amp_arrays = self.apply_crosstalk(amp_arrays)
 
         # Construct full segments with prescan and overscan pixels.
-        amp_images = []
+        self.amp_images = []
         for amp_data, amp in zip(amp_arrays, self.ccd.values()):
             full_segment = galsim.Image(amp.raw_bounds)
             full_segment[amp.raw_data_bounds].array[:] += amp_data
-            amp_images.append(full_segment)
+            self.amp_images.append(full_segment)
 
         # Apply CTI.
-        amp_images = self.apply_cte(amp_images)
+        self.amp_images = self.apply_cte(self.amp_images)
 
         # Add bias levels and read noise.
-        for full_segment in amp_images:
+        for full_segment in self.amp_images:
             full_segment += self.bias_level
             # Setting gain=0 turns off the addition of Poisson noise,
             # which is already in the e-image, so that only the read
@@ -371,12 +387,68 @@ class CcdReadout:
             read_noise = galsim.CCDNoise(rng, gain=0,
                                          read_noise=amp.read_noise)
             full_segment.addNoise(read_noise)
-        return amp_images
+
+    def prepare_hdus(self, rng):
+        """
+        Create per-amp image HDUs from the eimage and fill the primary
+        and image HDU headers.
+        """
+        # Build per-amp images, adding camera readout features.
+        self.build_amp_images(rng)
+
+        # Build HDUs.
+        channels = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
+        x_seg_offset = (1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1)
+        if self.camera_name == 'LsstCamImSim':
+            y_seg_offset = (0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2)
+            cd_matrix_sign = -1
+        else:
+            y_seg_offset = (2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0)
+            cd_matrix_sign = 1
+        wcs = self.eimage.wcs
+        crpix1, crpix2 = wcs.crpix
+
+        phdu = get_primary_hdu(self.eimage, camera_name=self.camera_name,
+                               logger=self.logger)
+        hdus = fits.HDUList(phdu)
+        for amp_num, amp in enumerate(self.amp_images):
+            channel = 'C' + channels[amp_num]
+            amp_info = self.ccd[channel]
+            raw_data_bounds = amp_info.raw_data_bounds
+            hdu = fits.CompImageHDU(np.array(amp.array, dtype=np.int32),
+                                    compression_type='RICE_1')
+            wcs.writeToFitsHeader(hdu.header, self.eimage.bounds)
+            hdu.header['EXTNAME'] = 'Segment' + channels[amp_num]
+            xsign = -1 if amp_info.raw_flip_x else 1
+            ysign = -1 if amp_info.raw_flip_y else 1
+            height, width = raw_data_bounds.numpyShape()
+            hdu.header['CRPIX1'] = xsign*crpix1 + x_seg_offset[amp_num]*width
+            hdu.header['CRPIX2'] = ysign*crpix2 + y_seg_offset[amp_num]*height
+            hdu.header['CD1_2'] *= cd_matrix_sign*xsign
+            hdu.header['CD2_2'] *= cd_matrix_sign*xsign
+            hdu.header['CD1_1'] *= cd_matrix_sign*ysign
+            hdu.header['CD2_1'] *= cd_matrix_sign*ysign
+            hdu.header['DATASEC'] = section_keyword(raw_data_bounds)
+            hdu.header['DETSEC'] = section_keyword(amp_info.bounds,
+                                                   flipx=amp_info.raw_flip_x,
+                                                   flipy=amp_info.raw_flip_y)
+            hdus.append(hdu)
+            amp_name = '_'.join((self.det_name, channel))
+            self.logger.info("Amp %s has bounds %s.", amp_name,
+                             hdu.header['DETSEC'])
+        return hdus
+
+    @staticmethod
+    def write_raw_file(hdus, file_name):
+        """Write the raw data file."""
+        hdus[0].header['OUTFILE'] = os.path.basename(file_name)
+        hdus.writeto(file_name, overwrite=True)
 
 
 class CameraReadout(ExtraOutputBuilder):
-    """This is a GalSim "extra output" builder to write out the amplifier file simulating
-    the camera readout of the main "e-image".
+    """
+    This is a GalSim "extra output" builder to write out the amplifier
+    file simulating the camera readout of the main "e-image".
     """
 
     def finalize(self, config, base, main_data, logger):
@@ -398,67 +470,11 @@ class CameraReadout(ExtraOutputBuilder):
         """
         logger.warning("Making amplifier images")
 
-        camera_name = base['output'].get('camera', 'LsstCam')
-        ccd_readout = CcdReadout(config, base)
-        amps = ccd_readout.build_images(config, base, main_data)
-        det_name = base['det_name']
-        channels = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
-        x_seg_offset = (1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1)
-        if camera_name == 'LsstCamImSim':
-            y_seg_offset = (0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2)
-            cd_matrix_sign = -1
-        else:
-            y_seg_offset = (2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0)
-            cd_matrix_sign = 1
-        wcs = main_data[0].wcs
-        crpix1, crpix2 = wcs.crpix
+        rng = galsim.config.GetRNG(config, base)
 
-        # If we don't have an OpsimMeta, then skip some header items.
-        # E.g. when reading out flat field images, most of these don't apply.
-        # The only exception is filter, which we look for in config and use that if present.
-        try:
-            opsim_md = galsim.config.GetInputObj('opsim_meta_dict', config, base,
-                                                 'CameraReadout')
-        except galsim.GalSimConfigError:
-            if 'filter' in config:
-                filt = galsim.config.ParseValue(config, 'filter', base, str)[0]
-            else:
-                filt = 'N/A'
-            opsim_md = OpsimMetaDict.from_dict(
-                dict(band=filt,
-                     exptime = base['exp_time']
-                     )
-            )
-        # FlatBuilder overrides this
-        image_type = base.get('image_type', 'SKYEXP')
-        hdus = fits.HDUList(
-            get_primary_hdu(opsim_md, det_name, image_type=image_type,
-                            camera_name=camera_name, logger=logger))
-        for amp_num, amp in enumerate(amps):
-            channel = 'C' + channels[amp_num]
-            amp_info = ccd_readout.ccd[channel]
-            raw_data_bounds = amp_info.raw_data_bounds
-            hdu = fits.CompImageHDU(np.array(amp.array, dtype=np.int32),
-                                    compression_type='RICE_1')
-            wcs.writeToFitsHeader(hdu.header, main_data[0].bounds)
-            hdu.header['EXTNAME'] = 'Segment' + channels[amp_num]
-            xsign = -1 if amp_info.raw_flip_x else 1
-            ysign = -1 if amp_info.raw_flip_y else 1
-            height, width = raw_data_bounds.numpyShape()
-            hdu.header['CRPIX1'] = xsign*crpix1 + x_seg_offset[amp_num]*width
-            hdu.header['CRPIX2'] = ysign*crpix2 + y_seg_offset[amp_num]*height
-            hdu.header['CD1_2'] *= cd_matrix_sign*xsign
-            hdu.header['CD2_2'] *= cd_matrix_sign*xsign
-            hdu.header['CD1_1'] *= cd_matrix_sign*ysign
-            hdu.header['CD2_1'] *= cd_matrix_sign*ysign
-            hdu.header['DATASEC'] = section_keyword(raw_data_bounds)
-            hdu.header['DETSEC'] = section_keyword(amp_info.bounds,
-                                                   flipx=amp_info.raw_flip_x,
-                                                   flipy=amp_info.raw_flip_y)
-            hdus.append(hdu)
-            amp_name = '_'.join((det_name, channel))
-            logger.info("Amp %s has bounds %s.", amp_name,
-                        hdu.header['DETSEC'])
+        ccd_readout = CcdReadout(main_data[0], logger)
+
+        hdus = ccd_readout.prepare_hdus(rng)
         return hdus
 
     def writeFile(self, file_name, config, base, logger):
@@ -471,11 +487,9 @@ class CameraReadout(ExtraOutputBuilder):
             logger:     If given, a logger object to log progress. [default: None]
 
         """
-        logger.warning("Writing amplifier images to %s",file_name)
+        logger.warning("Writing amplifier images to %s", file_name)
         # self.final_data is the output of finalize, which is our list
         # of amp images.
-        self.final_data[0].header['OUTFILE'] = os.path.basename(file_name)
-        self.final_data.writeto(file_name, overwrite=True)
-
+        CcdReadout.write_raw_file(self.final_data, file_name)
 
 RegisterExtraOutput('readout', CameraReadout())

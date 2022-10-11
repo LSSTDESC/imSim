@@ -4,6 +4,7 @@ from galsim.config import OutputBuilder, RegisterOutputType
 from .cosmic_rays import CosmicRays
 from .meta_data import data_dir
 from .camera import get_camera
+from .opsim_meta import get_opsim_md
 
 
 # Add `xsize` and `ysize` to the list of preset variables. These are
@@ -122,6 +123,35 @@ class LSST_CCDBuilder(OutputBuilder):
             rng = galsim.config.GetRNG(config, base)
             cosmic_rays.paint(image.array, rng, exptime=exp_time)
 
+        # Add header keywords for various values written to the primary
+        # header of the simulated raw output file, so that all the needed
+        # information is in the eimage file.
+        opsim_md = get_opsim_md(config, base)
+        image.header = galsim.FitsHeader()
+        exp_time = base['exp_time']
+        image.header['EXPTIME'] = exp_time
+        image.header['DET_NAME'] = base['det_name']
+        image.header['OBSID'] = opsim_md.get('observationId', -999)
+        # MJD is the midpoint of the exposure.  51444 = Jan 1, 2000, which is
+        # not a real observing date.
+        image.header['MJD'] = opsim_md.get('mjd', 51444)
+        # MJD-OBS is the start of the exposure
+        mjd_obs = opsim_md.get('observationStartMJD', 51444)
+        mjd_end =  mjd_obs + exp_time/86400.
+        image.header['MJD-OBS'] = mjd_obs
+        image.header['SEQNUM'] = opsim_md.get('seqnum', 0)
+        image.header['IMGTYPE'] = opsim_md.get('image_type', 'SKYEXP')
+        ratel = opsim_md.get('fieldRA', 0.)
+        dectel = opsim_md.get('fieldDec', 0.)
+        image.header['RATEL'] = ratel
+        image.header['DECTEL'] = dectel
+        image.header['ROTTELPOS'] = opsim_md.get('rotTelPos', 0.)
+        image.header['FILTER'] = opsim_md.get('band')
+        image.header['CAMERA'] = base['output']['camera']
+        image.header['HASTART'] = opsim_md.getHourAngle(mjd_obs, ratel)
+        image.header['HAEND'] = opsim_md.getHourAngle(mjd_end, ratel)
+        image.header['AMSTART'] = opsim_md.get('airmass', 'N/A')
+        image.header['AMEND'] = image.header['AMSTART']  # XXX: This is not correct. Does anyone care?
         return [ image ]
 
 RegisterOutputType('LSST_CCD', LSST_CCDBuilder())

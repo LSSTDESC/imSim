@@ -2,9 +2,13 @@
 Unit test code for raw file writing.
 """
 import os
+from pathlib import Path
 import unittest
 from astropy.io import fits
+import galsim
 import imsim
+
+DATA_DIR = Path(__file__).parent / 'data'
 
 
 class RawFileOutputTestCase(unittest.TestCase):
@@ -25,17 +29,9 @@ class RawFileOutputTestCase(unittest.TestCase):
         This is mostly an operational test that the raw files can be
         written from a galsim image.
         """
-        opsim_md = imsim.OpsimMetaDict.from_dict(
-            dict(fieldRA=31.1133844,
-                 fieldDec=-10.0970060,
-                 rotSkyPos=146.24369132422518,
-                 rotTelPos=1.,
-                 observationStartMJD=59797.2854090,
-                 band='r',
-                 observationId=161899,
-                 FWHMgeom=0.7,
-                 altitude=43.6990272,
-                 rawSeeing=0.6))
+        eimage_file = str(DATA_DIR / 'eimage_00449053-1-r-R22_S11-det094.fits')
+        eimage = galsim.fits.read(eimage_file)
+        eimage.header = galsim.FitsHeader(file_name=eimage_file)
 
         det_name = "R22_S11"
         self.outfile = 'lsst_a_{}_r.fits'.format(det_name)
@@ -44,17 +40,17 @@ class RawFileOutputTestCase(unittest.TestCase):
         added_keywords = {'GAUSFWHM': 0.4,
                           'FOOBAR': 'hello, world'}
 
-        hdu = imsim.get_primary_hdu(opsim_md, det_name, added_keywords=added_keywords)
+        hdu = imsim.get_primary_hdu(eimage, added_keywords=added_keywords)
         hdr = hdu.header
 
         # Test some keywords.
         if hdr.get('TESTTYPE', None) == 'IMSIM':
-            self.assertAlmostEqual(hdr['RATEL'], opsim_md['fieldRA'])
-            self.assertAlmostEqual(hdr['DECTEL'], opsim_md['fieldDec'])
+            self.assertAlmostEqual(hdr['RATEL'], eimage.header['RATEL'])
+            self.assertAlmostEqual(hdr['DECTEL'], eimage.header['DECTEL'])
         else:  # All other cameras, e.g., LsstCam, LsstComCam, etc..
-            self.assertAlmostEqual(hdr['RA'], opsim_md['fieldRA'])
-            self.assertAlmostEqual(hdr['DEC'], opsim_md['fieldDec'])
-        self.assertAlmostEqual(hdr['ROTANGLE'], opsim_md['rotSkyPos'], places=5)
+            self.assertAlmostEqual(hdr['RA'], eimage.header['RATEL'])
+            self.assertAlmostEqual(hdr['DEC'], eimage.header['DECTEL'])
+
         self.assertEqual(hdr['CHIPID'], det_name)
 
         # Ensure the following keywords are set.
@@ -62,8 +58,8 @@ class RawFileOutputTestCase(unittest.TestCase):
         #      Do we really care about getting this correct?
         self.assertEqual(hdr['AMSTART'], hdr['AMEND'])
         self.assertNotEqual(hdr['HASTART'], hdr['HAEND'])
-        self.assertEqual(hdr['DATE-OBS'], '2022-08-06T06:50:59.338')
-        self.assertEqual(hdr['DATE-END'], '2022-08-06T06:51:29.338')
+        self.assertEqual(hdr['DATE-OBS'], '2025-12-08T01:04:57.498')
+        self.assertEqual(hdr['DATE-END'], '2025-12-08T01:05:27.498')
         self.assertEqual(hdr['TIMESYS'], 'TAI')
         self.assertEqual(hdr['OBSTYPE'], 'SKYEXP')
 
