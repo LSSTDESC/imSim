@@ -117,17 +117,12 @@ class LsstOptics(PhotonOp):
                         bundle in case the operator needs this information.  [default: None]
         rng:            A random number generator to use if needed. [default: None]
         """
-        # x/y to u/v
-        u = local_wcs._u(photon_array.x, photon_array.y)
-        v = local_wcs._v(photon_array.x, photon_array.y)
-        # u/v to ICRF
-        u_rad = np.deg2rad(u / 3600)
-        v_rad = np.deg2rad(v / 3600)
-        ra, dec = self.sky_pos.deproject_rad(u_rad, v_rad)
-        # ICRF to field
-        thx, thy = self.icrf_to_field.radecToxy(ra, dec, units="rad")
 
-        v = np.array(batoid.utils.gnomonicToDirCos(thx, thy)).T
+        # Convert xy coordinates to a cartesian 3d velocity vector of the photons
+        v = XyToV(local_wcs, self.icrf_to_field, self.sky_pos)(
+            photon_array.x, photon_array.y
+        )
+
         # Adjust for refractive index of air
         wavelength = photon_array.wavelength * 1e-9
         n = self.telescope.inMedium.getN(wavelength)
@@ -240,6 +235,52 @@ def deserialize_lsst_optics(config, base, _logger):
 @lru_cache
 def get_camera_cached(camera_name: str):
     return get_camera(camera_name)
+
+
+class XyToV:
+    """Maps image coordinates (x,y) to a 3d cartesian direction
+    vector of the photons before entering the telescope.
+
+    The transform is composed of the chain
+    (x,y) -> (u,v) -> (ra,dec) -> (thx, thy) -> v.
+
+    The transform takes 2 vectors of shape (n,) and returns
+    a column major vector of shape (n,3).
+    """
+
+    def __init__(self, local_wcs, icrf_to_field, sky_pos):
+        self.local_wcs = local_wcs
+        self.icrf_to_field = icrf_to_field
+        self.sky_pos = sky_pos
+
+    def __call__(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+        # x/y to u/v
+        u = self.local_wcs._u(x, y)
+        v = self.local_wcs._v(x, y)
+        # u/v to ICRF
+        u_rad = np.deg2rad(u / 3600)
+        v_rad = np.deg2rad(v / 3600)
+        ra, dec = self.sky_pos.deproject_rad(u_rad, v_rad)
+        # ICRF to field
+        thx, thy = self.icrf_to_field.radecToxy(ra, dec, units="rad")
+
+        return np.array(batoid.utils.gnomonicToDirCos(thx, thy)).T
+
+    def inverse(self, v_photon: np.ndarray) -> tuple:
+        thx, thy = batoid.utils.dirCosToGnomonic(
+            v_photon[:, 0], v_photon[:, 1], v_photon[:, 2]
+        )
+        # field to ICRF
+        ra, dec = self.icrf_to_field.xyToradec(thx, thy, units="rad")
+        # ICRF to u/v
+        u_rad, v_rad = self.sky_pos.project_rad(ra, dec)
+        u = 3600 * np.rad2deg(u_rad)
+        v = 3600 * np.rad2deg(v_rad)
+        # u/v to x/y
+        x = self.local_wcs._x(u, v)
+        y = self.local_wcs._y(u, v)
+
+        return (x, y)
 
 
 def ray_vector_to_photon_array(
