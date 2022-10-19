@@ -159,6 +159,8 @@ class LsstDiffraction(PhotonOp):
             shift_optics:
               Detector: [0, 0, 1.5e-3]
               M2: [3.0e-3, 0, 0]
+    seed : An optional seed forwarded to the angle distribution used
+           for diffraction.
     """
 
     _req_params = {
@@ -177,6 +179,7 @@ class LsstDiffraction(PhotonOp):
         sky_pos,
         icrf_to_field,
         shift_optics=None,
+        seed=None,
     ):
         if shift_optics is not None:
             for optics_key, shift in shift_optics.items():
@@ -188,7 +191,7 @@ class LsstDiffraction(PhotonOp):
         self.sky_pos = sky_pos
         self.icrf_to_field = icrf_to_field
 
-        deviate = GaussianDeviate()
+        deviate = GaussianDeviate(seed=seed)
 
         def diffraction_rng(phi):
             var = phi**2

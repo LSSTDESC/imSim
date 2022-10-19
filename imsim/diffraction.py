@@ -276,10 +276,12 @@ def field_rotation_matrix(lat: float, e_star: np.ndarray, t: np.ndarray) -> np.n
     return rot
 
 
-def star_trace(latitude: float, altitude: float, azimuth: float, t: np.array):
+def star_trace(
+    latitude: float, altitude: float, azimuth: float, t: np.array
+) -> np.ndarray:
     """Computes the trace of a star at given times t,
     observed from a given latitude,
-    which is passes altitude/azimuth at time t=0.
+    which passes altitude/azimuth at time t=0.
 
     The output is an array of shape (t.size, 3) in an earth fixed
     cartesian coordinate system (x: East, y: North, z: zenith).

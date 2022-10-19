@@ -145,27 +145,23 @@ def test_field_rotation_matrix_is_correct_near_zenith() -> None:
     az = 45.0
     lat = -30.24463
     dt = 1.0
-    e_star = np.array(
-        [
-            [
-                np.cos(alt / 180.0 * np.pi) * np.sin(az / 180.0 * np.pi),
-                np.cos(alt / 180.0 * np.pi) * np.cos(az / 180.0 * np.pi),
-                np.sin(alt / 180.0 * np.pi),
-            ]
-        ]
-    )
-    rot = diffraction.field_rotation_matrix(lat, e_star, np.array([dt]))
+    t = np.linspace(0.0, dt, 100)
+    e_star = diffraction.star_trace(latitude=lat, altitude=alt, azimuth=az, t=t)
+    rot = diffraction.field_rotation_matrix(lat, e_star[-1:], np.array([t[-1]]))
 
-    # Expected field rotation rate times dt:
-    expected_angle = dt * (
+    alt_t = np.arctan2(e_star[:, 2], np.hypot(e_star[:, 0], e_star[:, 1]))
+    az_t = np.arctan2(e_star[:, 0], e_star[:, 1])
+    rate = (
         diffraction.OMEGA_EARTH
         * np.cos(lat / 180.0 * np.pi)
-        * np.cos(az / 180.0 * np.pi)
-        / np.cos(alt / 180.0 * np.pi)
+        * np.cos(az_t)
+        / np.cos(alt_t)
     )
+    # Expected field rotation angle is the integral over the rate:
+    expected_angle = np.trapz(rate, t)
 
     alpha = np.arctan2(rot[0, 0, 1], rot[0, 0, 0])
-    np.testing.assert_almost_equal(alpha, expected_angle, decimal=3)
+    np.testing.assert_allclose(alpha, expected_angle, rtol=1.0e-7)
 
 
 def test_star_trace_is_correct_at_equator() -> None:
@@ -203,3 +199,17 @@ def test_star_trace_is_correct_at_zenith() -> None:
         e_star,
         np.array([[s, 0.5, 0.5], [0.0, 0.0, 1.0], [-s, 0.5, 0.5], [0.0, 1.0, 0.0]]),
     )
+
+
+def test_star_trace_yields_back_alt_az_for_t_eq_0() -> None:
+    """For t=0 we should easily get back alt/az."""
+    lat = 42.0
+    alt = 13.0
+    az = 55.0
+    t = np.array([0.0])
+    e_star = diffraction.star_trace(lat, alt, az, t).squeeze()
+    alt2 = np.arctan2(e_star[2], np.hypot(e_star[0], e_star[1])) / np.pi * 180.0
+    az2 = np.arctan2(e_star[0], e_star[1]) / np.pi * 180.0
+
+    np.testing.assert_array_almost_equal(alt, alt2)
+    np.testing.assert_array_almost_equal(az, az2)
