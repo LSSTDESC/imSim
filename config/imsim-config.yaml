@@ -205,6 +205,13 @@ stamp:
     world_pos:
         type: InstCatWorldPos
 
+    fft_photon_ops:
+        -
+            type: lsst_diffraction
+            telescope: LSST
+            band: { type: OpsimMeta, field: band }
+            latitude: -30.24463
+
     photon_ops:
         -
             type: TimeSampler
