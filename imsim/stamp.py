@@ -441,9 +441,11 @@ class LSST_SiliconBuilder(StampBuilder):
 
         max_flux_simple = config.get('max_flux_simple', 100)
         faint = self.realized_flux < max_flux_simple
-        if faint:
-            prof.SED = self._trivial_sed
         bandpass = base['bandpass']
+        if faint:
+            logger.info("Flux = %.0f  Using trivial sed", self.realized_flux)
+            prof = prof.evaluateAtWavelength(bandpass.effective_wavelength)
+            prof = prof * self._trivial_sed
         prof = prof.withFlux(self.realized_flux, bandpass)
 
         wcs = base['wcs']
