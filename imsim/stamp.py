@@ -182,7 +182,6 @@ class LSST_SiliconBuilder(StampBuilder):
 
         # Start with the normal image size from GalSim
         N = obj.getGoodImageSize(pixel_scale)
-        #print('N = ',N)
 
         if (isinstance(obj, galsim.Sum) and
             any([isinstance(_.original, galsim.RandomKnots)
@@ -211,7 +210,6 @@ class LSST_SiliconBuilder(StampBuilder):
                         obj.xValue(h,h), obj.xValue(h,-h),
                         obj.xValue(-h,h), obj.xValue(-h,-h) ]
             maxval = np.max(xvalues)
-            #print(N, maxval)
             if maxval < keep_sb_level:
                 break
             N *= factor
@@ -229,7 +227,6 @@ class LSST_SiliconBuilder(StampBuilder):
                         obj.xValue(h,h), obj.xValue(h,-h),
                         obj.xValue(-h,h), obj.xValue(-h,-h) ]
             maxval = np.max(xvalues)
-            #print(N, maxval)
             if maxval > keep_sb_level:
                 break
             N /= factor
