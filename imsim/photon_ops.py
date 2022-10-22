@@ -159,8 +159,6 @@ class LsstDiffraction(PhotonOp):
             shift_optics:
               Detector: [0, 0, 1.5e-3]
               M2: [3.0e-3, 0, 0]
-    seed : An optional seed forwarded to the angle distribution used
-           for diffraction.
     """
 
     _req_params = {
@@ -179,7 +177,6 @@ class LsstDiffraction(PhotonOp):
         sky_pos,
         icrf_to_field,
         shift_optics=None,
-        seed=None,
     ):
         if shift_optics is not None:
             for optics_key, shift in shift_optics.items():
@@ -191,14 +188,15 @@ class LsstDiffraction(PhotonOp):
         self.sky_pos = sky_pos
         self.icrf_to_field = icrf_to_field
 
-        deviate = GaussianDeviate(seed=seed)
+    def diffraction_rng(self, rng):
+        deviate = GaussianDeviate(seed=rng)
 
-        def diffraction_rng(phi):
+        def _rng(phi):
             var = phi**2
             deviate.generate_from_variance(var)
             return var
 
-        self.diffraction_rng = diffraction_rng
+        return _rng
 
     def applyTo(self, photon_array, local_wcs=None, rng=None):
         """Apply the photon operator to a PhotonArray.
@@ -234,7 +232,7 @@ class LsstDiffraction(PhotonOp):
             az=self.azimuth,
             alt=self.altitude,
             geometry=LSST_SPIDER_GEOMETRY,
-            distribution=self.diffraction_rng,
+            distribution=self.diffraction_rng(rng),
         )
         photon_array.x, photon_array.y = xy_to_v.inverse(v)
 

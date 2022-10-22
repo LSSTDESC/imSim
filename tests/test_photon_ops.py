@@ -86,8 +86,11 @@ def create_test_lsst_diffraction():
         latitude=-30.24463,
         azimuth=45.0,
         altitude=89.9,
-        seed=42,
     )
+
+
+def create_test_rng():
+    return galsim.random.BaseDeviate(seed=42)
 
 
 def test_lsst_optics() -> None:
@@ -96,7 +99,7 @@ def test_lsst_optics() -> None:
     lsst_optics = create_test_lsst_optics()
     photon_array = create_test_photon_array()
     local_wcs = create_test_wcs()
-    lsst_optics.applyTo(photon_array, local_wcs=local_wcs)
+    lsst_optics.applyTo(photon_array, local_wcs=local_wcs, rng=create_test_rng())
     expected_x_pic_center = 564.5
     expected_y_pic_center = -1431.4
     expected_r_pic_center = 20.0
@@ -114,9 +117,9 @@ def test_lsst_diffraction_produces_spikes() -> None:
     lsst_diffraction = create_test_lsst_diffraction()
     photon_array = create_test_photon_array(n_photons=1000000)
     local_wcs = create_test_wcs()
-    lsst_diffraction.applyTo(photon_array, local_wcs=local_wcs)
+    lsst_diffraction.applyTo(photon_array, local_wcs=local_wcs, rng=create_test_rng())
     lsst_optics = create_test_lsst_optics()
-    lsst_optics.applyTo(photon_array, local_wcs=local_wcs)
+    lsst_optics.applyTo(photon_array, local_wcs=local_wcs, rng=create_test_rng())
 
     # The expected image is contained in a disc + spikes outside the disc:
     spike_angles = extract_spike_angles(
@@ -186,10 +189,10 @@ def test_lsst_diffraction_shows_field_rotation() -> None:
     photon_array_1 = create_test_photon_array(t=dt, n_photons=1000000)
     local_wcs = create_test_wcs()
     lsst_optics = create_test_lsst_optics()
-    lsst_diffraction.applyTo(photon_array_0, local_wcs=local_wcs)
-    lsst_optics.applyTo(photon_array_0, local_wcs=local_wcs)
-    lsst_diffraction.applyTo(photon_array_1, local_wcs=local_wcs)
-    lsst_optics.applyTo(photon_array_1, local_wcs=local_wcs)
+    lsst_diffraction.applyTo(photon_array_0, local_wcs=local_wcs, rng=create_test_rng())
+    lsst_optics.applyTo(photon_array_0, local_wcs=local_wcs, rng=create_test_rng())
+    lsst_diffraction.applyTo(photon_array_1, local_wcs=local_wcs, rng=create_test_rng())
+    lsst_optics.applyTo(photon_array_1, local_wcs=local_wcs, rng=create_test_rng())
 
     # The expected image is contained in a disc + spikes outside the disc:
     spike_angles_0 = extract_spike_angles(
