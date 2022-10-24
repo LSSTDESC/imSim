@@ -499,7 +499,6 @@ class BatoidWCSBuilder(WCSBuilder):
                     self.camera.getName())
         wcs = factory.getWCS(det, order=order)
         base['_icrf_to_field'] = factory.get_icrf_to_field(det, order=order)
-        base['_telescope'] = factory._telescope
         return wcs
 
     def makeWCSFactory(self, boresight, rotTelPos, obstime, band, camera='LsstCam',

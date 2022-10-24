@@ -19,6 +19,7 @@ from .diffraction import (
     LSST_SPIDER_GEOMETRY,
     apply_diffraction_delta,
 )
+from .batoid_utils import load_telescope_with_shift_optics
 
 
 class LsstOptics(PhotonOp):
@@ -37,20 +38,10 @@ class LsstOptics(PhotonOp):
     icrf_to_field : galsim.GSFitsWCS
     det_name : str
     camera : lsst.afw.cameraGeom.Camera
-    shift_optics : dict[str, list[float]]
-        A dict mapping optics keys to shifts represented by a list of 3 floats.
-        The corresponding optics will be displaced by the specified corrdinates.
-        Example config for perturbed+defocused telescope to obtain a donut:
-        -
-            type: lsst_optics
-            ...
-            shift_optics:
-              Detector: [0, 0, 1.5e-3]
-              M2: [3.0e-3, 0, 0]
     """
 
     _req_params = {
-        "telescope": Optic,
+        "telescope": str,
         "band": str,
         "boresight": CelestialCoord,
         "camera": str,
@@ -66,11 +57,7 @@ class LsstOptics(PhotonOp):
         icrf_to_field,
         det_name,
         camera,
-        shift_optics=None,
     ):
-        if shift_optics is not None:
-            for optics_key, shift in shift_optics.items():
-                telescope = telescope.withGloballyShiftedOptic(optics_key, shift)
         self.telescope = telescope
         self.detector = camera[det_name]
         self.boresight = boresight
@@ -149,20 +136,10 @@ class LsstDiffraction(PhotonOp):
         alt/az coordinates the telescope is pointing to (in degree).
     sky_pos : galsim.CelestialCoord
     icrf_to_field : galsim.GSFitsWCS
-    shift_optics : dict[str, list[float]]
-        A dict mapping optics keys to shifts represented by a list of 3 floats.
-        The corresponding optics will be displaced by the specified corrdinates.
-        Example config for perturbed+defocused telescope to obtain a donut:
-        -
-            type: lsst_optics
-            ...
-            shift_optics:
-              Detector: [0, 0, 1.5e-3]
-              M2: [3.0e-3, 0, 0]
     """
 
     _req_params = {
-        "telescope": Optic,
+        "telescope": str,
         "band": str,
         "latitude": float,
     }
@@ -176,11 +153,7 @@ class LsstDiffraction(PhotonOp):
         azimuth,
         sky_pos,
         icrf_to_field,
-        shift_optics=None,
     ):
-        if shift_optics is not None:
-            for optics_key, shift in shift_optics.items():
-                telescope = telescope.withGloballyShiftedOptic(optics_key, shift)
         self.telescope = telescope
         self.latitude = latitude
         self.altitude = altitude
@@ -272,32 +245,27 @@ def photon_op_type(identifier: str):
 
 
 def config_kwargs(config, base, cls):
-    """Given config and base, extract parameters (including optionals)
-    and optional parameters.
-    """
+    """Given config and base, extract parameters."""
     req, opt, single, _takes_rng = get_cls_params(cls)
     kwargs, _safe = GetAllParams(config, base, req, opt, single)
-    opt_kwargs = {
-        key: kwargs.get(key) for key in cls._opt_params.keys() if key in kwargs
-    }
-    return kwargs, opt_kwargs
+    return kwargs
 
 
 @photon_op_type("lsst_optics")
 def deserialize_lsst_optics(config, base, _logger):
-    kwargs, opt_kwargs = config_kwargs(config, base, LsstOptics)
-    shift_optics = opt_kwargs.pop("shift_optics", base.get("shift_optics", None))
+    kwargs = config_kwargs(config, base, LsstOptics)
+    shift_optics = kwargs.pop("shift_optics", base.get("shift_optics", None))
 
     return LsstOptics(
-        telescope=base["_telescope"],
-        boresight=kwargs["boresight"],
+        telescope=load_telescope_with_shift_optics(
+            kwargs.pop("telescope"), kwargs.pop("band"), shift_optics=shift_optics
+        ),
         sky_pos=base["sky_pos"],
         image_pos=base["image_pos"],
         icrf_to_field=base["_icrf_to_field"],
         det_name=base["det_name"],
         camera=get_camera_cached(kwargs.pop("camera")),
-        shift_optics=shift_optics,
-        **opt_kwargs,
+        **kwargs,
     )
 
 
@@ -308,22 +276,22 @@ def get_camera_cached(camera_name: str):
 
 @photon_op_type("lsst_diffraction")
 def deserialize_lsst_diffraction(config, base, _logger):
-    kwargs, opt_kwargs = config_kwargs(config, base, LsstDiffraction)
-    shift_optics = opt_kwargs.pop("shift_optics", base.get("shift_optics", None))
+    kwargs = config_kwargs(config, base, LsstDiffraction)
+    shift_optics = kwargs.pop("shift_optics", base.get("shift_optics", None))
 
     opsim_meta = galsim.config.GetInputObj(
         "opsim_meta_dict", config, base, "opsim_meta_dict"
     )
 
     return LsstDiffraction(
-        telescope=base["_telescope"],
-        latitude=kwargs["latitude"],
+        telescope=load_telescope_with_shift_optics(
+            kwargs.pop("telescope"), kwargs.pop("band"), shift_optics=shift_optics
+        ),
         altitude=opsim_meta["altitude"],
         azimuth=opsim_meta["azimuth"],
         sky_pos=base["sky_pos"],
         icrf_to_field=base["_icrf_to_field"],
-        shift_optics=shift_optics,
-        **opt_kwargs,
+        **kwargs,
     )
 
 

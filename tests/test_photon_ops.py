@@ -6,10 +6,11 @@ from astropy import units
 
 from imsim import photon_ops, BatoidWCSFactory, get_camera, diffraction
 from imsim.batoid_utils import load_telescope
+from imsim.opsim_meta import OpsimMetaDict
 
 
 def create_test_icrf_to_field(boresight, det_name):
-    fiducial_telescope = load_telescope(telescope="LSST", band="r")
+    fiducial_telescope = load_telescope(telescope_id="LSST", band="r")
     camera = get_camera()
     factory = BatoidWCSFactory(
         boresight,
@@ -41,7 +42,7 @@ def create_test_lsst_optics():
 
     det_name = "R22_S11"
     return photon_ops.LsstOptics(
-        telescope=load_telescope(telescope="LSST", band="r"),
+        telescope=load_telescope(telescope_id="LSST", band="r"),
         boresight=boresight,
         sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
         image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
@@ -80,7 +81,7 @@ def create_test_lsst_diffraction():
     det_name = "R22_S11"
 
     return photon_ops.LsstDiffraction(
-        telescope=load_telescope(telescope="LSST", band="r"),
+        telescope=load_telescope(telescope_id="LSST", band="r"),
         sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
         icrf_to_field=create_test_icrf_to_field(boresight, det_name),
         latitude=-30.24463,
@@ -290,3 +291,71 @@ def test_xy_to_v():
     x_after, y_after = xy_to_v.inverse(v)
     np.testing.assert_array_almost_equal(x, x_after)
     np.testing.assert_array_almost_equal(y, y_after)
+
+
+def test_config_lsst_diffraction():
+    """Check the config interface to BatoidPhotonOps."""
+
+    boresight = galsim.CelestialCoord(
+        1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
+    )
+    config = {
+        "_input_objs": {
+            "opsim_meta_dict": [
+                OpsimMetaDict.from_dict({"altitude": 43.0, "azimuth": 0.0})
+            ]
+        },
+        "_icrf_to_field": create_test_icrf_to_field(boresight, "R22_S11"),
+        "sky_pos": {
+            "type": "RADec",
+            "ra": "1.1056660811384078 radians",
+            "dec": "-0.5253441048502933 radians",
+        },
+        "stamp": {
+            "photon_ops": [
+                {
+                    "type": "lsst_diffraction",
+                    "telescope": "LSST",
+                    "band": "r",
+                    "latitude": -30.24463,
+                }
+            ]
+        },
+    }
+    galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+
+
+def test_config_lsst_optics():
+    """Check the config interface to BatoidPhotonOps."""
+
+    boresight = galsim.CelestialCoord(
+        1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
+    )
+    config = {
+        "sky_pos": {
+            "type": "RADec",
+            "ra": "1.1056660811384078 radians",
+            "dec": "-0.5253441048502933 radians",
+        },
+        "det_name": "R22_S11",
+        "image_pos": galsim.PositionD(
+            3076.4462608524213, 1566.4896702703757
+        ),  # This would get set appropriately during normal config processing.
+        "_icrf_to_field": create_test_icrf_to_field(boresight, "R22_S11"),
+        "stamp": {
+            "photon_ops": [
+                {
+                    "type": "lsst_optics",
+                    "telescope": "LSST",
+                    "band": "r",
+                    "camera": "LsstCam",
+                    "boresight": {
+                        "type": "RADec",
+                        "ra": "1.1047934165124105 radians",
+                        "dec": "-0.5261230452954583 radians",
+                    },
+                },
+            ]
+        },
+    }
+    galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
