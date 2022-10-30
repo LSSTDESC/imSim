@@ -1,0 +1,25 @@
+rightascension 51.99085849573259566
+declination -40.31737846575015283
+mjd 59822.28563761110854102
+altitude 55.46889391960230853
+azimuth 118.14152782856614010
+filter 3
+rotskypos 115.05283709538007031
+camconfig 1
+dist2moon 125.3397316
+moonalt -50.9887384
+moondec -7.1468227
+moonphase 15.6416168
+moonra 203.0453564
+nsnap 1
+obshistid 182850
+rottelpos 28.8262515
+seed 182850
+seeing 0.8285710
+sunalt -53.1784288
+vistime 30.0000000
+object 0 51.99085849573259566 -40.31737846575015283 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
+object 0 49.9910188 -39.2109978 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
+object 0 52.1849089 -38.4298874 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
+object 0 54.4700585 -40.4435095 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
+object 0 52.9275568 -41.8028842 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
