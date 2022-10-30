@@ -19,7 +19,7 @@ seeing 0.8285710
 sunalt -53.1784288
 vistime 30.0000000
 object 0 51.99085849573259566 -40.31737846575015283 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
-object 0 49.9910188 -39.2109978 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
-object 0 52.1849089 -38.4298874 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
-object 0 54.4700585 -40.4435095 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
-object 0 52.9275568 -41.8028842 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
+object 1 49.9910188 -39.2109978 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
+object 2 52.1849089 -38.4298874 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
+object 3 54.4700585 -40.4435095 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
+object 4 52.9275568 -41.8028842 25. starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1
