@@ -33,7 +33,7 @@ def run_imsim(camera):
               'output.cosmic_ray_rate': 0,
               'output.only_dets': only_dets,
               'output.det_num.first': 0,
-              'output.nfiles': 5,
+              'output.nfiles': len(only_dets),
               'output.readout': '',
               'output.dir': f'fits_{camera}',
               'output.truth.dir': f'fits_{camera}',
