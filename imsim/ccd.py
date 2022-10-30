@@ -45,14 +45,14 @@ class LSST_CCDBuilder(OutputBuilder):
         base['eval_variables']['sdet_name'] = det_name
 
         # Get detector size in pixels.
-        det_bbox = camera[detnum].getBBox()
+        det_bbox = camera[det_name].getBBox()
         base['xsize'] = det_bbox.width
         base['ysize'] = det_bbox.height
 
         base['exp_time'] = float(config.get('exp_time', 30))
 
         # Get detector z-offset, if available.
-        ccd_orientation = camera[detnum].getOrientation()
+        ccd_orientation = camera[det_name].getOrientation()
         if hasattr(ccd_orientation, 'getHeight'):
             z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
             logger.info("Setting CCD z-offset to %.2e m", z_offset)
