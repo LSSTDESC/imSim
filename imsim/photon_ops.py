@@ -12,6 +12,7 @@ from galsim.config.util import get_cls_params
 from .camera import get_camera
 from .utils import focal_to_pixel
 from .diffraction import LSST_SPIDER_GEOMETRY, diffraction_kick
+import lsst.afw.cameraGeom
 
 
 class LsstOptics(PhotonOp):
@@ -29,6 +30,7 @@ class LsstOptics(PhotonOp):
     image_pos : galsim.PositionD
     icrf_to_field : galsim.GSFitsWCS
     det_name : str
+    camera : lsst.afw.cameraGeom.Camera
     shift_optics : dict[str, list[float]]
         A dict mapping optics keys to shifts represented by a list of 3 floats.
         The corresponding optics will be displaced by the specified corrdinates.
@@ -43,7 +45,12 @@ class LsstOptics(PhotonOp):
         Enable / disable diffraction (default: enabled)
     """
 
-    _req_params = {"telescope": Optic, "band": str, "boresight": CelestialCoord}
+    _req_params = {
+        "telescope": Optic,
+        "band": str,
+        "boresight": CelestialCoord,
+        "camera": None
+    }
     _opt_params = {"shift_optics": dict, "use_diffraction": bool}
 
     def __init__(
@@ -54,6 +61,7 @@ class LsstOptics(PhotonOp):
         image_pos,
         icrf_to_field,
         det_name,
+        camera,
         shift_optics=None,
         use_diffraction=True,
     ):
@@ -61,7 +69,7 @@ class LsstOptics(PhotonOp):
             for optics_key, shift in shift_optics.items():
                 telescope = telescope.withGloballyShiftedOptic(optics_key, shift)
         self.telescope = telescope
-        self.detector = get_camera()[det_name]
+        self.detector = camera[det_name]
         self.boresight = boresight
         self.sky_pos = sky_pos
         self.image_pos = image_pos
@@ -165,6 +173,16 @@ class LsstOpticsFactory(PhotonOpBuilder):
          the constructed LsstOptics object.
     """
 
+    def __init__(self):
+        self._camera = None
+        self._camera_name = None
+
+    @property
+    def camera(self):
+        if self._camera is None:
+            self._camera = get_camera(self._camera_name)
+        return self._camera
+
     def buildPhotonOp(self, config, base, _logger):
         req, opt, single, _takes_rng = get_cls_params(LsstOptics)
         kwargs, _safe = GetAllParams(config, base, req, opt, single)
@@ -174,6 +192,10 @@ class LsstOpticsFactory(PhotonOpBuilder):
         if shift_optics is None:
             shift_optics = base.get("shift_optics", None)
 
+        if self._camera_name != kwargs['camera']:
+            self._camera_name = kwargs['camera']
+            self._camera = get_camera(self._camera_name)
+
         return LsstOptics(
             telescope=base["_telescope"],
             boresight=kwargs["boresight"],
@@ -181,6 +203,7 @@ class LsstOpticsFactory(PhotonOpBuilder):
             image_pos=base["image_pos"],
             icrf_to_field=base["_icrf_to_field"],
             det_name=base["det_name"],
+            camera=self.camera,
             shift_optics=shift_optics,
             **opt_kwargs
         )

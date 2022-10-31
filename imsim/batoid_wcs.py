@@ -80,7 +80,6 @@ class BatoidWCSFactory:
         self.temperature = temperature
         self.pressure = pressure
         self.H2O_pressure = H2O_pressure
-
         # Rubin Observatory lat/lon/height parameters (in ERFA speak)
         # Wikipedia says
         # self.phi = -np.deg2rad(30 + 14/60 + 40.7/3600)
