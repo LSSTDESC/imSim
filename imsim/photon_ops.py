@@ -7,6 +7,7 @@ from batoid import Optic
 from galsim import PhotonArray, PhotonOp, GaussianDeviate
 from galsim.config import RegisterPhotonOpType, PhotonOpBuilder, GetAllParams
 
+from galsim import PupilAnnulusSampler
 from galsim.celestial import CelestialCoord
 from galsim.config.util import get_cls_params
 from .camera import get_camera
@@ -90,9 +91,9 @@ class LsstOptics(PhotonOp):
     def applyTo(self, photon_array, local_wcs=None, rng=None):
         """Apply the photon operator to a PhotonArray.
 
-        Here, we assume that the photon array has passed through
-        `imsim.atmPSF.AtmosphericPSF` which stores sampled pupil
-        locations in photon_array.pupil_u and .pupil_v.
+        Note that if the pupil has not yet been sampled (e.g., via
+        `imsim.atmPsf.AtmosphericPsf`), then the pupil will be uniformly
+        randomly sampled using the Rubin entrance pupil domain.
 
         Parameters
         ----------
@@ -119,6 +120,9 @@ class LsstOptics(PhotonOp):
         vy /= n
         vz /= n
 
+        if not photon_array.hasAllocatedPupil():
+            op = PupilAnnulusSampler(R_inner=2.5, R_outer=4.18)
+            op.applyTo(photon_array, None, rng)
         x, y = photon_array.pupil_u, photon_array.pupil_v
         z = self.telescope.stopSurface.surface.sag(x, y)
         if self.diffraction_rng is not None:
