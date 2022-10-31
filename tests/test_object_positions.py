@@ -50,12 +50,8 @@ def compute_pixel_offset(eimage_file):
         eimage = hdus[0].data
     ny, nx = eimage.shape
 
-    xarr = np.ones((ny, nx))
-    yarr = np.ones((ny, nx))
-    for row in range(ny):
-        yarr[row,:] *= row
-    for col in range(nx):
-        xarr[:,col] *= col
+    # FITS convention first pixel is (1, 1)
+    xarr, yarr = np.meshgrid(np.arange(1, nx+1), np.arange(1, ny+1))
 
     total_counts = np.sum(eimage)
     x_avg = np.sum(xarr*eimage)/total_counts
