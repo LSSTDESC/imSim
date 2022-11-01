@@ -487,7 +487,8 @@ class BatoidWCSBuilder(WCSBuilder):
 
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         kwargs['bandpass'] = base.get('bandpass', None)
-        if self._camera is not None and self._camera_name != kwargs['camera']:
+        if (self._camera is not None and 'camera' in kwargs
+            and self._camera_name != kwargs['camera']):
             self._camera_name = kwargs['camera']
             self._camera = get_camera(self._camera_name)
         order = kwargs.pop('order', 3)
