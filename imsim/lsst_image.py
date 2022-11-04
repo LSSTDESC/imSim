@@ -20,7 +20,7 @@ class SkyGradient:
         sky_level_center = sky_model.get_sky_level(world_center)
         center = wcs.toImage(world_center)
         llc = galsim.PositionD(0, 0)
-        lrc = galsim.PositionD(0, image_xsize)
+        lrc = galsim.PositionD(image_xsize, 0)
         M = np.array([[center.x, center.y, 1],
                       [llc.x, llc.y, 1],
                       [lrc.x, lrc.y, 1]])
