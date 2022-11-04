@@ -186,7 +186,6 @@ class LSST_SiliconBuilder(StampBuilder):
 
         # Start with the normal image size from GalSim
         N = obj.getGoodImageSize(pixel_scale)
-        #print('N = ',N)
 
         if (isinstance(obj, galsim.Sum) and
             any([isinstance(_.original, galsim.RandomKnots)
@@ -215,7 +214,6 @@ class LSST_SiliconBuilder(StampBuilder):
                         obj.xValue(h,h), obj.xValue(h,-h),
                         obj.xValue(-h,h), obj.xValue(-h,-h) ]
             maxval = np.max(xvalues)
-            #print(N, maxval)
             if maxval < keep_sb_level:
                 break
             N *= factor
@@ -233,7 +231,6 @@ class LSST_SiliconBuilder(StampBuilder):
                         obj.xValue(h,h), obj.xValue(h,-h),
                         obj.xValue(-h,h), obj.xValue(-h,-h) ]
             maxval = np.max(xvalues)
-            #print(N, maxval)
             if maxval > keep_sb_level:
                 break
             N /= factor
@@ -443,11 +440,37 @@ class LSST_SiliconBuilder(StampBuilder):
             # don't draw anything.
             return image
 
+        def fix_seds(prof):
+            # If any SEDs are not currently using a LookupTable for the function or if they are
+            # using spline interpolation, then the codepath is quite slow.
+            # Better to fix them before doing WavelengthSampler.
+            if isinstance(prof, galsim.ChromaticObject):
+                wave_list, _, _ = galsim.utilities.combine_wave_list(prof.SED, bandpass)
+                sed = prof.SED
+                # TODO: This bit should probably be ported back to Galsim.
+                #       Something like sed.make_tabulated()
+                if (not isinstance(sed._spec, galsim.LookupTable)
+                    or sed._spec.interpolant != 'linear'):
+                    new_spec = galsim.LookupTable(wave_list, sed(wave_list), interpolant='linear')
+                    new_sed = galsim.SED(new_spec, 'nm', 'fphotons')
+                    prof.SED = new_sed
+
+                # Also recurse onto any components.
+                if hasattr(prof, 'obj_list'):
+                    for obj in prof.obj_list:
+                        fix_seds(obj)
+                if hasattr(prof, 'original'):
+                    fix_seds(prof.original)
+
         max_flux_simple = config.get('max_flux_simple', 100)
         faint = self.realized_flux < max_flux_simple
-        if faint:
-            prof.SED = self._trivial_sed
         bandpass = base['bandpass']
+        if faint:
+            logger.info("Flux = %.0f  Using trivial sed", self.realized_flux)
+            prof = prof.evaluateAtWavelength(bandpass.effective_wavelength)
+            prof = prof * self._trivial_sed
+        else:
+            fix_seds(prof)
         prof = prof.withFlux(self.realized_flux, bandpass)
 
         wcs = base['wcs']
