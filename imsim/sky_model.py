@@ -9,7 +9,7 @@ from galsim.config import InputLoader, RegisterInputType, RegisterValueType
 RUBIN_AREA = 0.25 * np.pi * 649**2  # cm^2
 
 
-__all__ = ['SkyModel']
+__all__ = ['SkyModel', 'SkyGradient']
 
 
 class SkyModel:
@@ -77,6 +77,38 @@ class SkyModel:
                              "at (ra, dec) = %s, %s", value,
                              skyCoord.ra.deg, skyCoord.dec.deg)
         return value
+
+
+class SkyGradient:
+    """
+    Functor class that computes the plane containing three input
+    points: the x, y positions of the CCD center, the lower left
+    corner, and the lower right corner, and the z-value for each set
+    to the corresponding sky background level.
+
+    The function call operator returns the sky background level as a
+    function of pixel coordinates relative to the value at the CCD
+    center.
+    """
+    def __init__(self, sky_model, wcs, world_center, image_xsize):
+        sky_level_center = sky_model.get_sky_level(world_center)
+        center = wcs.toImage(world_center)
+        llc = galsim.PositionD(0, 0)
+        lrc = galsim.PositionD(image_xsize, 0)
+        M = np.array([[center.x, center.y, 1],
+                      [llc.x, llc.y, 1],
+                      [lrc.x, lrc.y, 1]])
+        Minv = np.linalg.inv(M)
+        z = np.array([sky_level_center,
+                      sky_model.get_sky_level(wcs.toWorld(llc)),
+                      sky_model.get_sky_level(wcs.toWorld(lrc))])
+        self.a, self.b, self.c = np.dot(Minv, z)
+
+        # Subtract the sky level at the center of the CCD
+        self.c -= sky_level_center
+
+    def __call__(self, x, y):
+        return self.a*x + self.b*y + self.c
 
 
 class SkyModelLoader(InputLoader):
