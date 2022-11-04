@@ -10,21 +10,72 @@ from desc.skycatalogs import skyCatalogs
 from .instcat import get_radec_limits
 
 
+def get_skycat_objects(sky_cat, wcs, xsize, ysize, edge_pix, logger, obj_types):
+    """
+    Find skycat objects that land on the CCD + edge_pix buffer region.
+
+    Parameters
+    ----------
+    sky_cat : desc.skycatalogs.SkyCatalog
+        SkyCatalog object.
+    wcs : GalSim.GSFitsWCS
+        WCS object for the current CCD.
+    xsize : int
+        Size in pixels of CCD in x-direction.
+    ysize : int
+        Size in pixels of CCD in y-direction.
+    edge_pix : float
+        Size in pixels of the buffer region around nominal image
+        to consider objects.
+    logger : logging.Logger
+        Logger object.
+    obj_types : list-like
+        List or tuple of object types to render, e.g., ('star', 'galaxy').
+        If None, then consider all object types.
+
+    Returns
+    -------
+    list of skyCatalogs objects, CCD center as galsim.CelestialCoord
+    """
+    # Get range of ra, dec values given CCD size + edge_pix buffer.
+    radec_limits = get_radec_limits(wcs, xsize, ysize, logger, edge_pix)
+
+    # Initial pass using skyCatalogs.Box in ra, dec.
+    region = skyCatalogs.Box(*radec_limits[:4])
+    candidates = sky_cat.get_objects_by_region(region, obj_type_set=obj_types)
+
+    # Compute pixel coords of candidate objects and downselect in pixel
+    # coordinates.
+    min_x, min_y, max_x, max_y = radec_limits[4:]
+    objects = []
+    for candidate in candidates:
+        sky_coords = galsim.CelestialCoord(candidate.ra*galsim.degrees,
+                                           candidate.dec*galsim.degrees)
+        pixel_coords = wcs.toImage(sky_coords)
+        if ((min_x < pixel_coords.x < max_x) and
+            (min_y < pixel_coords.y < max_y)):
+            objects.append(candidate)
+
+    ccd_center = wcs.toWorld(galsim.PositionD(xsize/2.0, ysize/2.0))
+    return objects, ccd_center
+
+
 class SkyCatalogInterface:
     """Interface to skyCatalogs package."""
     # Rubin effective area computed using numbers at
     # https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _eff_area = 0.25 * np.pi * 649**2  # cm^2
-    def __init__(self, file_name, wcs, bandpass, xsize=4096, ysize=4096, obj_types=None,
+    def __init__(self, file_name, wcs, band, xsize=4096, ysize=4096, obj_types=None,
                  skycatalog_root=None, edge_pix=100, max_flux=None, logger=None):
-        """Parameters
+        """
+        Parameters
         ----------
         file_name : str
             Name of skyCatalogs yaml config file.
         wcs : galsim.WCS
             WCS of the image to render.
-        bandpass : galsim.Bandpass
-            Bandpass to use for flux calculations.
+        band : str
+            LSST band, one of ugrizy
         xsize : int
             Size in pixels of CCD in x-direction.
         ysize : int
@@ -51,18 +102,18 @@ class SkyCatalogInterface:
             logger.warning(f'Object types restricted to {obj_types}')
         self.file_name = file_name
         self.wcs = wcs
-        self.bandpass = bandpass
+        self.band = band
         self.max_flux = max_flux
         if skycatalog_root is None:
             skycatalog_root = os.path.dirname(os.path.abspath(file_name))
         sky_cat = skyCatalogs.open_catalog(file_name,
                                            skycatalog_root=skycatalog_root)
-        region = skyCatalogs.Box(*get_radec_limits(wcs, xsize, ysize, logger, edge_pix)[:4])
-        self.objects = sky_cat.get_objects_by_region(region,
-                                                     obj_type_set=obj_types)
+
+        self.objects, self.ccd_center \
+            = get_skycat_objects(sky_cat, wcs, xsize, ysize,
+                                 edge_pix, logger, obj_types)
         if not self.objects and logger is not None:
             logger.warning("No objects found on image")
-
 
     def getNObjects(self):
         """
@@ -129,7 +180,7 @@ class SkyCatalogInterface:
 
         # Compute the flux or get the cached value.
         gs_object.flux \
-            = skycat_obj.get_flux(self.bandpass)*exp_time*self._eff_area
+            = skycat_obj.get_LSST_flux(self.band)*exp_time*self._eff_area
 
         if self.max_flux is not None and gs_object.flux > self.max_flux:
             return None
@@ -148,16 +199,23 @@ class SkyCatalogLoader(InputLoader):
                'obj_types' : list,
                'max_flux' : float
               }
+        meta = galsim.config.GetInputObj('opsim_meta_dict', config, base,
+                                         'SkyCatalogLoader')
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
         kwargs['wcs'] = wcs
         kwargs['xsize'] = base['xsize']
         kwargs['ysize'] = base['ysize']
-        bandpass, safe1 = galsim.config.BuildBandpass(base['image'], 'bandpass', base, logger)
-        safe = safe and safe1
-        kwargs['bandpass'] = bandpass
+        # The skyCatalogs code will use the LSST bandpasses from the
+        # throughputs distribution, so just need the LSST band (=filter)
+        # from the opsim metadata object.
+        kwargs['band'] = meta.get('band')
         kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
+
+        # Sky catalog object lists are created per CCD, so they are
+        # not safe to reuse.
+        safe = False
         return kwargs, safe
 
 
@@ -166,6 +224,22 @@ def SkyCatObj(config, base, ignore, gsparams, logger):
     Build an object according to info in the sky catalog.
     """
     skycat = galsim.config.GetInputObj('sky_catalog', config, base, 'SkyCatObj')
+
+    # Ensure that this sky catalog matches the CCD being simulated by
+    # comparing center locations on the sky.
+    world_center = base['world_center']
+    sep = skycat.ccd_center.distanceTo(base['world_center'])/galsim.arcsec
+    # Centers must agree to within at least 1 arcsec:
+    if sep > 1.0:
+        message = ("skyCatalogs selection and CCD center do not agree: \n"
+                   "skycat.ccd_center: "
+                   f"{skycat.ccd_center.ra/galsim.degrees:.5f}, "
+                   f"{skycat.ccd_center.dec/galsim.degrees:.5f}\n"
+                   "world_center: "
+                   f"{world_center.ra/galsim.degrees:.5f}, "
+                   f"{world_center.dec/galsim.degrees:.5f} \n"
+                   f"Separation: {sep:.2e} arcsec")
+        raise RuntimeError(message)
 
     # Setup the indexing sequence if it hasn't been specified.  The
     # normal thing with a catalog is to just use each object in order,
