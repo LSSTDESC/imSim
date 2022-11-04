@@ -1,11 +1,45 @@
 import os
+import numpy as np
 import galsim
 from galsim.config import RegisterImageType, GetAllParams, GalSimConfigError, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
 
+
+class SkyGradient:
+    """
+    Functor class that computes the plane containing three input
+    points: the x, y positions of the CCD center, the lower left
+    corner, and the lower right corner, and the z-value for each set
+    to the corresponding sky background level.
+
+    The function call operator returns the sky background level as a
+    function of pixel coordinates relative to the value at the CCD
+    center.
+    """
+    def __init__(self, sky_model, wcs, world_center, image_xsize):
+        sky_level_center = sky_model.get_sky_level(world_center)
+        center = wcs.toImage(world_center)
+        llc = galsim.PositionD(0, 0)
+        lrc = galsim.PositionD(0, image_xsize)
+        M = np.array([[center.x, center.y, 1],
+                      [llc.x, llc.y, 1],
+                      [lrc.x, lrc.y, 1]])
+        Minv = np.linalg.inv(M)
+        z = np.array([sky_level_center,
+                      sky_model.get_sky_level(wcs.toWorld(llc)),
+                      sky_model.get_sky_level(wcs.toWorld(lrc))])
+        self.a, self.b, self.c = np.dot(Minv, z)
+
+        # Subtract the sky level at the center of the CCD
+        self.c -= sky_level_center
+
+    def __call__(self, x, y):
+        return self.a*x + self.b*y + self.c
+
+
 class LSST_ImageBuilder(ScatteredImageBuilder):
 
-    # This is mostly the same as the GalSim "Scattered" image type. 
+    # This is mostly the same as the GalSim "Scattered" image type.
     # So far the only change is in the sky background image.
 
     def setup(self, config, base, image_num, obj_num, ignore, logger):
@@ -76,11 +110,17 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             # TODO
             pass
         if self.apply_sky_gradient:
-            # TODO
-            pass
+            ny, nx = sky.array.shape
+            sky_model = galsim.config.GetInputObj('sky_model', config, base,
+                                                  'LSST_ImageBuilder')
+            sky_gradient = SkyGradient(sky_model, config['wcs']['current'][0],
+                                       base['world_center'], nx)
+            xarr = np.array([list(range(nx))]*ny)
+            yarr = np.array([[_]*nx for _ in range(ny)])
+            sky.array[:] += sky_gradient(xarr, yarr)
         if sky:
             image += sky
         AddNoise(base,image,current_var,logger)
-        
+
 RegisterImageType('LSST_Image', LSST_ImageBuilder())
 
