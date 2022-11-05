@@ -1,9 +1,68 @@
 import os
+import json
 import numpy as np
+import scipy
 import galsim
 from galsim.config import RegisterImageType, GetAllParams, GalSimConfigError, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
+from lsst.afw import cameraGeom
+import lsst.geom
 from .sky_model import SkyGradient
+from .camera import get_camera
+
+
+class Vignetting:
+    # _relative_fp_coords caches the x, y positions in mm of each pixel
+    # for a ITL or e2V CCDs in focal plane coordinates relative to the
+    # lower-left corner of the CCD.  To obtain arrays of focal plane
+    # coordinates relative to the center of the focal plane, an
+    # overall translation is applied.
+    _relative_fp_coords = {}
+
+    def __init__(self, spline_data_file, logger):
+        with open(spline_data_file) as fobj:
+            spline_data = json.load(fobj)
+        self.spline_model = scipy.interpolate.BSpline(*spline_data)
+        self.value_at_zero = self.spline_model(0)
+        self.logger = logger
+
+    @staticmethod
+    def _get_relative_fp_coords(det, pix_to_fp=None):
+        if pix_to_fp is None:
+            pix_to_fp = det.getTransform(cameraGeom.PIXELS,
+                                         cameraGeom.FOCAL_PLANE)
+        bbox = det.getBBox()
+        nx = bbox.getWidth()
+        ny = bbox.getHeight()
+
+        xarr = np.array([list(range(nx))]*ny).flatten()
+        yarr = np.array([[_]*nx for _ in range(ny)]).flatten()
+        pixel_coords = [lsst.geom.Point2D(x, y) for x, y in zip(xarr, yarr)]
+
+        fp_coords = pix_to_fp.applyForward(pixel_coords)
+
+        fp_xarr = np.array([_.x for _ in fp_coords]).reshape(ny, nx)
+        fp_yarr = np.array([_.y for _ in fp_coords]).reshape(ny, nx)
+
+        return fp_xarr - fp_xarr[0, 0], fp_yarr - fp_yarr[0, 0]
+
+    def _get_fp_coords(self, det):
+        pix_to_fp = det.getTransform(cameraGeom.PIXELS,
+                                     cameraGeom.FOCAL_PLANE)
+        vendor = det.getSerial()[:3]
+        if vendor not in self._relative_fp_coords:
+            self.logger.info("Computing relative focal plane coordinates "
+                             f"of pixels for {vendor} CCDs.")
+            self._relative_fp_coords[vendor] \
+                = self._get_relative_fp_coords(det, pix_to_fp=pix_to_fp)
+        xarr0, yarr0 = self._relative_fp_coords[vendor]
+        llc = pix_to_fp.applyForward(lsst.geom.Point2D(0, 0))
+        return xarr0 + llc.x, yarr0 + llc.y
+
+    def __call__(self, det):
+        xarr, yarr = self._get_fp_coords(det)
+        r = np.sqrt(xarr**2 + yarr**2)
+        return self.spline_model(r)/self.value_at_zero
 
 
 class LSST_ImageBuilder(ScatteredImageBuilder):
@@ -39,13 +98,23 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         extra_ignore = [ 'image_pos', 'world_pos', 'stamp_size', 'stamp_xsize', 'stamp_ysize',
                          'nobjects' ]
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
-                'apply_vignetting': bool, 'apply_sky_gradient': bool }
+                'apply_vignetting': bool, 'apply_sky_gradient': bool,
+                'vignetting_data_file': str}
         params = GetAllParams(config, base, opt=opt, ignore=ignore+extra_ignore)[0]
 
         size = params.get('size',0)
         full_xsize = params.get('xsize',size)
         full_ysize = params.get('ysize',size)
+
         self.apply_vignetting = params.get('apply_vignetting', False)
+        vignetting_data_file =  params.get('vignetting_data_file', False)
+        if self.apply_vignetting:
+            if os.path.isfile(vignetting_data_file):
+                self.vignetting = Vignetting(vignetting_data_file, logger)
+            else:
+                logger.info(f'{vignetting_data_file} not found.  Disabling vignetting.')
+                self.apply_vignetting = False
+
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
 
         if (full_xsize <= 0) or (full_ysize <= 0):
@@ -75,21 +144,25 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         """
         base['current_noise_image'] = base['current_image']
         sky = GetSky(config, base, full=True)
-        if self.apply_vignetting:
-            # TODO
-            pass
-        if self.apply_sky_gradient:
-            ny, nx = sky.array.shape
-            sky_model = galsim.config.GetInputObj('sky_model', config, base,
-                                                  'LSST_ImageBuilder')
-            sky_gradient = SkyGradient(sky_model, config['wcs']['current'][0],
-                                       base['world_center'], nx)
-            xarr = np.array([list(range(nx))]*ny)
-            yarr = np.array([[_]*nx for _ in range(ny)])
-            sky.array[:] += sky_gradient(xarr, yarr)
+
         if sky:
+            if self.apply_sky_gradient:
+                ny, nx = sky.array.shape
+                sky_model = galsim.config.GetInputObj('sky_model', config, base,
+                                                      'LSST_ImageBuilder')
+                sky_gradient = SkyGradient(sky_model, config['wcs']['current'][0],
+                                           base['world_center'], nx)
+                xarr = np.array([list(range(nx))]*ny)
+                yarr = np.array([[_]*nx for _ in range(ny)])
+                sky.array[:] += sky_gradient(xarr, yarr)
+
+            if self.apply_vignetting:
+                detnum = base['detnum']
+                camera = get_camera(base['camera'])
+                sky.array[:] *= self.vignetting(camera[detnum])
+
             image += sky
+
         AddNoise(base,image,current_var,logger)
 
 RegisterImageType('LSST_Image', LSST_ImageBuilder())
-
