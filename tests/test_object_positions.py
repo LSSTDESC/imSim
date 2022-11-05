@@ -69,11 +69,12 @@ def compute_pixel_offset(eimage_file):
 
     return np.sqrt((x_avg - data['x'])**2 + (y_avg - data['y'])**2)
 
-for camera in ('LsstCam', 'LsstCamImSim'):
-    print(camera)
-    run_imsim(camera)
-    eimage_files = glob.glob(f'fits_{camera}/eimage*')
-    for eimage_file in eimage_files:
-        offset = compute_pixel_offset(eimage_file)
-        print(eimage_file, offset)
-        np.testing.assert_(offset < 2)
+def test_object_positions():
+    for camera in ('LsstCam', 'LsstCamImSim'):
+        print(camera)
+        run_imsim(camera)
+        eimage_files = glob.glob(f'fits_{camera}/eimage*')
+        for eimage_file in eimage_files:
+            offset = compute_pixel_offset(eimage_file)
+            print(eimage_file, offset)
+            np.testing.assert_(offset < 2)
