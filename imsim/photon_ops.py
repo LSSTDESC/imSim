@@ -50,7 +50,7 @@ class LsstOptics(PhotonOp):
         "telescope": Optic,
         "band": str,
         "boresight": CelestialCoord,
-        "camera": None
+        "camera": str
     }
     _opt_params = {"shift_optics": dict, "use_diffraction": bool}
 
