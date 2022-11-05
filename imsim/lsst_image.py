@@ -21,7 +21,14 @@ class Vignetting:
     _relative_fp_coords = {}
 
     def __init__(self, spline_data_file, logger):
-        with open(os.path.join(data_dir, spline_data_file)) as fobj:
+        if not os.path.isfile(spline_data_file):
+            # Check if spline data file is in data_dir.
+            data_file = os.path.join(data_dir, spline_data_file)
+            if not os.path.isfile(data_file):
+                raise OSError(f"Vignetting data file {spline_data_file} not found.")
+        else:
+            data_file = spline_data_file
+        with open(data_file) as fobj:
             spline_data = json.load(fobj)
         self.spline_model = scipy.interpolate.BSpline(*spline_data)
         self.value_at_zero = self.spline_model(0)
@@ -50,19 +57,31 @@ class Vignetting:
         return fp_xarr - fp_xarr[0, 0], fp_yarr - fp_yarr[0, 0]
 
     def _get_fp_coords(self, det):
+        """
+        Get arrays of x and y coordinates in focal plane coordinates for
+        the pixels in the requested CCD.
+        """
         pix_to_fp = det.getTransform(cameraGeom.PIXELS,
                                      cameraGeom.FOCAL_PLANE)
         vendor = det.getSerial()[:3]
+        # Retrieve the cached values of pixel coordinates for a CCD of
+        # this vendor type (either 'ITL' or 'E2V') relative to its llc.
         if vendor not in self._relative_fp_coords:
+            # If values aren't cached for this vendor type, do the calculation.
+            # This takes about ~1 minute.
             self.logger.info("Computing relative focal plane coordinates "
                              f"of pixels for {vendor} CCDs.")
             self._relative_fp_coords[vendor] \
                 = self._get_relative_fp_coords(det, pix_to_fp=pix_to_fp)
         xarr0, yarr0 = self._relative_fp_coords[vendor]
+
+        # Compute absolute location of llc, apply this offset, and
+        # return the x- and y-arrays.
         llc = pix_to_fp.applyForward(lsst.geom.Point2D(0, 0))
         return xarr0 + llc.x, yarr0 + llc.y
 
     def __call__(self, det):
+        """Return the vignetting for each pixel in the CCD."""
         xarr, yarr = self._get_fp_coords(det)
         r = np.sqrt(xarr**2 + yarr**2)
         return self.spline_model(r)/self.value_at_zero
