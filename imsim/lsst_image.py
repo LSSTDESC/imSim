@@ -9,6 +9,7 @@ from lsst.afw import cameraGeom
 import lsst.geom
 from .sky_model import SkyGradient
 from .camera import get_camera
+from .meta_data import data_dir
 
 
 class Vignetting:
@@ -20,7 +21,7 @@ class Vignetting:
     _relative_fp_coords = {}
 
     def __init__(self, spline_data_file, logger):
-        with open(spline_data_file) as fobj:
+        with open(os.path.join(data_dir, spline_data_file)) as fobj:
             spline_data = json.load(fobj)
         self.spline_model = scipy.interpolate.BSpline(*spline_data)
         self.value_at_zero = self.spline_model(0)
@@ -28,6 +29,8 @@ class Vignetting:
 
     @staticmethod
     def _get_relative_fp_coords(det, pix_to_fp=None):
+        """Compute the focal plane locations of each pixel of the
+        CCD relative to its lower-left corner."""
         if pix_to_fp is None:
             pix_to_fp = det.getTransform(cameraGeom.PIXELS,
                                          cameraGeom.FOCAL_PLANE)
@@ -109,11 +112,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         self.apply_vignetting = params.get('apply_vignetting', False)
         vignetting_data_file =  params.get('vignetting_data_file', False)
         if self.apply_vignetting:
-            if os.path.isfile(vignetting_data_file):
-                self.vignetting = Vignetting(vignetting_data_file, logger)
-            else:
-                logger.info(f'{vignetting_data_file} not found.  Disabling vignetting.')
-                self.apply_vignetting = False
+            self.vignetting = Vignetting(vignetting_data_file, logger)
 
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
 
