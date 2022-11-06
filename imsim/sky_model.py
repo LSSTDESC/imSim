@@ -90,7 +90,9 @@ class SkyGradient:
     function of pixel coordinates relative to the value at the CCD
     center.
     """
-    def __init__(self, sky_model, wcs, world_center, image_xsize):
+    def __init__(self, sky_model, wcs, world_center, image_xsize,
+                 pixel_scale=0.2):
+        self.pixel_scale = pixel_scale
         sky_level_center = sky_model.get_sky_level(world_center)
         center = wcs.toImage(world_center)
         llc = galsim.PositionD(0, 0)
@@ -108,7 +110,8 @@ class SkyGradient:
         self.c -= sky_level_center
 
     def __call__(self, x, y):
-        return self.a*x + self.b*y + self.c
+        """Return photons/pixel."""
+        return (self.a*x + self.b*y + self.c)*self.pixel_scale**2
 
 
 class SkyModelLoader(InputLoader):
