@@ -73,9 +73,9 @@ class SkyModel:
         value = flux * self.eff_area * self.exptime
 
         if self.logger is not None:
-            self.logger.info("Setting sky level to %.2f photons/arcsec^2 "
-                             "at (ra, dec) = %s, %s", value,
-                             skyCoord.ra.deg, skyCoord.dec.deg)
+            self.logger.debug("Setting sky level to %.2f photons/arcsec^2 "
+                              "at (ra, dec) = %s, %s", value,
+                              skyCoord.ra.deg, skyCoord.dec.deg)
         return value
 
 
@@ -86,14 +86,12 @@ class SkyGradient:
     corner, and the lower right corner, and the z-value for each set
     to the corresponding sky background level.
 
-    The function call operator returns the sky background level as a
-    function of pixel coordinates relative to the value at the CCD
-    center.
+    The function call operator returns the fractional sky background
+    level as a function of pixel coordinates relative to the value at
+    the CCD center.
     """
-    def __init__(self, sky_model, wcs, world_center, image_xsize,
-                 pixel_scale=0.2):
-        self.pixel_scale = pixel_scale
-        sky_level_center = sky_model.get_sky_level(world_center)
+    def __init__(self, sky_model, wcs, world_center, image_xsize):
+        self.sky_level_center = sky_model.get_sky_level(world_center)
         center = wcs.toImage(world_center)
         llc = galsim.PositionD(0, 0)
         lrc = galsim.PositionD(image_xsize, 0)
@@ -101,17 +99,17 @@ class SkyGradient:
                       [llc.x, llc.y, 1],
                       [lrc.x, lrc.y, 1]])
         Minv = np.linalg.inv(M)
-        z = np.array([sky_level_center,
+        z = np.array([self.sky_level_center,
                       sky_model.get_sky_level(wcs.toWorld(llc)),
                       sky_model.get_sky_level(wcs.toWorld(lrc))])
         self.a, self.b, self.c = np.dot(Minv, z)
 
-        # Subtract the sky level at the center of the CCD
-        self.c -= sky_level_center
-
     def __call__(self, x, y):
-        """Return photons/pixel."""
-        return (self.a*x + self.b*y + self.c)*self.pixel_scale**2
+        """
+        Return the ratio of the sky level at the desired pixel wrt the
+        value at the CCD center.
+        """
+        return (self.a*x + self.b*y + self.c)/self.sky_level_center
 
 
 class SkyModelLoader(InputLoader):

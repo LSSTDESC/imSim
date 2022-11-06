@@ -155,7 +155,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                 sky_gradient = SkyGradient(sky_model, config['wcs']['current'][0],
                                            base['world_center'], nx)
                 xarr, yarr = np.meshgrid(range(nx), range(ny))
-                sky.array[:] += sky_gradient(xarr, yarr)
+                sky.array[:] *= sky_gradient(xarr, yarr)
 
             if self.apply_vignetting:
                 det_name = base['det_name']
