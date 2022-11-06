@@ -80,7 +80,6 @@ class BatoidWCSFactory:
         self.temperature = temperature
         self.pressure = pressure
         self.H2O_pressure = H2O_pressure
-
         # Rubin Observatory lat/lon/height parameters (in ERFA speak)
         # Wikipedia says
         # self.phi = -np.deg2rad(30 + 14/60 + 40.7/3600)
@@ -487,12 +486,17 @@ class BatoidWCSBuilder(WCSBuilder):
             base['bandpass'] = bp
 
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
-        logger.info("Building Batoid WCS for %s", kwargs['det_name'])
         kwargs['bandpass'] = base.get('bandpass', None)
+        kwargs['camera'] = kwargs.pop('camera', 'LsstCam')
+        if (self._camera is not None and self._camera_name != kwargs['camera']):
+            self._camera_name = kwargs['camera']
+            self._camera = get_camera(self._camera_name)
         order = kwargs.pop('order', 3)
         det_name = kwargs.pop('det_name')
         factory = self.makeWCSFactory(**kwargs)
         det = self.camera[det_name]
+        logger.info("Building Batoid WCS for %s and %s", det_name,
+                    self.camera.getName())
         wcs = factory.getWCS(det, order=order)
         base['_icrf_to_field'] = factory.get_icrf_to_field(det, order=order)
         base['_telescope'] = factory._telescope

@@ -68,6 +68,10 @@ class LSST_SiliconBuilder(StampBuilder):
             # For really faint things, don't try too hard.  Just use 32x32.
             image_size = 32
 
+        elif 'size' in config:
+            # Get the stamp size from the config entry.
+            image_size = galsim.config.ParseValue(config, 'size', base, int)[0]
+
         elif (hasattr(gal, 'original') and isinstance(gal.original, galsim.DeltaFunction)):
             # For bright stars, set the folding threshold for the
             # stamp size calculation.  Use a

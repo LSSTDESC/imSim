@@ -34,21 +34,25 @@ class LSST_CCDBuilder(OutputBuilder):
         # Figure out the detector name for the file name.
         detnum = galsim.config.ParseValue(config, 'det_num', base, int)[0]
         camera = get_camera(config['camera'])
-        det_name = camera[detnum].getName()
+        if 'only_dets' in config:
+            only_dets = config['only_dets']
+            det_name = only_dets[detnum]
+        else:
+            det_name = camera[detnum].getName()
         base['det_name'] = det_name
         if 'eval_variables' not in base:
             base['eval_variables'] = {}
         base['eval_variables']['sdet_name'] = det_name
 
         # Get detector size in pixels.
-        det_bbox = camera[detnum].getBBox()
+        det_bbox = camera[det_name].getBBox()
         base['xsize'] = det_bbox.width
         base['ysize'] = det_bbox.height
 
         base['exp_time'] = float(config.get('exp_time', 30))
 
         # Get detector z-offset, if available.
-        ccd_orientation = camera[detnum].getOrientation()
+        ccd_orientation = camera[det_name].getOrientation()
         if hasattr(ccd_orientation, 'getHeight'):
             z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
             logger.info("Setting CCD z-offset to %.2e m", z_offset)
@@ -96,7 +100,7 @@ class LSST_CCDBuilder(OutputBuilder):
         # This is basically the same as the base class version.  Just a few extra things to
         # add to the ignore list.
         ignore += [ 'file_name', 'dir', 'nfiles', 'checkpoint', 'det_num',
-                    'readout', 'exp_time', 'camera' ]
+                    'only_dets', 'readout', 'exp_time', 'camera' ]
 
         opt = {
             'cosmic_ray_rate': float,
