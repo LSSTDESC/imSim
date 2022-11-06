@@ -45,9 +45,9 @@ class Vignetting:
         nx = bbox.getWidth()
         ny = bbox.getHeight()
 
-        xarr = np.array([list(range(nx))]*ny).flatten()
-        yarr = np.array([[_]*nx for _ in range(ny)]).flatten()
-        pixel_coords = [lsst.geom.Point2D(x, y) for x, y in zip(xarr, yarr)]
+        xarr, yarr = np.meshgrid(range(1, nx+1), range(1, ny+1))
+        pixel_coords = [lsst.geom.Point2D(x, y) for x, y in
+                        zip(xarr.ravel(), yarr.ravel())]
 
         fp_coords = pix_to_fp.applyForward(pixel_coords)
 
@@ -170,8 +170,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                                                       'LSST_ImageBuilder')
                 sky_gradient = SkyGradient(sky_model, config['wcs']['current'][0],
                                            base['world_center'], nx)
-                xarr = np.array([list(range(nx))]*ny)
-                yarr = np.array([[_]*nx for _ in range(ny)])
+                xarr, yarr = np.meshgrid(range(nx), range(ny))
                 sky.array[:] += sky_gradient(xarr, yarr)
 
             if self.apply_vignetting:
