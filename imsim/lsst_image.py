@@ -175,9 +175,9 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                 sky.array[:] += sky_gradient(xarr, yarr)
 
             if self.apply_vignetting:
-                detnum = base['detnum']
+                det_name = base['det_name']
                 camera = get_camera(base['camera'])
-                sky.array[:] *= self.vignetting(camera[detnum])
+                sky.array[:] *= self.vignetting(camera[det_name])
 
             image += sky
 
