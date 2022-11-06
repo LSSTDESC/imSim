@@ -40,7 +40,7 @@ class Vignetting:
         # normalize the vignetting profile.
         self.value_at_zero = self.spline_model(0)
 
-    def __call__(self, det, pixel_size=0.01):
+    def __call__(self, det):
         """
         Return the vignetting for each pixel in a CCD.
 
@@ -48,8 +48,6 @@ class Vignetting:
         ----------
         det : lsst.afw.cameraGeom.Detector
             CCD in the focal plane.
-        pixel_size : float [0.01]
-            Pixel size in mm.
         """
         bbox = det.getBBox()
         nx = bbox.getWidth()
@@ -59,11 +57,12 @@ class Vignetting:
         # CCD in focal plane coordinates.
         pix_to_fp = det.getTransform(cameraGeom.PIXELS,
                                      cameraGeom.FOCAL_PLANE)
+        pixel_size = det.getPixelSize()
         llc = pix_to_fp.applyForward(lsst.geom.Point2D(0, 0))
 
         # Generate a grid of pixel x, y locations in the focal plane.
-        xarr, yarr = np.meshgrid(np.arange(nx)*pixel_size + llc.x,
-                                 np.arange(ny)*pixel_size + llc.y)
+        xarr, yarr = np.meshgrid(np.arange(nx)*pixel_size.x + llc.x,
+                                 np.arange(ny)*pixel_size.y + llc.y)
 
         # Compute the radial distance of each pixel to the focal plane
         # center.
