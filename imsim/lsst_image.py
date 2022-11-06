@@ -13,14 +13,17 @@ from .meta_data import data_dir
 
 
 class Vignetting:
-    # _relative_fp_coords caches the x, y positions in mm of each pixel
-    # for a ITL or e2V CCDs in focal plane coordinates relative to the
-    # lower-left corner of the CCD.  To obtain arrays of focal plane
-    # coordinates relative to the center of the focal plane, an
-    # overall translation is applied.
-    _relative_fp_coords = {}
-
-    def __init__(self, spline_data_file, logger):
+    """
+    Compute vignetting using a 1D spline to model the radial profile
+    of the vignetting function.
+    """
+    def __init__(self, spline_data_file):
+        """
+        Parameters
+        ----------
+        spline_data_file : str
+            File containing the 1D spline model.
+        """
         if not os.path.isfile(spline_data_file):
             # Check if spline data file is in data_dir.
             data_file = os.path.join(data_dir, spline_data_file)
@@ -30,60 +33,42 @@ class Vignetting:
             data_file = spline_data_file
         with open(data_file) as fobj:
             spline_data = json.load(fobj)
-        self.spline_model = scipy.interpolate.BSpline(*spline_data)
-        self.value_at_zero = self.spline_model(0)
-        self.logger = logger
 
-    @staticmethod
-    def _get_relative_fp_coords(det, pix_to_fp=None):
-        """Compute the focal plane locations of each pixel of the
-        CCD relative to its lower-left corner."""
-        if pix_to_fp is None:
-            pix_to_fp = det.getTransform(cameraGeom.PIXELS,
-                                         cameraGeom.FOCAL_PLANE)
+        self.spline_model = scipy.interpolate.BSpline(*spline_data)
+
+        # Use the value at the center of the focal plane to
+        # normalize the vignetting profile.
+        self.value_at_zero = self.spline_model(0)
+
+    def __call__(self, det, pixel_size=0.01):
+        """
+        Return the vignetting for each pixel in a CCD.
+
+        Parameters
+        ----------
+        det : lsst.afw.cameraGeom.Detector
+            CCD in the focal plane.
+        pixel_size : float [0.01]
+            Pixel size in mm.
+        """
         bbox = det.getBBox()
         nx = bbox.getWidth()
         ny = bbox.getHeight()
 
-        xarr, yarr = np.meshgrid(range(1, nx+1), range(1, ny+1))
-        pixel_coords = [lsst.geom.Point2D(x, y) for x, y in
-                        zip(xarr.ravel(), yarr.ravel())]
-
-        fp_coords = pix_to_fp.applyForward(pixel_coords)
-
-        fp_xarr = np.array([_.x for _ in fp_coords]).reshape(ny, nx)
-        fp_yarr = np.array([_.y for _ in fp_coords]).reshape(ny, nx)
-
-        return fp_xarr - fp_xarr[0, 0], fp_yarr - fp_yarr[0, 0]
-
-    def _get_fp_coords(self, det):
-        """
-        Get arrays of x and y coordinates in focal plane coordinates for
-        the pixels in the requested CCD.
-        """
+        # Compute the location of the lower-left corner pixel of the
+        # CCD in focal plane coordinates.
         pix_to_fp = det.getTransform(cameraGeom.PIXELS,
                                      cameraGeom.FOCAL_PLANE)
-        vendor = det.getSerial()[:3]
-        # Retrieve the cached values of pixel coordinates for a CCD of
-        # this vendor type (either 'ITL' or 'E2V') relative to its llc.
-        if vendor not in self._relative_fp_coords:
-            # If values aren't cached for this vendor type, do the calculation.
-            # This takes about ~1 minute.
-            self.logger.info("Computing relative focal plane coordinates "
-                             f"of pixels for {vendor} CCDs.")
-            self._relative_fp_coords[vendor] \
-                = self._get_relative_fp_coords(det, pix_to_fp=pix_to_fp)
-        xarr0, yarr0 = self._relative_fp_coords[vendor]
-
-        # Compute absolute location of llc, apply this offset, and
-        # return the x- and y-arrays.
         llc = pix_to_fp.applyForward(lsst.geom.Point2D(0, 0))
-        return xarr0 + llc.x, yarr0 + llc.y
 
-    def __call__(self, det):
-        """Return the vignetting for each pixel in the CCD."""
-        xarr, yarr = self._get_fp_coords(det)
+        # Generate a grid of pixel x, y locations in the focal plane.
+        xarr, yarr = np.meshgrid(np.arange(nx)*pixel_size + llc.x,
+                                 np.arange(ny)*pixel_size + llc.y)
+
+        # Compute the radial distance of each pixel to the focal plane
+        # center.
         r = np.sqrt(xarr**2 + yarr**2)
+
         return self.spline_model(r)/self.value_at_zero
 
 
@@ -131,7 +116,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         self.apply_vignetting = params.get('apply_vignetting', False)
         vignetting_data_file =  params.get('vignetting_data_file', False)
         if self.apply_vignetting:
-            self.vignetting = Vignetting(vignetting_data_file, logger)
+            self.vignetting = Vignetting(vignetting_data_file)
 
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
 
