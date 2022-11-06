@@ -215,6 +215,7 @@ stamp:
             telescope: LSST
             band: { type: OpsimMeta, field: band }
             boresight: "$boresight"
+            camera: "@output.camera"
         -
             # Note: If FocusDepth is before Refraction, then the depth is the amount of focus
             #       change required relative to the rays coming to a focus at the surface.

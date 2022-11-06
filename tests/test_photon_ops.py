@@ -35,6 +35,7 @@ def test_lsst_optics() -> None:
         image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
         icrf_to_field=factory.get_icrf_to_field(camera[det_name]),
         det_name=det_name,
+        camera=camera,
     )
     photon_array = galsim.PhotonArray(
         5,

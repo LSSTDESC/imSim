@@ -522,7 +522,7 @@ class InstCatalogLoader(InputLoader):
         kwargs['xsize'] = base['xsize']
         kwargs['ysize'] = base['ysize']
         kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
-        return kwargs, safe
+        return kwargs, False
 
 RegisterInputType('instance_catalog', InstCatalogLoader(InstCatalog, has_nobj=True))
 RegisterValueType('InstCatWorldPos', InstCatWorldPos, [CelestialCoord],
