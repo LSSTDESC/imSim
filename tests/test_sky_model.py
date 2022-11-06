@@ -56,7 +56,11 @@ def test_sky_gradient():
 
     world_center = galsim.CelestialCoord(ra*galsim.degrees, dec*galsim.degrees)
     image_xsize = 4096  # Size in pixels of R22_S11 in x-direction
-    sky_gradient = SkyGradient(sky_model, wcs, world_center, image_xsize)
+    # Set pixel scale to 1 arcsec since the SkyGradient functor returns
+    # photons/pixel, and we are comparing to photons/arcsec**2.
+    pixel_scale = 1
+    sky_gradient = SkyGradient(sky_model, wcs, world_center, image_xsize,
+                               pixel_scale=pixel_scale)
 
     # Compute the sky levels at the three positions used by SkyGradient
     # for evaluating the planar approximation across the CCD.
