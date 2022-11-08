@@ -206,6 +206,11 @@ stamp:
                 type: Degrees
                 theta: { type: OpsimMeta, field: HA }
         -
+            type: lsst_diffraction
+            telescope: LSST
+            band: { type: OpsimMeta, field: band }
+            latitude: -30.24463
+        -
             type: lsst_optics
             telescope: LSST
             band: { type: OpsimMeta, field: band }

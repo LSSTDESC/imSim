@@ -38,7 +38,44 @@ def test_lsst_optics() -> None:
         image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
         icrf_to_field=create_test_icrf_to_field(boresight, det_name),
         det_name=det_name,
-        camera=camera,
+        camera=get_camera(),
+    )
+    photon_array = galsim.PhotonArray(
+        5,
+        x=np.array([-0.04823635, 0.47023422, -8.53736263, 0.8639109, -3.0237201]),
+        y=np.array([1.76626949, -0.89284146, 13.51962823, 0.82503544, -0.1011734]),
+        wavelength=np.array(
+            [577.67626034, 665.6715595, 564.75533946, 598.74363606, 571.04519139]
+        ),
+        flux=np.ones(5),
+        pupil_u=np.array(
+            [-3.60035156, -2.25328125, -2.31042969, 2.56351562, -0.46535156]
+        ),
+        pupil_v=np.array(
+            [1.00417969, 2.73496094, -2.92273437, -1.16746094, 3.09417969]
+        ),
+    )
+    local_wcs = galsim.AffineTransform(
+        0.168,
+        0.108,
+        -0.108,
+        0.168,
+        origin=galsim.PositionD(x=-0.349, y=-0.352),
+        world_origin=galsim.PositionD(x=0.0, y=0.0),
+    )
+    lsst_optics.applyTo(photon_array, local_wcs=local_wcs)
+
+
+def test_lsst_diffraction() -> None:
+    """This just makes sure that the LsstDiffractionFactory runs.
+    It does not check plausibility of results."""
+    boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
+
+    det_name = "R22_S11"
+    lsst_diffraction = photon_ops.LsstDiffraction(
+        telescope=load_telescope(telescope="LSST", band="r"),
+        sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
+        icrf_to_field=create_test_icrf_to_field(boresight, det_name),
         latitude=-30.24463,
         azimuth=45.0,
         altitude=45.0,
@@ -67,7 +104,7 @@ def test_lsst_optics() -> None:
         origin=galsim.PositionD(x=-0.349, y=-0.352),
         world_origin=galsim.PositionD(x=0.0, y=0.0),
     )
-    lsst_optics.applyTo(photon_array, local_wcs=local_wcs)
+    lsst_diffraction.applyTo(photon_array, local_wcs=local_wcs)
 
 
 def test_xy_to_v_inverse():
