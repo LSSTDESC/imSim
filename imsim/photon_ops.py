@@ -9,7 +9,6 @@ from batoid import Optic
 from galsim import PhotonArray, PhotonOp, GaussianDeviate
 from galsim.config import RegisterPhotonOpType, PhotonOpBuilder, GetAllParams
 
-from galsim import PupilAnnulusSampler
 from galsim.celestial import CelestialCoord
 from galsim.config.util import get_cls_params
 from .camera import get_camera
@@ -68,9 +67,10 @@ class LsstOptics(PhotonOp):
     def applyTo(self, photon_array, local_wcs=None, rng=None):
         """Apply the photon operator to a PhotonArray.
 
-        Note that if the pupil has not yet been sampled (e.g., via
-        `imsim.atmPsf.AtmosphericPsf`), then the pupil will be uniformly
-        randomly sampled using the Rubin entrance pupil domain.
+        Note that we assume that photon entrance pupil positions and arrival
+        times have already been sampled here.  This might be accomplished by
+        including an atmospheric PSF component or by explicitly specifying
+        TimeSampler or PupilSampler photon operations.
 
         Parameters
         ----------
@@ -80,6 +80,8 @@ class LsstOptics(PhotonOp):
         rng:            A random number generator to use if needed. [default: None]
         """
 
+        assert photon_array.hasAllocatedPupil()
+        assert photon_array.hasAllocatedTimes()
         # Convert xy coordinates to a cartesian 3d velocity vector of the photons
         v = XyToV(local_wcs, self.icrf_to_field, self.sky_pos)(
             photon_array.x, photon_array.y
@@ -90,9 +92,6 @@ class LsstOptics(PhotonOp):
         n = self.telescope.inMedium.getN(wavelength)
         v /= n[:, None]
 
-        if not photon_array.hasAllocatedPupil():
-            op = PupilAnnulusSampler(R_inner=2.5, R_outer=4.18)
-            op.applyTo(photon_array, None, rng)
         x, y = photon_array.pupil_u, photon_array.pupil_v
         z = self.telescope.stopSurface.surface.sag(x, y)
         ray_vec = batoid.RayVector._directInit(
@@ -174,9 +173,10 @@ class LsstDiffraction(PhotonOp):
     def applyTo(self, photon_array, local_wcs=None, rng=None):
         """Apply the photon operator to a PhotonArray.
 
-        Here, we assume that the photon array has passed through
-        `imsim.atmPSF.AtmosphericPSF` which stores sampled pupil
-        locations in photon_array.pupil_u and .pupil_v.
+        Note that we assume that photon entrance pupil positions and arrival
+        times have already been sampled here.  This might be accomplished by
+        including an atmospheric PSF component or by explicitly specifying
+        TimeSampler or PupilSampler photon operations.
 
         Parameters
         ----------
@@ -186,6 +186,8 @@ class LsstDiffraction(PhotonOp):
         rng:            A random number generator to use if needed. [default: None]
         """
 
+        assert photon_array.hasAllocatedPupil()
+        assert photon_array.hasAllocatedTimes()
         xy_to_v = XyToV(local_wcs, self.icrf_to_field, self.sky_pos)
         # Convert xy coordinates to a cartesian 3d velocity vector of the photons
         v = xy_to_v(photon_array.x, photon_array.y)
