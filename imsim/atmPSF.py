@@ -2,10 +2,11 @@
 GalSim realistic atmospheric PSF class
 """
 
+import os
 import multiprocessing
+import logging
 import numpy as np
 from scipy.optimize import bisect
-
 import pickle
 import galsim
 
@@ -23,7 +24,7 @@ def save_psf(psf, outfile):
         with galsim.utilities.pickle_shared():
             pickle.dump(psf, output)
 
-def load_psf(psf_file, log_level='INFO'):
+def load_psf(psf_file, log_level=logging.INFO):
     """
     Load a psf from a pickle file.
     """
@@ -33,7 +34,8 @@ def load_psf(psf_file, log_level='INFO'):
     # Since save_psf sets any logger attribute to None, restore
     # it here.
     if hasattr(psf, 'logger'):
-        psf.logger = get_logger(log_level, 'psf')
+        psf.logger = logging.getLogger('atmPSF')
+        psf.logger.setLevel(log_level)
 
     return psf
 
@@ -326,16 +328,24 @@ class AtmosphericPSFBuilder(object):
     def __init__(self, airmass, rawSeeing, band, boresight, rng,
                  t0=0, exptime=30, kcrit=0.2, screen_size=819.2, screen_scale=0.1, doOpt=True,
                  nproc=None, save_file=None, logger=None):
-        # Note: one change from the above is that we don't do the gaussian part, so set that to 0.
-        # Instead, the user can choose to convolve this by a Gaussian in the config file.
-        self.atm = AtmosphericPSF(airmass, rawSeeing, band, rng,
-                                  t0=t0, exptime=exptime, kcrit=kcrit, gaussianFWHM=0.,
-                                  screen_size=screen_size, screen_scale=screen_scale,
-                                  doOpt=doOpt, logger=logger, nproc=nproc)
+        if save_file and os.path.isfile(save_file):
+            self.atm = load_psf(save_file)
+            if logger:
+                logger.warning(f'Reading atmospheric PSF from {save_file}')
+        else:
+            # Note: one change from the above is that we don't do the gaussian part, so set
+            # that to 0. Instead, the user can choose to convolve this by a Gaussian in the
+            # config file.
+            self.atm = AtmosphericPSF(airmass, rawSeeing, band, rng,
+                                      t0=t0, exptime=exptime, kcrit=kcrit, gaussianFWHM=0.,
+                                      screen_size=screen_size, screen_scale=screen_scale,
+                                      doOpt=doOpt, logger=logger, nproc=nproc)
         # The other change is that we need the boresight to do image_pos -> field_pos
         # I think it makes sense to take that as an input here rather than in the
         # PSF object each time (since it's the same for the whole observation).
         self.boresight = boresight
+        if save_file:
+            save_psf(self.atm, save_file)
 
     def getBoresight(self):
         return self.boresight
