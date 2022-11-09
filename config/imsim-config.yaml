@@ -71,7 +71,7 @@ input:
         kcrit: 0.2          # in units of 1/r0
         screen_size: 409.6  # Default=812.2, which takes a lot of memory, so use this for testing.
         screen_scale: 0.1   # meters
-        doOpt: True
+        doOpt: False
         nproc: 1            # Default (None) means one proc per screen.
 
         # TODO:
