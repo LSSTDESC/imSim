@@ -5,7 +5,6 @@ import numpy as np
 
 import galsim
 import batoid
-from batoid import Optic
 from galsim import PhotonArray, PhotonOp, GaussianDeviate
 from galsim.config import RegisterPhotonOpType, PhotonOpBuilder, GetAllParams
 
@@ -13,12 +12,10 @@ from galsim.celestial import CelestialCoord
 from galsim.config.util import get_cls_params
 from .camera import get_camera
 from .utils import focal_to_pixel
-import lsst.afw.cameraGeom
 from .diffraction import (
     LSST_SPIDER_GEOMETRY,
     apply_diffraction_delta,
 )
-from .batoid_utils import load_telescope_with_shift_optics
 
 
 class LsstOptics(PhotonOp):
@@ -40,12 +37,9 @@ class LsstOptics(PhotonOp):
     """
 
     _req_params = {
-        "telescope": str,
-        "band": str,
         "boresight": CelestialCoord,
         "camera": str,
     }
-    _opt_params = {"shift_optics": dict}
 
     def __init__(
         self,
@@ -138,11 +132,8 @@ class LsstDiffraction(PhotonOp):
     """
 
     _req_params = {
-        "telescope": str,
-        "band": str,
         "latitude": float,
     }
-    _opt_params = {"shift_optics": dict}
 
     def __init__(
         self,
@@ -218,7 +209,7 @@ class LsstDiffraction(PhotonOp):
         return str(self)
 
 
-def photon_op_type(identifier: str):
+def photon_op_type(identifier: str, input_type=None):
     """Decorator which calls RegisterPhotonOpType on a PhotonOp factory,
     defined by a function deserializing a PhotonOp from a dict.
 
@@ -240,7 +231,7 @@ def photon_op_type(identifier: str):
             def buildPhotonOp(self, config, base, logger):
                 return deserializer(config, base, logger)
 
-        RegisterPhotonOpType(identifier, Factory())
+        RegisterPhotonOpType(identifier, Factory(), input_type=input_type)
         return deserializer
 
     return decorator
@@ -253,15 +244,14 @@ def config_kwargs(config, base, cls):
     return kwargs
 
 
-@photon_op_type("lsst_optics")
+@photon_op_type("lsst_optics", input_type="telescope")
 def deserialize_lsst_optics(config, base, _logger):
     kwargs = config_kwargs(config, base, LsstOptics)
-    shift_optics = kwargs.pop("shift_optics", base.get("shift_optics", None))
+
+    telescope = galsim.config.GetInputObj("telescope", config, base, "telescope")
 
     return LsstOptics(
-        telescope=load_telescope_with_shift_optics(
-            kwargs.pop("telescope"), kwargs.pop("band"), shift_optics=shift_optics
-        ),
+        telescope=telescope,
         sky_pos=base["sky_pos"],
         image_pos=base["image_pos"],
         icrf_to_field=base["_icrf_to_field"],
@@ -276,19 +266,18 @@ def get_camera_cached(camera_name: str):
     return get_camera(camera_name)
 
 
-@photon_op_type("lsst_diffraction")
+@photon_op_type("lsst_diffraction", input_type="telescope")
 def deserialize_lsst_diffraction(config, base, _logger):
     kwargs = config_kwargs(config, base, LsstDiffraction)
-    shift_optics = kwargs.pop("shift_optics", base.get("shift_optics", None))
 
     opsim_meta = galsim.config.GetInputObj(
         "opsim_meta_dict", config, base, "opsim_meta_dict"
     )
 
+    telescope = galsim.config.GetInputObj("telescope", config, base, "telescope")
+
     return LsstDiffraction(
-        telescope=load_telescope_with_shift_optics(
-            kwargs.pop("telescope"), kwargs.pop("band"), shift_optics=shift_optics
-        ),
+        telescope=telescope,
         altitude=opsim_meta["altitude"],
         azimuth=opsim_meta["azimuth"],
         sky_pos=base["sky_pos"],

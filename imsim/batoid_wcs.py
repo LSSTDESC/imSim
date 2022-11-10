@@ -11,9 +11,8 @@ import erfa  # Installed as part of astropy.
 
 import astropy.time
 import galsim
-from galsim.config import WCSBuilder, RegisterWCSType
+from galsim.config import WCSBuilder, RegisterWCSType, GetInputObj
 from .camera import get_camera
-from .batoid_utils import load_telescope
 from .utils import pixel_to_focal, focal_to_pixel
 
 
@@ -43,12 +42,10 @@ class BatoidWCSFactory:
         The ICRF coordinate of light that reaches the boresight.  Note that this
         is distinct from the spherical coordinates of the boresight with respect
         to the ICRF axes.
-    rotTelPos : galsim.Angle
-        Camera rotator angle.
     obstime : astropy.time.Time
         Mean time of observation.
-    fiducial_telescope : batoid.Optic
-        Telescope instance without applying the rotator.
+    telescope : batoid.Optic
+        Telescope instance. Should include any camera rotation.
     wavelength : float
         Nanometers
     camera : lsst.afw.cameraGeom.Camera
@@ -62,9 +59,8 @@ class BatoidWCSFactory:
     def __init__(
         self,
         boresight,
-        rotTelPos,
         obstime,
-        fiducial_telescope,
+        telescope,
         wavelength,
         camera,
         temperature,
@@ -72,9 +68,8 @@ class BatoidWCSFactory:
         H2O_pressure
     ):
         self.boresight = boresight
-        self.rotTelPos = rotTelPos
         self.obstime = obstime
-        self.fiducial_telescope = fiducial_telescope
+        self.telescope = telescope
         self.wavelength = wavelength
         self.camera = camera
         self.temperature = temperature
@@ -289,15 +284,6 @@ class BatoidWCSFactory:
         """
         return self._field_wcs.xyToradec(thx, thy, units="rad")
 
-    @galsim.utilities.lazy_property
-    def _telescope(self):
-        """Telescope including camera rotation as batoid.Optic
-        """
-        return self.fiducial_telescope.withLocallyRotatedOptic(
-            "LSSTCamera",
-            batoid.RotZ(self.rotTelPos)
-        )
-
     def _field_to_focal(self, thx, thy):
         """
         Parameters
@@ -313,10 +299,10 @@ class BatoidWCSFactory:
         """
         rv = batoid.RayVector.fromFieldAngles(
             thx, thy, projection='gnomonic',
-            optic=self._telescope,
+            optic=self.telescope,
             wavelength=self.wavelength*1e-9
         )
-        self._telescope.trace(rv)
+        self.telescope.trace(rv)
         # x/y transpose to convert from EDCS to DVCS
         return rv.y*1e3, rv.x*1e3
 
@@ -463,11 +449,8 @@ class BatoidWCSBuilder(WCSBuilder):
         """
         req = {
                 "boresight": galsim.CelestialCoord,
-                "rotTelPos": galsim.Angle,
                 "obstime": None,  # Either str or astropy.time.Time instance
                 "det_name": str,
-                "band": str,  # Note: If we allow telescope != 'LSST', then this needs to
-                              # become optional, since other telescopes don't use it.
               }
         opt = {
                 "camera": str,
@@ -493,6 +476,7 @@ class BatoidWCSBuilder(WCSBuilder):
             self._camera = get_camera(self._camera_name)
         order = kwargs.pop('order', 3)
         det_name = kwargs.pop('det_name')
+        kwargs['telescope'] = GetInputObj('telescope', config, base, 'telescope')
         factory = self.makeWCSFactory(**kwargs)
         det = self.camera[det_name]
         logger.info("Building Batoid WCS for %s and %s", det_name,
@@ -501,9 +485,12 @@ class BatoidWCSBuilder(WCSBuilder):
         base['_icrf_to_field'] = factory.get_icrf_to_field(det, order=order)
         return wcs
 
-    def makeWCSFactory(self, boresight, rotTelPos, obstime, band, camera='LsstCam',
-                       telescope='LSST', temperature=None, pressure=None, H2O_pressure=None,
-                       wavelength=None, bandpass=None):
+    def makeWCSFactory(
+        self, boresight, obstime, telescope,
+        camera='LsstCam',
+        temperature=None, pressure=None, H2O_pressure=None,
+        wavelength=None, bandpass=None
+    ):
         """Make the WCS factory given the parameters explicitly rather than via a config dict.
 
         It mostly just constructs BatoidWCSFactory, but it has sensible defaults for many
@@ -515,15 +502,11 @@ class BatoidWCSBuilder(WCSBuilder):
             The ICRF coordinate of light that reaches the boresight.  Note that this
             is distinct from the spherical coordinates of the boresight with respect
             to the ICRF axes.
-        rotTelPos : galsim.Angle
-            Camera rotator angle.
         obstime : astropy.time.Time or str
             Mean time of observation.  Note: if this is a string, it is assumed to be in TAI scale,
             which seems to be standard in the Rubin project.
-        band : str
-            The name of the bandpass
-        telescope : str
-            The name of the telescope. [default: 'LSST']  Currenly only 'LSST' is functional.
+        telescope : batoid.Optic
+            Telescope instance. Should include any camera rotation.
         temperature : float
             Ambient temperature in Kelvin [default: 280 K]
         pressure : float
@@ -531,10 +514,10 @@ class BatoidWCSBuilder(WCSBuilder):
         H2O_pressure : float
             Water vapor pressure in kPa [default: 1.0 kPa]
         wavelength : float
-            Nanometers [default: None, which means use the bandpass effective wavelength]
-        bandpass : galsim.Bandpass
-            If wavelegnth is None, use this to get the effective wavelength. [default: None,
-            which means the default LSST bandpass will be used given the (required) band parameter.
+            Nanometers.  One of wavelength, bandpass is required.
+        bandpass : galsim.Bandpass or str
+            If wavelength is None, use this to get the effective wavelength. If a string, then load
+            the associated LSST bandpass.
 
         Returns:
             the constructed WCSFactory
@@ -544,14 +527,13 @@ class BatoidWCSBuilder(WCSBuilder):
         if isinstance(obstime, str):
             obstime = astropy.time.Time(obstime, scale='tai')
 
-        fiducial_telescope = load_telescope(telescope, band)
         self._camera_name = camera
 
         # Update optional kwargs
 
         if wavelength is None:
-            if bandpass is None:
-                bandpass = galsim.Bandpass('LSST_%s.dat'%band, wave_type='nm')
+            if isinstance(bandpass, str):
+                bandpass = galsim.Bandpass('LSST_%s.dat'%bandpass, wave_type='nm')
             wavelength = bandpass.effective_wavelength
 
         if temperature is None:
@@ -572,8 +554,10 @@ class BatoidWCSBuilder(WCSBuilder):
             H2O_pressure = 1.0 # kPa
 
         # Finally, build the WCS.
-        return BatoidWCSFactory(boresight, rotTelPos, obstime, fiducial_telescope,
-                                wavelength, self.camera, temperature, pressure, H2O_pressure)
+        return BatoidWCSFactory(
+            boresight, obstime, telescope, wavelength, self.camera, temperature,
+            pressure, H2O_pressure
+        )
 
 
-RegisterWCSType('Batoid', BatoidWCSBuilder())
+RegisterWCSType('Batoid', BatoidWCSBuilder(), input_type="telescope")
