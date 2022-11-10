@@ -5,18 +5,16 @@ from astropy.time import Time
 from astropy import units
 
 from imsim import photon_ops, BatoidWCSFactory, get_camera, diffraction
-from imsim.batoid_utils import load_telescope
 from imsim.opsim_meta import OpsimMetaDict
-
+from imsim.telescope_loader import load_telescope
 
 def create_test_icrf_to_field(boresight, det_name):
-    fiducial_telescope = load_telescope(telescope_id="LSST", band="r")
     camera = get_camera()
+    telescope = load_telescope("LSST_r.yaml", rotTelPos=np.pi/3*galsim.radians)
     factory = BatoidWCSFactory(
         boresight,
-        rotTelPos=np.pi / 3,
         obstime=Time("J2020") + 0.5 * units.year,
-        fiducial_telescope=fiducial_telescope,
+        telescope=telescope,
         wavelength=620.0,  # nm
         camera=camera,
         temperature=290.0,
@@ -39,10 +37,11 @@ def create_test_wcs():
 
 def create_test_lsst_optics():
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
+    telescope = load_telescope("LSST_r.yaml")
 
     det_name = "R22_S11"
     return photon_ops.LsstOptics(
-        telescope=load_telescope(telescope_id="LSST", band="r"),
+        telescope=telescope,
         boresight=boresight,
         sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
         image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
@@ -81,7 +80,7 @@ def create_test_lsst_diffraction():
     det_name = "R22_S11"
 
     return photon_ops.LsstDiffraction(
-        telescope=load_telescope(telescope_id="LSST", band="r"),
+        telescope=load_telescope("LSST_r.yaml"),
         sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
         icrf_to_field=create_test_icrf_to_field(boresight, det_name),
         latitude=-30.24463,
@@ -300,6 +299,11 @@ def test_config_lsst_diffraction():
         1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
     )
     config = {
+        "input": {
+            "telescope": {
+                "file_name":"LSST_r.yaml",
+            }
+        },
         "_input_objs": {
             "opsim_meta_dict": [
                 OpsimMetaDict.from_dict({"altitude": 43.0, "azimuth": 0.0})
@@ -315,13 +319,12 @@ def test_config_lsst_diffraction():
             "photon_ops": [
                 {
                     "type": "lsst_diffraction",
-                    "telescope": "LSST",
-                    "band": "r",
                     "latitude": -30.24463,
                 }
             ]
         },
     }
+    galsim.config.ProcessInput(config)
     galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
 
 
@@ -332,6 +335,11 @@ def test_config_lsst_optics():
         1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
     )
     config = {
+        "input": {
+            "telescope": {
+                "file_name":"LSST_r.yaml",
+            }
+        },
         "sky_pos": {
             "type": "RADec",
             "ra": "1.1056660811384078 radians",
@@ -346,8 +354,6 @@ def test_config_lsst_optics():
             "photon_ops": [
                 {
                     "type": "lsst_optics",
-                    "telescope": "LSST",
-                    "band": "r",
                     "camera": "LsstCam",
                     "boresight": {
                         "type": "RADec",
@@ -358,4 +364,5 @@ def test_config_lsst_optics():
             ]
         },
     }
+    galsim.config.ProcessInput(config)
     galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)

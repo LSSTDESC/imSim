@@ -73,7 +73,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         all_wcs = {}
         for det_name in sensors:
             if det_name not in all_wcs:
-                factory = builder.makeWCSFactory(boresight, rotTelPos, obstime, band)
+                telescope = imsim.load_telescope(f"LSST_{band}.yaml", rotTelPos=rotTelPos)
+                factory = builder.makeWCSFactory(boresight, obstime, telescope, bandpass=band)
                 wcs = factory.getWCS(builder.camera[det_name])
                 all_wcs[det_name] = wcs
 
