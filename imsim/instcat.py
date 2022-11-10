@@ -456,7 +456,7 @@ def InstCatObj(config, base, ignore, gsparams, logger):
     exp_time = base.get('exp_time',None)
 
     obj = inst.getObj(index, gsparams=gsparams, rng=rng, exp_time=exp_time)
-    base['object_id'] = inst.id[index]
+    base['object_id'] = inst.getID(index)
 
     return obj, safe
 

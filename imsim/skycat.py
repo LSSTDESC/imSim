@@ -115,6 +115,12 @@ class SkyCatalogInterface:
         if not self.objects and logger is not None:
             logger.warning("No objects found on image")
 
+    def get_ccd_center(self):
+        """
+        Return the CCD center.
+        """
+        return self.ccd_center
+
     def getNObjects(self):
         """
         Return the number of GSObjects to render, where each subcomponent
@@ -228,13 +234,14 @@ def SkyCatObj(config, base, ignore, gsparams, logger):
     # Ensure that this sky catalog matches the CCD being simulated by
     # comparing center locations on the sky.
     world_center = base['world_center']
-    sep = skycat.ccd_center.distanceTo(base['world_center'])/galsim.arcsec
+    ccd_center = skycat.get_ccd_center()
+    sep = ccd_center.distanceTo(base['world_center'])/galsim.arcsec
     # Centers must agree to within at least 1 arcsec:
     if sep > 1.0:
         message = ("skyCatalogs selection and CCD center do not agree: \n"
                    "skycat.ccd_center: "
-                   f"{skycat.ccd_center.ra/galsim.degrees:.5f}, "
-                   f"{skycat.ccd_center.dec/galsim.degrees:.5f}\n"
+                   f"{ccd_center.ra/galsim.degrees:.5f}, "
+                   f"{ccd_center.dec/galsim.degrees:.5f}\n"
                    "world_center: "
                    f"{world_center.ra/galsim.degrees:.5f}, "
                    f"{world_center.dec/galsim.degrees:.5f} \n"
