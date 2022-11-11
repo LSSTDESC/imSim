@@ -30,7 +30,8 @@ class InstCatTrimmerTestCase(unittest.TestCase):
         band = obs_md['band']
 
         builder = imsim.BatoidWCSBuilder()
-        factory = builder.makeWCSFactory(boresight, rotTelPos, obstime, band)
+        telescope = imsim.load_telescope(f"LSST_{band}.yaml", rotTelPos=rotTelPos)
+        factory = builder.makeWCSFactory(boresight, obstime, telescope, bandpass=band)
         return factory.getWCS(builder.camera[det_name])
 
     def test_InstCatTrimmer(self):
