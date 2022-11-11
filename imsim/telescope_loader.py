@@ -73,6 +73,21 @@ def load_telescope(
                     telescope = telescope.withLocallyShiftedOptic(
                         optic, shift
                     )
+            elif ptype == 'rotX':
+                for optic, angle in pvals.items():
+                    telescope = telescope.withLocallyRotatedOptic(
+                        optic, batoid.RotX(angle)
+                    )
+            elif ptype == 'rotY':
+                for optic, angle in pvals.items():
+                    telescope = telescope.withLocallyRotatedOptic(
+                        optic, batoid.RotY(angle)
+                    )
+            elif ptype == 'rotZ':
+                for optic, angle in pvals.items():
+                    telescope = telescope.withLocallyRotatedOptic(
+                        optic, batoid.RotZ(angle)
+                    )
     if rotTelPos is not None:
         telescope = telescope.withLocallyRotatedOptic(
             cameraName,
