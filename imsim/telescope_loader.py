@@ -4,6 +4,35 @@ import batoid
 from collections.abc import Sequence
 
 
+def infer_optic_radii(optic):
+    """Infer the inner/outer radii of an optic from its obscuration.
+
+    Parameters
+    ----------
+    optic : batoid.Optic
+        The optic from which to infer radii.
+
+    Returns
+    -------
+    R_outer : float
+        The outer radius of the optic.
+    R_inner : float
+        The inner radius of the optic.
+    """
+    obsc = optic.obscuration
+    if obsc is not None:
+        if isinstance(obsc, batoid.obscuration.ObscNegation):
+            obsc = obsc.original
+        if isinstance(obsc, batoid.obscuration.ObscAnnulus):
+            return obsc.outer, obsc.inner
+        if isinstance(obsc, batoid.obscuration.ObscCircle):
+            return obsc.radius, 0.0
+
+    raise ValueError(
+        f"Cannot infer radii for optic {optic.name}"
+    )
+
+
 def load_telescope(
     file_name, perturb=(), rotTelPos=None, cameraName="LSSTCamera"
 ):
@@ -88,6 +117,41 @@ def load_telescope(
                     telescope = telescope.withLocallyRotatedOptic(
                         optic, batoid.RotZ(angle)
                     )
+            elif ptype == 'Zernike':
+                for optic, kwargs in pvals.items():
+                    R_outer = kwargs.get('R_outer', None)
+                    R_inner = kwargs.get('R_inner', None)
+                    if sum([R_outer is None, R_inner is None]) == 1:
+                        raise ValueError(
+                            "Must specify both or neither of R_outer and R_inner"
+                        )
+                    if not R_outer or not R_inner:
+                        R_outer, R_inner = infer_optic_radii(telescope[optic])
+
+                    if 'coef' in kwargs and 'idx' in kwargs:
+                        raise ValueError(
+                            "Cannot specify both coef and idx for Zernike perturbation"
+                        )
+                    if 'coef' in kwargs:
+                        coef = kwargs['coef']
+                    if 'idx' in kwargs:
+                        idx = kwargs['idx']
+                        if not isinstance(idx, Sequence):
+                            idx = [idx]
+                        val = kwargs['val']
+                        if not isinstance(val, Sequence):
+                            val = [val]
+                        coef = [0.0]*(max(idx)+1)
+                        for i, v in zip(idx, val):
+                            coef[i] = v
+                    telescope = telescope.withSurface(
+                        optic,
+                        batoid.Sum([
+                            telescope[optic].surface,
+                            batoid.Zernike(coef, R_outer, R_inner)
+                        ])
+                    )
+
     if rotTelPos is not None:
         telescope = telescope.withLocallyRotatedOptic(
             cameraName,
