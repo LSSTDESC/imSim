@@ -1,6 +1,7 @@
-from galsim.config import InputLoader, RegisterInputType
+from galsim.config import InputLoader, RegisterInputType, GetAllParams, get_cls_params
 from galsim import Angle
 import batoid
+from collections.abc import Sequence
 
 
 def load_telescope(
@@ -63,6 +64,15 @@ def load_telescope(
         }
     """
     telescope = batoid.Optic.fromYaml(file_name)
+    if not isinstance(perturb, Sequence):
+        perturb = [perturb]
+    for group in perturb:
+        for ptype, pvals in group.items():
+            if ptype == 'shift':
+                for optic, shift in pvals.items():
+                    telescope = telescope.withLocallyShiftedOptic(
+                        optic, shift
+                    )
     if rotTelPos is not None:
         telescope = telescope.withLocallyRotatedOptic(
             cameraName,
@@ -70,11 +80,22 @@ def load_telescope(
         )
     return telescope
 
-
 load_telescope._req_params = { 'file_name' : str }
 load_telescope._opt_params = {
     'rotTelPos': Angle,
     'cameraName': str
 }
 
-RegisterInputType('telescope', InputLoader(load_telescope))
+
+class TelescopeLoader(InputLoader):
+    """Load a telescope from a yaml file.
+    """
+    def getKwargs(self, config, base, logger):
+        req, opt, single, takes_rng = get_cls_params(self.init_func)
+        perturb = config.pop('perturb', ())
+        kwargs, safe = GetAllParams(config, base, req=req, opt=opt, single=single)
+        kwargs['perturb'] = perturb
+        return kwargs, False
+
+
+RegisterInputType('telescope', TelescopeLoader(load_telescope))
