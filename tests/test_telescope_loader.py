@@ -62,7 +62,7 @@ def test_config_shift():
             config['input']['telescope'],
             config,
             'telescope'
-        )
+        )['base']
         assert shifted == shifted_ref
 
 
@@ -125,7 +125,7 @@ def test_config_rot():
             config['input']['telescope'],
             config,
             'telescope'
-        )
+        )['base']
         assert rotated == rotated_ref
 
 
@@ -227,7 +227,7 @@ def test_config_zernike_perturbation():
             config['input']['telescope'],
             config,
             'telescope'
-        )
+        )['base']
         assert perturbed == ref
 
     # Test that we can set more than one Zernike at a time,
@@ -285,5 +285,5 @@ def test_config_zernike_perturbation():
             config['input']['telescope'],
             config,
             'telescope'
-        )
+        )['base']
         assert perturbed == ref

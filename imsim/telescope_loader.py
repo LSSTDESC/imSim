@@ -2,6 +2,7 @@ from galsim.config import InputLoader, RegisterInputType, GetAllParams, get_cls_
 from galsim import Angle
 import batoid
 from collections.abc import Sequence
+from .camera import get_camera
 
 
 def infer_optic_radii(optic):
@@ -159,8 +160,14 @@ def load_telescope(
         )
     return telescope
 
-load_telescope._req_params = { 'file_name' : str }
-load_telescope._opt_params = {
+def load_telescope_dict(*args, **kwargs):
+    return {
+        'base': load_telescope(*args, **kwargs),
+        'det': None  # placeholder for detector specific telescope
+    }
+
+load_telescope_dict._req_params = { 'file_name' : str }
+load_telescope_dict._opt_params = {
     'rotTelPos': Angle,
     'cameraName': str
 }
@@ -174,7 +181,24 @@ class TelescopeLoader(InputLoader):
         perturb = config.pop('perturb', ())
         kwargs, safe = GetAllParams(config, base, req=req, opt=opt, single=single)
         kwargs['perturb'] = perturb
-        return kwargs, False
+        return kwargs, True
+
+    def setupImage(self, input_obj, config, base, logger=None):
+        """Set up the telescope for the current image."""
+        camera = get_camera(base['output']['camera'])
+        det_name = base['det_name']
+
+        ccd_orientation = camera[det_name].getOrientation()
+        if hasattr(ccd_orientation, 'getHeight'):
+            z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
+            logger.info("Setting CCD z-offset to %.2e m", z_offset)
+        else:
+            z_offset = 0
+
+        input_obj['det'] = input_obj['base'].withLocallyShiftedOptic(
+            "Detector",
+            [0, 0, -z_offset]  # batoid convention is opposite of DM
+        )
 
 
-RegisterInputType('telescope', TelescopeLoader(load_telescope))
+RegisterInputType('telescope', TelescopeLoader(load_telescope_dict))
