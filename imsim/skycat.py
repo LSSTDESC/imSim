@@ -3,14 +3,14 @@ Interface to obtain objects from skyCatalogs.
 """
 import os
 import numpy as np
+import time
 import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
     RegisterObjectType
 from desc.skycatalogs import skyCatalogs
-from .instcat import get_radec_limits
 
 
-def get_skycat_objects(sky_cat, wcs, xsize, ysize, edge_pix, logger, obj_types):
+def get_skycat_objects(sky_cat, wcs, xsize, ysize, edge_pix, obj_types):
     """
     Find skycat objects that land on the CCD + edge_pix buffer region.
 
@@ -27,8 +27,6 @@ def get_skycat_objects(sky_cat, wcs, xsize, ysize, edge_pix, logger, obj_types):
     edge_pix : float
         Size in pixels of the buffer region around nominal image
         to consider objects.
-    logger : logging.Logger
-        Logger object.
     obj_types : list-like
         List or tuple of object types to render, e.g., ('star', 'galaxy').
         If None, then consider all object types.
@@ -37,27 +35,20 @@ def get_skycat_objects(sky_cat, wcs, xsize, ysize, edge_pix, logger, obj_types):
     -------
     list of skyCatalogs objects, CCD center as galsim.CelestialCoord
     """
-    # Get range of ra, dec values given CCD size + edge_pix buffer.
-    radec_limits = get_radec_limits(wcs, xsize, ysize, logger, edge_pix)
+    # Select objects from polygonal region bounded by CCD edges.
+    ccd_corners = ((-edge_pix, -edge_pix),
+                   (xsize + edge_pix, -edge_pix),
+                   (xsize + edge_pix, ysize + edge_pix),
+                   (-edge_pix, ysize + edge_pix))
+    vertices = []
+    for x, y in ccd_corners:
+        sky_coord = wcs.toWorld(galsim.PositionD(x, y))
+        vertices.append((sky_coord.ra/galsim.degrees,
+                         sky_coord.dec/galsim.degrees))
+    region = skyCatalogs.PolygonalRegion(vertices)
+    objects = sky_cat.get_objects_by_region(region, obj_type_set=obj_types)
 
-    # Initial pass using skyCatalogs.Box in ra, dec.
-    region = skyCatalogs.Box(*radec_limits[:4])
-    candidates = sky_cat.get_objects_by_region(region, obj_type_set=obj_types)
-
-    # Compute pixel coords of candidate objects and downselect in pixel
-    # coordinates.
-    min_x, min_y, max_x, max_y = radec_limits[4:]
-    objects = []
-    for candidate in candidates:
-        sky_coords = galsim.CelestialCoord(candidate.ra*galsim.degrees,
-                                           candidate.dec*galsim.degrees)
-        pixel_coords = wcs.toImage(sky_coords)
-        if ((min_x < pixel_coords.x < max_x) and
-            (min_y < pixel_coords.y < max_y)):
-            objects.append(candidate)
-
-    ccd_center = wcs.toWorld(galsim.PositionD(xsize/2.0, ysize/2.0))
-    return objects, ccd_center
+    return objects
 
 
 class SkyCatalogInterface:
@@ -65,8 +56,9 @@ class SkyCatalogInterface:
     # Rubin effective area computed using numbers at
     # https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _eff_area = 0.25 * np.pi * 649**2  # cm^2
-    def __init__(self, file_name, wcs, band, xsize=4096, ysize=4096, obj_types=None,
-                 skycatalog_root=None, edge_pix=100, max_flux=None, logger=None):
+    def __init__(self, file_name, wcs, band, xsize=4096, ysize=4096,
+                 obj_types=None, skycatalog_root=None, edge_pix=100,
+                 max_flux=None, logger=None):
         """
         Parameters
         ----------
@@ -93,27 +85,47 @@ class SkyCatalogInterface:
         max_flux : float [None]
             If object flux exceeds max_flux, the return None for that object.
             if max_flux == None, then don't apply a maximum flux cut.
-        logger : logging.Logger
+        logger : logging.Logger [None]
             Logger object.
-
         """
-        logger = galsim.config.LoggerWrapper(logger)
-        if obj_types is not None:
-            logger.warning(f'Object types restricted to {obj_types}')
         self.file_name = file_name
         self.wcs = wcs
         self.band = band
-        self.max_flux = max_flux
+        self.xsize = xsize
+        self.ysize = ysize
+        self.obj_types = obj_types
         if skycatalog_root is None:
-            skycatalog_root = os.path.dirname(os.path.abspath(file_name))
-        sky_cat = skyCatalogs.open_catalog(file_name,
-                                           skycatalog_root=skycatalog_root)
+            self.skycatalog_root = os.path.dirname(os.path.abspath(file_name))
+        else:
+            self.skycatalog_root = skycatalog_root
+        self.edge_pix = edge_pix
+        self.logger = galsim.config.LoggerWrapper(logger)
 
-        self.objects, self.ccd_center \
-            = get_skycat_objects(sky_cat, wcs, xsize, ysize,
-                                 edge_pix, logger, obj_types)
-        if not self.objects and logger is not None:
-            logger.warning("No objects found on image")
+        if obj_types is not None:
+            logger.warning(f'Object types restricted to {obj_types}')
+
+        self.max_flux = max_flux
+        self.ccd_center = wcs.toWorld(galsim.PositionD(xsize/2.0, ysize/2.0))
+        self._sky_cat = None
+        self._objects = None
+
+    @property
+    def sky_cat(self):
+        if self._sky_cat is None:
+            self._sky_cat = skyCatalogs.open_catalog(
+                self.file_name, skycatalog_root=self.skycatalog_root)
+        return self._sky_cat
+
+    @property
+    def objects(self):
+        if self._objects is None:
+            self._objects = get_skycat_objects(self.sky_cat, self.wcs,
+                                               self.xsize, self.ysize,
+                                               self.edge_pix, self.obj_types)
+            if not self._objects:
+                self.logger.warning("No objects found on image")
+
+        return self._objects
 
     def get_ccd_center(self):
         """
