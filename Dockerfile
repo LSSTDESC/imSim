@@ -22,7 +22,7 @@ RUN source /opt/lsst/software/stack/loadLSST.bash &&\
     cd rubin_sim && pip install -e .
 
 # Download Rubin Sim data.
-RUN mkdir rubin_sim_data &&\
+RUN mkdir -p rubin_sim_data/sims_sed_library && \
     curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz &&\
     curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz &&\
     curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
