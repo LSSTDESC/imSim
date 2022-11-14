@@ -1,5 +1,12 @@
 # Start from the latest release LSST stack image.
-from lsstsqre/centos:7-stack-lsst_distrib-w_latest
+FROM lsstsqre/centos:7-stack-lsst_distrib-w_latest
+
+# Information about image.
+ARG BUILD_DATE
+LABEL lsst-desc.imsim.maintainer="https://github.com/LSSTDESC/imSim"
+LABEL lsst-desc.imsim.description="A Docker image combining the LSST Science Pipelines software stack and imSim (and its dependencies)."
+LABEL lsst-desc.imsim.version="latest"
+LABEL lsst-desc.imsim.build_date=$BUILD_DATE
 
 # Clone imSim and rubin_sim repos.
 RUN git clone https://github.com/LSSTDESC/imSim.git &&\
@@ -17,10 +24,11 @@ RUN source /opt/lsst/software/stack/loadLSST.bash &&\
 # Download Rubin Sim data.
 RUN mkdir rubin_sim_data &&\
     curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz &&\
-    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
+    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz &&\
+    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
 
 # Location of Rubin sim data (downloaded in step above).
 ENV RUBIN_SIM_DATA_DIR /opt/lsst/software/stack/rubin_sim_data
 
-# SED library at NERSC.
-ENV SIMS_SED_LIBRARY_DIR /global/cfs/cdirs/descssim/imSim/lsst/data/sims_sed_library
+# SED library (downloaded in step above).
+ENV SIMS_SED_LIBRARY_DIR /opt/lsst/software/stack/rubin_sim_data/sims_sed_library
