@@ -9,7 +9,7 @@ RUN git clone https://github.com/LSSTDESC/imSim.git &&\
 RUN source /opt/lsst/software/stack/loadLSST.bash &&\
     setup lsst_distrib &&\
     pip install --upgrade galsim &&\
-    pip install dust_extinction palpy batoid &&\
+    pip install dust_extinction palpy batoid gitpython &&\
     pip install git+https://github.com/LSSTDESC/skyCatalogs.git@master &&\
     cd imSim && pip install -e . && cd .. &&\
     cd rubin_sim && pip install -e .
