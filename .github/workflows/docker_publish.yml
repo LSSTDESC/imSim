@@ -1,12 +1,21 @@
+# CI workflow to publish the imSim:latest docker image.
+#
+# Image is built upon the latest release lsst_dist image.
+# i.e., https://pipelines.lsst.io/install/docker.html
+#
+# Author: Stuart McAlpine (stuart.mcalpine@fysik.su.se)
+
 name: Publish imSim latest Docker image
 
 on:
+  # Can be triggered to run manually.
   workflow_dispatch:
 
-  pull_request:
+  # Runs automatically every Satuarday at 7pm.
+  schedule:
+    - cron: '0 19 * * 6'
 
-  push:
-
+# Login to dockerhub, build, and publish.
 jobs:
   build:
     runs-on: ubuntu-latest
