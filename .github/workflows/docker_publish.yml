@@ -38,4 +38,4 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: lsstdesc/imsim-env:latest
-          build-args: BUILD_DATE=$NOW
+          build-args: BUILD_DATE=${{ env.NOW }}
