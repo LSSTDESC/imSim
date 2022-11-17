@@ -1,6 +1,5 @@
 import os
 import glob
-import shutil
 import sys
 from pathlib import Path
 import logging
@@ -11,6 +10,8 @@ import galsim
 
 def run_imsim(camera):
     imsim_dir = os.path.dirname(os.path.abspath(str(Path(__file__).parent)))
+    os.environ['SIMS_SED_LIBRARY_DIR'] \
+        = os.path.join(imsim_dir, 'tests', 'data', 'test_sed_library')
     template = os.path.join(imsim_dir, 'config', 'imsim-config.yaml')
     instcat_file = os.path.join(imsim_dir, 'tests', 'data',
                                 'instcat_object_positions_test.txt')
