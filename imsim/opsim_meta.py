@@ -188,13 +188,15 @@ class OpsimMetaDict(object):
         self.logger.debug("Bandpass = %s",self.meta['band'])
         self.logger.debug("HA = %s",self.meta['HA'])
 
+        self.set_defaults()
+
         # Use the opsim db names for these quantities.
         self.meta['fieldRA'] = self.meta['rightascension']
         self.meta['fieldDec'] = self.meta['declination']
         self.meta['rotTelPos'] = self.meta['rottelpos']
         self.meta['rotSkyPos'] = self.meta['rotskypos']
         self.meta['observationId'] = self.meta['obshistid']
-        self.set_defaults()
+        self.meta['observationStartMJD'] = self.meta['mjd'] - self.meta['exptime']/2./86400.
 
     def set_defaults(self):
         # Set some default values if these aren't present in input file.
