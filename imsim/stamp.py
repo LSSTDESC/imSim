@@ -476,23 +476,13 @@ class LSST_SiliconBuilder(StampBuilder):
         wcs = base['wcs']
 
         if method == 'fft':
-            # When drawing with FFTs, large offsets can be a problem, since they
-            # can blow up the required FFT size.  We'll guard for that below with
-            # a try block, but we can minimize how often this happens by making sure
-            # the offset is close to 0,0.
             if not faint and 'fft_photon_ops' in config:
                 photon_ops = galsim.config.BuildPhotonOps(config, 'fft_photon_ops', base, logger)
             else:
                 photon_ops = []
 
-            if abs(offset.x) > 2 or abs(offset.y) > 2:
-                # Make a larger image that has the object near the center.
-                fft_image = galsim.Image(full_bounds, dtype=image.dtype)
-                fft_image[image.bounds] = image
-                fft_offset = image_pos - full_bounds.true_center
-            else:
-                fft_image = image.copy()
-                fft_offset = offset
+            fft_image = image.copy()
+            fft_offset = offset
 
             try:
                 prof.drawImage(bandpass,
