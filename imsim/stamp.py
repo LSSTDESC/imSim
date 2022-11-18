@@ -491,6 +491,7 @@ class LSST_SiliconBuilder(StampBuilder):
                                image=fft_image,
                                wcs=wcs,
                                photon_ops=photon_ops,
+                               rng=self.rng,
                                sensor=galsim.Sensor(),
                                n_subsample=1
                                )
