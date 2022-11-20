@@ -1,0 +1,32 @@
+# Use baseline configuration
+modules: [imsim]
+template: imsim-config
+
+input.instance_catalog.file_name: ./instcat_vignetting.txt
+input.opsim_meta_dict.file_name: '@input.instance_catalog.file_name'
+
+input.tree_rings: ""
+image.sensor: ""
+
+# Disable the atmospheric PSF.
+input.atm_psf: ""
+psf.items: ""
+psf.type: Gaussian
+psf.fwhm: 0.7
+
+#image.nobjects: 0
+image.random_seed: 42
+
+input.sky_model: ""
+image.sky_level: 0
+stamp.size: 48
+
+output.cosmic_ray_rate: 0
+output.dir: output_vignetting_scattered
+output.det_num.first: 94
+output.nfiles: 1
+output.truth.dir: output_vignetting_scattered
+output.truth.file_name.format: centroid_%08d-%1d-%s-%s-det%03d.txt
+#output.truth: ""
+#output.readout: ""
+

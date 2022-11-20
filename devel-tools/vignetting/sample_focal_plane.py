@@ -47,7 +47,7 @@ df0 = pd.DataFrame(data)
 
 template = "object %(object_id)i %(ra).10f %(dec).10f 20 starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1\n"
 
-instcat_file = 'stars.txt'
+instcat_file = 'stars_vignetting.txt'
 with open(instcat_file, 'w') as fobj:
     for object_id, (_, row) in enumerate(df0.iterrows()):
         ra = row.ra
