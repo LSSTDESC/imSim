@@ -113,8 +113,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         full_ysize = params.get('ysize',size)
 
         self.apply_vignetting = params.get('apply_vignetting', False)
-        vignetting_data_file =  params.get('vignetting_data_file', False)
         if self.apply_vignetting:
+            vignetting_data_file = params.get('vignetting_data_file')
             self.vignetting = Vignetting(vignetting_data_file)
 
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
@@ -152,7 +152,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                 ny, nx = sky.array.shape
                 sky_model = galsim.config.GetInputObj('sky_model', config, base,
                                                       'LSST_ImageBuilder')
-                sky_gradient = SkyGradient(sky_model, config['wcs']['current'][0],
+                sky_gradient = SkyGradient(sky_model, image.wcs,
                                            base['world_center'], nx)
                 xarr, yarr = np.meshgrid(range(nx), range(ny))
                 sky.array[:] *= sky_gradient(xarr, yarr)
