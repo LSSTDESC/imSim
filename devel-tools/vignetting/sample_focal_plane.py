@@ -45,7 +45,8 @@ for i, det in enumerate(camera):
 df0 = pd.DataFrame(data)
 #df0.to_parquet('fp_sample.parq')
 
-template = "object %(object_id)i %(ra).10f %(dec).10f 20 starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1\n"
+magnorm = 22.25
+template = "object %(object_id)i %(ra).10f %(dec).10f %(magnorm).3f starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1\n"
 
 instcat_file = 'stars_vignetting.txt'
 with open(instcat_file, 'w') as fobj:
