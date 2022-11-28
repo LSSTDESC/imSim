@@ -105,7 +105,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                          'nobjects' ]
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
                 'apply_vignetting': bool, 'apply_sky_gradient': bool,
-                'vignetting_data_file': str}
+                'vignetting_data_file': str, 'camera': str}
         params = GetAllParams(config, base, opt=opt, ignore=ignore+extra_ignore)[0]
 
         size = params.get('size',0)
@@ -118,6 +118,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             self.vignetting = Vignetting(vignetting_data_file)
 
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
+
+        self.camera_name = params.get('camera')
 
         if (full_xsize <= 0) or (full_ysize <= 0):
             raise GalSimConfigError(
@@ -159,7 +161,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
 
             if self.apply_vignetting:
                 det_name = base['det_name']
-                camera = get_camera(base['camera'])
+                camera = get_camera(self.camera_name)
                 sky.array[:] *= self.vignetting(camera[det_name])
 
             image += sky

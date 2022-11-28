@@ -141,6 +141,8 @@ image:
         H2O_pressure: 1.0 # kPa
         order: 3          # Order of the SIP polynomial
 
+    camera: "@output.camera"
+
     noise:
         type: CCD
         gain: 1
