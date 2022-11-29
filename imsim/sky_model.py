@@ -60,11 +60,11 @@ class SkyModel:
         with warnings.catch_warnings():
             # Silence astropy IERS warnings.
             warnings.simplefilter('ignore')
-            rubin_sim_sky_model.setRaDecMjd(skyCoord.ra.deg, skyCoord.dec.deg,
+            rubin_sim_sky_model.set_ra_dec_mjd(skyCoord.ra.deg, skyCoord.dec.deg,
                                             self.mjd, degrees=True)
 
         # Compute the flux in units of photons/cm^2/s/arcsec^2
-        wave, spec = rubin_sim_sky_model.returnWaveSpec()
+        wave, spec = rubin_sim_sky_model.return_wave_spec()
         lut = galsim.LookupTable(wave, spec[0])
         sed = galsim.SED(lut, wave_type='nm', flux_type='flambda')
         flux = sed.calculateFlux(self.bandpass)
