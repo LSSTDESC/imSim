@@ -1,33 +1,147 @@
-# Use baseline configuration
-modules: [imsim]
-template: imsim-config
+modules:
+    - imsim
+    - astropy
+    - astropy.time
 
-input.instance_catalog.file_name: ./instcat_vignetting.txt
-input.opsim_meta_dict.file_name: '@input.instance_catalog.file_name'
+eval_variables:
+    srun: '0001'
 
-# Disable electrostatic effects in CCDs
-input.tree_rings: ""
-image.sensor: ""
+    cboresight:
+        type: RADec
+        ra:
+            type: Degrees
+            theta: { type: OpsimMeta, field: fieldRA }
+        dec:
+            type: Degrees
+            theta: { type: OpsimMeta, field: fieldDec }
 
-# Disable the atmospheric PSF.
-input.atm_psf: ""
-psf.items: ""
-psf.type: Gaussian
-psf.fwhm: 0.7
+input:
+    instance_catalog:
+        file_name: ./instcat_vignetting.txt
+        sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
-image.random_seed: 42
+    opsim_meta_dict:
+        file_name: '@input.instance_catalog.file_name'
+        snap: 1
 
-# Set the sky_level to zero and restrict the stamp size to 48 pixels.
-image.sky_level: 0
-stamp.size: 48
+    telescope:
+        file_name:
+            type: FormattedStr
+            format : LSST_%s.yaml
+            items:
+                - { type: OpsimMeta, field: band }
+        rotTelPos:
+            type: Degrees
+            theta: { type: OpsimMeta, field: rotTelPos }
 
-# Set cosmic-ray rate to zero.
-output.cosmic_ray_rate: 0
-output.dir: output_vignetting_test
-output.det_num.first: 0
-output.nfiles: 189
+#     sky_model:
+#         exptime: { type: OpsimMeta, field: exptime }
+#         mjd: { type: OpsimMeta, field: mjd }
 
-# Omit centroid info and per amp readout.
-output.truth: ""
-output.readout: ""
 
+image:
+    type: Scattered
+    random_seed: 42
+    nproc: 1
+    xsize: "$xsize"
+    ysize: "$ysize"
+    bandpass: { type: OpsimMetaBandpass }
+    wcs:
+        type: Batoid
+        camera: "@output.camera"
+        boresight: "$boresight"
+        obstime:
+            type: Eval
+            str: "astropy.time.Time(mjd_val, format='mjd', scale='tai')"
+            fmjd_val: { type: OpsimMeta, field: mjd }
+        det_name: $det_name
+        wavelength: "$(@image.bandpass).effective_wavelength"
+        temperature: 280  # Kelvin
+        pressure: 72.7    # kPa
+        H2O_pressure: 1.0 # kPa
+        order: 3          # Order of the SIP polynomial
+
+    noise:
+        type: CCD
+        gain: 1
+        read_noise: 0
+
+    sky_level: 0
+
+    use_flux_sky_areas: False
+
+psf:
+    type: Gaussian
+    fwhm: 0.7
+
+gal:
+    type: InstCatObj
+
+stamp:
+    type: LSST_Silicon
+    size: 48
+    fft_sb_thresh: 2.e5
+    max_flux_simple: 100
+    world_pos:
+        type: InstCatWorldPos
+
+    photon_ops:
+        -
+            type: TimeSampler
+            t0: 0.0
+            exptime: "@output.exp_time"
+        -
+            type: PupilAnnulusSampler
+            R_outer: 4.18
+            R_inner: 2.55
+        -
+            type: PhotonDCR
+            base_wavelength: $bandpass.effective_wavelength
+            latitude: -30.24463 degrees
+            HA:
+                type: Degrees
+                theta: { type: OpsimMeta, field: HA }
+        -
+            type: lsst_diffraction
+            latitude: -30.24463
+        -
+            type: lsst_optics
+            boresight: "$boresight"
+            camera: "@output.camera"
+        -
+            type: FocusDepth
+            depth:
+                type: Eval
+                str: depth_dict[band]
+                ddepth_dict: {'u':0, 'g':0, 'r':0, 'i':0, 'z':0, 'y':-0.6}
+                sband: { type: OpsimMeta, field: band }
+        -
+            type: Refraction
+            index_ratio: 3.9
+
+output:
+    type: LSST_CCD
+    nproc: 1
+    nfiles: 189
+
+    camera: LsstCam
+
+    exp_time: 30
+
+    cosmic_ray_rate: 0.
+
+    det_num:
+        type: Sequence
+        nitems: 189
+        first: 0
+
+    dir: output_vignetting_test
+    file_name:
+        type: FormattedStr
+        format : eimage_%08d-%1d-%s-%s-det%03d.fits
+        items:
+            - { type: OpsimMeta, field: observationId }
+            - { type: OpsimMeta, field: snap }
+            - { type: OpsimMeta, field: band }
+            - "$det_name"   # A value stored in the dict by LSST_CCD
+            - "@output.det_num"

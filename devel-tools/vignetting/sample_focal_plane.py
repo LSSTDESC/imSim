@@ -9,12 +9,15 @@ from lsst.afw import cameraGeom
 import lsst.geom
 import imsim
 
-# Pointing info for DC2 visit 182850:
-ra = 51.99085849573259566
-dec = -40.31737846575015283
-rottelpos = 28.8262515
-mjd = 59822.28563761110854102
-band = 'i'
+
+instcat_file = 'instcat_vignetting.txt'
+opsim_md = imsim.OpsimMetaDict(instcat_file)
+
+ra = opsim_md.get('fieldRA')
+dec = opsim_md.get('fieldDec')
+rottelpos = opsim_md.get('rotTelPos')
+mjd = opsim_md.get('mjd')
+band = opsim_md.get('band')
 
 # The number of stars per CCD.
 nsamp = 10
