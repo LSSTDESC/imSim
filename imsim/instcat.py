@@ -530,7 +530,7 @@ class InstCatalogLoader(InputLoader):
         kwargs['wcs'] = wcs
         kwargs['xsize'] = base['xsize']
         kwargs['ysize'] = base['ysize']
-        kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
+        kwargs['logger'] = logger
         return kwargs, False
 
 RegisterInputType('instance_catalog', InstCatalogLoader(InstCatalog, has_nobj=True))
