@@ -11,6 +11,7 @@ from galsim.config import InputLoader, RegisterInputType, RegisterValueType, Reg
 from galsim.config import RegisterSEDType
 from galsim import CelestialCoord
 import galsim
+import pickle
 
 
 def get_radec_limits(wcs, xsize, ysize, logger, edge_pix):
@@ -93,7 +94,7 @@ class InstCatalog(object):
 
     The other "phosim commands" are handled by OpsimMetaDict.
     """
-    _bp500 = galsim.Bandpass(galsim.LookupTable([499,500,501],[0,1,0]),
+    _bp500 = galsim.Bandpass(galsim.LookupTable([499,500,501],[0,1,0], interpolant='linear'),
                              wave_type='nm').withZeropoint('AB')
 
     # Using area-weighted effective aperture over FOV
@@ -299,9 +300,17 @@ class InstCatalog(object):
         wl_max = 1e3/F19.x_range[0]
         wl = wl[np.where((wl_min < wl) & (wl < wl_max))]
         ext = extinction.extinguish(wl*u.nm, Av=mwAv)
-        spec = galsim.LookupTable(wl, ext)
+        spec = galsim.LookupTable(wl, ext, interpolant='linear')
         mw_ext = galsim.SED(spec, wave_type='nm', flux_type='1')
         sed = sed*mw_ext
+
+        # Not sure why GalSim isn't preserving the LookupTable here.
+        # Should fix this is GalSim, but for now, make sure we have a LookupTable, so the
+        # sed is fast to integrate (and is pickleable!).
+        if (not isinstance(sed._spec, galsim.LookupTable)
+            or sed._spec.interpolant != 'linear'):
+            new_spec = galsim.LookupTable(wl, sed(wl), interpolant='linear')
+            sed = galsim.SED(new_spec, 'nm', 'fphotons')
 
         return sed
 
@@ -521,7 +530,7 @@ class InstCatalogLoader(InputLoader):
         kwargs['wcs'] = wcs
         kwargs['xsize'] = base['xsize']
         kwargs['ysize'] = base['ysize']
-        kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
+        kwargs['logger'] = logger
         return kwargs, False
 
 RegisterInputType('instance_catalog', InstCatalogLoader(InstCatalog, has_nobj=True))

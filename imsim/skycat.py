@@ -217,7 +217,7 @@ class SkyCatalogLoader(InputLoader):
         # throughputs distribution, so just need the LSST band (=filter)
         # from the opsim metadata object.
         kwargs['band'] = meta.get('band')
-        kwargs['logger'] = galsim.config.GetLoggerProxy(logger)
+        kwargs['logger'] = logger
 
         # Sky catalog object lists are created per CCD, so they are
         # not safe to reuse.

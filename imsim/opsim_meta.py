@@ -152,11 +152,11 @@ class OpsimMetaDict(object):
         """Read visit info from the instance catalog header."""
         self.logger.warning('Reading visit info from instance catalog %s',
                             self.file_name)
-        with fopen(self.file_name, mode='rt') as _input:
+        with open(self.file_name, mode='rt') as _input:
             for line in _input:
                 if line.startswith('#'):  # comments
                     continue
-                if line.startswith('object'):
+                if line.startswith('object') or line.startswith('includeobj'):
                     # Assumes objects are all at the end.  Is this necessarily true?
                     break
 

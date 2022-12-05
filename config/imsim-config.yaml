@@ -102,9 +102,9 @@ input:
 
 # Define how the objects are placed on the image.  This refers to a single CCD.
 image:
-    # Scattered here just means that the (x,y) positions may be anywhere, not on a grid or
-    # something along those lines.
-    type: Scattered
+    # This is mostly like the GalSim "Scattered" image type.
+    # The only difference currently is the option to apply vignetting to the sky background.
+    type: LSST_Image
 
     random_seed: { type: OpsimMeta, field: seed }
 
@@ -141,12 +141,19 @@ image:
         H2O_pressure: 1.0 # kPa
         order: 3          # Order of the SIP polynomial
 
+    camera: "@output.camera"
+
     noise:
         type: CCD
         gain: 1
         read_noise: 0  # The read noise is applied later.  Only sky noise here.
 
     sky_level: { type: SkyLevel }  # Computed from input.sky_model.
+
+    apply_vignetting: True
+    vignetting_data_file: LSSTCam_vignetting_data.json
+
+    apply_sky_gradient: True
 
     use_flux_sky_areas: False   # This means don't bother with the BFE from sky flux when computing
                                 # the pixel areas for drawing the sky.
