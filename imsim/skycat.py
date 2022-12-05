@@ -3,7 +3,6 @@ Interface to obtain objects from skyCatalogs.
 """
 import os
 import numpy as np
-import time
 import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
     RegisterObjectType
