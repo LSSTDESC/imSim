@@ -18,5 +18,6 @@ from .templates import *
 from .photon_ops import *
 from .flat import *
 from .sky_model import *
-from .lsst_image import *
 from .telescope_loader import *
+from .lsst_image import *
+

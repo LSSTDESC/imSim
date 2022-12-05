@@ -105,7 +105,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                          'nobjects' ]
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
                 'apply_vignetting': bool, 'apply_sky_gradient': bool,
-                'vignetting_data_file': str}
+                'vignetting_data_file': str, 'camera': str}
         params = GetAllParams(config, base, opt=opt, ignore=ignore+extra_ignore)[0]
 
         size = params.get('size',0)
@@ -113,11 +113,13 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         full_ysize = params.get('ysize',size)
 
         self.apply_vignetting = params.get('apply_vignetting', False)
-        vignetting_data_file =  params.get('vignetting_data_file', False)
         if self.apply_vignetting:
+            vignetting_data_file = params.get('vignetting_data_file')
             self.vignetting = Vignetting(vignetting_data_file)
 
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
+
+        self.camera_name = params.get('camera')
 
         if (full_xsize <= 0) or (full_ysize <= 0):
             raise GalSimConfigError(
@@ -147,22 +149,35 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         base['current_noise_image'] = base['current_image']
         sky = GetSky(config, base, full=True)
 
-        if sky:
-            if self.apply_sky_gradient:
-                ny, nx = sky.array.shape
-                sky_model = galsim.config.GetInputObj('sky_model', config, base,
-                                                      'LSST_ImageBuilder')
-                sky_gradient = SkyGradient(sky_model, config['wcs']['current'][0],
-                                           base['world_center'], nx)
-                xarr, yarr = np.meshgrid(range(nx), range(ny))
-                sky.array[:] *= sky_gradient(xarr, yarr)
+        skyCoord = base['world_center']
+        logger.info("Setting sky level to %.2f photons/arcsec^2 "
+                    "at (ra, dec) = %s, %s", sky,
+                    skyCoord.ra.deg, skyCoord.dec.deg)
 
-            if self.apply_vignetting:
-                det_name = base['det_name']
-                camera = get_camera(base['camera'])
-                sky.array[:] *= self.vignetting(camera[det_name])
+        if ((self.apply_sky_gradient or self.apply_vignetting)
+            and not isinstance(sky, galsim.Image)):
+            # Handle the case where a full image isn't returned by
+            # GetSky, i.e., when the sky level is constant and the wcs
+            # is uniform.
+            sky = galsim.Image(bounds=image.bounds, wcs=image.wcs, init_value=sky)
 
-            image += sky
+        if self.apply_sky_gradient:
+            ny, nx = sky.array.shape
+            sky_model = galsim.config.GetInputObj('sky_model', config, base,
+                                                  'LSST_ImageBuilder')
+            sky_gradient = SkyGradient(sky_model, image.wcs,
+                                       base['world_center'], nx)
+            logger.info("Applying sky gradient = %s", sky_gradient)
+            xarr, yarr = np.meshgrid(range(nx), range(ny))
+            sky.array[:] *= sky_gradient(xarr, yarr)
+
+        if self.apply_vignetting:
+            det_name = base['det_name']
+            camera = get_camera(self.camera_name)
+            logger.info("Applying vignetting according to radial spline model.")
+            sky.array[:] *= self.vignetting(camera[det_name])
+
+        image += sky
 
         AddNoise(base,image,current_var,logger)
 

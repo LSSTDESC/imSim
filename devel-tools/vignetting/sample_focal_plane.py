@@ -9,12 +9,15 @@ from lsst.afw import cameraGeom
 import lsst.geom
 import imsim
 
-# Pointing info for DC2 visit 182850:
-ra = 51.99085849573259566
-dec = -40.31737846575015283
-rottelpos = 28.8262515
-mjd = 59822.28563761110854102
-band = 'i'
+
+instcat_file = 'instcat_vignetting.txt'
+opsim_md = imsim.OpsimMetaDict(instcat_file)
+
+ra = opsim_md.get('fieldRA')
+dec = opsim_md.get('fieldDec')
+rottelpos = opsim_md.get('rotTelPos')
+mjd = opsim_md.get('mjd')
+band = opsim_md.get('band')
 
 # The number of stars per CCD.
 nsamp = 10
@@ -45,9 +48,10 @@ for i, det in enumerate(camera):
 df0 = pd.DataFrame(data)
 #df0.to_parquet('fp_sample.parq')
 
-template = "object %(object_id)i %(ra).10f %(dec).10f 20 starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1\n"
+magnorm = 22.25
+template = "object %(object_id)i %(ra).10f %(dec).10f %(magnorm).3f starSED/phoSimMLT/lte027-2.0-0.0a+0.0.BT-Settl.spec.gz 0 0 0 0 0 0 point none CCM 0.04507462 3.1\n"
 
-instcat_file = 'stars.txt'
+instcat_file = 'stars_vignetting.txt'
 with open(instcat_file, 'w') as fobj:
     for object_id, (_, row) in enumerate(df0.iterrows()):
         ra = row.ra
