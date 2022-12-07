@@ -60,3 +60,9 @@ def test_header_keywords():
                                        significant=7)
     os.remove(os.path.join(eimage_file))
     os.removedirs(os.path.dirname(eimage_file))
+
+
+if __name__ == "__main__":
+    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    for testfn in testfns:
+        testfn()

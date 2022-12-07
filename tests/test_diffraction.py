@@ -213,3 +213,9 @@ def test_star_trace_yields_back_alt_az_for_t_eq_0() -> None:
 
     np.testing.assert_array_almost_equal(alt, alt2)
     np.testing.assert_array_almost_equal(az, az2)
+
+
+if __name__ == "__main__":
+    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    for testfn in testfns:
+        testfn()

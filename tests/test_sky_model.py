@@ -72,3 +72,9 @@ def test_sky_gradient():
         np.testing.assert_approx_equal(r[2]/sky_level_center,
                                        sky_gradient(*r[:2]),
                                        significant=7)
+
+
+if __name__ == "__main__":
+    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    for testfn in testfns:
+        testfn()

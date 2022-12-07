@@ -604,3 +604,9 @@ def test_config():
         H2O_pressure=1.0,
     ).getWCS(det, order=2)
     assert wcs9 == wcs9a
+
+
+if __name__ == "__main__":
+    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    for testfn in testfns:
+        testfn()
