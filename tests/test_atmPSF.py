@@ -13,8 +13,9 @@ class AtmPSF(unittest.TestCase):
             airmass = np.random.uniform(1.001, 1.5)
             rawSeeing = np.random.uniform(0.5, 1.5)
             band = 'ugrizy'[np.random.randint(6)]
+            boresight = galsim.CelestialCoord(0 * galsim.radians, 0 * galsim.radians)
             rng = galsim.BaseDeviate(np.random.randint(2**32))
-            atmPSF = AtmosphericPSF(airmass, rawSeeing, band, rng, screen_size=6.4)
+            atmPSF = AtmosphericPSF(airmass, rawSeeing, band, boresight, rng, screen_size=6.4)
 
             wlen = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
             targetFWHM = rawSeeing * airmass**0.6 * (wlen/500)**(-0.3)

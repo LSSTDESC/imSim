@@ -13,32 +13,6 @@ import galsim
 from .optical_system import OpticalZernikes, mock_deviations
 
 
-def save_psf(psf, outfile):
-    """
-    Save the psf as a pickle file.
-    """
-    # Set any logger attribute to None since loggers cannot be persisted.
-    if hasattr(psf, 'logger'):
-        psf.logger = None
-    with open(outfile, 'wb') as output:
-        with galsim.utilities.pickle_shared():
-            pickle.dump(psf, output)
-
-def load_psf(psf_file, log_level=logging.INFO):
-    """
-    Load a psf from a pickle file.
-    """
-    with open(psf_file, 'rb') as fd:
-        psf = pickle.load(fd)
-
-    # Since save_psf sets any logger attribute to None, restore
-    # it here.
-    if hasattr(psf, 'logger'):
-        psf.logger = logging.getLogger('atmPSF')
-        psf.logger.setLevel(log_level)
-
-    return psf
-
 
 class OptWF(object):
     def __init__(self, rng, wavelength, gsparams=None):
@@ -95,6 +69,7 @@ class AtmosphericPSF(object):
     @param airmass      Airmass of observation
     @param rawSeeing    The wavelength=500nm, zenith FWHM of the seeing
     @param band         One of ['u','g','r','i','z','y']
+    @param boresight    The CelestialCoord of the boresight of the observation.
     @param rng          galsim.BaseDeviate
     @param t0           Exposure time start in seconds.  default: 0.
     @param exptime      Exposure time in seconds.  default: 30.
@@ -107,13 +82,33 @@ class AtmosphericPSF(object):
     @param nproc        Number of processes to use in creating screens. If None (default),
                         then allocate one process per phase screen, of which there are 6,
                         nominally.
+    @param save_file    A file name to use for saving the built atmosphere.  If the file already
+                        exists, then the atmosphere is read in from this file, rather than be
+                        rebuilt.  [default: None]
     """
-    def __init__(self, airmass, rawSeeing, band, rng,
+    _req_params = { 'airmass' : float,
+                    'rawSeeing' : float,
+                    'band' : str,
+                    'boresight' : galsim.CelestialCoord,
+                  }
+    _opt_params = { 't0' : float,
+                    'exptime' : float,
+                    'kcrit' : float,
+                    'screen_size' : float,
+                    'screen_scale' : float,
+                    'doOpt' : bool,
+                    'nproc' : int,
+                    'save_file' : str,
+                  }
+    _takes_rng = True
+
+    def __init__(self, airmass, rawSeeing, band, boresight, rng,
                  t0=0.0, exptime=30.0, kcrit=0.2,
                  screen_size=819.2, screen_scale=0.1, doOpt=True, logger=None,
-                 nproc=None):
+                 nproc=None, save_file=None):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
+        self.boresight = boresight
 
         self.wlen_eff = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
         # wlen_eff is from Table 2 of LSE-40 (y=y2)
@@ -127,6 +122,36 @@ class AtmosphericPSF(object):
         self.screen_scale = screen_scale
         self.logger = logger
 
+        if save_file and os.path.isfile(save_file):
+            if logger:
+                logger.warning(f'Reading atmospheric PSF from {save_file}')
+            self.load_psf(save_file)
+        else:
+            if logger:
+                logger.warning('Buidling atmospheric PSF')
+            self._build_atm(kcrit, doOpt, nproc, logger)
+            if save_file:
+                if logger:
+                    logger.warning(f'Saving atmospheric PSF to {save_file}')
+                self.save_psf(save_file)
+
+    def save_psf(self, save_file):
+        """
+        Save the psf as a pickle file.
+        """
+        with open(save_file, 'wb') as fd:
+            with galsim.utilities.pickle_shared():
+                pickle.dump((self.atm, self.aper), fd)
+
+    def load_psf(self, save_file):
+        """
+        Load a psf from a pickle file.
+        """
+        with open(save_file, 'rb') as fd:
+            self.atm, self.aper = pickle.load(fd)
+
+    def _build_atm(self, kcrit, doOpt, nproc, logger):
+
         ctx = multiprocessing.get_context('fork')
         self.atm = galsim.Atmosphere(mp_context=ctx, **self._getAtmKwargs())
         self.aper = galsim.Aperture(diam=8.36, obscuration=0.61,
@@ -138,7 +163,7 @@ class AtmosphericPSF(object):
         r0 = r0_500 * (self.wlen_eff/500.0)**(6./5)
         kmax = kcrit / r0
         if logger:
-            logger.warning("Building atmosphere")
+            logger.info("Instantiating atmospheric screens")
 
         if nproc is None:
             nproc = len(self.atm)
@@ -157,7 +182,7 @@ class AtmosphericPSF(object):
             logger.info("Finished building atmosphere")
 
         if doOpt:
-            self.atm.append(OptWF(rng, self.wlen_eff))
+            self.atm.append(OptWF(self.rng, self.wlen_eff))
 
     def __eq__(self, rhs):
         return (isinstance(rhs, AtmosphericPSF)
@@ -248,15 +273,14 @@ class AtmosphericPSF(object):
                     altitude=altitudes, r0_weights=weights, rng=self.rng,
                     screen_size=self.screen_size, screen_scale=self.screen_scale)
 
-    def _getPSF(self, xPupil=None, yPupil=None, gsparams=None):
+    def getPSF(self, field_pos, gsparams=None):
         """
         Return a PSF to be convolved with sources.
 
-        @param [in] xPupil the x coordinate on the pupil in arc seconds
-
-        @param [in] yPupil the y coordinate on the pupil in arc seconds
+        @param [in] field position of the object relative to the boresight direction.
         """
-        theta = (xPupil*galsim.arcsec, yPupil*galsim.arcsec)
+
+        theta = (field_pos.x*galsim.arcsec, field_pos.y*galsim.arcsec)
         psf = self.atm.makePSF(
             self.wlen_eff,
             aper=self.aper,
@@ -267,79 +291,12 @@ class AtmosphericPSF(object):
         return psf
 
 
-# Note: Except for the PsfBase base class, Everything above is identical to what is in the main
-# imsim repo.  Below is all the new stuff.
-
-# Note: This could be refactored to avoid this bit of indirection.  This class is a very
-# thin wrapper around the above AtmosphericPSF class, just adjusting for a couple differences
-# I wanted to make.
-class AtmosphericPSFBuilder(object):
-    """
-    @param airmass      Airmass of observation
-    @param rawSeeing    The wavelength=500nm, zenith FWHM of the seeing
-    @param band         One of ['u','g','r','i','z','y']
-    @param boresight    The CelestialCoord of the boresight of the observation.
-    @param t0           Exposure time start in seconds.  default: 0.
-    @param exptime      Exposure time in seconds.  default: 30.
-    @param kcrit        Critical Fourier mode at which to split first and second kicks
-                        in units of (1/r0).  default: 0.2
-    @param screen_size  Size of the phase screens in meters.  default: 819.2
-    @param screen_scale Size of phase screen "pixels" in meters.  default: 0.1
-    @param doOpt        Add in optical phase screens?  default: True
-    @param nproc        Number of processes to use in creating screens. If None (default),
-                        then allocate one process per phase screen, of which there are 6,
-                        nominally.
-    @param save_file    Not Implemented (TODO).
-    @param logger       Optional logger.  default: None
-    """
-    _req_params = { 'airmass' : float,
-                    'rawSeeing' : float,
-                    'band' : str,
-                    'boresight' : galsim.CelestialCoord,
-                  }
-    _opt_params = { 't0' : float,
-                    'exptime' : float,
-                    'kcrit' : float,
-                    'screen_size' : float,
-                    'screen_scale' : float,
-                    'doOpt' : bool,
-                    'nproc' : int,
-                    'save_file' : str,
-                  }
-    _takes_rng = True
-
-    def __init__(self, airmass, rawSeeing, band, boresight, rng,
-                 t0=0, exptime=30, kcrit=0.2, screen_size=819.2, screen_scale=0.1, doOpt=True,
-                 nproc=None, save_file=None, logger=None):
-        if save_file and os.path.isfile(save_file):
-            self.atm = load_psf(save_file)
-            if logger:
-                logger.warning(f'Reading atmospheric PSF from {save_file}')
-        else:
-            self.atm = AtmosphericPSF(airmass, rawSeeing, band, rng,
-                                      t0=t0, exptime=exptime, kcrit=kcrit,
-                                      screen_size=screen_size, screen_scale=screen_scale,
-                                      doOpt=doOpt, logger=logger, nproc=nproc)
-        # The other change is that we need the boresight to do image_pos -> field_pos
-        # I think it makes sense to take that as an input here rather than in the
-        # PSF object each time (since it's the same for the whole observation).
-        self.boresight = boresight
-        if save_file:
-            save_psf(self.atm, save_file)
-
-    def getBoresight(self):
-        return self.boresight
-
-    def getPSF(self, field_pos, gsparams):
-        return self.atm._getPSF(field_pos.x, field_pos.y, gsparams)
-
-
 def BuildAtmosphericPSF(config, base, ignore, gsparams, logger):
     """Build an AtmosphericPSF from the information in the config file.
     """
     atm = galsim.config.GetInputObj('atm_psf', config, base, 'AtmosphericPSF')
     image_pos = base['image_pos']
-    boresight = atm.getBoresight()
+    boresight = atm.boresight
     field_pos = base['wcs'].posToWorld(image_pos, project_center=boresight)
     if gsparams: gsparams = GSParams(**gsparams)
     else: gsparams = None
@@ -442,7 +399,7 @@ def BuildKolmogorovPSF(config, base, ignore, gsparams, logger):
     return psf, safe
 
 from galsim.config import InputLoader, RegisterInputType, RegisterObjectType
-RegisterInputType('atm_psf', InputLoader(AtmosphericPSFBuilder, takes_logger=True))
+RegisterInputType('atm_psf', InputLoader(AtmosphericPSF, takes_logger=True))
 RegisterObjectType('AtmosphericPSF', BuildAtmosphericPSF, input_type='atm_psf')
 RegisterObjectType('DoubleGaussianPSF', BuildDoubleGaussianPSF)
 RegisterObjectType('KolmogorovPSF', BuildKolmogorovPSF)
