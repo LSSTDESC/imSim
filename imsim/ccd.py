@@ -1,4 +1,5 @@
 import os
+import warnings
 import galsim
 from galsim.config import OutputBuilder, RegisterOutputType
 from .cosmic_rays import CosmicRays
@@ -150,7 +151,10 @@ class LSST_CCDBuilder(OutputBuilder):
         dectel = opsim_md.get('fieldDec', 0.)
         image.header['RATEL'] = ratel
         image.header['DECTEL'] = dectel
-        image.header['ROTTELPOS'] = opsim_md.get('rotTelPos', 0.)
+        with warnings.catch_warnings():
+            # Silence FITS warning about long header keyword
+            warnings.simplefilter('ignore')
+            image.header['ROTTELPOS'] = opsim_md.get('rotTelPos', 0.)
         image.header['FILTER'] = opsim_md.get('band')
         image.header['CAMERA'] = base['output']['camera']
         image.header['HASTART'] = opsim_md.getHourAngle(mjd_obs, ratel)
