@@ -128,7 +128,12 @@ def test_wcs_fit():
                 np.max(np.abs(y-y1)),
                 np.std(y-y1)
             )
-            print("\n"*3)
+            print("\n")
+
+        if __name__ != '__main__':
+            # In regular unit testing, just do one of these.
+            break
+
 
 
 def test_imsim():
