@@ -27,7 +27,8 @@ def load_test_skycat():
         f"LSST_{band}.dat", wave_type="nm"
     ).withZeropoint("AB")
     wcs_builder = imsim.BatoidWCSBuilder()
-    factory = wcs_builder.makeWCSFactory(boresight, rottelpos, obstime, band)
+    telescope = imsim.load_telescope(f"LSST_{band}.yaml", rotTelPos=rottelpos)
+    factory = wcs_builder.makeWCSFactory(boresight, obstime, telescope, bandpass=band)
     wcs = factory.getWCS(wcs_builder.camera[det_name])
 
     # Create the sky catalog interface object.

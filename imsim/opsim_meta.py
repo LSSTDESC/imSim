@@ -152,11 +152,11 @@ class OpsimMetaDict(object):
         """Read visit info from the instance catalog header."""
         self.logger.warning('Reading visit info from instance catalog %s',
                             self.file_name)
-        with fopen(self.file_name, mode='rt') as _input:
+        with open(self.file_name, mode='rt') as _input:
             for line in _input:
                 if line.startswith('#'):  # comments
                     continue
-                if line.startswith('object'):
+                if line.startswith('object') or line.startswith('includeobj'):
                     # Assumes objects are all at the end.  Is this necessarily true?
                     break
 
@@ -188,13 +188,15 @@ class OpsimMetaDict(object):
         self.logger.debug("Bandpass = %s",self.meta['band'])
         self.logger.debug("HA = %s",self.meta['HA'])
 
+        self.set_defaults()
+
         # Use the opsim db names for these quantities.
         self.meta['fieldRA'] = self.meta['rightascension']
         self.meta['fieldDec'] = self.meta['declination']
         self.meta['rotTelPos'] = self.meta['rottelpos']
         self.meta['rotSkyPos'] = self.meta['rotskypos']
         self.meta['observationId'] = self.meta['obshistid']
-        self.set_defaults()
+        self.meta['observationStartMJD'] = self.meta['mjd'] - self.meta['exptime']/2./86400.
 
     def set_defaults(self):
         # Set some default values if these aren't present in input file.

@@ -10,7 +10,7 @@ Install
    <https://github.com/LSSTDESC/imSim/blob/main/.github/workflows/ci.yml>`_
    are guaranteed to result in a working setup as they are tested very
    frequently.
-  
+
 Although *imSim* is *GalSim* based (which just can be installed via
 ``pip install galsim``, it also depends on the
 `LSST software stack <https://pipelines.lsst.io/>`_,
@@ -47,7 +47,7 @@ Clone *imSim* and dependencies
 
    git clone https://github.com/LSSTDESC/imSim.git
    # conda dependencies:
-   mamba install -y -c conda-forge --file imSim/conda_requirements.txt
+   mamba install -y -c conda-forge --file imSim/etc/standalone_conda_requirements.txt
    # pip dependencies:
    pip install batoid git+https://github.com/LSSTDESC/skyCatalogs.git git+https://github.com/lsst/rubin_sim.git
    # Install imSim:
@@ -71,7 +71,7 @@ Set runtime environment variables for the conda environment
     conda env config vars set RUBIN_SIM_DATA_DIR=$(pwd)/rubin_sim_data
 
 
-This will export the environment variable ``SIMS_SED_LIBRARY_DIR`` whenever
+This will export the environment variable ``RUBIN_SIM_DATA_DIR`` whenever
 you activate the ``py38`` conda environment.
 
 To make use of the default *imSim* configuration, you also need a SED dataset.

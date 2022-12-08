@@ -3,7 +3,7 @@ Feature Matrix
 
 This summary table should give a high level overview of effects. For detailed information please make/link to a subpage or appropriate reference.
 
-Go directly to: 
+Go directly to:
 `Sensors <Sensor Table_>`_ - `Sky <Sky Model_>`_ - `Throughputs <System Throughputs_>`_ - `Atmospheric <Atmospheric Model_>`_ - `Optics <Optical Model_>`_  - `Calibration Products <Calibration Products_>`_
 
 Sensor Table
@@ -40,7 +40,7 @@ peformed.
 
    * - Tree Rings
      - GalSim Feature (Silicon.cpp) / imSim configuration (tree_rings.py)
-     - Analytic model is used to pre-compute 189 unique sensor models with randomized parameters empirically based on BNL acquired data.  
+     - Analytic model is used to pre-compute 189 unique sensor models with randomized parameters empirically based on BNL acquired data.
      - Radial displacement profile is modelled as a sum of 40 sinusoids modulated by a power law function.
      - :doc:`validation/tree-ring`
 
@@ -94,6 +94,12 @@ peformed.
      - Test stand at Davis. Specialized bleed run.
      -
      - Current tests are exploring behavior at the midline for ITL and E2V sensors
+
+   * - Spider Diffraction
+     - diffraction.py, photon_ops.py
+     -
+     - Statistical Diffraction during batoid ray tracing.
+     - Page link :doc:`validation/diffraction`
 
 Sky Model
 ---------
@@ -198,8 +204,8 @@ Atmospheric model
      - Short description
      - Validation Page and Notebooks
 
-   * - 
-     - 
+   * -
+     -
      -
      -
      -
@@ -249,8 +255,8 @@ Calibration Products
      - Short description
      - Validation Page and Notebooks
 
-   * - 
-     - 
+   * -
+     -
      -
      -
      -

@@ -12,6 +12,7 @@ import lsst.obs.lsst
 from .bleed_trails import bleed_eimage
 from .camera import Camera, get_camera
 from .batoid_wcs import BatoidWCSBuilder
+from .telescope_loader import load_telescope
 from ._version import __version__
 
 
@@ -51,8 +52,10 @@ def make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name,
         band = 'r'
     obstime = Time(obsmjd, format='mjd')
     boresight = galsim.CelestialCoord(ra0*galsim.degrees, dec0*galsim.degrees)
+    telescope = load_telescope(f"LSST_{band}.yaml", rotTelPos=rottelpos*galsim.degrees)
     factory = BatoidWCSBuilder().makeWCSFactory(
-        boresight, rottelpos*galsim.degrees, obstime, band, camera=camera_name)
+        boresight, obstime, telescope, bandpass=band, camera=camera_name
+    )
 
     # Use the science sensor at the center of the focal plane.
     camera = get_camera(camera_name)

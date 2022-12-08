@@ -10,6 +10,8 @@ import galsim
 
 def run_imsim(camera):
     imsim_dir = os.path.dirname(os.path.abspath(str(Path(__file__).parent)))
+    os.environ['SIMS_SED_LIBRARY_DIR'] \
+        = os.path.join(imsim_dir, 'tests', 'data', 'test_sed_library')
     template = os.path.join(imsim_dir, 'config', 'imsim-config.yaml')
     instcat_file = os.path.join(imsim_dir, 'tests', 'data',
                                 'instcat_object_positions_test.txt')
@@ -17,7 +19,7 @@ def run_imsim(camera):
     logger = logging.getLogger('test_object_positions')
     if len(logger.handlers) == 0:
         logger.addHandler(logging.StreamHandler(sys.stdout))
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.CRITICAL)
 
     only_dets = ['R22_S11', 'R01_S00', 'R42_S21', 'R34_S22', 'R03_S02']
 
