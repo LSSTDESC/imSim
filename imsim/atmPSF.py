@@ -14,6 +14,25 @@ from galsim.config import InputLoader, RegisterInputType, RegisterObjectType
 from .optical_system import OpticalZernikes, mock_deviations
 
 
+def save_psf(psf, outfile):
+    """
+    Save the psf as a pickle file.
+    """
+    # Set any logger attribute to None since loggers cannot be persisted.
+    if hasattr(psf, 'logger'):
+        psf.logger = None
+    with open(outfile, 'wb') as output:
+        with galsim.utilities.pickle_shared():
+            pickle.dump(psf, output)
+
+def load_psf(psf_file):
+    """
+    Load a psf from a pickle file.
+    """
+    with open(psf_file, 'rb') as fd:
+        psf = pickle.load(fd)
+    return psf
+
 
 class OptWF(object):
     def __init__(self, rng, wavelength, gsparams=None):
