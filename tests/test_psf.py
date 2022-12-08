@@ -197,6 +197,7 @@ class PsfTestCase(unittest.TestCase):
                 }
             }
         }
+        config2 = galsim.config.CopyConfig(config)
         galsim.config.ProcessInput(config)
         config['wcs'] = galsim.config.BuildWCS(config['image'], 'wcs', config)
 
@@ -214,6 +215,12 @@ class PsfTestCase(unittest.TestCase):
 
         self.assertEqual(psf, psf_c)
         self.assertNotEqual(psf, psf_0)
+
+        # random_seed is required
+        del config2['image']['random_seed']
+        with np.testing.assert_raises(RuntimeError):
+            galsim.config.ProcessInput(config2)
+
 
     def test_r0_500(self):
         """Test that inversion of the Tokovinin fitting formula for r0_500 works."""
