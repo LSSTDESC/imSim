@@ -67,6 +67,7 @@ class PsfTestCase(unittest.TestCase):
             'image_pos': galsim.PositionD(0,0),  # This would get set appropriately during
                                                  # normal config processing.
             'image' : {
+                'random_seed': 1234,
                 'wcs': {
                     'type' : 'Tan',
                     'dudx' : 0.2,
@@ -116,6 +117,7 @@ class PsfTestCase(unittest.TestCase):
             'image_pos': galsim.PositionD(0,0),  # This would get set appropriately during
                                                  # normal config processing.
             'image' : {
+                'random_seed': 1234,
                 'wcs': {
                     'type' : 'Tan',
                     'dudx' : 0.2,
