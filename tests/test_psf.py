@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import glob
 import unittest
+import time
 import imsim
 import galsim
 
@@ -87,6 +88,72 @@ class PsfTestCase(unittest.TestCase):
             imsim.save_psf(psf, psf_file)
             psf_retrieved = imsim.load_psf(psf_file)
             self.assertEqual(psf, psf_retrieved)
+
+    def test_atm_psf_save_file(self):
+        """Test using save_file in  AtmosphericPSF
+        """
+        psf_file = os.path.join(self.test_dir, 'save_atm_psf.pkl')
+        config = {
+            'psf': {
+                'type': 'AtmosphericPSF'
+            },
+            'input': {
+                'atm_psf': {
+                    'airmass': self.obs_md['airmass'],
+                    'rawSeeing': self.obs_md['rawSeeing'],
+                    'band':  self.obs_md['band'],
+                    'screen_scale': 6.4,
+                    'boresight': {
+                        'type': 'RADec',
+                        'ra': { 'type': 'Degrees', 'theta': self.obs_md['rightascension'], },
+                        'dec': { 'type': 'Degrees', 'theta': self.obs_md['declination'], }
+                    },
+                    'save_file': psf_file
+                }
+            },
+            'image_pos': galsim.PositionD(0,0),  # This would get set appropriately during
+                                                 # normal config processing.
+            'image' : {
+                'random_seed': 1234,
+                'wcs': {
+                    'type' : 'Tan',
+                    'dudx' : 0.2,
+                    'dudy' : 0.,
+                    'dvdx' : 0.,
+                    'dvdy' : 0.2,
+                    'ra' : '@input.atm_psf.boresight.ra',
+                    'dec' : '@input.atm_psf.boresight.dec',
+                }
+            }
+        }
+
+        if os.path.isfile(psf_file):
+            os.remove(psf_file)
+
+        config['wcs'] = galsim.config.BuildWCS(config['image'], 'wcs', config)
+        config1 = galsim.config.CopyConfig(config)
+        config2 = galsim.config.CopyConfig(config)
+
+        # The first time, it will build the psf from scratch and save the screens.
+        t0 = time.time()
+        galsim.config.ProcessInput(config1)
+        t1 = time.time()
+
+        assert os.path.isfile(psf_file)
+
+        # The second time, it will be faster, since it loads the screens from the file.
+        t2 = time.time()
+        galsim.config.ProcessInput(config2)
+        t3 = time.time()
+
+        print('Times = ',t1-t0,t3-t2)
+        assert t1-t0 > t3-t2
+
+        # Both input objects will make the same PSF at the same location:
+        psf1 = galsim.config.BuildGSObject(config1, 'psf')[0]
+        psf2 = galsim.config.BuildGSObject(config2, 'psf')[0]
+        assert psf1 == psf2
+
 
     def test_atm_psf_config(self):
         """
