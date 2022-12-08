@@ -9,6 +9,7 @@ import numpy as np
 from scipy.optimize import bisect
 import pickle
 import galsim
+from galsim.config import InputLoader, RegisterInputType, RegisterObjectType
 
 from .optical_system import OpticalZernikes, mock_deviations
 
@@ -86,22 +87,6 @@ class AtmosphericPSF(object):
                         exists, then the atmosphere is read in from this file, rather than be
                         rebuilt.  [default: None]
     """
-    _req_params = { 'airmass' : float,
-                    'rawSeeing' : float,
-                    'band' : str,
-                    'boresight' : galsim.CelestialCoord,
-                  }
-    _opt_params = { 't0' : float,
-                    'exptime' : float,
-                    'kcrit' : float,
-                    'screen_size' : float,
-                    'screen_scale' : float,
-                    'doOpt' : bool,
-                    'nproc' : int,
-                    'save_file' : str,
-                  }
-    _takes_rng = True
-
     def __init__(self, airmass, rawSeeing, band, boresight, rng,
                  t0=0.0, exptime=30.0, kcrit=0.2,
                  screen_size=819.2, screen_scale=0.1, doOpt=True, logger=None,
@@ -109,6 +94,7 @@ class AtmosphericPSF(object):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
         self.boresight = boresight
+        self.logger = galsim.config.LoggerWrapper(logger)
 
         self.wlen_eff = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
         # wlen_eff is from Table 2 of LSE-40 (y=y2)
@@ -120,20 +106,19 @@ class AtmosphericPSF(object):
         self.exptime = exptime
         self.screen_size = screen_size
         self.screen_scale = screen_scale
-        self.logger = logger
 
         if save_file and os.path.isfile(save_file):
-            if logger:
-                logger.warning(f'Reading atmospheric PSF from {save_file}')
+            self.logger.warning(f'Reading atmospheric PSF from {save_file}')
             self.load_psf(save_file)
         else:
-            if logger:
-                logger.warning('Buidling atmospheric PSF')
-            self._build_atm(kcrit, doOpt, nproc, logger)
+            self.logger.warning('Buidling atmospheric PSF')
+            self._build_atm(kcrit, doOpt, nproc)
             if save_file:
-                if logger:
-                    logger.warning(f'Saving atmospheric PSF to {save_file}')
+                self.logger.warning(f'Saving atmospheric PSF to {save_file}')
                 self.save_psf(save_file)
+            else:
+                # TODO: Once we fix the screen sharing thing, remove this.
+                raise RuntimeError("AtmosphericPSF currently requires a save_file to work correctly")
 
     def save_psf(self, save_file):
         """
@@ -150,7 +135,7 @@ class AtmosphericPSF(object):
         with open(save_file, 'rb') as fd:
             self.atm, self.aper = pickle.load(fd)
 
-    def _build_atm(self, kcrit, doOpt, nproc, logger):
+    def _build_atm(self, kcrit, doOpt, nproc):
 
         ctx = multiprocessing.get_context('fork')
         self.atm = galsim.Atmosphere(mp_context=ctx, **self._getAtmKwargs())
@@ -162,8 +147,7 @@ class AtmosphericPSF(object):
         r0_500 = self.atm.r0_500_effective
         r0 = r0_500 * (self.wlen_eff/500.0)**(6./5)
         kmax = kcrit / r0
-        if logger:
-            logger.info("Instantiating atmospheric screens")
+        self.logger.info("Instantiating atmospheric screens")
 
         if nproc is None:
             nproc = len(self.atm)
@@ -171,15 +155,15 @@ class AtmosphericPSF(object):
         if nproc == 1:
             self.atm.instantiate(kmax=kmax, check='phot')
         else:
-            if logger:
-                logger.warning(f"Using {nproc} processes to build the phase screens")
+            self.logger.warning(f"Using {nproc} processes to build the phase screens")
             with galsim.utilities.single_threaded():
                 with ctx.Pool(nproc, initializer=galsim.phase_screens.initWorker,
                               initargs=galsim.phase_screens.initWorkerArgs()) as pool:
                     self.atm.instantiate(pool=pool, kmax=kmax, check='phot')
 
-        if logger:
-            logger.info("Finished building atmosphere")
+        self.logger.info("Finished building atmosphere")
+        self.logger.debug("GSScreenShare keys = %s",list(galsim.phase_screens._GSScreenShare.keys()))
+        self.logger.debug("id(self) = %s",id(self))
 
         if doOpt:
             self.atm.append(OptWF(self.rng, self.wlen_eff))
@@ -290,6 +274,66 @@ class AtmosphericPSF(object):
             gsparams=gsparams)
         return psf
 
+class AtmLoader(InputLoader):
+    """Custom AtmosphericPSF loader that only loads the atmosphere once per exposure.
+
+    Note: For now, this just loads the atmosphere once for an entire imsim run.
+          If we ever decide we want to have a single config processing run handle multiple
+          exposures (rather than just multiple CCDs for a single exposure), we'll need to
+          reconsider this implementation.
+    """
+    def getKwargs(self, config, base, logger):
+        logger.debug("Get kwargs for AtmosphericPSF")
+
+        req_params = { 'airmass' : float,
+                       'rawSeeing' : float,
+                       'band' : str,
+                       'boresight' : galsim.CelestialCoord,
+                       # TODO: Once we fix the screen sharing thing, this should move to opt.
+                       'save_file' : str,
+                     }
+        opt_params = { 't0' : float,
+                       'exptime' : float,
+                       'kcrit' : float,
+                       'screen_size' : float,
+                       'screen_scale' : float,
+                       'doOpt' : bool,
+                       'nproc' : int,
+                     }
+        kwargs, _ = galsim.config.GetAllParams(config, base, req=req_params, opt=opt_params)
+        logger.debug("kwargs = %s",kwargs)
+
+        # We want this to be set up right at the beginning of the run, before the config
+        # stuff has even set up the RNG yet.  So make an rng ourselves based on the
+        # random seed in image.random_seed.
+
+        seed = base['image'].get('random_seed', None)
+        if seed is None:
+            raise RuntimeError("AtmLoader requires a seed in config['image']['random_seed']")
+        if isinstance(seed, list):
+            seed = seed[0]  # If random_seed is a list, just use the first one.
+        # Parse the value in case it is an eval or something.
+        seed = galsim.config.ParseValue({'seed': seed}, 'seed', base, int)[0]
+        # Somewhat gratuitously add an aribtary value to this to avoid any correlations with
+        # other uses of this random seed elsewhere in the config processing.
+        seed += 271828
+        rng = galsim.BaseDeviate(seed)
+        kwargs['rng'] = rng
+        logger.debug("seed for atm = %s",seed)
+
+        # Include the logger
+        kwargs['logger'] = logger
+
+        # safe=True means this will be used for the whole run.
+        #safe = True
+        # TODO: However, this isn't working yet, since the multiple processes aren't getting the
+        # GSScreenShare dict updated properly.  For now, we rely on the base process making the
+        # atmosphere if necessary and saving it to save_file.  Then other processes will
+        # load it in.  This happens if safe=False.
+        safe=False
+
+        return kwargs, safe
+
 
 def BuildAtmosphericPSF(config, base, ignore, gsparams, logger):
     """Build an AtmosphericPSF from the information in the config file.
@@ -301,6 +345,10 @@ def BuildAtmosphericPSF(config, base, ignore, gsparams, logger):
     if gsparams: gsparams = GSParams(**gsparams)
     else: gsparams = None
 
+    #logger.debug("Making PSF for pos %s",image_pos)
+    #logger.debug("GSScreenShare keys = %s",list(galsim.phase_screens._GSScreenShare.keys()))
+    #logger.debug("type(atm) = %s",str(type(atm)))
+    #logger.debug("id(atm) = %s",id(atm))
     psf = atm.getPSF(field_pos, gsparams)
     return psf, False
 
@@ -398,8 +446,7 @@ def BuildKolmogorovPSF(config, base, ignore, gsparams, logger):
 
     return psf, safe
 
-from galsim.config import InputLoader, RegisterInputType, RegisterObjectType
-RegisterInputType('atm_psf', InputLoader(AtmosphericPSF, takes_logger=True))
+RegisterInputType('atm_psf', AtmLoader(AtmosphericPSF, takes_logger=True))
 RegisterObjectType('AtmosphericPSF', BuildAtmosphericPSF, input_type='atm_psf')
 RegisterObjectType('DoubleGaussianPSF', BuildDoubleGaussianPSF)
 RegisterObjectType('KolmogorovPSF', BuildKolmogorovPSF)
