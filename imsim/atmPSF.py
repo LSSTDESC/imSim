@@ -135,9 +135,6 @@ class AtmosphericPSF(object):
             if save_file:
                 self.logger.warning(f'Saving atmospheric PSF to {save_file}')
                 self.save_psf(save_file)
-            else:
-                # TODO: Once we fix the screen sharing thing, remove this.
-                raise RuntimeError("AtmosphericPSF currently requires a save_file to work correctly")
 
     def save_psf(self, save_file):
         """
@@ -308,8 +305,6 @@ class AtmLoader(InputLoader):
                        'rawSeeing' : float,
                        'band' : str,
                        'boresight' : galsim.CelestialCoord,
-                       # TODO: Once we fix the screen sharing thing, this should move to opt.
-                       'save_file' : str,
                      }
         opt_params = { 't0' : float,
                        'exptime' : float,
@@ -318,6 +313,7 @@ class AtmLoader(InputLoader):
                        'screen_scale' : float,
                        'doOpt' : bool,
                        'nproc' : int,
+                       'save_file' : str,
                      }
         kwargs, _ = galsim.config.GetAllParams(config, base, req=req_params, opt=opt_params)
         logger.debug("kwargs = %s",kwargs)
