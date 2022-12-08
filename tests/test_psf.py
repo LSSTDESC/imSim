@@ -197,9 +197,10 @@ class PsfTestCase(unittest.TestCase):
                 }
             }
         }
-        config2 = galsim.config.CopyConfig(config)
-        galsim.config.ProcessInput(config)
         config['wcs'] = galsim.config.BuildWCS(config['image'], 'wcs', config)
+        config2 = galsim.config.CopyConfig(config)
+
+        galsim.config.ProcessInput(config)
 
         # PSF without gaussian
         config1 = galsim.config.CopyConfig(config)
@@ -220,6 +221,17 @@ class PsfTestCase(unittest.TestCase):
         del config2['image']['random_seed']
         with np.testing.assert_raises(RuntimeError):
             galsim.config.ProcessInput(config2)
+
+        # random_seed can be a list
+        # And the first item can be something that needs to be evaluated.
+        config2['image']['random_seed'] = [
+            '$run_id',
+            {'type': 'Sequence', 'first': '$run_id', 'repeat': 189}
+        ]
+        config2['eval_variables'] = {'irun_id': 1234}
+        galsim.config.ProcessInput(config2)
+        psf_d = galsim.config.BuildGSObject(config, 'psf')[0]
+        assert psf == psf_d
 
 
     def test_r0_500(self):
