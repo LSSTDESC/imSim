@@ -65,8 +65,10 @@ class SkyCatalogInterface:
     # Rubin effective area computed using numbers at
     # https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _eff_area = 0.25 * np.pi * 649**2  # cm^2
+
     def __init__(self, file_name, wcs, band, xsize=4096, ysize=4096, obj_types=None,
-                 skycatalog_root=None, edge_pix=100, max_flux=None, logger=None):
+                 skycatalog_root=None, edge_pix=100, max_flux=None, logger=None,
+                 apply_dc2_dilation=False):
         """
         Parameters
         ----------
@@ -95,7 +97,12 @@ class SkyCatalogInterface:
             if max_flux == None, then don't apply a maximum flux cut.
         logger : logging.Logger
             Logger object.
-
+        apply_dc2_dilation : bool [False]
+            Flag to increase object sizes by a factor sqrt(a/b) where
+            a, b are the semi-major and semi-minor axes, respectively.
+            This has the net effect of using the semi-major axis as the
+            sersic half-light radius when building the object.  This will
+            only be applied to galaxies.
         """
         logger = galsim.config.LoggerWrapper(logger)
         if obj_types is not None:
@@ -104,6 +111,7 @@ class SkyCatalogInterface:
         self.wcs = wcs
         self.band = band
         self.max_flux = max_flux
+        self.apply_dc2_dilation = apply_dc2_dilation
         if skycatalog_root is None:
             skycatalog_root = os.path.dirname(os.path.abspath(file_name))
         sky_cat = skyCatalogs.open_catalog(file_name,
@@ -168,6 +176,16 @@ class SkyCatalogInterface:
 
         skycat_obj = self.objects[index]
         gsobjs = skycat_obj.get_gsobject_components(gsparams, rng)
+
+        if self.apply_dc2_dilation and skycat_obj.object_type == 'galaxy':
+            # Apply DC2 dilation to the individual galaxy components.
+            for component, gsobj in gsobjs.items():
+                comp = component if component != 'knots' else 'disk'
+                a = skycat_obj.get_native_attribute(f'size_{comp}_true')
+                b = skycat_obj.get_native_attribute(f'size_minor_{comp}_true')
+                scale = np.sqrt(a/b)
+                gsobjs[component] = gsobj.dilate(scale)
+
         seds = skycat_obj.get_observer_sed_components()
 
         gs_obj_list = []
@@ -203,7 +221,8 @@ class SkyCatalogLoader(InputLoader):
         opt = {
                'edge_pix' : float,
                'obj_types' : list,
-               'max_flux' : float
+               'max_flux' : float,
+               'apply_dc2_dilation': bool
               }
         meta = galsim.config.GetInputObj('opsim_meta_dict', config, base,
                                          'SkyCatalogLoader')
@@ -287,6 +306,7 @@ def SkyCatWorldPos(config, base, value_type):
 
     pos = skycat.getWorldPos(index)
     return pos, safe
+
 
 RegisterInputType('sky_catalog',
                   SkyCatalogLoader(SkyCatalogInterface, has_nobj=True))
