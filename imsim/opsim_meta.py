@@ -10,11 +10,12 @@ import galsim
 from .instcat import fopen
 
 
-# I don't really understand why that one doesn't work on some of our imsim input classes,
-# even though it works on all the regular GalSim input classes.  But changing the implementation
-# a bit here does seem to work.
+# I don't really understand why the InputProxy implementation in GalSim doesn't work on some of
+# our imsim input classes, even though it works on all the regular GalSim input classes.
+# But changing the implementation a bit here does seem to work.
 # For now, I'm just monkey-patching it here, but if this continues to work, I'll put this version
 # in GalSim and release an update.
+# TODO: Once we can depend on Galsim >= 2.4.7, remove this.
 import types
 from multiprocessing.managers import NamespaceProxy
 import galsim.config.input
