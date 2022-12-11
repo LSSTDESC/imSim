@@ -278,8 +278,8 @@ def deserialize_lsst_diffraction(config, base, _logger):
 
     return LsstDiffraction(
         telescope=telescope,
-        altitude=opsim_meta["altitude"],
-        azimuth=opsim_meta["azimuth"],
+        altitude=opsim_meta.get("altitude"),
+        azimuth=opsim_meta.get("azimuth"),
         sky_pos=base["sky_pos"],
         icrf_to_field=base["_icrf_to_field"],
         **kwargs,

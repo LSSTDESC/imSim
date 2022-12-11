@@ -83,3 +83,7 @@ class FocalPlaneModeling(unittest.TestCase):
         zern_deviations = OpticalZernikes(moc_deviation).deviation_coeff
         is_zeros = not np.count_nonzero(zern_deviations)
         self.assertTrue(is_zeros, "Received nonzero zernike coefficients")
+
+
+if __name__ == "__main__":
+    unittest.main()

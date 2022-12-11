@@ -366,3 +366,9 @@ def test_config_lsst_optics():
     }
     galsim.config.ProcessInput(config)
     galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+
+
+if __name__ == "__main__":
+    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    for testfn in testfns:
+        testfn()

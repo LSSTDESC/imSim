@@ -80,3 +80,9 @@ def test_object_positions():
             offset = compute_pixel_offset(eimage_file)
             print(eimage_file, offset)
             np.testing.assert_(offset < 2)
+
+
+if __name__ == "__main__":
+    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    for testfn in testfns:
+        testfn()

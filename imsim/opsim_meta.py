@@ -10,6 +10,41 @@ import galsim
 from .instcat import fopen
 
 
+# I don't really understand why the InputProxy implementation in GalSim doesn't work on some of
+# our imsim input classes, even though it works on all the regular GalSim input classes.
+# But changing the implementation a bit here does seem to work.
+# For now, I'm just monkey-patching it here, but if this continues to work, I'll put this version
+# in GalSim and release an update.
+# TODO: Once we can depend on Galsim >= 2.4.7, remove this.
+import types
+from multiprocessing.managers import NamespaceProxy
+import galsim.config.input
+
+def InputProxy(target):
+    """ Create a derived NamespaceProxy class for `target`. """
+
+    # This bit follows what multiprocessing.managers.MakeProxy normally does.
+    dic = {}
+    public_methods = [m for m in dir(target) if m[0] != '_']
+    for meth in public_methods:
+        exec('''def %s(self, /, *args, **kwds):
+                    return self._callmethod(%r, args, kwds)
+             '''%(meth,meth), dic)
+
+    # NamespaceProxy starts with __getattribute__ defined, so subclass from that rather than
+    # BaseProxy, as MakeProxy normally does.
+    proxy_name = target.__name__ + "_Proxy"
+    ProxyType = type(proxy_name, (NamespaceProxy,), dic)
+
+    # Expose all the public methods and also __getattribute__.
+    ProxyType._exposed_ = tuple(public_methods + ['__getattribute__'])
+
+    return ProxyType
+
+galsim.config.input.InputProxy = InputProxy
+
+
+
 def get_opsim_md(config, base):
     """
     If we don't have an OpsimMeta, then skip some header items.
