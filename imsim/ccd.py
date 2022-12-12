@@ -1,4 +1,5 @@
 import os
+import warnings
 import galsim
 from galsim.config import OutputBuilder, RegisterOutputType
 from .cosmic_rays import CosmicRays
@@ -55,7 +56,8 @@ class LSST_CCDBuilder(OutputBuilder):
         ccd_orientation = camera[det_name].getOrientation()
         if hasattr(ccd_orientation, 'getHeight'):
             z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
-            logger.info("Setting CCD z-offset to %.2e m", z_offset)
+            if z_offset != 0:
+                logger.info("Setting CCD z-offset to %.2e m", z_offset)
         else:
             z_offset = 0
         if "shift_optics" not in base:
@@ -149,7 +151,10 @@ class LSST_CCDBuilder(OutputBuilder):
         dectel = opsim_md.get('fieldDec', 0.)
         image.header['RATEL'] = ratel
         image.header['DECTEL'] = dectel
-        image.header['ROTTELPOS'] = opsim_md.get('rotTelPos', 0.)
+        with warnings.catch_warnings():
+            # Silence FITS warning about long header keyword
+            warnings.simplefilter('ignore')
+            image.header['ROTTELPOS'] = opsim_md.get('rotTelPos', 0.)
         image.header['FILTER'] = opsim_md.get('band')
         image.header['CAMERA'] = base['output']['camera']
         image.header['HASTART'] = opsim_md.getHourAngle(mjd_obs, ratel)

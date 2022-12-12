@@ -8,7 +8,7 @@ import imsim
 
 DATA_DIR = Path(__file__).parent / 'data'
 
-def load_test_skycat():
+def load_test_skycat(apply_dc2_dilation=False):
     """Read in the sky catalog data used by the various tests."""
     opsim_db_file = str(DATA_DIR / "small_opsim_9683.db")
     visit = 449053
@@ -35,7 +35,8 @@ def load_test_skycat():
     skycat_file = str(DATA_DIR / "sky_cat_9683.yaml")
 
     return imsim.SkyCatalogInterface(
-        skycat_file, wcs, bandpass, obj_types=["galaxy"]
+        skycat_file, wcs, band, obj_types=["galaxy"],
+        apply_dc2_dilation=apply_dc2_dilation
     )
 
 
@@ -145,6 +146,40 @@ class EmptySkyCatalogInterfaceTestCase(unittest.TestCase):
     def test_empty_catalog_raises_on_get_obj(self):
         with self.assertRaises(RuntimeError):
             self.skycat.getObj(0)
+
+
+class DC2DilationTestCase(unittest.TestCase):
+    """TestCase for DC2 dilation applied to galaxy components."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Setup an empty catalog"""
+        cls.skycat = load_test_skycat()
+        cls.skycat_dc2 = load_test_skycat(apply_dc2_dilation=True)
+
+    def test_dc2_dilation(self):
+        """Test DC2 dilation for a random sample of skyCatalogs galaxies"""
+        nsamp = 10
+        indexes = np.random.choice(range(len(self.skycat.objects)), nsamp)
+        for index in indexes:
+            skycat_obj = self.skycat_dc2.objects[index]
+            # Compute the DC2 scale factors from the semi-major and
+            # semi-minor axes of each component.
+            scales = []
+            for component in skycat_obj.get_gsobject_components():
+                if component == 'knots':
+                    component = 'disk'
+                a = skycat_obj.get_native_attribute(f'size_{component}_true')
+                b = skycat_obj.get_native_attribute(f'size_minor_{component}_true')
+                scales.append(np.sqrt(a/b))
+            # Check that the scalings were applied to each component
+            # by comparing to the ratio of Jacobians.
+            obj = self.skycat.getObj(index)
+            dc2_obj = self.skycat_dc2.getObj(index)
+            for i, scale in enumerate(scales):
+                jac_ratio = (dc2_obj.obj_list[i].original.jac
+                             /obj.obj_list[i].original.jac)[0, 0]
+                np.testing.assert_approx_equal(scale, jac_ratio)
 
 
 if __name__ == '__main__':

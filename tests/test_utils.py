@@ -22,3 +22,9 @@ def test_pixel_to_focal() -> None:
     y_expected = np.linspace(start=-317.255, stop=-315.255, num=4)
     np.testing.assert_almost_equal(x_t, np.tile(x_expected, len(y)))
     np.testing.assert_almost_equal(y_t, np.repeat(y_expected, len(x)))
+
+
+if __name__ == "__main__":
+    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    for testfn in testfns:
+        testfn()

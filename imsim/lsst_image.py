@@ -2,6 +2,7 @@ import os
 import json
 import numpy as np
 import scipy
+import logging
 import galsim
 from galsim.config import RegisterImageType, GetAllParams, GalSimConfigError, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
@@ -147,12 +148,15 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             logger:         If given, a logger object to log progress.
         """
         base['current_noise_image'] = base['current_image']
-        sky = GetSky(config, base, full=True)
 
-        skyCoord = base['world_center']
-        logger.info("Setting sky level to %.2f photons/arcsec^2 "
-                    "at (ra, dec) = %s, %s", sky,
-                    skyCoord.ra.deg, skyCoord.dec.deg)
+        if logger.isEnabledFor(logging.INFO):
+            skyCoord = base['world_center']
+            sky1 = GetSky(config, base, full=False)
+            logger.info("Setting sky level to %.2f photons/arcsec^2 "
+                        "at (ra, dec) = %s, %s", sky1,
+                        skyCoord.ra.deg, skyCoord.dec.deg)
+
+        sky = GetSky(config, base, full=True)
 
         if ((self.apply_sky_gradient or self.apply_vignetting)
             and not isinstance(sky, galsim.Image)):

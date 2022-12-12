@@ -51,7 +51,7 @@ jobs:
               run: |
                 # We need to get batoid onto conda, but for now, this is a separate step.
                 pip install batoid
-                pip install git+https://github.com/LSSTDESC/skyCatalogs.git@master
+                pip install skyCatalogs==1.2.0
                 conda info
                 conda list
 
