@@ -493,7 +493,8 @@ class LSST_SiliconBuilder(StampBuilder):
                                photon_ops=photon_ops,
                                rng=self.rng,
                                sensor=galsim.Sensor(),
-                               n_subsample=1
+                               n_subsample=1,
+                               maxN=int(1e6)
                                )
             except galsim.errors.GalSimFFTSizeError as e:
                 # I think this shouldn't happen with the updates I made to how the image size
