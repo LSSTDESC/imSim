@@ -475,6 +475,12 @@ class LSST_SiliconBuilder(StampBuilder):
 
         wcs = base['wcs']
 
+        # Set limit on the size of photons batches to consider when
+        # calling gsobject.drawImage.
+        maxN = int(1e6)
+        if 'maxN' in config:
+            maxN = galsim.config.ParseValue(config, 'maxN', base, int)[0]
+
         if method == 'fft':
             if not faint and 'fft_photon_ops' in config:
                 photon_ops = galsim.config.BuildPhotonOps(config, 'fft_photon_ops', base, logger)
@@ -494,7 +500,7 @@ class LSST_SiliconBuilder(StampBuilder):
                                rng=self.rng,
                                sensor=galsim.Sensor(),
                                n_subsample=1,
-                               maxN=int(1e6)
+                               maxN=maxN
                                )
             except galsim.errors.GalSimFFTSizeError as e:
                 # I think this shouldn't happen with the updates I made to how the image size
@@ -534,7 +540,7 @@ class LSST_SiliconBuilder(StampBuilder):
                            method='phot',
                            offset=offset,
                            rng=self.rng,
-                           maxN=int(1e6),
+                           maxN=maxN,
                            n_photons=self.realized_flux,
                            image=image,
                            wcs=wcs,
