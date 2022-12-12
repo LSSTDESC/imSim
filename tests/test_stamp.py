@@ -79,13 +79,13 @@ def test_lsst_silicon_builder_passes_correct_photon_ops_to_drawImage() -> None:
     logger = mock.Mock(info=mock.Mock())
     built_photon_ops = mock.Mock()
     expected_phot_args = {
-        "maxN": int(1e6),
+        "maxN": mock.ANY,
         "n_photons": mock.ANY,
         "add_to_image": True,
         "poisson_flux": False,
         "image": image,
     }
-    expected_fft_args = {"n_subsample": 1, "image": image_copy}
+    expected_fft_args = {"n_subsample": 1, "image": image_copy, "maxN": mock.ANY}
     for method, expected_specific_args in (
         ("phot", expected_phot_args),
         ("fft", expected_fft_args),
@@ -138,13 +138,13 @@ def test_stamp_builder_works_without_photon_ops_or_faint() -> None:
     offset = mock.Mock()
     logger = mock.Mock(info=mock.Mock())
     expected_phot_args = {
-        "maxN": int(1e6),
+        "maxN": mock.ANY,
         "n_photons": mock.ANY,
         "add_to_image": True,
         "poisson_flux": False,
         "image": image,
     }
-    expected_fft_args = {"n_subsample": 1, "image": image_copy}
+    expected_fft_args = {"n_subsample": 1, "image": image_copy, "maxN": mock.ANY}
     for method, expected_specific_args in (
         ("phot", expected_phot_args),
         ("fft", expected_fft_args),
