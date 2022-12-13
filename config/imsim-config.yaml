@@ -296,11 +296,6 @@ output:
             - "$det_name"   # A value stored in the dict by LSST_CCD
             - "@output.det_num"
 
-    # TODO: Not implemented yet.
-    checkpoint:
-        nobj: 500
-        cleanup: True
-
     readout:
         # Convert from e-image to realized amp images
         readout_time: 3.

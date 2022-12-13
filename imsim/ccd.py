@@ -101,7 +101,7 @@ class LSST_CCDBuilder(OutputBuilder):
         """
         # This is basically the same as the base class version.  Just a few extra things to
         # add to the ignore list.
-        ignore += [ 'file_name', 'dir', 'nfiles', 'checkpoint', 'det_num',
+        ignore += [ 'file_name', 'dir', 'nfiles', 'det_num',
                     'only_dets', 'readout', 'exp_time', 'camera' ]
 
         opt = {
