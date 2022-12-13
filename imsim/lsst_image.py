@@ -196,6 +196,9 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             saved = self.checkpoint.load(chk_name)
             if saved is not None:
                 full_image, current_var, start_batch = saved
+                logger.warning('File %d: Loaded checkpoint data from %s.  Starting at batch %d/%d',
+                               base.get('file_num', 0), self.checkpoint.file_name,
+                               start_batch, self.nbatch)
 
         if full_image is None:
             full_image = galsim.Image(full_xsize, full_ysize, dtype=dtype)
@@ -243,6 +246,10 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
 
             if self.checkpoint is not None:
                 self.checkpoint.save(chk_name, (full_image, current_var, batch+1))
+                logger.warning('File %d: Completed batch %d with objects [%d, %d), and wrote '
+                               'checkpoint data to %s',
+                               base.get('file_num', 0), batch, start_obj_num, end_obj_num,
+                               self.checkpoint.file_name)
 
         return full_image, current_var
 
