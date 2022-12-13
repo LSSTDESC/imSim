@@ -107,10 +107,10 @@ class Checkpointer:
             self.logger.debug('no checkpoint file yet')
             return None
 
-        self.logger.debug('loading ',name)
+        self.logger.debug('loading %s',name)
         with h5py.File(self.file_name, 'r') as hdf:
             if name not in hdf:
-                self.logger.debug('nothing checkpointed for ',name)
+                self.logger.debug('nothing checkpointed for %s',name)
                 return None
             arr = hdf[name][:]
             data_str = arr.tobytes()

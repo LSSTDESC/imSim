@@ -191,14 +191,16 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             }
 
         full_image = None
+        start_num = obj_num
         if self.checkpoint is not None:
             chk_name = 'buildImage'
             saved = self.checkpoint.load(chk_name)
             if saved is not None:
-                full_image, current_var, start_batch = saved
-                logger.warning('File %d: Loaded checkpoint data from %s.  Starting at batch %d/%d',
-                               base.get('file_num', 0), self.checkpoint.file_name,
-                               start_batch, self.nbatch)
+                full_image, current_var, start_num = saved
+                logger.warning('File %d: Loaded checkpoint data from %s.  '
+                               'Starting at obj_num %d',
+                               base.get('file_num', 0), self.checkpoint.file_name, start_num)
+        nobj_tot = self.nobjects - (start_num - obj_num)
 
         if full_image is None:
             full_image = galsim.Image(full_xsize, full_ysize, dtype=dtype)
@@ -208,17 +210,18 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             start_batch = 0
         base['current_image'] = full_image
 
-        for batch in range(start_batch, self.nbatch):
-            start_obj_num = (self.nobjects * batch // self.nbatch)
-            end_obj_num = (self.nobjects * (batch+1) // self.nbatch)
-            nobj = end_obj_num - start_obj_num
+        for batch in range(self.nbatch):
+            start_obj_num = start_num + (nobj_tot * batch // self.nbatch)
+            end_obj_num = start_num + (nobj_tot * (batch+1) // self.nbatch)
+            nobj_batch = end_obj_num - start_obj_num
+            if nobj_batch == 0: continue
             logger.info("Start batch %d/%d with %d objects [%d, %d)",
-                        batch, self.nbatch, nobj, start_obj_num, end_obj_num)
+                        batch, self.nbatch, nobj_batch, start_obj_num, end_obj_num)
             stamps, current_vars = galsim.config.BuildStamps(
-                    nobj, base, logger=logger, obj_num=start_obj_num, do_noise=False)
+                    nobj_batch, base, logger=logger, obj_num=start_obj_num, do_noise=False)
             base['index_key'] = 'image_num'
 
-            for k in range(nobj):
+            for k in range(nobj_batch):
                 # This is our signal that the object was skipped.
                 if stamps[k] is None: continue
                 bounds = stamps[k].bounds & full_image.bounds
@@ -245,10 +248,10 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                     base, full_image, stamps, current_vars, logger)
 
             if self.checkpoint is not None:
-                self.checkpoint.save(chk_name, (full_image, current_var, batch+1))
+                self.checkpoint.save(chk_name, (full_image, current_var, end_obj_num))
                 logger.warning('File %d: Completed batch %d with objects [%d, %d), and wrote '
                                'checkpoint data to %s',
-                               base.get('file_num', 0), batch, start_obj_num, end_obj_num,
+                               base.get('file_num', 0), batch+1, start_obj_num, end_obj_num,
                                self.checkpoint.file_name)
 
         return full_image, current_var
