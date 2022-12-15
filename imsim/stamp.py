@@ -408,7 +408,7 @@ class LSST_SiliconBuilder(StampBuilder):
             raise galsim.GalSimConfigValueError("Invalid draw_method.", method,
                                                 galsim.config.valid_draw_methods)
         if method  == 'auto':
-            if  self.use_fft:
+            if self.use_fft:
                 logger.info('Auto -> Use FFT drawing for object %d.',base['obj_num'])
                 return 'fft'
             else:
@@ -548,6 +548,7 @@ class LSST_SiliconBuilder(StampBuilder):
                            photon_ops=photon_ops,
                            add_to_image=True,
                            poisson_flux=False)
+
         return image
 
 
