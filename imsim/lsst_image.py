@@ -210,13 +210,14 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             start_batch = 0
         base['current_image'] = full_image
 
-        for batch in range(self.nbatch):
-            start_obj_num = start_num + (nobj_tot * batch // self.nbatch)
-            end_obj_num = start_num + (nobj_tot * (batch+1) // self.nbatch)
+        nbatch = min(self.nbatch, nobj_tot)
+        for batch in range(nbatch):
+            start_obj_num = start_num + (nobj_tot * batch // nbatch)
+            end_obj_num = start_num + (nobj_tot * (batch+1) // nbatch)
             nobj_batch = end_obj_num - start_obj_num
-            if nobj_batch == 0: continue
-            logger.info("Start batch %d/%d with %d objects [%d, %d)",
-                        batch, self.nbatch, nobj_batch, start_obj_num, end_obj_num)
+            if nbatch > 1:
+                logger.warning("Start batch %d/%d with %d objects [%d, %d)",
+                               batch+1, nbatch, nobj_batch, start_obj_num, end_obj_num)
             stamps, current_vars = galsim.config.BuildStamps(
                     nobj_batch, base, logger=logger, obj_num=start_obj_num, do_noise=False)
             base['index_key'] = 'image_num'
