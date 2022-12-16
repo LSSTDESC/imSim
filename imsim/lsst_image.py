@@ -197,10 +197,13 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             saved = self.checkpoint.load(chk_name)
             if saved is not None:
                 full_image, current_var, start_num, base['extra_builder'] = saved
-                logger.warning('File %d: Loaded checkpoint data from %s.  '
-                               'Starting at obj_num %d',
-                               base.get('file_num', 0), self.checkpoint.file_name, start_num)
-                logger.info("Skipping objects %d .. %d", obj_num, start_num-1)
+                logger.warning('File %d: Loaded checkpoint data from %s.',
+                               base.get('file_num', 0), self.checkpoint.file_name)
+                if start_num == obj_num + self.nobjects:
+                    logger.warning('All objects already rendered for this image.')
+                else:
+                    logger.warning("Objects %d..%d already rendered", obj_num, start_num-1)
+                    logger.warning('Starting at obj_num %d', start_num)
         nobj_tot = self.nobjects - (start_num - obj_num)
 
         if full_image is None:
