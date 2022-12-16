@@ -248,7 +248,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             # Note: This is pretty sub-optimal when nbatch > 0, but it's only relevant when
             #       drawing RealGalaxy objects, which we usually don't do in imSim.  We might
             #       need to rethink this a bit if people want to use RealGalaxy's with
-            #       checkpointing (or in general nbatch>0).
+            #       checkpointing (or in general nbatch>1).
             current_var = galsim.config.FlattenNoiseVariance(
                     base, full_image, stamps, current_vars, logger)
 
