@@ -245,7 +245,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                             full_image.bounds.ymin, full_image.bounds.ymax))
 
             # Bring the image so far up to a flat noise variance
-            # Note: This is pretty sub-optimal when nbatch > 0, but it's only relevant when
+            # Note: This is pretty sub-optimal when nbatch > 1, but it's only relevant when
             #       drawing RealGalaxy objects, which we usually don't do in imSim.  We might
             #       need to rethink this a bit if people want to use RealGalaxy's with
             #       checkpointing (or in general nbatch>1).
