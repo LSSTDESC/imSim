@@ -4,3 +4,4 @@ stackvana>=0.2021.30
 galsim>=2.4
 dust_extinction>=1.0
 palpy>=1.8.1
+h5py

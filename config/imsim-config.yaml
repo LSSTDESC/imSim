@@ -99,11 +99,18 @@ input:
         # half a minute or so to read all 189 detectors (the default behavior).
         # only_dets: [R22_S11]
 
+    checkpoint:
+        dir: checkpoint
+        file_name:
+          type: FormattedStr
+          format : checkpoint_%08d-%s.hdf
+          items:
+              - { type: OpsimMeta, field: observationId }
+              - "$det_name"
+
 
 # Define how the objects are placed on the image.  This refers to a single CCD.
 image:
-    # This is mostly like the GalSim "Scattered" image type.
-    # The only difference currently is the option to apply vignetting to the sky background.
     type: LSST_Image
 
     random_seed: { type: OpsimMeta, field: seed }
@@ -288,11 +295,6 @@ output:
             - { type: OpsimMeta, field: band }
             - "$det_name"   # A value stored in the dict by LSST_CCD
             - "@output.det_num"
-
-    # TODO: Not implemented yet.
-    checkpoint:
-        nobj: 500
-        cleanup: True
 
     readout:
         # Convert from e-image to realized amp images

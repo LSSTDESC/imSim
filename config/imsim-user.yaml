@@ -35,6 +35,7 @@ input.tree_rings.only_dets: [R22_S11]
 input.opsim_meta_dict:
     file_name: ../tests/data/tiny_instcat.txt
 
-image.nobjects: 5
+#image.nobjects: 5    # (Default is all objects in input file.)
+#image.nbatch: 10     # (Default is 10 if using checkpointing, 1 otherwise.)
 
 output.dir: output # default `fits`
