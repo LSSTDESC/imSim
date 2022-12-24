@@ -58,7 +58,7 @@ class SkyCatalogInterface:
 
     def __init__(self, file_name, wcs, band, xsize=4096, ysize=4096, obj_types=None,
                  skycatalog_root=None, edge_pix=100, max_flux=None, logger=None,
-                 apply_dc2_dilation=False):
+                 apply_dc2_dilation=False, approx_nobjects=None):
         """
         Parameters
         ----------
@@ -93,6 +93,10 @@ class SkyCatalogInterface:
             This has the net effect of using the semi-major axis as the
             sersic half-light radius when building the object.  This will
             only be applied to galaxies.
+        approx_nobjects : int [None]
+            Approximate number of objects per CCD used by galsim to
+            set up the image processing.  If None, then the actual number
+            of objects found by skyCatalogs, via .getNObjects will be used.
         """
         self.file_name = file_name
         self.wcs = wcs
@@ -102,6 +106,7 @@ class SkyCatalogInterface:
         self.obj_types = obj_types
         self.max_flux = max_flux
         self.apply_dc2_dilation = apply_dc2_dilation
+        self.approx_nobjects = approx_nobjects
         if skycatalog_root is None:
             self.skycatalog_root = os.path.dirname(os.path.abspath(file_name))
         else:
@@ -143,11 +148,18 @@ class SkyCatalogInterface:
 
     def getNObjects(self):
         """
-        Return the number of GSObjects to render, where each subcomponent
-        (e.g., bulge, disk, etc.) of each skyCatalog object is a distinct
-        GSObject.
+        Return the number of GSObjects to render.
         """
         return len(self.objects)
+
+    def getApproxNObjects(self):
+        """
+        Return the approximate number of GSObjects to render, as set in
+        the class initializer.
+        """
+        if self.approx_nobjects is not None:
+            return self.approx_nobjects
+        return self.getNObjects()
 
     def getWorldPos(self, index):
         """
@@ -234,7 +246,8 @@ class SkyCatalogLoader(InputLoader):
                'edge_pix' : float,
                'obj_types' : list,
                'max_flux' : float,
-               'apply_dc2_dilation': bool
+               'apply_dc2_dilation': bool,
+               'approx_nobjects' : int
               }
         meta = galsim.config.GetInputObj('opsim_meta_dict', config, base,
                                          'SkyCatalogLoader')
