@@ -298,6 +298,13 @@ class AtmLoader(InputLoader):
           exposures (rather than just multiple CCDs for a single exposure), we'll need to
           reconsider this implementation.
     """
+    def __init__(self):
+        # Override some defaults in the base init.
+        super().__init__(init_func=AtmosphericPSF,
+                         takes_logger=True, use_proxy=False,
+                         worker_init=galsim.phase_screens.initWorker,
+                         worker_initargs=galsim.phase_screens.initWorkerArgs)
+
     def getKwargs(self, config, base, logger):
         logger.debug("Get kwargs for AtmosphericPSF")
 
@@ -340,12 +347,7 @@ class AtmLoader(InputLoader):
         kwargs['logger'] = logger
 
         # safe=True means this will be used for the whole run.
-        #safe = True
-        # TODO: However, this isn't working yet, since the multiple processes aren't getting the
-        # GSScreenShare dict updated properly.  For now, we rely on the base process making the
-        # atmosphere if necessary and saving it to save_file.  Then other processes will
-        # load it in.  This happens if safe=False.
-        safe=False
+        safe = True
 
         return kwargs, safe
 
@@ -461,7 +463,7 @@ def BuildKolmogorovPSF(config, base, ignore, gsparams, logger):
 
     return psf, safe
 
-RegisterInputType('atm_psf', AtmLoader(AtmosphericPSF, takes_logger=True))
+RegisterInputType('atm_psf', AtmLoader())
 RegisterObjectType('AtmosphericPSF', BuildAtmosphericPSF, input_type='atm_psf')
 RegisterObjectType('DoubleGaussianPSF', BuildDoubleGaussianPSF)
 RegisterObjectType('KolmogorovPSF', BuildKolmogorovPSF)
