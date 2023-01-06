@@ -279,10 +279,14 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
 
         if logger.isEnabledFor(logging.INFO):
             skyCoord = base['world_center']
+            # Normally skyCoord is a CelestialCoord, but if not make sure this doesn't bork.
+            try:
+                ra, dec = skyCoord.ra.deg, skyCoord.dec.deg
+            except AttributeError:
+                ra, dec = 0,0
             sky1 = GetSky(config, base, full=False)
             logger.info("Setting sky level to %.2f photons/arcsec^2 "
-                        "at (ra, dec) = %s, %s", sky1,
-                        skyCoord.ra.deg, skyCoord.dec.deg)
+                        "at (ra, dec) = %s, %s", sky1, ra, dec)
 
         sky = GetSky(config, base, full=True)
 
