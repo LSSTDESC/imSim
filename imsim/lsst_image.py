@@ -191,6 +191,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             }
 
         full_image = None
+        current_var = 0
         start_num = obj_num
         if self.checkpoint is not None:
             chk_name = 'buildImage_%s'%(base.get('det_name',''))
