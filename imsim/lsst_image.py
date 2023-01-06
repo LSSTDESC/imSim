@@ -197,7 +197,9 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             chk_name = 'buildImage_%s'%(base.get('det_name',''))
             saved = self.checkpoint.load(chk_name)
             if saved is not None:
-                full_image, current_var, start_num, base['extra_builder'] = saved
+                full_image, current_var, start_num, extra_builder = saved
+                if extra_builder is not None:
+                    base['extra_builder'] = extra_builder
                 logger.warning('File %d: Loaded checkpoint data from %s.',
                                base.get('file_num', 0), self.checkpoint.file_name)
                 if start_num == obj_num + self.nobjects:
@@ -254,7 +256,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                     base, full_image, stamps, current_vars, logger)
 
             if self.checkpoint is not None:
-                data = (full_image, current_var, end_obj_num, base['extra_builder'])
+                data = (full_image, current_var, end_obj_num, base.get('extra_builder',None))
                 self.checkpoint.save(chk_name, data)
                 logger.warning('File %d: Completed batch %d with objects [%d, %d), and wrote '
                                'checkpoint data to %s',
