@@ -7,8 +7,60 @@ import time
 import logging
 import imsim
 import fitsio
+import shutil
 
 DATA_DIR = Path(__file__).parent / 'data'
+
+
+def test_checkpoint_base():
+    """Test various aspects of the Checkpointer class directly.
+    """
+    # Check file names
+    if os.path.exists('output/chk.hdf'):
+        os.remove('output/chk.hdf')
+    chk = imsim.Checkpointer('output/chk.hdf')
+    assert chk.file_name == 'output/chk.hdf'
+    assert chk.file_name_bak == 'output/chk.hdf_bak'
+    assert chk.file_name_new == 'output/chk.hdf_new'
+
+    # Test save
+    data = np.arange(5)
+    chk.save('test1', data)
+    chk.save('test2', (data, 17))
+
+    # Test load
+    chk2 = imsim.Checkpointer('chk.hdf', dir='output')
+    assert chk2.file_name == 'output/chk.hdf'
+    data2 = chk2.load('test1')
+    np.testing.assert_equal(data, data2)
+    np.testing.assert_equal(chk2.load('test2'), (data, 17))
+    assert chk2.load('test3') is None
+
+    # Test overwrite save
+    chk.save('test2', (data, 32))
+    np.testing.assert_equal(chk2.load('test2'), (data, 32))
+
+    # Test recover from backup
+    os.rename(chk.file_name, chk.file_name_bak)
+    chk3 = imsim.Checkpointer('output/chk.hdf')
+    np.testing.assert_equal(chk3.load('test2'), (data, 32))
+    assert not os.path.isfile(chk.file_name_bak)
+
+    shutil.copy(chk.file_name, chk.file_name_bak)
+    chk3 = imsim.Checkpointer('output/chk.hdf')
+    np.testing.assert_equal(chk3.load('test2'), (data, 32))
+    assert not os.path.isfile(chk.file_name_bak)
+
+    shutil.copy(chk.file_name, chk.file_name_bak)
+    os.rename(chk.file_name, chk.file_name_new)
+    chk3 = imsim.Checkpointer('output/chk.hdf')
+    np.testing.assert_equal(chk3.load('test2'), (data, 32))
+    assert not os.path.isfile(chk.file_name_bak)
+    assert not os.path.isfile(chk.file_name_new)
+
+    # Test loading from new file
+    chk4 = imsim.Checkpointer('output/chk4.hdf')
+    assert chk4.load('test2') is None
 
 
 def test_checkpoint_image():

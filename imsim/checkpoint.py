@@ -52,13 +52,13 @@ class Checkpointer:
                 # Case C
                 self.logger.warning("Backup file %s also exists. Deleting.", self.file_name_bak)
                 os.remove(self.file_name_bak)
-        elif os.path.isfile(self.file_name + "_bak"):
+        elif os.path.isfile(self.file_name_bak):
             # Case B
             self.logger.warning("Backup checkpoint file %s exists. Recovering.", self.file_name_bak)
             os.rename(self.file_name_bak, self.file_name)
             if os.path.isfile(self.file_name_new):
                 self.logger.info("Also found file %s. Deleting.", self.file_name_new)
-                os.remove(self.file_name_bak)
+                os.remove(self.file_name_new)
         else:
             # Case A
             self.logger.info("No checkpoint file %s detected.", self.file_name)
