@@ -11,6 +11,17 @@ import shutil
 
 DATA_DIR = Path(__file__).parent / 'data'
 
+# Used below in both test_checkpoint_image and test_checkpoint_flatten
+def timeout_one(config, base, value_type):
+    p = config['p']
+    rng = galsim.config.GetRNG(config, base).duplicate()
+    u = galsim.UniformDeviate(rng)()
+    if u < p:
+        raise TimeoutError("u = %f < %f at obj_num = %d"%(u,p,base['obj_num']))
+    return 1
+
+galsim.config.RegisterValueType('timeout_one', timeout_one, [float])
+
 
 def test_checkpoint_base():
     """Test various aspects of the Checkpointer class directly.
@@ -67,7 +78,6 @@ def test_checkpoint_image():
     """Test using checkpointing in LSST_Image type.
     """
     wcs = galsim.PixelScale(0.2)
-    bandpass = galsim.Bandpass('LSST_r.dat', 'nm')
     if os.path.exists('output/checkpoint_0.hdf'):
         os.remove('output/checkpoint_0.hdf')
     config = {
@@ -91,7 +101,6 @@ def test_checkpoint_image():
             'xsize': 2048,
             'ysize': 2048,
             'wcs': wcs,
-            'bandpass': bandpass,
             'random_seed': 12345,
             'nobjects': 500,
         },
@@ -155,15 +164,7 @@ def test_checkpoint_image():
 
     # Finally, test a series of runs where the jobs time out and resume using the checkpoint file.
     # Rather than actually timing out, we include a function that has some probability of
-    # calling exit().
-    def timeout_one(config, base, value_type):
-        p = config['p']
-        rng = galsim.config.GetRNG(config, base)
-        u = galsim.UniformDeviate(rng)()
-        if u < p:
-            raise TimeoutError("u = %f < %f at obj_num = %d"%(u,p,base['obj_num']))
-        return 1
-    galsim.config.RegisterValueType('timeout_one', timeout_one, [float])
+    # raising a TimeoutError.  (Defined above, since we also use it in test_checkpoint_flatten.)
 
     os.remove('output/checkpoint_0.hdf')
     os.remove('output/test_checkpoint_image_0.fits.fz')
@@ -186,7 +187,7 @@ def test_checkpoint_image():
 
         chk = imsim.Checkpointer('output/checkpoint_0.hdf').load('buildImage_')
         if chk is not None:
-            print('nobj complete = ',chk[2])
+            print('nobj complete = ',chk[3])
         p /= 2
 
     image4 = galsim.fits.read('output/test_checkpoint_image_0.fits.fz')
@@ -204,6 +205,89 @@ def test_checkpoint_image():
     centroid5 = fitsio.read('output/test_checkpoint_centroid_0.fits')
     assert image5 == image2
     np.testing.assert_array_equal(centroid5, centroid2)
+
+
+def test_checkpoint_flatten():
+    """Test the flatten() step of buildImage when using checkpointing
+    """
+    # If LSST_Image is used with RealGalaxy objects, then we have to "flatten" the noise.
+    # This is a bit tricky to do correctly in conjunction with checkpointing, so this
+    # test verifies that this is done correctly.
+    real_gal_dir = 'real_gals'
+    real_gal_cat = 'real_galaxy_catalog_23.5_example.fits'
+    config = {
+        'input': {
+            'real_catalog': {
+                'dir': real_gal_dir,
+                'file_name': real_gal_cat,
+            },
+        },
+        'gal': {
+            'type': 'RealGalaxy',
+            'index': 79,
+            'flux': {'type': 'Random', 'min': 100, 'max': 500}
+        },
+        'image': {
+            'type': 'LSST_Image',
+            'xsize': 2048,
+            'ysize': 2048,
+            'pixel_scale': 0.2,
+            'random_seed': 12345,
+            'nobjects': 20,
+            'noise': {
+                'type': 'Gaussian',
+                'sigma': 30,
+                'whiten': True,
+            },
+        },
+        'stamp': {
+            # Somewhat gratuitously test two other features in LSST_Image while we're at it.
+            # 1. some objects being skipped
+            # 2. some objects being off the image.
+            'skip': {'type': 'Random', 'p': 0.1},
+            'image_pos': {
+                'type' : 'XY' ,
+                'x' : { 'type' : 'Random' , 'min' : -300, 'max' : 2350 },
+                'y' : { 'type' : 'Random' , 'min' : -300, 'max' : 2350 }
+            },
+        },
+    }
+
+    # First without any checkpointing or batching
+    galsim.config.ProcessInput(config)
+    im1 = galsim.config.BuildImage(config)
+
+    # Second with nbatch > 1, but not yet checkpointing.
+    config = galsim.config.CleanConfig(config)
+    config['image']['nbatch'] = 5
+    im2 = galsim.config.BuildImage(config)
+    assert im1 == im2
+
+    # Finally, with checkpointing
+    if os.path.exists('output/checkpoint_flat_0.hdf'):
+        os.remove('output/checkpoint_flat_0.hdf')
+    config['input']['checkpoint'] = {
+        'dir': 'output',
+        'file_name': '$"checkpoint_flat_%d.hdf"%image_num',
+    }
+    p = 0.1
+    while True:
+        print('p = ',p)
+        config['gal']['scale_flux'] = { 'type': 'timeout_one', 'p': p }
+        config = galsim.config.CleanConfig(config)
+        try:
+            im3 = galsim.config.BuildImage(config)
+            break
+        except Exception as e:
+            print('Caught ',e)
+            p /= 2
+    assert im1 == im3
+
+    # Lastly, one additional test to complete the coverage of the buildImage method in
+    # LSST_ImageBuilder.
+    config['image']['world_pos'] = config['image']['image_pos']
+    with np.testing.assert_raises(galsim.GalSimConfigError):
+        galsim.config.BuildImage(config)
 
 
 

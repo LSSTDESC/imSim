@@ -4,7 +4,7 @@ import numpy as np
 import scipy
 import logging
 import galsim
-from galsim.config import RegisterImageType, GetAllParams, GalSimConfigError, GetSky, AddNoise
+from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
 from lsst.afw import cameraGeom
 import lsst.geom
@@ -127,20 +127,20 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
             self.nbatch = params.get('nbatch', 10)
-        except galsim.GalSimConfigError:
+        except galsim.config.GalSimConfigError:
             self.checkpoint = None
             self.nbatch = params.get('nbatch', 1)
             # Note: This will probably also become 10 once we're doing the photon
             #       pooling stuff.  But for now, let it be 1 if not checkpointing.
 
         if (full_xsize <= 0) or (full_ysize <= 0):
-            raise GalSimConfigError(
+            raise galsim.config.GalSimConfigError(
                 "Both image.xsize and image.ysize need to be defined and > 0.")
 
         # If image_force_xsize and image_force_ysize were set in config, make sure it matches.
         if ( ('image_force_xsize' in base and full_xsize != base['image_force_xsize']) or
              ('image_force_ysize' in base and full_ysize != base['image_force_ysize']) ):
-            raise GalSimConfigError(
+            raise galsim.config.GalSimConfigError(
                 "Unable to reconcile required image xsize and ysize with provided "
                 "xsize=%d, ysize=%d, "%(full_xsize,full_ysize))
 
@@ -175,7 +175,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         dtype = _ParseDType(config, base)
 
         if 'image_pos' in config and 'world_pos' in config:
-            raise GalSimConfigValueError(
+            raise galsim.config.GalSimConfigValueError(
                 "Both image_pos and world_pos specified for LSST_Image.",
                 (config['image_pos'], config['world_pos']))
 
@@ -193,13 +193,21 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         full_image = None
         current_var = 0
         start_num = obj_num
+
+        # For cases where there is noise in individual stamps, we need to keep track of the
+        # stamp bounds and their current variances.  When checkpointing, we don't need to
+        # save the pixel values for this, just the bounds and the current_var value of each.
+        all_stamps = []
+        all_vars = []
+
         if self.checkpoint is not None:
             chk_name = 'buildImage_%s'%(base.get('det_name',''))
             saved = self.checkpoint.load(chk_name)
             if saved is not None:
-                full_image, current_var, start_num, extra_builder = saved
+                full_image, all_bounds, all_vars, start_num, extra_builder = saved
                 if extra_builder is not None:
                     base['extra_builder'] = extra_builder
+                all_stamps = [galsim._Image(np.array([]), b, full_image.wcs) for b in all_bounds]
                 logger.warning('File %d: Loaded checkpoint data from %s.',
                                base.get('file_num', 0), self.checkpoint.file_name)
                 if start_num == obj_num + self.nobjects:
@@ -231,37 +239,42 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
 
             for k in range(nobj_batch):
                 # This is our signal that the object was skipped.
-                if stamps[k] is None: continue
+                if stamps[k] is None:
+                    continue
                 bounds = stamps[k].bounds & full_image.bounds
+                if not bounds.isDefined():  # pragma: no cover
+                    # These noramlly show up as stamp==None, but technically it is possible
+                    # to get a stamp that is off the main image, so check for that here to
+                    # avoid an error.  But this isn't covered in the imsim test suite.
+                    continue
+
                 logger.debug('image %d: full bounds = %s', image_num, str(full_image.bounds))
                 logger.debug('image %d: stamp %d bounds = %s',
                         image_num, k+start_obj_num, str(stamps[k].bounds))
                 logger.debug('image %d: Overlap = %s', image_num, str(bounds))
-                if bounds.isDefined():
-                    full_image[bounds] += stamps[k][bounds]
-                else:
-                    logger.info(
-                        "Object centered at (%d,%d) is entirely off the main image, "
-                        "whose bounds are (%d,%d,%d,%d)."%(
-                            stamps[k].center.x, stamps[k].center.y,
-                            full_image.bounds.xmin, full_image.bounds.xmax,
-                            full_image.bounds.ymin, full_image.bounds.ymax))
+                full_image[bounds] += stamps[k][bounds]
 
-            # Bring the image so far up to a flat noise variance
-            # Note: This is pretty sub-optimal when nbatch > 1, but it's only relevant when
-            #       drawing RealGalaxy objects, which we usually don't do in imSim.  We might
-            #       need to rethink this a bit if people want to use RealGalaxy's with
-            #       checkpointing (or in general nbatch>1).
-            current_var = galsim.config.FlattenNoiseVariance(
-                    base, full_image, stamps, current_vars, logger)
+            # Note: in typical imsim usage, all current_vars will be 0. So this normally doens't
+            # add much to the checkpointing data.
+            nz_var = np.nonzero(current_vars)[0]
+            all_stamps.extend([stamps[k] for k in nz_var])
+            all_vars.extend([current_vars[k] for k in nz_var])
 
             if self.checkpoint is not None:
-                data = (full_image, current_var, end_obj_num, base.get('extra_builder',None))
+                # Don't save the full stamps.  All we need for FlattenNoiseVariance is the bounds.
+                # Everything else about the stamps has already been handled above.
+                all_bounds = [stamp.bounds for stamp in all_stamps]
+                data = (full_image, all_bounds, all_vars, end_obj_num,
+                        base.get('extra_builder',None))
                 self.checkpoint.save(chk_name, data)
                 logger.warning('File %d: Completed batch %d with objects [%d, %d), and wrote '
                                'checkpoint data to %s',
                                base.get('file_num', 0), batch+1, start_obj_num, end_obj_num,
                                self.checkpoint.file_name)
+
+        # Bring the image so far up to a flat noise variance
+        current_var = galsim.config.FlattenNoiseVariance(
+                base, full_image, all_stamps, tuple(all_vars), logger)
 
         return full_image, current_var
 
