@@ -213,7 +213,7 @@ def test_checkpoint_flatten():
     # If LSST_Image is used with RealGalaxy objects, then we have to "flatten" the noise.
     # This is a bit tricky to do correctly in conjunction with checkpointing, so this
     # test verifies that this is done correctly.
-    real_gal_dir = 'real_gals'
+    real_gal_dir = DATA_DIR
     real_gal_cat = 'real_galaxy_catalog_23.5_example.fits'
     config = {
         'input': {
