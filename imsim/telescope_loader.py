@@ -35,7 +35,7 @@ def infer_optic_radii(optic):
 
 
 def load_telescope(
-    file_name, perturb=(), rotTelPos=None, cameraName="LSSTCamera"
+    file_name, perturbations=(), rotTelPos=None, cameraName="LSSTCamera"
 ):
     """ Load a telescope.
 
@@ -43,7 +43,7 @@ def load_telescope(
     ----------
     file_name : str
         File name describing batoid Optic in yaml format.
-    perturb : (list of) dict
+    perturbs : (list of) dict
         (List of) dict describing perturbations to apply to the telescope in
         order.  Each dict should have a key that is the type of perturbation,
         and a value that is a dict indicating which optic to perturb and the
@@ -94,64 +94,71 @@ def load_telescope(
         }
     """
     telescope = batoid.Optic.fromYaml(file_name)
-    if not isinstance(perturb, Sequence):
-        perturb = [perturb]
-    for group in perturb:
-        for ptype, pvals in group.items():
-            if ptype == 'shift':
-                for optic, shift in pvals.items():
+    if not isinstance(perturbations, Sequence):
+        perturbations = [perturbations]
+    for group in perturbations:
+        for optic, perturbs in group.items():
+            for ptype, pval in perturbs.items():
+                if ptype == 'shift':
                     telescope = telescope.withLocallyShiftedOptic(
-                        optic, shift
+                        optic, pval
                     )
-            elif ptype == 'rotX':
-                for optic, angle in pvals.items():
-                    telescope = telescope.withLocallyRotatedOptic(
-                        optic, batoid.RotX(angle)
-                    )
-            elif ptype == 'rotY':
-                for optic, angle in pvals.items():
-                    telescope = telescope.withLocallyRotatedOptic(
-                        optic, batoid.RotY(angle)
-                    )
-            elif ptype == 'rotZ':
-                for optic, angle in pvals.items():
-                    telescope = telescope.withLocallyRotatedOptic(
-                        optic, batoid.RotZ(angle)
-                    )
-            elif ptype == 'Zernike':
-                for optic, kwargs in pvals.items():
-                    R_outer = kwargs.get('R_outer', None)
-                    R_inner = kwargs.get('R_inner', None)
-                    if sum([R_outer is None, R_inner is None]) == 1:
-                        raise ValueError(
-                            "Must specify both or neither of R_outer and R_inner"
-                        )
-                    if not R_outer or not R_inner:
-                        R_outer, R_inner = infer_optic_radii(telescope[optic])
 
-                    if 'coef' in kwargs and 'idx' in kwargs:
-                        raise ValueError(
-                            "Cannot specify both coef and idx for Zernike perturbation"
-                        )
-                    if 'coef' in kwargs:
-                        coef = kwargs['coef']
-                    if 'idx' in kwargs:
-                        idx = kwargs['idx']
-                        if not isinstance(idx, Sequence):
-                            idx = [idx]
-                        val = kwargs['val']
-                        if not isinstance(val, Sequence):
-                            val = [val]
-                        coef = [0.0]*(max(idx)+1)
-                        for i, v in zip(idx, val):
-                            coef[i] = v
-                    telescope = telescope.withSurface(
-                        optic,
-                        batoid.Sum([
-                            telescope[optic].surface,
-                            batoid.Zernike(coef, R_outer, R_inner)
-                        ])
-                    )
+        # for ptype, pvals in group.items():
+        #     if ptype == 'shift':
+        #         for optic, shift in pvals.items():
+        #             telescope = telescope.withLocallyShiftedOptic(
+        #                 optic, shift
+        #             )
+        #     elif ptype == 'rotX':
+        #         for optic, angle in pvals.items():
+        #             telescope = telescope.withLocallyRotatedOptic(
+        #                 optic, batoid.RotX(angle)
+        #             )
+        #     elif ptype == 'rotY':
+        #         for optic, angle in pvals.items():
+        #             telescope = telescope.withLocallyRotatedOptic(
+        #                 optic, batoid.RotY(angle)
+        #             )
+        #     elif ptype == 'rotZ':
+        #         for optic, angle in pvals.items():
+        #             telescope = telescope.withLocallyRotatedOptic(
+        #                 optic, batoid.RotZ(angle)
+        #             )
+        #     elif ptype == 'Zernike':
+        #         for optic, kwargs in pvals.items():
+        #             R_outer = kwargs.get('R_outer', None)
+        #             R_inner = kwargs.get('R_inner', None)
+        #             if sum([R_outer is None, R_inner is None]) == 1:
+        #                 raise ValueError(
+        #                     "Must specify both or neither of R_outer and R_inner"
+        #                 )
+        #             if not R_outer or not R_inner:
+        #                 R_outer, R_inner = infer_optic_radii(telescope[optic])
+
+        #             if 'coef' in kwargs and 'idx' in kwargs:
+        #                 raise ValueError(
+        #                     "Cannot specify both coef and idx for Zernike perturbation"
+        #                 )
+        #             if 'coef' in kwargs:
+        #                 coef = kwargs['coef']
+        #             if 'idx' in kwargs:
+        #                 idx = kwargs['idx']
+        #                 if not isinstance(idx, Sequence):
+        #                     idx = [idx]
+        #                 val = kwargs['val']
+        #                 if not isinstance(val, Sequence):
+        #                     val = [val]
+        #                 coef = [0.0]*(max(idx)+1)
+        #                 for i, v in zip(idx, val):
+        #                     coef[i] = v
+        #             telescope = telescope.withSurface(
+        #                 optic,
+        #                 batoid.Sum([
+        #                     telescope[optic].surface,
+        #                     batoid.Zernike(coef, R_outer, R_inner)
+        #                 ])
+        #             )
 
     if rotTelPos is not None:
         telescope = telescope.withLocallyRotatedOptic(
@@ -178,9 +185,9 @@ class TelescopeLoader(InputLoader):
     """
     def getKwargs(self, config, base, logger):
         req, opt, single, takes_rng = get_cls_params(self.init_func)
-        perturb = config.pop('perturb', ())
+        perturbations = config.pop('perturbations', ())
         kwargs, safe = GetAllParams(config, base, req=req, opt=opt, single=single)
-        kwargs['perturb'] = perturb
+        kwargs['perturbations'] = perturbations
         return kwargs, True
 
     def setupImage(self, input_obj, config, base, logger=None):
