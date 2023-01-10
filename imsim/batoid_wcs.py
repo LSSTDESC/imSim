@@ -32,6 +32,13 @@ from .utils import pixel_to_focal, focal_to_pixel
 #     Pixels on an individual detector.
 
 
+def det_z_offset(det):
+    ccd_orientation = det.getOrientation()
+    if hasattr(ccd_orientation, 'getHeight'):
+        return ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
+    return 0.
+
+
 class BatoidWCSFactory:
     """
     Factory for constructing WCS's.  Currently hard-coded for Rubin Observatory.
@@ -338,11 +345,7 @@ class BatoidWCSFactory:
         return result.x[:N], result.x[N:]
 
     def get_field_samples(self, det):
-        ccd_orientation = det.getOrientation()
-        if hasattr(ccd_orientation, 'getHeight'):
-            z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
-        else:
-            z_offset = 0
+        z_offset = det_z_offset(det)
 
         # Get field angle of detector center.
         fpx, fpy = det.getCenter(cameraGeom.FOCAL_PLANE)
@@ -377,12 +380,7 @@ class BatoidWCSFactory:
             WCS transformation between ICRF <-> pixels.
         """
         thxs, thys = self.get_field_samples(det)
-
-        ccd_orientation = det.getOrientation()
-        if hasattr(ccd_orientation, 'getHeight'):
-            z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
-        else:
-            z_offset = 0
+        z_offset = det_z_offset(det)
 
         # trace both directions (field -> ICRF and field -> pixel)
         # then fit TanSIP to ICRF -> pixel.
@@ -407,11 +405,7 @@ class BatoidWCSFactory:
         x, y : array
             Pixel coordinates.
         """
-        ccd_orientation = det.getOrientation()
-        if hasattr(ccd_orientation, 'getHeight'):
-            z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
-        else:
-            z_offset = 0
+        z_offset = det_z_offset(det)
 
         rob, dob = self._ICRF_to_observed(rc, dc)
         thx, thy = self._observed_to_field(rob, dob)
@@ -433,11 +427,7 @@ class BatoidWCSFactory:
         rc, dc : array
             right ascension and declination in ICRF in radians
         """
-        ccd_orientation = det.getOrientation()
-        if hasattr(ccd_orientation, 'getHeight'):
-            z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
-        else:
-            z_offset = 0
+        z_offset = det_z_offset(det)
 
         fpx, fpy = pixel_to_focal(x, y, det)
         thx, thy = self._focal_to_field(fpx, fpy, z_offset=z_offset)
