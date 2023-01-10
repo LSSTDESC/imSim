@@ -115,40 +115,36 @@ def load_telescope(
                     telescope = telescope.withLocallyRotatedOptic(
                         optic, batoid.RotZ(pval)
                     )
-        #     elif ptype == 'Zernike':
-        #         for optic, kwargs in pvals.items():
-        #             R_outer = kwargs.get('R_outer', None)
-        #             R_inner = kwargs.get('R_inner', None)
-        #             if sum([R_outer is None, R_inner is None]) == 1:
-        #                 raise ValueError(
-        #                     "Must specify both or neither of R_outer and R_inner"
-        #                 )
-        #             if not R_outer or not R_inner:
-        #                 R_outer, R_inner = infer_optic_radii(telescope[optic])
+                elif ptype == 'Zernike':
+                    R_outer = pval.get('R_outer', None)
+                    R_inner = pval.get('R_inner', None)
+                    if (R_outer is None) != (R_inner is None):
+                        raise ValueError(
+                            "Must specify both or neither of R_outer and R_inner"
+                        )
+                    if not R_outer or not R_inner:
+                        R_outer, R_inner = infer_optic_radii(telescope[optic])
 
-        #             if 'coef' in kwargs and 'idx' in kwargs:
-        #                 raise ValueError(
-        #                     "Cannot specify both coef and idx for Zernike perturbation"
-        #                 )
-        #             if 'coef' in kwargs:
-        #                 coef = kwargs['coef']
-        #             if 'idx' in kwargs:
-        #                 idx = kwargs['idx']
-        #                 if not isinstance(idx, Sequence):
-        #                     idx = [idx]
-        #                 val = kwargs['val']
-        #                 if not isinstance(val, Sequence):
-        #                     val = [val]
-        #                 coef = [0.0]*(max(idx)+1)
-        #                 for i, v in zip(idx, val):
-        #                     coef[i] = v
-        #             telescope = telescope.withSurface(
-        #                 optic,
-        #                 batoid.Sum([
-        #                     telescope[optic].surface,
-        #                     batoid.Zernike(coef, R_outer, R_inner)
-        #                 ])
-        #             )
+                    if 'coef' in pval and 'idx' in pval:
+                        raise ValueError(
+                            "Cannot specify both coef and idx for Zernike perturbation"
+                        )
+                    if 'coef' in pval:
+                        coef = pval['coef']
+                    if 'idx' in pval:
+                        idx = pval['idx']
+                        if not isinstance(idx, Sequence):
+                            idx = [idx]
+                        val = pval['val']
+                        if not isinstance(val, Sequence):
+                            val = [val]
+                        coef = [0.0]*(max(idx)+1)
+                        for i, v in zip(idx, val):
+                            coef[i] = v
+                    telescope = telescope.withPerturbedSurface(
+                        optic,
+                        batoid.Zernike(coef, R_outer, R_inner)
+                    )
 
     if rotTelPos is not None:
         telescope = telescope.withLocallyRotatedOptic(
