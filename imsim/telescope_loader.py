@@ -1,4 +1,6 @@
-from galsim.config import InputLoader, RegisterInputType, GetAllParams, get_cls_params
+from galsim.config import (
+    InputLoader, RegisterInputType, GetAllParams, get_cls_params, ParseValue
+)
 from galsim import Angle
 import batoid
 from collections.abc import Sequence
@@ -34,8 +36,19 @@ def infer_optic_radii(optic):
     )
 
 
+def parse_xyz(xyz, base):
+    if not isinstance(xyz, list) or len(xyz) != 3:
+        raise ValueError("Expecting a list of 3 elements")
+    parsed_xyz, safe = zip(*[ParseValue(xyz, i, base, float) for i in range(3)])
+    return parsed_xyz, all(safe)
+
+
 def load_telescope(
-    file_name, perturbations=(), rotTelPos=None, cameraName="LSSTCamera"
+    file_name,
+    perturbations=(),
+    rotTelPos=None,
+    cameraName="LSSTCamera",
+    base=None
 ):
     """ Load a telescope.
 
@@ -43,7 +56,7 @@ def load_telescope(
     ----------
     file_name : str
         File name describing batoid Optic in yaml format.
-    perturbs : (list of) dict of dict
+    perturbations : (list of) dict of dict
         (List of) dict of dict describing perturbations to apply to the
         telescope in order.  Each outer dict should have keys indicating
         optics to be perturbed and values indicating the perturbations
@@ -55,13 +68,13 @@ def load_telescope(
     cameraName : str, optional
         The name of the camera to rotate.
 
-    Examples of perturb dicts:
+    Examples of perturbations dicts:
     --------------------------
     # Shift M2 in x and y by 1 mm
         {'M2': {'shift': [1e-3, 1e-3, 0.0]}}
 
     # Rotate M3 about the local x axis by 1 arcmin
-        {'M3': {'rotX': (1*galim.arcmin).rad}}
+        {'M3': {'rotX': 1*galim.arcmin}}
 
     # Apply 1 micron of the Z6 Zernike aberration to M1
     # using list of coefficients indexed by Noll index (starting at 0).
@@ -88,13 +101,24 @@ def load_telescope(
     # You can specify multiple perturbations in a single dict
         {
             'M2': {'shift':[1e-3, 1e-3, 0.0]},
-            'M3': {'rotX':(1*galim.arcmin).rad}
+            'M3': {'rotX':1*galim.arcmin}
         }
 
-    # Finally, to realize sequential non-commuting perturbations, use a list:
+    # The telescope loader will preserve the order of multiple perturbations,
+    # but to help disambiguate non-commuting perturbations, you can also use a
+    # list:
         [
-            {'M3': {'rotX':(1*galim.arcmin).rad}},  # X-rotation is applied first
-            {'M3': {'rotY':(1*galim.arcmin).rad}}
+            {'M3': {'rotX':1*galim.arcmin}},  # X-rot is applied first
+            {'M3': {'rotY':1*galim.arcmin}}
+        ]
+
+    # is the same as
+        [
+            {'M3': {
+                'rotX':1*galim.arcmin},
+                'rotY':1*galim.arcmin}
+                }
+            }
         ]
     """
     telescope = batoid.Optic.fromYaml(file_name)
@@ -104,20 +128,20 @@ def load_telescope(
         for optic, perturbs in group.items():
             for ptype, pval in perturbs.items():
                 if ptype == 'shift':
+                    shift, safe = parse_xyz(pval, base)
                     telescope = telescope.withLocallyShiftedOptic(
-                        optic, pval
+                        optic, shift
                     )
-                elif ptype == 'rotX':
+                elif ptype.startswith('rot'):
+                    angle, safe = ParseValue(perturbs, ptype, base, Angle)
+                    if ptype == 'rotX':
+                        rotMat = batoid.RotX(angle)
+                    elif ptype == 'rotY':
+                        rotMat = batoid.RotY(angle)
+                    elif ptype == 'rotZ':
+                        rotMat = batoid.RotZ(angle)
                     telescope = telescope.withLocallyRotatedOptic(
-                        optic, batoid.RotX(pval)
-                    )
-                elif ptype == 'rotY':
-                    telescope = telescope.withLocallyRotatedOptic(
-                        optic, batoid.RotY(pval)
-                    )
-                elif ptype == 'rotZ':
-                    telescope = telescope.withLocallyRotatedOptic(
-                        optic, batoid.RotZ(pval)
+                        optic, rotMat
                     )
                 elif ptype == 'Zernike':
                     R_outer = pval.get('R_outer', None)
@@ -156,6 +180,7 @@ def load_telescope(
             batoid.RotZ(rotTelPos.rad)
         )
     return telescope
+
 
 def load_telescope_dict(*args, **kwargs):
     return {

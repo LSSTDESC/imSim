@@ -3,6 +3,7 @@ import imsim
 import galsim
 import textwrap
 import batoid
+import numpy as np
 
 
 def test_config_shift():
@@ -67,6 +68,33 @@ def test_config_shift():
         )['base']
         assert shifted == shifted_ref
 
+    # Test out exceptions
+    config = yaml.safe_load(textwrap.dedent(
+        """
+        input:
+            telescope:
+                file_name: LSST_r.yaml
+                perturbations:
+                    M1:
+                        shift: [1.e-3, 1.e-3]
+        """
+    ))
+    with np.testing.assert_raises(ValueError):
+        galsim.config.ProcessInput(config)
+
+    config = yaml.safe_load(textwrap.dedent(
+        """
+        input:
+            telescope:
+                file_name: LSST_r.yaml
+                perturbations:
+                    M1:
+                        shift: ["a", "b", "c"]
+        """
+    ))
+    with np.testing.assert_raises(ValueError):
+        galsim.config.ProcessInput(config)
+
 
 def test_config_rot():
     """Test that we can rotate a telescope.
@@ -85,9 +113,9 @@ def test_config_rot():
                     file_name: LSST_r.yaml
                     perturbations:
                         M2:
-                            rotX: 1.e-3
+                            rotX: 1.e-3 rad
                         LSSTCamera:
-                            rotY: 1.e-3
+                            rotY: 1.e-3 rad
             """
         ),
         textwrap.dedent(
@@ -98,9 +126,9 @@ def test_config_rot():
                     perturbations:
                         -
                             M2:
-                                rotX: 1.e-3
+                                rotX: 1.e-3 rad
                             LSSTCamera:
-                                rotY: 1.e-3
+                                rotY: 1.e-3 rad
             """
         ),
         textwrap.dedent(
@@ -111,10 +139,10 @@ def test_config_rot():
                     perturbations:
                         -
                             M2:
-                                rotX: 1.e-3
+                                rotX: 1.e-3 rad
                         -
                             LSSTCamera:
-                                rotY: 1.e-3
+                                rotY: 1.e-3 rad
             """
         ),
     ]
@@ -129,6 +157,30 @@ def test_config_rot():
             'telescope'
         )['base']
         assert rotated == rotated_ref
+
+    # Check that we can rotate the camera using rotTelPos
+    config = yaml.safe_load(textwrap.dedent(
+        """
+            input:
+                telescope:
+                    file_name: LSST_r.yaml
+                    rotTelPos: 30 deg
+        """
+    ))
+    galsim.config.ProcessInput(config)
+    rotated = galsim.config.GetInputObj(
+        'telescope',
+        config['input']['telescope'],
+        config,
+        'telescope'
+    )['base']
+    assert (
+        rotated ==
+        telescope.withLocallyRotatedOptic(
+            'LSSTCamera',
+            batoid.RotZ(np.deg2rad(30))
+        )
+    )
 
 
 def test_config_zernike_perturbation():
