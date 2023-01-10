@@ -226,7 +226,7 @@ class LSST_FlatBuilder(ImageBuilder):
             logger.info('Accumulated %s photons in total. Total time = %s min',
                         tot_nphot, (t2-t0)/60.)
 
-    def getNObj(self, config, base, image_num, logger=None):
+    def getNObj(self, config, base, image_num, logger=None, approx=False):
         """Get the number of objects that will be built for this image.
 
         There are no objects drawn in a flat, so this returns 0.
@@ -236,7 +236,7 @@ class LSST_FlatBuilder(ImageBuilder):
             base:       The base configuration dict.
             image_num:  The current image number.
             logger:     If given, a logger object to log progress.
-
+            approx:     Whether an approximate/overestimate is ok [default: False]
         Returns:
             the number of objects (=0)
         """
