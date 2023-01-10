@@ -103,28 +103,18 @@ def load_telescope(
                     telescope = telescope.withLocallyShiftedOptic(
                         optic, pval
                     )
-
-        # for ptype, pvals in group.items():
-        #     if ptype == 'shift':
-        #         for optic, shift in pvals.items():
-        #             telescope = telescope.withLocallyShiftedOptic(
-        #                 optic, shift
-        #             )
-        #     elif ptype == 'rotX':
-        #         for optic, angle in pvals.items():
-        #             telescope = telescope.withLocallyRotatedOptic(
-        #                 optic, batoid.RotX(angle)
-        #             )
-        #     elif ptype == 'rotY':
-        #         for optic, angle in pvals.items():
-        #             telescope = telescope.withLocallyRotatedOptic(
-        #                 optic, batoid.RotY(angle)
-        #             )
-        #     elif ptype == 'rotZ':
-        #         for optic, angle in pvals.items():
-        #             telescope = telescope.withLocallyRotatedOptic(
-        #                 optic, batoid.RotZ(angle)
-        #             )
+                elif ptype == 'rotX':
+                    telescope = telescope.withLocallyRotatedOptic(
+                        optic, batoid.RotX(pval)
+                    )
+                elif ptype == 'rotY':
+                    telescope = telescope.withLocallyRotatedOptic(
+                        optic, batoid.RotY(pval)
+                    )
+                elif ptype == 'rotZ':
+                    telescope = telescope.withLocallyRotatedOptic(
+                        optic, batoid.RotZ(pval)
+                    )
         #     elif ptype == 'Zernike':
         #         for optic, kwargs in pvals.items():
         #             R_outer = kwargs.get('R_outer', None)
