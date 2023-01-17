@@ -66,7 +66,7 @@ class Checkpointer:
     def save(self, name, data):
         """Save some data to the checkpoint file under the give name.
         """
-        self.logger.debug('checkoutpointing: %s',name)
+        self.logger.debug('checkpointing: %s',name)
         # 1. First backup the current file before we edit anything.
         if os.path.isfile(self.file_name):
             os.rename(self.file_name, self.file_name_bak)
