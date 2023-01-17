@@ -14,7 +14,8 @@ class Checkpointer:
     Parameters:
 
         file_name:      The name of the file to write/read.
-        logger:         A logger object to log progress.
+        dir:            The directory where this file lives. (default: None)
+        logger:         A logger object to log progress. (default: None)
     """
     _req_params = {'file_name': str}
     _opt_params = {'dir': str}
