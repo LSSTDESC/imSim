@@ -15,29 +15,22 @@ jobs:
     # Point to the imSim docker image.
     container:
       image: lsstdesc/imsim-env:latest
-      options: --user lsst
+      options: --user root
 
     steps:
       # Check out imSim repo
       - uses: actions/checkout@v3
 
-      # Activate LSST stack
-      - name: Activate LSST stack
+      # Run CI, this all has to be done in a single shell instance.
+      # -----------------------------------------------------------
+      # 1) Activate LSST stack
+      # 2) Install latest version of imSim
+      # 3) Install test dependencies
+      # 4) Run pytest
+      - name: Run imSim unit tests
         run: |
           source /opt/lsst/software/stack/loadLSST.bash
           setup lsst_distrib
-
-      # Overwrite imSim package in container with newest changes
-      - name: Update to latest imSim
-        run:
           pip install -e .
-
-      # Install Python dependencies needed for unit tests 
-      - name: Install test dependencies
-        run:
           conda install -y pytest nose
-  
-      # Run unit tests
-      - name: Run tests
-        run: 
           pytest
