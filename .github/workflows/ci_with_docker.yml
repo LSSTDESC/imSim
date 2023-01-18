@@ -3,6 +3,9 @@
 name: imSim CI with docker
 
 on:
+  push:
+    branches:
+      - ci_with_docker
   workflow_dispatch: null
 
 jobs:
