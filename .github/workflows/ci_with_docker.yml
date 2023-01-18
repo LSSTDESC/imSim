@@ -15,7 +15,7 @@ jobs:
     # Point to the imSim docker image.
     container:
       image: lsstdesc/imsim-env:latest
-      options: --user root
+      options: --user lsst
 
     steps:
       # Check out imSim repo
