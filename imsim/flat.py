@@ -74,6 +74,13 @@ class LSST_FlatBuilder(ImageBuilder):
             config['sensor']['nrecalc'] = 10_000 * self.xsize * self.ysize / (self.nx * self.ny)
             logger.debug('setting nrecalc = %d',config['sensor']['nrecalc'])
 
+        # Add checkpointing.
+        try:
+            self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base,
+                                                        'LSST_FlatBuilder')
+        except galsim.config.GalSimConfigError:
+            self.checkpoint = None
+
         return self.xsize, self.ysize
 
     def buildImage(self, config, base, image_num, obj_num, logger):
@@ -135,23 +142,37 @@ class LSST_FlatBuilder(ImageBuilder):
             sky_level_per_iter = counts_per_iter/mean_pixel_area
             base_image *= sky_level_per_iter
 
+        tot_nphot = 0
         if self.sed is not None:
             if 'bandpass' not in base:
                 raise RuntimeError('Using sed with flat builder requires a valid bandpass')
             wavelength_sampler = galsim.WavelengthSampler(self.sed, base['bandpass'])
-            tot_nphot = 0
             t0 = time.time()
 
         # Now we account for the sensor effects (i.e. brighter-fatter).
         # Build up the full CCD in sections to limit the memory required.
         dx = ncol//self.nx
         dy = nrow//self.ny
+
+        completed_sections = set()
+        if self.checkpoint is not None:
+            chk_name = 'addNoise_%s' % (base.get('det_name', ''))
+            # Read in any checkpoint data
+            saved = self.checkpoint.load(chk_name)
+            if saved is not None:
+                saved_image, completed_sections, tot_nphot = saved
+                image.array[:] = saved_image.array[:]
+                logger.warning("File %d: Loaded checkpoint data from %s",
+                               base.get('file_num', 0), self.checkpoint.file_name)
+
         for i in range(self.nx):
             xmin = i*dx + 1
             xmax = (i + 1)*dx
             # If nx doesn't divide ncol, make sure we cover the whole ccd by setting xmax=ncol
             if i == self.nx-1: xmax = ncol
             for j in range(self.ny):
+                if (i, j) in completed_sections:  # skip checkpointed sections
+                    continue
                 logger.info("section: %d, %d (of %d,%d)", i, j, self.nx, self.ny)
                 if self.sed is not None:
                     sec_nphot = 0
@@ -222,6 +243,10 @@ class LSST_FlatBuilder(ImageBuilder):
                     logger.info('Accumulated %s photons in this section. Time = %s min',
                                 sec_nphot, (t2-t1)/60.)
                     tot_nphot += sec_nphot
+                # Checkpoint completed sections.
+                completed_sections.add((i, j))
+                data = image, completed_sections, tot_nphot
+                self.checkpoint.save(chk_name, data)
         if self.sed is not None:
             logger.info('Accumulated %s photons in total. Total time = %s min',
                         tot_nphot, (t2-t0)/60.)
