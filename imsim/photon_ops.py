@@ -15,6 +15,7 @@ from .utils import focal_to_pixel
 from .diffraction import (
     LSST_SPIDER_GEOMETRY,
     apply_diffraction_delta,
+    prepare_field_rotation_matrix,
 )
 
 
@@ -196,9 +197,7 @@ class LsstDiffraction(PhotonOp):
     icrf_to_field : galsim.GSFitsWCS
     """
 
-    _req_params = {
-        "latitude": float,
-    }
+    _req_params = {"latitude": float}
 
     def __init__(
         self,
@@ -210,11 +209,14 @@ class LsstDiffraction(PhotonOp):
         icrf_to_field,
     ):
         self.telescope = telescope
-        self.latitude = latitude
-        self.altitude = altitude
-        self.azimuth = azimuth
+        lat = latitude / 180.0 * np.pi
         self.sky_pos = sky_pos
         self.icrf_to_field = icrf_to_field
+        self.field_rot_matrix = prepare_field_rotation_matrix(
+            latitude=lat,
+            azimuth=azimuth / 180.0 * np.pi,
+            altitude=altitude / 180.0 * np.pi,
+        )
 
     def diffraction_rng(self, rng):
         deviate = GaussianDeviate(seed=rng)
@@ -253,9 +255,7 @@ class LsstDiffraction(PhotonOp):
             v,
             photon_array.time,
             wavelength=photon_array.wavelength * 1.0e-9,
-            lat=self.latitude,
-            az=self.azimuth,
-            alt=self.altitude,
+            field_rot_matrix=self.field_rot_matrix,
             geometry=LSST_SPIDER_GEOMETRY,
             distribution=self.diffraction_rng(rng),
         )
@@ -294,9 +294,7 @@ class LsstDiffraction(PhotonOp):
             v,
             photon_array.time,
             wavelength,
-            lat=self.latitude,
-            az=self.azimuth,
-            alt=self.altitude,
+            field_rot_matrix=self.field_rot_matrix,
             geometry=LSST_SPIDER_GEOMETRY,
             distribution=self.diffraction_rng(rng),
         )

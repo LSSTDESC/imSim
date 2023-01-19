@@ -80,7 +80,7 @@ def create_test_lsst_optics_kwargs():
     )
 
 
-def create_test_lsst_diffraction():
+def create_test_lsst_diffraction(latitude=-30.24463, azimuth=45.0, altitude=89.9):
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
     det_name = "R22_S11"
 
@@ -88,14 +88,18 @@ def create_test_lsst_diffraction():
         telescope=load_telescope("LSST_r.yaml"),
         sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
         icrf_to_field=create_test_icrf_to_field(boresight, det_name),
-        latitude=-30.24463,
-        azimuth=45.0,
-        altitude=89.9,
+        latitude=latitude,
+        azimuth=azimuth,
+        altitude=altitude,
     )
 
 
-def create_test_lsst_diffraction_optics():
-    lsst_diffraction = create_test_lsst_diffraction()
+def create_test_lsst_diffraction_optics(
+    latitude=-30.24463, azimuth=45.0, altitude=89.9
+):
+    lsst_diffraction = create_test_lsst_diffraction(
+        latitude=latitude, azimuth=azimuth, altitude=altitude
+    )
     return photon_ops.LsstDiffractionOptics(
         **create_test_lsst_optics_kwargs(), lsst_diffraction=lsst_diffraction
     )
@@ -221,7 +225,12 @@ def extract_spike_angles(photon_array, x_center, y_center, r):
 
 def test_lsst_diffraction_shows_field_rotation() -> None:
     """Checks that the spikes rotate."""
-    lsst_diffraction_optics = create_test_lsst_diffraction_optics()
+    latitude = -30.24463
+    azimuth = 45.0
+    altitude = 89.9
+    lsst_diffraction_optics = create_test_lsst_diffraction_optics(
+        latitude, azimuth, altitude
+    )
     dt = 1.0
     photon_array_0 = create_test_photon_array(t=0.0, n_photons=1000000)
     photon_array_1 = create_test_photon_array(t=dt, n_photons=1000000)
@@ -253,9 +262,9 @@ def test_lsst_diffraction_shows_field_rotation() -> None:
 
     # Check that the angle of the crosses are rotated relative to each other:
     expected_angle_difference = field_rotation_angle(
-        lsst_diffraction_optics.lsst_diffraction.latitude,
-        lsst_diffraction_optics.lsst_diffraction.altitude,
-        lsst_diffraction_optics.lsst_diffraction.azimuth,
+        latitude / 180.0 * np.pi,
+        altitude / 180.0 * np.pi,
+        azimuth / 180.0 * np.pi,
         dt,
     )
 
@@ -268,12 +277,12 @@ def field_rotation_angle(
     latitude: float, altitude: float, azimuth: float, t: float
 ) -> float:
     """For given latitude and az/alt position of a star, compute the field rotation angle around this star after time t."""
-    e_star = diffraction.star_trace(
-        latitude=latitude, altitude=altitude, azimuth=azimuth, t=np.array([t])
+    e_focal = diffraction.e_equatorial(
+        latitude=latitude, altitude=altitude, azimuth=azimuth
     )
-    rot = diffraction.field_rotation_matrix(latitude, e_star, np.array([t]))
-    (alpha,) = np.arctan2(rot[:, 0, 1], rot[:, 0, 0])
-    return alpha
+    e_z_0, e_z = diffraction.prepare_e_z(latitude)
+    rot = diffraction.field_rotation_matrix(e_z_0, e_z, e_focal, np.array([t]))
+    return np.arctan2(rot[0, 0, 1], rot[0, 0, 0])
 
 
 def test_xy_to_v_inverse():
