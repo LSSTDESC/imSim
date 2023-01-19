@@ -8,9 +8,10 @@ from imsim import photon_ops, BatoidWCSFactory, get_camera, diffraction
 from imsim.opsim_meta import OpsimMetaDict
 from imsim.telescope_loader import load_telescope
 
+
 def create_test_icrf_to_field(boresight, det_name):
     camera = get_camera()
-    telescope = load_telescope("LSST_r.yaml", rotTelPos=np.pi/3*galsim.radians)
+    telescope = load_telescope("LSST_r.yaml", rotTelPos=np.pi / 3 * galsim.radians)
     factory = BatoidWCSFactory(
         boresight,
         obstime=Time("J2020") + 0.5 * units.year,
@@ -32,22 +33,6 @@ def create_test_wcs():
         0.168,
         origin=galsim.PositionD(x=-0.349, y=-0.352),
         world_origin=galsim.PositionD(x=0.0, y=0.0),
-    )
-
-
-def create_test_lsst_optics():
-    boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    telescope = load_telescope("LSST_r.yaml")
-
-    det_name = "R22_S11"
-    return photon_ops.LsstOptics(
-        telescope=telescope,
-        boresight=boresight,
-        sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
-        image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
-        icrf_to_field=create_test_icrf_to_field(boresight, det_name),
-        det_name=det_name,
-        camera=get_camera(),
     )
 
 
@@ -75,6 +60,26 @@ def create_test_photon_array(t=0.0, n_photons=10000):
     )
 
 
+def create_test_lsst_optics():
+    return photon_ops.LsstOptics(**create_test_lsst_optics_kwargs())
+
+
+def create_test_lsst_optics_kwargs():
+    boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
+    telescope = load_telescope("LSST_r.yaml")
+
+    det_name = "R22_S11"
+    return dict(
+        telescope=telescope,
+        boresight=boresight,
+        sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
+        image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
+        icrf_to_field=create_test_icrf_to_field(boresight, det_name),
+        det_name=det_name,
+        camera=get_camera(),
+    )
+
+
 def create_test_lsst_diffraction():
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
     det_name = "R22_S11"
@@ -86,6 +91,13 @@ def create_test_lsst_diffraction():
         latitude=-30.24463,
         azimuth=45.0,
         altitude=89.9,
+    )
+
+
+def create_test_lsst_diffraction_optics():
+    lsst_diffraction = create_test_lsst_diffraction()
+    return photon_ops.LsstDiffractionOptics(
+        **create_test_lsst_optics_kwargs(), lsst_diffraction=lsst_diffraction
     )
 
 
@@ -114,12 +126,12 @@ def test_lsst_optics() -> None:
 
 def test_lsst_diffraction_produces_spikes() -> None:
     """Checks that we have spike photons and that the spkies form a cross."""
-    lsst_diffraction = create_test_lsst_diffraction()
+    lsst_diffraction_optics = create_test_lsst_diffraction_optics()
     photon_array = create_test_photon_array(n_photons=1000000)
     local_wcs = create_test_wcs()
-    lsst_diffraction.applyTo(photon_array, local_wcs=local_wcs, rng=create_test_rng())
-    lsst_optics = create_test_lsst_optics()
-    lsst_optics.applyTo(photon_array, local_wcs=local_wcs, rng=create_test_rng())
+    lsst_diffraction_optics.applyTo(
+        photon_array, local_wcs=local_wcs, rng=create_test_rng()
+    )
 
     # The expected image is contained in a disc + spikes outside the disc:
     spike_angles = extract_spike_angles(
@@ -163,6 +175,32 @@ def test_lsst_diffraction_produces_spikes() -> None:
     np.testing.assert_array_less(0, h[0::2])
 
 
+def test_lsst_diffraction_optics_is_same_as_diffraction_and_optics() -> None:
+    """Checks that the result of applying LsstDiffraction and then LsstOptics
+    is the same as applying the combined photon op LsstDiffractionOptics."""
+    photon_array_combined = create_test_photon_array(n_photons=100000)
+    local_wcs = create_test_wcs()
+    lsst_diffraction_optics = create_test_lsst_diffraction_optics()
+    lsst_diffraction_optics.applyTo(
+        photon_array_combined, local_wcs=local_wcs, rng=create_test_rng()
+    )
+    lsst_diffraction = create_test_lsst_diffraction()
+    lsst_optics = create_test_lsst_optics()
+    photon_array_modular = create_test_photon_array(n_photons=100000)
+    lsst_diffraction.applyTo(
+        photon_array_modular, local_wcs=local_wcs, rng=create_test_rng()
+    )
+    lsst_optics.applyTo(
+        photon_array_modular, local_wcs=local_wcs, rng=create_test_rng()
+    )
+    np.testing.assert_array_almost_equal(
+        photon_array_combined.x, photon_array_modular.x
+    )
+    np.testing.assert_array_almost_equal(
+        photon_array_combined.y, photon_array_modular.y
+    )
+
+
 def extract_spike_angles(photon_array, x_center, y_center, r):
     """Filters out a disc centered at (x_center, y_center) with radius r.
     The reminding photons will be considered as spike photons.
@@ -183,16 +221,17 @@ def extract_spike_angles(photon_array, x_center, y_center, r):
 
 def test_lsst_diffraction_shows_field_rotation() -> None:
     """Checks that the spikes rotate."""
-    lsst_diffraction = create_test_lsst_diffraction()
+    lsst_diffraction_optics = create_test_lsst_diffraction_optics()
     dt = 1.0
     photon_array_0 = create_test_photon_array(t=0.0, n_photons=1000000)
     photon_array_1 = create_test_photon_array(t=dt, n_photons=1000000)
     local_wcs = create_test_wcs()
-    lsst_optics = create_test_lsst_optics()
-    lsst_diffraction.applyTo(photon_array_0, local_wcs=local_wcs, rng=create_test_rng())
-    lsst_optics.applyTo(photon_array_0, local_wcs=local_wcs, rng=create_test_rng())
-    lsst_diffraction.applyTo(photon_array_1, local_wcs=local_wcs, rng=create_test_rng())
-    lsst_optics.applyTo(photon_array_1, local_wcs=local_wcs, rng=create_test_rng())
+    lsst_diffraction_optics.applyTo(
+        photon_array_0, local_wcs=local_wcs, rng=create_test_rng()
+    )
+    lsst_diffraction_optics.applyTo(
+        photon_array_1, local_wcs=local_wcs, rng=create_test_rng()
+    )
 
     # The expected image is contained in a disc + spikes outside the disc:
     spike_angles_0 = extract_spike_angles(
@@ -214,9 +253,9 @@ def test_lsst_diffraction_shows_field_rotation() -> None:
 
     # Check that the angle of the crosses are rotated relative to each other:
     expected_angle_difference = field_rotation_angle(
-        lsst_diffraction.latitude,
-        lsst_diffraction.altitude,
-        lsst_diffraction.azimuth,
+        lsst_diffraction_optics.lsst_diffraction.latitude,
+        lsst_diffraction_optics.lsst_diffraction.altitude,
+        lsst_diffraction_optics.lsst_diffraction.azimuth,
         dt,
     )
 
@@ -293,7 +332,7 @@ def test_xy_to_v():
 
 
 def test_config_lsst_diffraction():
-    """Check the config interface to BatoidPhotonOps."""
+    """Check the config interface to LsstDiffraction."""
 
     boresight = galsim.CelestialCoord(
         1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
@@ -301,7 +340,7 @@ def test_config_lsst_diffraction():
     config = {
         "input": {
             "telescope": {
-                "file_name":"LSST_r.yaml",
+                "file_name": "LSST_r.yaml",
             }
         },
         "_input_objs": {
@@ -328,8 +367,8 @@ def test_config_lsst_diffraction():
     galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
 
 
-def test_config_lsst_optics():
-    """Check the config interface to BatoidPhotonOps."""
+def test_config_lsst_diffraction_optics():
+    """Check the config interface to LsstDiffractionOptics."""
 
     boresight = galsim.CelestialCoord(
         1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
@@ -337,7 +376,53 @@ def test_config_lsst_optics():
     config = {
         "input": {
             "telescope": {
-                "file_name":"LSST_r.yaml",
+                "file_name": "LSST_r.yaml",
+            }
+        },
+        "_input_objs": {
+            "opsim_meta_dict": [
+                OpsimMetaDict.from_dict({"altitude": 43.0, "azimuth": 0.0})
+            ]
+        },
+        "det_name": "R22_S11",
+        "image_pos": galsim.PositionD(
+            3076.4462608524213, 1566.4896702703757
+        ),  # This would get set appropriately during normal config processing.
+        "_icrf_to_field": create_test_icrf_to_field(boresight, "R22_S11"),
+        "sky_pos": {
+            "type": "RADec",
+            "ra": "1.1056660811384078 radians",
+            "dec": "-0.5253441048502933 radians",
+        },
+        "stamp": {
+            "photon_ops": [
+                {
+                    "type": "lsst_diffraction_optics",
+                    "camera": "LsstCam",
+                    "boresight": {
+                        "type": "RADec",
+                        "ra": "1.1047934165124105 radians",
+                        "dec": "-0.5261230452954583 radians",
+                    },
+                    "latitude": -30.24463,
+                }
+            ]
+        },
+    }
+    galsim.config.ProcessInput(config)
+    galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+
+
+def test_config_lsst_optics():
+    """Check the config interface to LsstOptics."""
+
+    boresight = galsim.CelestialCoord(
+        1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
+    )
+    config = {
+        "input": {
+            "telescope": {
+                "file_name": "LSST_r.yaml",
             }
         },
         "sky_pos": {
@@ -369,6 +454,6 @@ def test_config_lsst_optics():
 
 
 if __name__ == "__main__":
-    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    testfns = [v for k, v in vars().items() if k.starts_with("test_") and callable(v)]
     for testfn in testfns:
         testfn()

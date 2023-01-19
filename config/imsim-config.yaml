@@ -242,12 +242,10 @@ stamp:
                 type: Degrees
                 theta: { type: OpsimMeta, field: HA }
         -
-            type: lsst_diffraction
-            latitude: -30.24463
-        -
-            type: lsst_optics
+            type: lsst_diffraction_optics
             boresight: "$boresight"
             camera: "@output.camera"
+            latitude: -30.24463
         -
             # Note: If FocusDepth is before Refraction, then the depth is the amount of focus
             #       change required relative to the rays coming to a focus at the surface.

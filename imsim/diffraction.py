@@ -277,7 +277,7 @@ def field_rotation_matrix(lat: float, e_star: np.ndarray, t: np.ndarray) -> np.n
 
 
 def star_trace(
-    latitude: float, altitude: float, azimuth: float, t: np.array
+    latitude: float, altitude: float, azimuth: float, t: np.ndarray
 ) -> np.ndarray:
     """Computes the trace of a star at given times t,
     observed from a given latitude,
