@@ -9,17 +9,20 @@ LABEL lsst-desc.imsim.version="latest"
 LABEL lsst-desc.imsim.build_date=$BUILD_DATE
 
 # Clone imSim and rubin_sim repos.
-RUN git clone https://github.com/LSSTDESC/imSim.git &&\
+RUN git clone --branch update_docker_image https://github.com/LSSTDESC/imSim.git &&\
     git clone https://github.com/lsst/rubin_sim.git
+
+# Pull out conda requirements for imSim (excluding stackvana)
+RUN sed '/stackvana/d' imSim/etc/standalone_conda_requirements.txt > imSim/etc/docker_conda_requirements.txt
 
 # Install imSim, rubin_sim, and dependencies.
 RUN source /opt/lsst/software/stack/loadLSST.bash &&\
     setup lsst_distrib &&\
-    pip install --upgrade galsim &&\
-    pip install dust_extinction palpy batoid gitpython &&\
-    pip install git+https://github.com/LSSTDESC/skyCatalogs.git@master &&\
-    cd imSim && pip install -e . && cd .. &&\
-    cd rubin_sim && pip install -e .
+    mamba install --freeze-installed -y --file imSim/etc/docker_conda_requirements.txt &&\
+    python3 -m pip install -r imSim/etc/docker_pip_requirements.txt &&\
+    cd rubin_sim && pip install . && cd .. &&\
+    cd imSim && pip install . &&\
+    conda clean -afy
 
 # Download Rubin Sim data.
 RUN mkdir -p rubin_sim_data/sims_sed_library && \
@@ -32,3 +35,9 @@ ENV RUBIN_SIM_DATA_DIR /opt/lsst/software/stack/rubin_sim_data
 
 # SED library (downloaded in step above).
 ENV SIMS_SED_LIBRARY_DIR /opt/lsst/software/stack/rubin_sim_data/sims_sed_library
+
+# Cleanup
+RUN rm -rf imSim && \
+    rm -rf rubin_sim
+
+WORKDIR /home/lsst
