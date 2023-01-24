@@ -41,7 +41,7 @@ To then run the image do:
 
 .. code-block:: sh
 
-    docker run -it --privileged --rm -v ${HOME}:/home/lsst imsim-env:latest
+    docker run -it --privileged --rm -v ${HOME}:/home/lsst lsstdesc/imsim-env:latest
 
 
 The ``-v ${HOME}:/home/lsst`` option maps your home directory on the host
@@ -98,7 +98,10 @@ start of the image.
 
 Setting user and group ids
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-The prebuilt Rubin images set the default linux user and group both to ``lsst`` with ``uid=1000`` and ``gid=1000``.   If the desired user and group on the host system have the same ids, then the ``lsst`` user and group in the Docker image can be renamed with the following, replacing the line
+The prebuilt Rubin images set the default linux user and group both to ``lsst``
+with ``uid=1000`` and ``gid=1000``.   If the desired user and group on the host
+system have the same ids, then the ``lsst`` user and group in the Docker image
+can be renamed with the following, replacing the line
 
 .. code-block:: sh
 
@@ -116,7 +119,8 @@ with
     USER ${user}
     WORKDIR /home/${user}
 
-Alternatively, if the ``lsst`` user doesn't conflict with the desired user/group, the latter can be added to the image and set as the default user:
+Alternatively, if the ``lsst`` user doesn't conflict with the desired
+user/group, the latter can be added to the image and set as the default user:
 
 .. code-block:: sh
 
@@ -132,7 +136,8 @@ Alternatively, if the ``lsst`` user doesn't conflict with the desired user/group
 
 Building the Docker image
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-Assuming the above Dockerfile is in the current directory, then the following command will build the image
+Assuming the above ``Dockerfile`` is in the current directory, then the
+following command will build the image
 
 .. code-block:: sh
 
