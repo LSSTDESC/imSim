@@ -1,3 +1,0 @@
-batoid
-skyCatalogs==1.2.0
-gitpython
