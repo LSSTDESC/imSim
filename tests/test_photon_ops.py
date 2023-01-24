@@ -80,7 +80,9 @@ def create_test_lsst_optics_kwargs():
     )
 
 
-def create_test_lsst_diffraction(latitude=-30.24463, azimuth=45.0, altitude=89.9):
+def create_test_lsst_diffraction(
+    latitude=-30.24463, azimuth=45.0, altitude=89.9, **kwargs
+):
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
     det_name = "R22_S11"
 
@@ -91,14 +93,15 @@ def create_test_lsst_diffraction(latitude=-30.24463, azimuth=45.0, altitude=89.9
         latitude=latitude,
         azimuth=azimuth,
         altitude=altitude,
+        **kwargs
     )
 
 
 def create_test_lsst_diffraction_optics(
-    latitude=-30.24463, azimuth=45.0, altitude=89.9
+    latitude=-30.24463, azimuth=45.0, altitude=89.9, **kwargs
 ):
     lsst_diffraction = create_test_lsst_diffraction(
-        latitude=latitude, azimuth=azimuth, altitude=altitude
+        latitude=latitude, azimuth=azimuth, altitude=altitude, **kwargs
     )
     return photon_ops.LsstDiffractionOptics(
         **create_test_lsst_optics_kwargs(), lsst_diffraction=lsst_diffraction
@@ -273,6 +276,29 @@ def test_lsst_diffraction_shows_field_rotation() -> None:
     )
 
 
+def test_lsst_diffraction_does_not_show_field_rotation_when_deactivated() -> None:
+    """Checks that the spikes dont rotate if disable_field_rotation is set."""
+    latitude = -30.24463
+    azimuth = 45.0
+    altitude = 89.9
+    lsst_diffraction_optics = create_test_lsst_diffraction_optics(
+        latitude, azimuth, altitude, disable_field_rotation=True
+    )
+    dt = 1.0
+    photon_array_0 = create_test_photon_array(t=0.0, n_photons=100000)
+    photon_array_1 = create_test_photon_array(t=dt, n_photons=100000)
+    local_wcs = create_test_wcs()
+    lsst_diffraction_optics.applyTo(
+        photon_array_0, local_wcs=local_wcs, rng=create_test_rng()
+    )
+    lsst_diffraction_optics.applyTo(
+        photon_array_1, local_wcs=local_wcs, rng=create_test_rng()
+    )
+
+    np.testing.assert_array_almost_equal(photon_array_0.x, photon_array_1.x)
+    np.testing.assert_array_almost_equal(photon_array_0.y, photon_array_1.y)
+
+
 def field_rotation_angle(
     latitude: float, altitude: float, azimuth: float, t: float
 ) -> float:
@@ -340,29 +366,37 @@ def test_xy_to_v():
     np.testing.assert_array_almost_equal(y, y_after)
 
 
+TEST_BASE_CONFIG = {
+    "input": {
+        "telescope": {
+            "file_name": "LSST_r.yaml",
+        }
+    },
+    "_icrf_to_field": create_test_icrf_to_field(
+        galsim.CelestialCoord(
+            1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
+        ),
+        "R22_S11",
+    ),
+    "sky_pos": {
+        "type": "RADec",
+        "ra": "1.1056660811384078 radians",
+        "dec": "-0.5253441048502933 radians",
+    },
+}
+TEST_OPSIM_META_CONFIG = {
+    "_input_objs": {
+        "opsim_meta_dict": [OpsimMetaDict.from_dict({"altitude": 43.0, "azimuth": 0.0})]
+    }
+}
+
+
 def test_config_lsst_diffraction():
     """Check the config interface to LsstDiffraction."""
 
-    boresight = galsim.CelestialCoord(
-        1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
-    )
     config = {
-        "input": {
-            "telescope": {
-                "file_name": "LSST_r.yaml",
-            }
-        },
-        "_input_objs": {
-            "opsim_meta_dict": [
-                OpsimMetaDict.from_dict({"altitude": 43.0, "azimuth": 0.0})
-            ]
-        },
-        "_icrf_to_field": create_test_icrf_to_field(boresight, "R22_S11"),
-        "sky_pos": {
-            "type": "RADec",
-            "ra": "1.1056660811384078 radians",
-            "dec": "-0.5253441048502933 radians",
-        },
+        **TEST_BASE_CONFIG,
+        **TEST_OPSIM_META_CONFIG,
         "stamp": {
             "photon_ops": [
                 {
@@ -376,33 +410,36 @@ def test_config_lsst_diffraction():
     galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
 
 
+def test_config_lsst_diffraction_without_field_rotation():
+    """Check the config interface to LsstDiffraction."""
+
+    config = {
+        **TEST_BASE_CONFIG,
+        **TEST_OPSIM_META_CONFIG,
+        "stamp": {
+            "photon_ops": [
+                {
+                    "type": "lsst_diffraction",
+                    "latitude": -30.24463,
+                    "disable_field_rotation": True,
+                }
+            ]
+        },
+    }
+    galsim.config.ProcessInput(config)
+    galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+
+
 def test_config_lsst_diffraction_optics():
     """Check the config interface to LsstDiffractionOptics."""
 
-    boresight = galsim.CelestialCoord(
-        1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
-    )
     config = {
-        "input": {
-            "telescope": {
-                "file_name": "LSST_r.yaml",
-            }
-        },
-        "_input_objs": {
-            "opsim_meta_dict": [
-                OpsimMetaDict.from_dict({"altitude": 43.0, "azimuth": 0.0})
-            ]
-        },
+        **TEST_BASE_CONFIG,
+        **TEST_OPSIM_META_CONFIG,
         "det_name": "R22_S11",
         "image_pos": galsim.PositionD(
             3076.4462608524213, 1566.4896702703757
         ),  # This would get set appropriately during normal config processing.
-        "_icrf_to_field": create_test_icrf_to_field(boresight, "R22_S11"),
-        "sky_pos": {
-            "type": "RADec",
-            "ra": "1.1056660811384078 radians",
-            "dec": "-0.5253441048502933 radians",
-        },
         "stamp": {
             "photon_ops": [
                 {
@@ -422,28 +459,45 @@ def test_config_lsst_diffraction_optics():
     galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
 
 
-def test_config_lsst_optics():
-    """Check the config interface to LsstOptics."""
+def test_config_lsst_diffraction_optics_without_field_rotation():
+    """Check the config interface to LsstDiffractionOptics."""
 
-    boresight = galsim.CelestialCoord(
-        1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
-    )
     config = {
-        "input": {
-            "telescope": {
-                "file_name": "LSST_r.yaml",
-            }
-        },
-        "sky_pos": {
-            "type": "RADec",
-            "ra": "1.1056660811384078 radians",
-            "dec": "-0.5253441048502933 radians",
-        },
+        **TEST_BASE_CONFIG,
+        **TEST_OPSIM_META_CONFIG,
         "det_name": "R22_S11",
         "image_pos": galsim.PositionD(
             3076.4462608524213, 1566.4896702703757
         ),  # This would get set appropriately during normal config processing.
-        "_icrf_to_field": create_test_icrf_to_field(boresight, "R22_S11"),
+        "stamp": {
+            "photon_ops": [
+                {
+                    "type": "lsst_diffraction_optics",
+                    "camera": "LsstCam",
+                    "boresight": {
+                        "type": "RADec",
+                        "ra": "1.1047934165124105 radians",
+                        "dec": "-0.5261230452954583 radians",
+                    },
+                    "latitude": -30.24463,
+                    "disable_field_rotation": True,
+                }
+            ]
+        },
+    }
+    galsim.config.ProcessInput(config)
+    galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+
+
+def test_config_lsst_optics():
+    """Check the config interface to LsstOptics."""
+
+    config = {
+        **TEST_BASE_CONFIG,
+        "det_name": "R22_S11",
+        "image_pos": galsim.PositionD(
+            3076.4462608524213, 1566.4896702703757
+        ),  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
                 {

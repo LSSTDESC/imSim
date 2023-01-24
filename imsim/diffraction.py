@@ -42,7 +42,25 @@ LSST_SPIDER_GEOMETRY = Geometry(
 )
 
 
-def apply_diffraction_delta(
+def apply_delta_v(v: np.ndarray, delta_v: np.ndarray) -> np.ndarray:
+    """Applies a change in the x-y plane to a vector v, preserving the norm of the
+    original vector v.
+
+    Parameters
+    ----------
+    v : Direction of the photons (shape (n, 3)).
+    delta_v : Change to apply (shape (n, 2).
+    """
+    v_before = np.linalg.norm(v, axis=1)
+    v[:, :2] += delta_v
+    # renormalize (leave norm invariant)
+    v_after = np.linalg.norm(v, axis=1)
+    f_scale = v_before / v_after
+    v *= f_scale[:, None]
+    return v
+
+
+def apply_diffraction_delta_field_rot(
     pos: np.ndarray,
     v: np.ndarray,
     t: np.ndarray,
@@ -73,6 +91,52 @@ def apply_diffraction_delta(
         It should be a callable accepting an array for phi_star and returning the
         random values for phi
     """
+    shift = diffraction_delta_field_rot(
+        pos, -v[:, 2], t, wavelength, field_rot_matrix, geometry, distribution
+    )
+    return apply_delta_v(v, shift)
+
+
+def apply_diffraction_delta(
+    pos: np.ndarray,
+    v: np.ndarray,
+    wavelength: np.ndarray,
+    geometry: Geometry,
+    distribution: Callable[[np.ndarray], np.ndarray],
+) -> np.ndarray:
+    """Statistically diffract photons.
+
+    For a ray of photons with positions pos, wavelengths wavelength and pupil plane
+    coordinates pos,
+    randomly generate diffraction angles and change the directions of the photons
+    entering the pupil plane.
+
+    Parameters
+    ----------
+    pos : 2d positions of the intersections of the rays with the pupil plane (shape (n, 2)).
+    v : Direction of the photons (shape (n, 3)).
+    wavelength : Wavelength of the photons (shape (n,)).
+    geometry : Geometry representing the 2d projection of the spider of a telescope
+        into the pupil plane.
+    distribution : Random number generator representing the distribution of the diffraction
+        angles (depending on the wavelength and distance to the geometry).
+        It should be a callable accepting an array for phi_star and returning the
+        random values for phi
+    """
+
+    shift = diffraction_delta(pos, -v[:, 2], wavelength, geometry, distribution)
+    return apply_delta_v(v, shift)
+
+
+def diffraction_delta_field_rot(
+    pos: np.ndarray,
+    v_z: np.ndarray,
+    t: np.ndarray,
+    wavelength: np.ndarray,
+    field_rot_matrix: Callable[[np.ndarray], np.ndarray],
+    geometry: Geometry,
+    distribution: Callable[[np.ndarray], np.ndarray],
+) -> np.ndarray:
     R = field_rot_matrix(t)
 
     def rot(w):
@@ -83,16 +147,7 @@ def apply_diffraction_delta(
 
     # Rotate position in the inverse direction of the field rotation, then rotate back
     # the shift:
-    shift = rot(
-        diffraction_delta(rot_inv(pos), -v[:, 2], wavelength, geometry, distribution)
-    )
-    v_before = np.linalg.norm(v, axis=1)
-    v[:, :2] += shift
-    # renormalize (leave norm invariant)
-    v_after = np.linalg.norm(v, axis=1)
-    f_scale = v_before / v_after
-    v *= f_scale[:, None]
-    return v
+    return rot(diffraction_delta(rot_inv(pos), v_z, wavelength, geometry, distribution))
 
 
 def diffraction_delta(

@@ -15,6 +15,7 @@ from .utils import focal_to_pixel
 from .diffraction import (
     LSST_SPIDER_GEOMETRY,
     apply_diffraction_delta,
+    apply_diffraction_delta_field_rot,
     prepare_field_rotation_matrix,
 )
 
@@ -155,6 +156,7 @@ class LsstDiffractionOptics(LsstOptics):
         "camera": str,
         "latitude": float,
     }
+    _opt_params = {"disable_field_rotation": bool}
 
     def __init__(
         self,
@@ -198,6 +200,7 @@ class LsstDiffraction(PhotonOp):
     """
 
     _req_params = {"latitude": float}
+    _opt_params = {"disable_field_rotation": bool}
 
     def __init__(
         self,
@@ -207,16 +210,25 @@ class LsstDiffraction(PhotonOp):
         azimuth,
         sky_pos,
         icrf_to_field,
+        disable_field_rotation: bool = False,
     ):
         self.telescope = telescope
         lat = latitude / 180.0 * np.pi
         self.sky_pos = sky_pos
         self.icrf_to_field = icrf_to_field
-        self.field_rot_matrix = prepare_field_rotation_matrix(
-            latitude=lat,
-            azimuth=azimuth / 180.0 * np.pi,
-            altitude=altitude / 180.0 * np.pi,
-        )
+        if disable_field_rotation:
+            self.apply_diffraction_delta = lambda pos, v, _t, wavelength, geometry, distribution: apply_diffraction_delta(
+                pos, v, wavelength, geometry, distribution
+            )
+        else:
+            field_rot_matrix = prepare_field_rotation_matrix(
+                latitude=lat,
+                azimuth=azimuth / 180.0 * np.pi,
+                altitude=altitude / 180.0 * np.pi,
+            )
+            self.apply_diffraction_delta = lambda pos, v, t, wavelength, geometry, distribution: apply_diffraction_delta_field_rot(
+                pos, v, t, wavelength, field_rot_matrix, geometry, distribution
+            )
 
     def diffraction_rng(self, rng):
         deviate = GaussianDeviate(seed=rng)
@@ -250,12 +262,11 @@ class LsstDiffraction(PhotonOp):
             self.telescope.inMedium.getN,
         )
         x, y = photon_array.pupil_u, photon_array.pupil_v
-        v = apply_diffraction_delta(
+        v = self.apply_diffraction_delta(
             np.c_[x, y],
             v,
             photon_array.time,
             wavelength=photon_array.wavelength * 1.0e-9,
-            field_rot_matrix=self.field_rot_matrix,
             geometry=LSST_SPIDER_GEOMETRY,
             distribution=self.diffraction_rng(rng),
         )
@@ -289,12 +300,11 @@ class LsstDiffraction(PhotonOp):
         v /= n[:, None]
 
         x, y = photon_array.pupil_u, photon_array.pupil_v
-        v = apply_diffraction_delta(
+        v = self.apply_diffraction_delta(
             np.c_[x, y],
             v,
             photon_array.time,
             wavelength,
-            field_rot_matrix=self.field_rot_matrix,
             geometry=LSST_SPIDER_GEOMETRY,
             distribution=self.diffraction_rng(rng),
         )
@@ -370,6 +380,7 @@ def deserialize_lsst_diffraction_optics(config, base, _logger):
         azimuth=opsim_meta.get("azimuth"),
         sky_pos=base["sky_pos"],
         icrf_to_field=base["_icrf_to_field"],
+        disable_field_rotation=kwargs.pop("disable_field_rotation", False),
     )
 
     return LsstDiffractionOptics(
