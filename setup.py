@@ -18,14 +18,6 @@ print("Using setuptools version",setuptools.__version__)
 print('Python version = ',sys.version)
 py_version = "%d.%d"%sys.version_info[0:2]  # we check things based on the major.minor version.
 
-def all_files_from(dir, ext=''):
-    files = []
-    for root, dirnames, filenames in os.walk(dir):
-        for filename in filenames:
-            if filename.endswith(ext) and not filename.startswith( ('.', 'SCons') ):
-                files.append(os.path.join(root, filename))
-    return files
-
 run_dep = ['numpy', 'galsim']
 
 with open('README.md') as file:

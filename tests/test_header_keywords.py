@@ -28,6 +28,7 @@ def run_imsim(camera):
               'input.opsim_meta_dict.file_name': instcat_file,
               'input.tree_rings.only_dets': only_dets,
               'input.atm_psf': '',
+              'input.checkpoint': '',
               'image.sky_level': 0,
               'image.random_seed': 42,
               'image.sensor': '',

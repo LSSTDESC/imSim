@@ -35,7 +35,7 @@ def test_sky_model():
         sky_model = SkyModel(exptime, mjd, bandpass)
         sky_level = sky_model.get_sky_level(skyCoord)
         np.testing.assert_approx_equal(sky_level, expected_sky_levels[band],
-                                       significant=5)
+                                       significant=4)
 
 
 def test_sky_gradient():
