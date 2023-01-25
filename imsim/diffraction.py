@@ -157,11 +157,10 @@ def directed_dist(
     min_circle_idx = np.argmin(dist_circles, axis=0)
     min_dist_lines = dist_lines[min_line_idx, col_idx]
     min_dist_circles = dist_circles[min_circle_idx, col_idx]
-    dist = np.empty((n_points,))
+    dist = min_dist_lines
     n = np.empty((n_points, 2))
     # mask for points which are closer to some line than to any circle:
     line_mask = min_dist_lines < min_dist_circles
-    dist[line_mask] = min_dist_lines[line_mask]
     n[line_mask] = geometry.thick_lines[min_line_idx[line_mask]][..., :2]
     dist[~line_mask] = min_dist_circles[~line_mask]
     d = geometry.circles[min_circle_idx[~line_mask]][..., :2] - points[~line_mask]
