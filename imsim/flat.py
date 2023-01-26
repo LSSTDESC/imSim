@@ -236,7 +236,8 @@ class LSST_FlatBuilder(ImageBuilder):
             base:       The base configuration dict.
             image_num:  The current image number.
             logger:     If given, a logger object to log progress.
-            approx:     Whether an approximate/overestimate is ok [default: False]
+            approx:     Ignored
+
         Returns:
             the number of objects (=0)
         """
