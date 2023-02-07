@@ -283,8 +283,8 @@ class CcdReadout:
     per image HDU, simulating the electronics readout effects for each amp.
     """
     full_well: float = 1.0e5
-    
-    def __init__(self, eimage, logger, camera=None,
+
+    def __init__(self, eimage, logger, camera_name=None,
                  readout_time=2.0, dark_current=0.02, bias_level=1000.0,
                  scti=1.0e-6, pcti=1.0e-6, full_well=full_well, read_noise=None):
         """
@@ -362,8 +362,12 @@ class CcdReadout:
         * apply charge transfer efficiency effects
         * add bias levels and read noise
         """
-        # Bleed trail processing. TODO: Get full_well from the camera.
-        self.eimage.array[:] = bleed_eimage(self.eimage.array, full_well=self.full_well)
+        # Bleed trail processing.
+        # Only e2V CCDs have the midline bleed stop.
+        midline_stop = self.ccd.getSerial().startswith('E2V')
+        self.eimage.array[:] = bleed_eimage(self.eimage.array,
+                                            full_well=self.full_well,
+                                            midline_stop=midline_stop)
 
         # Add dark current.
         dark_time = self.exptime + self.readout_time

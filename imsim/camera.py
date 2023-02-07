@@ -28,6 +28,7 @@ class Amp:
         self.raw_flip_x = None
         self.raw_flip_y = None
         self.gain = None
+        self.full_well = None
         self.raw_bounds = None
         self.raw_data_bounds = None
         self.read_noise = None
@@ -65,6 +66,7 @@ class Amp:
         my_amp.raw_flip_x = lsst_amp.getRawFlipX()
         my_amp.raw_flip_y = lsst_amp.getRawFlipY()
         my_amp.gain = lsst_amp.getGain()
+        my_amp.full_well = lsst_amp.getSaturation()*my_amp.gain  # convert to e-
         my_amp.raw_bounds = get_gs_bounds(lsst_amp.getRawBBox())
         my_amp.raw_data_bounds = get_gs_bounds(lsst_amp.getRawDataBBox())
         my_amp.read_noise = lsst_amp.getReadNoise()
@@ -89,6 +91,7 @@ class CCD(dict):
         self.bounds = None
         self.xtalk = None
         self.lsst_detector = None
+        self.full_well = None
 
     def update(self, other):
         """
@@ -101,7 +104,7 @@ class CCD(dict):
             self[key].update(value)
 
     @staticmethod
-    def make_ccd_from_lsst(lsst_ccd):
+    def make_ccd_from_lsst(lsst_ccd, use_single_full_well=True):
         """
         Static function to create a CCD object, extracting its properties
         from an lsst.afw.cameraGeom.Detector object, including CCD and
@@ -112,17 +115,22 @@ class CCD(dict):
         ----------
         lsst_ccd : lsst.afw.cameraGeom.Detector
            The LSST Science Pipelines class representing a CCD.
+        use_single_full_well : bool [True]
+           Set the CCD full_well value to the maximum full well among
+           all amps.  We do this since our current image bleeding code
+           cannot handle per-amp values directly.
 
         Returns
         -------
         CCD object
-
         """
         my_ccd = CCD()
         my_ccd.bounds = get_gs_bounds(lsst_ccd.getBBox())
         my_ccd.lsst_ccd = lsst_ccd
         for lsst_amp in lsst_ccd:
             my_ccd[lsst_amp.getName()] = Amp.make_amp_from_lsst(lsst_amp)
+        if use_single_full_well:
+            my_ccd.full_well = max(_.full_well for _ in my_ccd.values())
         if lsst_ccd.hasCrosstalk():
             my_ccd.xtalk = lsst_ccd.getCrosstalk()
         return my_ccd
