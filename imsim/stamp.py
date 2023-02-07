@@ -471,7 +471,13 @@ class LSST_SiliconBuilder(StampBuilder):
             prof = prof * self._trivial_sed
         else:
             fix_seds(prof)
-        prof = prof.withFlux(self.realized_flux, bandpass)
+
+        try:
+            prof = prof.withFlux(self.realized_flux, bandpass)
+        except ZeroDivisionError:
+            # This occurs if prof.SED.calculateFlux(bandpass) == 0,
+            # so skip this object and just return the unmodified image.
+            return image
 
         wcs = base['wcs']
 
