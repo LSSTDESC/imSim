@@ -32,6 +32,13 @@ from .utils import pixel_to_focal, focal_to_pixel
 #     Pixels on an individual detector.
 
 
+def det_z_offset(det):
+    ccd_orientation = det.getOrientation()
+    if hasattr(ccd_orientation, 'getHeight'):
+        return ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
+    return 0.
+
+
 class BatoidWCSFactory:
     """
     Factory for constructing WCS's.  Currently hard-coded for Rubin Observatory.
@@ -284,7 +291,7 @@ class BatoidWCSFactory:
         """
         return self._field_wcs.xyToradec(thx, thy, units="rad")
 
-    def _field_to_focal(self, thx, thy):
+    def _field_to_focal(self, thx, thy, z_offset=0.0):
         """
         Parameters
         ----------
@@ -302,11 +309,16 @@ class BatoidWCSFactory:
             optic=self.telescope,
             wavelength=self.wavelength*1e-9
         )
-        self.telescope.trace(rv)
+        telescope = self.telescope
+        if z_offset != 0.0:
+            telescope = self.telescope.withLocallyShiftedOptic(
+                "Detector", [0.0, 0.0, -z_offset]  # batoid convention is opposite of DM
+            )
+        telescope.trace(rv)
         # x/y transpose to convert from EDCS to DVCS
         return rv.y*1e3, rv.x*1e3
 
-    def _focal_to_field(self, fpx, fpy):
+    def _focal_to_field(self, fpx, fpy, z_offset=0.0):
         """
         Parameters
         ----------
@@ -327,15 +339,17 @@ class BatoidWCSFactory:
         def resid(p):
             thx = p[:N]
             thy = p[N:]
-            x, y = self._field_to_focal(thx, thy)
+            x, y = self._field_to_focal(thx, thy, z_offset=z_offset)
             return np.concatenate([x-fpx, y-fpy])
         result = least_squares(resid, np.zeros(2*N))
         return result.x[:N], result.x[N:]
 
     def get_field_samples(self, det):
+        z_offset = det_z_offset(det)
+
         # Get field angle of detector center.
         fpx, fpy = det.getCenter(cameraGeom.FOCAL_PLANE)
-        thx, thy = self._focal_to_field(fpx, fpy)
+        thx, thy = self._focal_to_field(fpx, fpy, z_offset=z_offset)
         # Hard-coding detector dimensions for Rubin science sensors for now.
         # detector width ~ 4000 px * 0.2 arcsec/px ~ 800 arcsec ~ 0.22 deg
         # max radius is about sqrt(2) smaller, ~0.16 deg
@@ -366,10 +380,11 @@ class BatoidWCSFactory:
             WCS transformation between ICRF <-> pixels.
         """
         thxs, thys = self.get_field_samples(det)
+        z_offset = det_z_offset(det)
 
         # trace both directions (field -> ICRF and field -> pixel)
         # then fit TanSIP to ICRF -> pixel.
-        fpxs, fpys = self._field_to_focal(thxs, thys)
+        fpxs, fpys = self._field_to_focal(thxs, thys, z_offset=z_offset)
         xs, ys = focal_to_pixel(fpxs, fpys, det)
         rob, dob = self._field_to_observed(thxs, thys)
         rc, dc = self._observed_to_ICRF(rob, dob)
@@ -390,9 +405,11 @@ class BatoidWCSFactory:
         x, y : array
             Pixel coordinates.
         """
+        z_offset = det_z_offset(det)
+
         rob, dob = self._ICRF_to_observed(rc, dc)
         thx, thy = self._observed_to_field(rob, dob)
-        fpx, fpy = self._field_to_focal(thx, thy)
+        fpx, fpy = self._field_to_focal(thx, thy, z_offset=z_offset)
         x, y = focal_to_pixel(fpx, fpy, det)
         return x, y
 
@@ -410,8 +427,10 @@ class BatoidWCSFactory:
         rc, dc : array
             right ascension and declination in ICRF in radians
         """
+        z_offset = det_z_offset(det)
+
         fpx, fpy = pixel_to_focal(x, y, det)
-        thx, thy = self._focal_to_field(fpx, fpy)
+        thx, thy = self._focal_to_field(fpx, fpy, z_offset=z_offset)
         rob, dob = self._field_to_observed(thx, thy)
         rc, dc = self._observed_to_ICRF(rob, dob)
         return rc, dc
@@ -476,7 +495,7 @@ class BatoidWCSBuilder(WCSBuilder):
             self._camera = get_camera(self._camera_name)
         order = kwargs.pop('order', 3)
         det_name = kwargs.pop('det_name')
-        kwargs['telescope'] = GetInputObj('telescope', config, base, 'telescope')
+        kwargs['telescope'] = GetInputObj('telescope', config, base, 'telescope')['base']
         factory = self.makeWCSFactory(**kwargs)
         det = self.camera[det_name]
         logger.info("Building Batoid WCS for %s and %s", det_name,

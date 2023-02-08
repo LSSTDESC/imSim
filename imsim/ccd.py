@@ -52,18 +52,6 @@ class LSST_CCDBuilder(OutputBuilder):
 
         base['exp_time'] = float(config.get('exp_time', 30))
 
-        # Get detector z-offset, if available.
-        ccd_orientation = camera[det_name].getOrientation()
-        if hasattr(ccd_orientation, 'getHeight'):
-            z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
-            if z_offset != 0:
-                logger.info("Setting CCD z-offset to %.2e m", z_offset)
-        else:
-            z_offset = 0
-        if "shift_optics" not in base:
-            base["shift_optics"] = {}
-        base["shift_optics"]["Detector"] = [0, 0, z_offset]
-
     def getNFiles(self, config, base, logger=None):
         """Returns the number of files to be built.
 

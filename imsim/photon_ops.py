@@ -248,7 +248,7 @@ def config_kwargs(config, base, cls):
 def deserialize_lsst_optics(config, base, _logger):
     kwargs = config_kwargs(config, base, LsstOptics)
 
-    telescope = galsim.config.GetInputObj("telescope", config, base, "telescope")
+    telescope = galsim.config.GetInputObj("telescope", config, base, "telescope")['det']
 
     return LsstOptics(
         telescope=telescope,
@@ -274,7 +274,7 @@ def deserialize_lsst_diffraction(config, base, _logger):
         "opsim_meta_dict", config, base, "opsim_meta_dict"
     )
 
-    telescope = galsim.config.GetInputObj("telescope", config, base, "telescope")
+    telescope = galsim.config.GetInputObj("telescope", config, base, "telescope")['det']
 
     return LsstDiffraction(
         telescope=telescope,
