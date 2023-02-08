@@ -243,10 +243,11 @@ class LSST_FlatBuilder(ImageBuilder):
                     logger.info('Accumulated %s photons in this section. Time = %s min',
                                 sec_nphot, (t2-t1)/60.)
                     tot_nphot += sec_nphot
-                # Checkpoint completed sections.
-                completed_sections.add((i, j))
-                data = image, completed_sections, tot_nphot
-                self.checkpoint.save(chk_name, data)
+                if self.checkpoint is not None:
+                    # Checkpoint completed sections.
+                    completed_sections.add((i, j))
+                    data = image, completed_sections, tot_nphot
+                    self.checkpoint.save(chk_name, data)
         if self.sed is not None:
             logger.info('Accumulated %s photons in total. Total time = %s min',
                         tot_nphot, (t2-t0)/60.)
