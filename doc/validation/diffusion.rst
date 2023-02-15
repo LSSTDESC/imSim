@@ -144,10 +144,16 @@ photons in silicon) and surface conversion diffusion values:
 
 The latter is derived from fitting the distributions with the model
 consisting of exponentially distributed conversion depth and gaussian
-scatter of measured sigmas. Details of the fits are shown `here
-<img/diffusion_fe55_fits.png>`_. Lowest and
-highest voltages fits are probably not completely reliable as the
-histograms deviate from expected shape. All other voltages are
+scatter of measured sigmas. Details of the fits are shown here
+
+.. figure:: img/diffusion_fe55_fits.png
+
+   Fit of the distributions of the sizes of Fe55 hits with the model
+   consisting of exponentially distributed conversion depth and
+   gaussian scatter of measured sigmas.
+
+Lowest and highest voltages fits are probably not completely reliable
+as the histograms deviate from expected shape. All other voltages are
 described quite well by such simple model.
 
 Moreover, the data on surface conversion diffusion acquired earlier
