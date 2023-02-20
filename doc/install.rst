@@ -9,26 +9,90 @@ Installation instructions
    <https://github.com/LSSTDESC/imSim/blob/main/.github/workflows/ci.yml>`_ are
    guaranteed to result in a working setup as they are tested very frequently.
 
-   These instructions were last updated Jan 2023.
+   These instructions were last updated Feb 2023.
 
 Although the *imSim* software is *GalSim* based, which can be installed via
 ``pip install galsim``, it also depends on the `LSST software stack
 <https://pipelines.lsst.io/>`_, which is not so easy to install.
 
-For that reason we recommend working within the *imSim* *Docker* image, where
-the LSST software stack is pre-installed. Alternatively, you can use the
-*imSim* *Docker* file as a template to build your own *Docker* image, or,
-another option is to work within a *Conda* environment that gets the LSST stack
-through *Stackvana*. The three installation options are detailed below.
+For that reason we recommend working within a pre-built isolated environment
+that contains the LSST software stack; either a *Conda* environment that
+contains the *Stackvana* package, or the *imSim* *Docker* image. 
 
-Method 1: Using the pre-built *imSim* Docker image
+Method 1: *Conda* and the *Stackvana* package
+---------------------------------------------
+
+Install *Conda*
+~~~~~~~~~~~~~~~
+
+First, install `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`__
+(if you do not have a *Conda* installation already):
+
+.. code-block:: sh
+
+   wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+   bash /tmp/miniconda.sh -b -u -p ./conda
+   rm -rf /tmp/miniconda.sh
+
+Next, create a *Python* 3.10 *Conda* environment and install *Mamba*:
+
+.. code-block:: sh
+
+   conda create -n imSim python=3.10
+   conda activate imSim
+   conda install -c conda-forge mamba
+
+Clone *imSim* and dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now we are ready to install *imSim*:
+
+.. code-block:: sh
+
+   git clone https://github.com/LSSTDESC/imSim.git
+   # conda dependencies:
+   mamba install -y -c conda-forge --file imSim/etc/standalone_conda_requirements.txt
+   # pip dependencies:
+   pip install batoid skyCatalogs==1.2.0 gitpython
+   pip install git+https://github.com/lsst/rubin_sim.git
+   # Install imSim:
+   pip install imSim/
+
+Install *rubin_sim_data*
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+*imSim* makes use of some external datasets. Here we are putting them in a
+directory called ``rubin_sim_data``, but the choice is yours. If you do change
+the locations, make sure to update the ``RUBIN_SIM_DATA_DIR`` path we set
+below.
+
+To download:
+
+.. code-block:: sh
+
+   mkdir -p rubin_sim_data/sims_sed_library
+   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
+   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
+   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
+
+
+Set runtime environment variables for the *Conda* environment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: sh
+
+    conda env config vars set RUBIN_SIM_DATA_DIR=$(pwd)/rubin_sim_data
+    conda env config vars set SIMS_SED_LIBRARY_DIR=$(pwd)/rubin_sim_data/sims_sed_library
+
+Method 2: Using the pre-built *imSim* Docker image
 --------------------------------------------------
 
 Here we assume you have `Docker <https://docs.docker.com/get-docker/>`_
 installed.
 
 The easiest method is to pull the latest *imSim* environment *Docker* image
-from `DockerHub <https://hub.docker.com/r/lsstdesc/imsim-env>`__: 
+from `DockerHub <https://hub.docker.com/r/lsstdesc/imsim-env>`__ which has the
+latest LSST stack and version of *imSim* preinstalled: 
 
 .. code-block:: sh
 
@@ -60,7 +124,7 @@ Once inside the container you will have to activate the LSST stack as normal:
 .. note:: If you have trouble accessing the internet within the container, you
    may have to add ``--network host`` to the ``docker run`` command.
 
-Method 2: Building your own *imSim* Docker image
+Method 3: Building your own *imSim* Docker image
 ------------------------------------------------
 
 If the *imSim* *Docker* image doesn't quite meet your needs, perhaps you need
@@ -150,73 +214,3 @@ The available images can be listed via
 .. code-block:: sh
 
     docker images
-
-Method 3: Via Conda / Stackvana
--------------------------------
-
-Another option is to install *imSim* and the LSST stack within a *Conda*
-environment.
-
-Install conda
-~~~~~~~~~~~~~
-
-First, install `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`__
-(if you do not have a *Conda* installation already):
-
-.. code-block:: sh
-
-   wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
-   bash /tmp/miniconda.sh -b -u -p ./conda
-   rm -rf /tmp/miniconda.sh
-
-Next, create a *Python* 3.10 *Conda* environment and install *Mamba*:
-
-.. code-block:: sh
-
-   ./conda/bin/conda create -n imSim python=3.10
-   . ./conda/bin/activate
-   conda activate imSim
-   conda install -c conda-forge mamba
-
-
-Clone *imSim* and dependencies
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Now we are ready to install *imSim*:
-
-.. code-block:: sh
-
-   git clone https://github.com/LSSTDESC/imSim.git
-   # conda dependencies:
-   mamba install -y -c conda-forge --file imSim/etc/standalone_conda_requirements.txt
-   # pip dependencies:
-   pip install batoid skyCatalogs==1.2.0 gitpython
-   pip install git+https://github.com/lsst/rubin_sim.git
-   # Install imSim:
-   pip install imSim/
-
-Install rubin_sim_data
-~~~~~~~~~~~~~~~~~~~~~~
-
-*imSim* makes use of some external datasets. Here we are putting them in a
-directory called ``rubin_sim_data``, but the choice is yours. If you do change
-the locations, make sure to update the ``RUBIN_SIM_DATA_DIR`` path we set
-below.
-
-To download:
-
-.. code-block:: sh
-
-   mkdir -p rubin_sim_data/sims_sed_library
-   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
-   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
-   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
-
-
-Set runtime environment variables for the *Conda* environment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: sh
-
-    conda env config vars set RUBIN_SIM_DATA_DIR=$(pwd)/rubin_sim_data
-    conda env config vars set SIMS_SED_LIBRARY_DIR=$(pwd)/rubin_sim_data/sims_sed_library
