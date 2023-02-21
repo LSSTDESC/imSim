@@ -63,8 +63,8 @@ Install *rubin_sim_data*
 
 *imSim* makes use of some external datasets. Here we are putting them in a
 directory called ``rubin_sim_data``, but the choice is yours. If you do change
-the locations, make sure to update the ``RUBIN_SIM_DATA_DIR`` path we set
-below.
+the locations, make sure to update the ``RUBIN_SIM_DATA_DIR`` and
+``SIMS_SED_LIBRARY_DIR`` paths we set below.
 
 To download:
 
@@ -91,7 +91,7 @@ Here we assume you have `Docker <https://docs.docker.com/get-docker/>`_
 installed.
 
 The easiest method is to pull the latest *imSim* environment *Docker* image
-from `DockerHub <https://hub.docker.com/r/lsstdesc/imsim-env>`__ which has the
+from `DockerHub <https://hub.docker.com/r/lsstdesc/imsim-env>`__. This has the
 latest LSST stack and version of *imSim* preinstalled: 
 
 .. code-block:: sh
@@ -118,9 +118,9 @@ Method 3: Building your own *imSim* Docker image
 
 If the *imSim* *Docker* image doesn't quite meet your needs, perhaps you need
 some additional software or dependencies, or you want to develop an *imSim*
-project that is stored locally on your machine actively within a container, you
-can use the *imSim* *Docker* image as a starting point to build your own
-*Docker* image.
+project that is stored locally on your machine actively within a container,
+then you can use the *imSim* *Docker* image as a starting point to build your
+own *Docker* image.
 
 The *imSim* Dockerfile
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -145,8 +145,7 @@ We then install *imSim* and *galsim* and their dependencies, and download the
 ``rubin_sim_data``.
 
 If you want to install additional *Python* dependencies on-top of the default
-build, do it under the ``RUN`` command on line 22, on the line before ``conda
-clean -afy``.
+build, do it under the ``RUN`` command on line 24.
 
 If you are installing additional general software, this can be done at the
 start of the image.
@@ -163,7 +162,7 @@ running the container, mount your local *imSim* directory like so.
     docker run -it --privileged --rm -v ${HOME}/imSim:/home/lsst/imSim lsstdesc/my-imsim-env:latest
 
 The ``-v`` option maps your home *imSim* directory on the host system to
-``/home/lsst`` in the Docker container (which is the default working
+``/home/lsst/imSim`` in the Docker container (which is the default working
 directory).
 
 Setting user and group ids
@@ -211,7 +210,7 @@ following command will build the image
 
 .. code-block:: sh
 
-    docker build ./ -t <repository>:<tag>
+    docker build -t <repository>:<tag> .
 
 where ``<repository>`` and ``<tag>`` are chosen by the user.
 
