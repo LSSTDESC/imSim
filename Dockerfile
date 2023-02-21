@@ -8,6 +8,8 @@ LABEL lsst-desc.imsim.description="A Docker image combining the LSST Science Pip
 LABEL lsst-desc.imsim.version="latest"
 LABEL lsst-desc.imsim.build_date=$BUILD_DATE
 
+WORKDIR /home/lsst
+
 # Clone imSim and rubin_sim repos.
 RUN git clone https://github.com/LSSTDESC/imSim.git &&\
     git clone https://github.com/lsst/rubin_sim.git
@@ -21,17 +23,18 @@ RUN sed '/stackvana/d' imSim/etc/standalone_conda_requirements.txt > imSim/etc/d
 # 4) Install imSim
 RUN source /opt/lsst/software/stack/loadLSST.bash &&\
     setup lsst_distrib &&\
-    mamba install --freeze-installed -y --file imSim/etc/docker_conda_requirements.txt &&\
+    mamba install -y --file imSim/etc/docker_conda_requirements.txt &&\
     python3 -m pip install batoid skyCatalogs==1.2.0 gitpython &&\
-    cd rubin_sim && pip install . && cd .. &&\
-    cd imSim && pip install . &&\
-    conda clean -afy
+    python3 -m pip install -e rubin_sim/ &&\
+    python3 -m pip install -e imSim/
+
+WORKDIR /opt/lsst/software/stack
 
 # Download Rubin Sim data.
-RUN mkdir -p rubin_sim_data/sims_sed_library && \
-    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz &&\
-    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz &&\
-    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
+RUN mkdir -p rubin_sim_data/sims_sed_library
+RUN curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
+RUN curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
+RUN curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
 
 # Set location of Rubin sim data (downloaded in step above).
 ENV RUBIN_SIM_DATA_DIR /opt/lsst/software/stack/rubin_sim_data
@@ -39,8 +42,8 @@ ENV RUBIN_SIM_DATA_DIR /opt/lsst/software/stack/rubin_sim_data
 # Set location of SED library (downloaded in step above).
 ENV SIMS_SED_LIBRARY_DIR /opt/lsst/software/stack/rubin_sim_data/sims_sed_library
 
-# Cleanup
-RUN rm -rf imSim && \
-    rm -rf rubin_sim
-
 WORKDIR /home/lsst
+
+# Make a script to activate the LSST stack
+RUN echo "source /opt/lsst/software/stack/loadLSST.bash" >> .bashrc &&\
+    echo "setup lsst_distrib" >> .bashrc

@@ -105,21 +105,10 @@ To then run the image do:
 
 .. code-block:: sh
 
-    docker run -it --privileged --rm -v ${HOME}:/home/lsst lsstdesc/imsim-env:latest
+    docker run -it --privileged --rm lsstdesc/imsim-env:latest
 
-
-The ``-v ${HOME}:/home/lsst`` option maps your home directory on the host
-system to ``/home/lsst`` in the Docker container (which is the default working
-directory). You can omit this, or chose a different directory to mount into the
-container.
-
-Once inside the container you will have to activate the LSST stack as normal:
-
-.. code-block:: sh
-
-   source /opt/lsst/software/stack/loadLSST.bash
-   setup lsst_distrib
-
+*imSim* is installed (as an editable install) under ``/home/lsst``. The LSST
+stack is activated automatically on the startup of the image. 
 
 .. note:: If you have trouble accessing the internet within the container, you
    may have to add ``--network host`` to the ``docker run`` command.
@@ -128,8 +117,10 @@ Method 3: Building your own *imSim* Docker image
 ------------------------------------------------
 
 If the *imSim* *Docker* image doesn't quite meet your needs, perhaps you need
-some additional software or dependencies, you can use the *imSim* *Docker*
-image as a starting point to build your own *Docker* image.
+some additional software or dependencies, or you want to develop an *imSim*
+project that is stored locally on your machine actively within a container, you
+can use the *imSim* *Docker* image as a starting point to build your own
+*Docker* image.
 
 The *imSim* Dockerfile
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -159,6 +150,21 @@ clean -afy``.
 
 If you are installing additional general software, this can be done at the
 start of the image.
+
+Mounting a volume
+~~~~~~~~~~~~~~~~~
+You could for example use a *Docker* image as a clean environment to develop
+*imSim*, but keep the active development files locally on your machine. To do
+this, remove the *imSim* installation from the ``Dockerfile``. Then, when
+running the container, mount your local *imSim* directory like so.
+
+.. code-block:: sh
+
+    docker run -it --privileged --rm -v ${HOME}/imSim:/home/lsst/imSim lsstdesc/my-imsim-env:latest
+
+The ``-v`` option maps your home *imSim* directory on the host system to
+``/home/lsst`` in the Docker container (which is the default working
+directory).
 
 Setting user and group ids
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
