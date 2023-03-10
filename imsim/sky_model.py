@@ -75,6 +75,9 @@ class SkyModel:
         # Return photons/arcsec^2
         value = flux * self.eff_area * self.exptime
         return value
+    
+    def print(self):
+        print('This is a test')
 
 
 class SkyGradient:
