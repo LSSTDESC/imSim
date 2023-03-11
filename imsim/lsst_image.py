@@ -43,7 +43,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         extra_ignore = [ 'image_pos', 'world_pos', 'stamp_size', 'stamp_xsize', 'stamp_ysize',
                          'nobjects' ]
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
-                'apply_sky_gradient': bool, 'camera': str, 'nbatch': int }
+                'apply_vignetting': bool, 'apply_sky_gradient': bool, 'apply_fringe': bool,
+                'vignetting_data_file': str, 'camera': str, 'nbatch': int}
         params = GetAllParams(config, base, opt=opt, ignore=ignore+extra_ignore)[0]
 
         size = params.get('size',0)
@@ -57,7 +58,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             self.vignetting = None
 
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
-
+        self.apply_fringe = params.get('apply_fringe',False)
         self.camera_name = params.get('camera')
 
         try:
@@ -256,17 +257,20 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                                                   'LSST_ImageBuilder')
             sky_gradient = SkyGradient(sky_model, image.wcs,
                                        base['world_center'], nx)
-            logger.info("Applying sky gradient = %s", sky_gradient)
+            logger.warning("Applying sky gradient = %s", sky_gradient)
             xarr, yarr = np.meshgrid(range(nx), range(ny))
             sky.array[:] *= sky_gradient(xarr, yarr)
 
         if self.vignetting is not None:
             det_name = base['det_name']
             camera = get_camera(self.camera_name)
-            logger.info("Applying vignetting according to radial spline model.")
-            radii = Vignetting.get_pixel_radii(camera[det_name])
-            sky.array[:] *= self.vignetting.apply_to_radii(radii)
-
+            logger.warning("Applying vignetting according to radial spline model.")
+            sky.array[:] *= self.vignetting(camera[det_name])
+            
+        if self.apply_fringe:
+            logger.warning("Apply fringing")
+            fringe_im = fits.open('/hpc/home/zg64/Fringing/e2v-321-fringe-sim-norm-center.fits.gz')[0].data
+            sky.array[:] *= fringe_im
         image += sky
 
         AddNoise(base,image,current_var,logger)
