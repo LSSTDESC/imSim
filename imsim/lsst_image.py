@@ -259,7 +259,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                                                   'LSST_ImageBuilder')
             sky_gradient = SkyGradient(sky_model, image.wcs,
                                        base['world_center'], nx)
-            logger.info("Applying sky gradient = %s", sky_gradient)
+            logger.warning("Applying sky gradient = %s", sky_gradient)
             xarr, yarr = np.meshgrid(range(nx), range(ny))
             sky.array[:] *= sky_gradient(xarr, yarr)
 
