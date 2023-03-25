@@ -1,0 +1,31 @@
+# Perform imSim unit tests within the latest imSim docker environment image.
+
+name: imSim CI within docker
+
+on:
+  push:
+    branches:
+      - update_docker_image
+  workflow_dispatch: null
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Point to the imSim docker image.
+    container:
+      image: lsstdesc/imsim-env:latest
+      options: --user root
+
+    steps:
+      # Check out imSim repo
+      - uses: actions/checkout@v3
+
+      # Install latest imSim build and run CI
+      # This all has to be done in a single shell instance.
+      - name: Run imSim unit tests
+        run: |
+          source /opt/lsst/software/stack/loadLSST.bash
+          pip install .
+          setup lsst_distrib
+          pytest

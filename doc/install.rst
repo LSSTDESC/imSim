@@ -1,28 +1,32 @@
-Install
-=======
+Installation instructions
+=========================
 
-.. note::
-   As *imSim* is still under heave development, parts of this document
-   might outdate at some point. In such cases, please submit a bug
-   report `here <https://github.com/LSSTDESC/imSim/issues>`_.
+.. note:: As *imSim* is still under heavy development, parts of this document
+   are likely to become outdated at some point. In such cases, please submit a
+   bug report `here <https://github.com/LSSTDESC/imSim/issues>`_.
 
    The `CI directives
-   <https://github.com/LSSTDESC/imSim/blob/main/.github/workflows/ci.yml>`_
-   are guaranteed to result in a working setup as they are tested very
-   frequently.
+   <https://github.com/LSSTDESC/imSim/blob/main/.github/workflows/ci.yml>`_ are
+   guaranteed to result in a working setup as they are tested very frequently.
 
-Although *imSim* is *GalSim* based (which just can be installed via
-``pip install galsim``, it also depends on the
-`LSST software stack <https://pipelines.lsst.io/>`_,
-which is not as easy to install.
+   These instructions were last updated Feb 2023.
 
-Method 1: Via Conda / Stackvana
--------------------------------
+Although the *imSim* software is *GalSim* based, which can be installed via
+``pip install galsim``, it also depends on the `LSST software stack
+<https://pipelines.lsst.io/>`_, which is not so easy to install.
 
-Install conda
-~~~~~~~~~~~~~
+For that reason we recommend working within a pre-built isolated environment
+that contains the LSST software stack; either a *Conda* environment that
+contains the *Stackvana* package, or the *imSim* *Docker* image. 
 
-Here, we are going to use miniconda:
+Method 1: *Conda* and the *Stackvana* package
+---------------------------------------------
+
+Install *Conda*
+~~~~~~~~~~~~~~~
+
+First, install `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`__
+(if you do not have a *Conda* installation already):
 
 .. code-block:: sh
 
@@ -30,18 +34,18 @@ Here, we are going to use miniconda:
    bash /tmp/miniconda.sh -b -u -p ./conda
    rm -rf /tmp/miniconda.sh
 
-Next, we create a python 3.8 environment and install mamba:
+Next, create a *Python* 3.10 *Conda* environment and install *Mamba*:
 
 .. code-block:: sh
 
-   ./conda/bin/conda create -n py38 python=3.8
-   . ./conda/bin/activate
-   conda activate py38
+   conda create -n imSim python=3.10
+   conda activate imSim
    conda install -c conda-forge mamba
-
 
 Clone *imSim* and dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now we are ready to install *imSim*:
 
 .. code-block:: sh
 
@@ -49,88 +53,124 @@ Clone *imSim* and dependencies
    # conda dependencies:
    mamba install -y -c conda-forge --file imSim/etc/standalone_conda_requirements.txt
    # pip dependencies:
-   pip install batoid git+https://github.com/LSSTDESC/skyCatalogs.git git+https://github.com/lsst/rubin_sim.git
+   pip install batoid skyCatalogs==1.2.0 gitpython
+   pip install git+https://github.com/lsst/rubin_sim.git
    # Install imSim:
    pip install imSim/
 
-Install rubin_sim_data
-~~~~~~~~~~~~~~~~~~~~~~
+Install *rubin_sim_data*
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+*imSim* makes use of some external datasets. Here we are putting them in a
+directory called ``rubin_sim_data``, but the choice is yours. If you do change
+the locations, make sure to update the ``RUBIN_SIM_DATA_DIR`` and
+``SIMS_SED_LIBRARY_DIR`` paths we set below.
+
+To download:
 
 .. code-block:: sh
 
-   mkdir -p rubin_sim_data
+   mkdir -p rubin_sim_data/sims_sed_library
    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
+   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
 
 
-Set runtime environment variables for the conda environment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Set runtime environment variables for the *Conda* environment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: sh
 
     conda env config vars set RUBIN_SIM_DATA_DIR=$(pwd)/rubin_sim_data
+    conda env config vars set SIMS_SED_LIBRARY_DIR=$(pwd)/rubin_sim_data/sims_sed_library
 
+Method 2: Using the pre-built *imSim* Docker image
+--------------------------------------------------
 
-This will export the environment variable ``RUBIN_SIM_DATA_DIR`` whenever
-you activate the ``py38`` conda environment.
+Here we assume you have `Docker <https://docs.docker.com/get-docker/>`_
+installed.
 
-To make use of the default *imSim* configuration, you also need a SED dataset.
-You can obtain such a dataset from NERSC, e.g.
-
-``/cvmfs/sw.lsst.eu/linux-x86_64/lsst_sims/sims_w_2021_19/stack/current/Linux64/sims_sed_library/2017.01.24-1-g5b328a8``
-
-Once, you have a SED dataset, you also have to point the variable
-``SIMS_SED_LIBRARY_DIR`` to its location.
-
-.. code-block:: sh
-
-    conda env config vars set SIMS_SED_LIBRARY_DIR=your/sed/path
-
-Method 2: Using a Docker image
-------------------------------
-
-Example Dockerfile
-~~~~~~~~~~~~~~~~~~
-Assuming you have `Docker <https://docs.docker.com/get-docker/>`_ installed, the following Dockerfile will enable you to build an image with all of components needed to run imSim:
+The easiest method is to pull the latest *imSim* environment *Docker* image
+from `DockerHub <https://hub.docker.com/r/lsstdesc/imsim-env>`__. This has the
+latest LSST stack and version of *imSim* preinstalled: 
 
 .. code-block:: sh
 
-    from lsstsqre/centos:7-stack-lsst_distrib-w_2022_38
+   docker pull lsstdesc/imsim-env:latest
 
-    RUN source /opt/lsst/software/stack/loadLSST.bash &&\
-        setup lsst_distrib &&\
-        pip install galsim==2.4 &&\
-        pip install batoid &&\
-        pip install git+https://github.com/LSSTDESC/skyCatalogs.git@master &&\
-        pip install dust_extinction &&\
-        pip install palpy &&\
-        git clone https://github.com/LSSTDESC/imSim.git &&\
-        cd imSim &&\
-        pip install -e . &&\
-        cd .. &&\
-        git clone https://github.com/lsst/rubin_sim.git &&\
-        cd rubin_sim &&\
-        pip install -e . &&\
-        cd .. &&\
-        mkdir rubin_sim_data &&\
-        curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz &&\
-        curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
 
-    WORKDIR /home/lsst
+Running the Docker image
+~~~~~~~~~~~~~~~~~~~~~~~~
+To then run the image do:
 
-    CMD source /opt/lsst/software/stack/loadLSST.bash; setup lsst_distrib; export RUBIN_SIM_DATA_DIR=/opt/lsst/software/stack/rubin_sim_data; bash
+.. code-block:: sh
 
-The final ``CMD`` line sets up the runtime environment in bash.
+    docker run -it --privileged --rm lsstdesc/imsim-env:latest
 
-Note that the file containing these commands should literally be called ``Dockerfile``.
+*imSim* is installed (as an editable install) under ``/home/lsst``. The LSST
+stack is activated automatically on the startup of the image. 
 
-Here we've used one of the `prebuilt Docker images <https://hub.docker.com/r/lsstsqre/centos/tags>`_ produced by Rubin Data Management team that are available from Docker Hub.  Standard images are produced on a weekly basis and track the `on-going development of the LSST Stack <https://lsst-dm.github.io/lsst_git_changelog/weekly/summary.html>`_.  For weekly ``w_2022_22`` and later, python 3.10 is the baseline version provided with the prebuilt Rubin Docker images.
+.. note:: If you have trouble accessing the internet within the container, you
+   may have to add ``--network host`` to the ``docker run`` command.
 
-Various components, e.g., GalSim, imSim, etc., can be omitted from the Dockerfile build and installed separately as shown in the conda/stackvana method.
+Method 3: Building your own *imSim* Docker image
+------------------------------------------------
+
+If the *imSim* *Docker* image doesn't quite meet your needs, perhaps you need
+some additional software or dependencies, or you want to develop an *imSim*
+project that is stored locally on your machine actively within a container,
+then you can use the *imSim* *Docker* image as a starting point to build your
+own *Docker* image.
+
+The *imSim* Dockerfile
+~~~~~~~~~~~~~~~~~~~~~~
+
+The *imSim* ``Dockerfile`` is located in the root directory of the *imSim*
+repository, which you can use as a starting point:
+
+.. literalinclude:: ../Dockerfile
+   :language: Docker
+   :linenos:
+
+
+It builds upon the `prebuilt Docker images
+<https://hub.docker.com/r/lsstsqre/centos/tags>`_ produced by the Rubin Data
+Management team. Standard images are produced on a weekly basis and track the
+`on-going development of the LSST Stack
+<https://lsst-dm.github.io/lsst_git_changelog/weekly/summary.html>`_. For
+``imsim-env:latest`` we build upon the latest LSST stack image, however you can
+change this to a specific build if you prefer.
+
+We then install *imSim* and *galsim* and their dependencies, and download the
+``rubin_sim_data``.
+
+If you want to install additional *Python* dependencies on-top of the default
+build, do it under the ``RUN`` command on line 24.
+
+If you are installing additional general software, this can be done at the
+start of the image.
+
+Mounting a volume
+~~~~~~~~~~~~~~~~~
+You could for example use a *Docker* image as a clean environment to develop
+*imSim*, but keep the active development files locally on your machine. To do
+this, remove the *imSim* installation from the ``Dockerfile``. Then, when
+running the container, mount your local *imSim* directory like so.
+
+.. code-block:: sh
+
+    docker run -it --privileged --rm -v ${HOME}/imSim:/home/lsst/imSim lsstdesc/my-imsim-env:latest
+
+The ``-v`` option maps your home *imSim* directory on the host system to
+``/home/lsst/imSim`` in the Docker container (which is the default working
+directory).
 
 Setting user and group ids
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-The prebuilt Rubin images set the default linux user and group both to ``lsst`` with ``uid=1000`` and ``gid=1000``.   If the desired user and group on the host system have the same ids, then the ``lsst`` user and group in the Docker image can be renamed with the following, replacing the line
+The prebuilt Rubin images set the default linux user and group both to ``lsst``
+with ``uid=1000`` and ``gid=1000``.   If the desired user and group on the host
+system have the same ids, then the ``lsst`` user and group in the Docker image
+can be renamed with the following, replacing the line
 
 .. code-block:: sh
 
@@ -148,7 +188,8 @@ with
     USER ${user}
     WORKDIR /home/${user}
 
-Alternatively, if the ``lsst`` user doesn't conflict with the desired user/group, the latter can be added to the image and set as the default user:
+Alternatively, if the ``lsst`` user doesn't conflict with the desired
+user/group, the latter can be added to the image and set as the default user:
 
 .. code-block:: sh
 
@@ -164,11 +205,12 @@ Alternatively, if the ``lsst`` user doesn't conflict with the desired user/group
 
 Building the Docker image
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-Assuming the above Dockerfile is in the current directory, then the following command will build the image
+Assuming the above ``Dockerfile`` is in the current directory, then the
+following command will build the image
 
 .. code-block:: sh
 
-    docker build ./ -t <repository>:<tag>
+    docker build -t <repository>:<tag> .
 
 where ``<repository>`` and ``<tag>`` are chosen by the user.
 
@@ -177,14 +219,3 @@ The available images can be listed via
 .. code-block:: sh
 
     docker images
-
-
-Running the Docker image
-~~~~~~~~~~~~~~~~~~~~~~~~
-To run the image do
-
-.. code-block:: sh
-
-    docker run -it --privileged --rm -v ${HOME}:/home/<user> <repository>:<tag>
-
-The ``-v ${HOME}:/home/<user>`` option maps the user's home directory on the host system to ``/home/<user>`` in the Docker image.
