@@ -293,7 +293,7 @@ def prepare_e_z(lat: float) -> tuple[np.ndarray, Callable[[np.ndarray], np.ndarr
     sin_lat = np.sin(lat)
 
     def _e_z(t: np.ndarray) -> np.ndarray:
-        out = np.empty((t.size, 3))
+        out = np.empty((np.size(t), 3))
         np.cos(OMEGA_EARTH * t, out=out[:, 0])
         np.sin(OMEGA_EARTH * t, out=out[:, 1])
         out[:, 2] = sin_lat
@@ -312,6 +312,41 @@ def prepare_field_rotation_matrix(
     e_z_0, e_z = prepare_e_z(latitude)
     e_focal = e_equatorial(latitude=latitude, azimuth=azimuth, altitude=altitude)
     return lambda t: field_rotation_matrix(e_z_0, e_z, e_focal, t)
+
+
+def field_rotation_sin_cos(
+    e_z_0: np.ndarray,
+    e_z: Callable[[np.ndarray], np.ndarray],
+    e_focal: np.ndarray,
+    t: np.ndarray,
+    out: np.ndarray
+):
+    """Computes the field rotation matrix for a given latitude lat, times t and a
+    focal point given by cartesian coordinates in an equatorial system.
+
+    Parameters
+    ----------
+    e_z_0 : returning the direction to zenith relative to the observer at t=0
+        (as obtained by prepare_e_z).
+    e_z : A function returning the direction to zenith relative to the observer,
+        in an equatorial system (as obtained by prepare_e_z).
+    e_focal : Numpy array of shape (3,) containing the focal point
+        in cartesian coordinates (x,y,z).
+        x: Projection of the observers position to the equatorial plane,
+        z direction: earth axis.
+    t : Numpy array of shape (n,) containing the times of observation.
+
+    Returns:
+        Numpy array of shape (n, 2, 2) containing a rotation matrix for each time in t.
+        The matrices live in the tangent spaces of the points in e_star, with the
+        y axis pointing to the zenith of the oberver.
+    """
+    e_z_rot = e_z(t)
+    e_h = np.cross(e_focal, e_z_rot)
+    e_h_0 = np.cross(e_focal, e_z_0)[None, :]
+    nrm = np.linalg.norm(e_h, axis=-1) * np.linalg.norm(e_h_0, axis=-1)
+    out[..., 0] = np.einsum("ij,ij->i", e_h, e_h_0) / nrm
+    out[..., 1] = np.einsum("ij,ij->i", e_z_rot, e_h_0) / nrm
 
 
 def field_rotation_matrix(
@@ -340,13 +375,9 @@ def field_rotation_matrix(
         The matrices live in the tangent spaces of the points in e_star, with the
         y axis pointing to the zenith of the oberver.
     """
-    e_z_rot = e_z(t)
-    e_h = np.cross(e_focal, e_z_rot)
-    e_h_0 = np.cross(e_focal, e_z_0)[None, :]
     rot = np.empty(np.shape(t) + (2, 2))
-    nrm = np.linalg.norm(e_h, axis=-1) * np.linalg.norm(e_h_0, axis=-1)
-    rot[:, 1, 1] = rot[:, 0, 0] = np.einsum("ij,ij->i", e_h, e_h_0) / nrm
-    rot[:, 0, 1] = np.einsum("ij,ij->i", e_z_rot, e_h_0) / nrm
+    field_rotation_sin_cos(e_z_0, e_z, e_focal, t, rot[:, 0, :])
+    rot[:, 1, 1] = rot[:, 0, 0]
     rot[:, 1, 0] = -rot[:, 0, 1]
     return rot
 

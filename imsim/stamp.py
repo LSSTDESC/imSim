@@ -1,8 +1,54 @@
-
 from functools import lru_cache
+from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
-from galsim.config import StampBuilder, RegisterStampType
+from galsim.config import StampBuilder, RegisterStampType, GetAllParams
+from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
+from .opsim_meta import opsim_fallback_values
+
+from .diffraction_fft import apply_diffraction_psf
+from .readout import CcdReadout
+
+@dataclass
+class DiffractionPSF:
+    exptime: float
+    azimuth: galsim.Angle
+    altitude: galsim.Angle
+    rottelpos: galsim.Angle
+    psf_size: float = 4000
+    full_well: float = CcdReadout.full_well
+    pixel_length: float = 100.0  # TODO: fill in some reasonable value here.
+    latitude: galsim.Angle = RUBIN_LOC.lat
+    enabled: bool = True
+
+    def apply(self, image: galsim.Image) -> None:
+        if self.enabled:
+            apply_diffraction_psf(
+                image.array,
+                rottelpos=self.rottelpos.rad,
+                exptime=self.exptime,
+                latitude=self.latitude.rad,
+                azimuth=self.azimuth.rad,
+                altitude=self.altitude.rad,
+                full_well=self.full_well,
+                pixel_length=self.pixel_length,
+                psf_size=self.psf_size
+            )
+
+    @classmethod
+    def from_config(cls, config: dict, base: dict) -> "DiffractionPSF":
+        """Create a DiffractionPSF from config values, falling back to OpsimMeta,
+        if not specified in config.
+        """
+        all_fields = {f.name: f.type for f in fields(cls)}
+        diffraction_psf_config = config.get("diffraction_psf", {})
+        # Treat all fields as optional, try to fill up missing fields from opsim later:
+        kwargs, _safe = GetAllParams(diffraction_psf_config, base, opt=all_fields)
+        required_fields = {f.name: f.type for f in fields(cls) if f.default is MISSING}
+        missing_fields = {k: v for k, v in required_fields.items() if k not in kwargs}
+        fallback_values = opsim_fallback_values(config, base, missing_fields)
+        return cls(**kwargs, **fallback_values)
+
 
 class LSST_SiliconBuilder(StampBuilder):
     """This performs the tasks necessary for building the stamp for a single object.
@@ -15,6 +61,8 @@ class LSST_SiliconBuilder(StampBuilder):
     _trivial_sed = galsim.SED(galsim.LookupTable([100, 2000], [1,1], interpolant='linear'),
                               wave_type='nm', flux_type='fphotons')
     _Nmax = 4096  # (Don't go bigger than 4096)
+
+    diffraction_psf: DiffractionPSF
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
         """
@@ -43,6 +91,8 @@ class LSST_SiliconBuilder(StampBuilder):
         if gal is None:
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
         self.gal = gal
+
+        self.diffraction_psf = DiffractionPSF.from_config(config, base)
 
         # Compute or retrieve the realized flux.
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
@@ -518,12 +568,12 @@ class LSST_SiliconBuilder(StampBuilder):
                 logger.info('offset = %r',offset)
                 logger.info('wcs = %r',wcs)
                 raise
-            else:
-                # Some pixels can end up negative from FFT numerics.  Just set them to 0.
-                fft_image.array[fft_image.array < 0] = 0.
-                fft_image.addNoise(galsim.PoissonNoise(rng=self.rng))
-                # In case we had to make a bigger image, just copy the part we need.
-                image += fft_image[image.bounds]
+            # Some pixels can end up negative from FFT numerics.  Just set them to 0.
+            fft_image.array[fft_image.array < 0] = 0.
+            self.diffraction_psf.apply(fft_image)
+            fft_image.addNoise(galsim.PoissonNoise(rng=self.rng))
+            # In case we had to make a bigger image, just copy the part we need.
+            image += fft_image[image.bounds]
 
         else:
             if not faint and 'photon_ops' in config:

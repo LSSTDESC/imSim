@@ -270,9 +270,11 @@ class CcdReadout:
     Class to convert eimage to a "raw" FITS file with 1 amplifier segment
     per image HDU, simulating the electronics readout effects for each amp.
     """
+    full_well: float = 1.0e5
+    
     def __init__(self, eimage, logger, camera_name=None,
                  readout_time=2.0, dark_current=0.02, bias_level=1000.0,
-                 scti=1.0e-6, pcti=1.0e-6, full_well=1.0e5, read_noise=None):
+                 scti=1.0e-6, pcti=1.0e-6, full_well=full_well, read_noise=None):
         """
         Parameters
         ----------
