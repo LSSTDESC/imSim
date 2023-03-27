@@ -60,11 +60,11 @@ def create_test_photon_array(t=0.0, n_photons=10000):
     )
 
 
-def create_test_lsst_optics():
-    return photon_ops.LsstOptics(**create_test_lsst_optics_kwargs())
+def create_test_rubin_optics():
+    return photon_ops.RubinOptics(**create_test_rubin_optics_kwargs())
 
 
-def create_test_lsst_optics_kwargs():
+def create_test_rubin_optics_kwargs():
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
     telescope = load_telescope("LSST_r.yaml")
 
@@ -80,13 +80,13 @@ def create_test_lsst_optics_kwargs():
     )
 
 
-def create_test_lsst_diffraction(
+def create_test_rubin_diffraction(
     latitude=-30.24463, azimuth=45.0, altitude=89.9, **kwargs
 ):
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
     det_name = "R22_S11"
 
-    return photon_ops.LsstDiffraction(
+    return photon_ops.RubinDiffraction(
         telescope=load_telescope("LSST_r.yaml"),
         sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
         icrf_to_field=create_test_icrf_to_field(boresight, det_name),
@@ -97,14 +97,14 @@ def create_test_lsst_diffraction(
     )
 
 
-def create_test_lsst_diffraction_optics(
+def create_test_rubin_diffraction_optics(
     latitude=-30.24463, azimuth=45.0, altitude=89.9, **kwargs
 ):
-    lsst_diffraction = create_test_lsst_diffraction(
+    rubin_diffraction = create_test_rubin_diffraction(
         latitude=latitude, azimuth=azimuth, altitude=altitude, **kwargs
     )
-    return photon_ops.LsstDiffractionOptics(
-        **create_test_lsst_optics_kwargs(), lsst_diffraction=lsst_diffraction
+    return photon_ops.RubinDiffractionOptics(
+        **create_test_rubin_optics_kwargs(), rubin_diffraction=rubin_diffraction
     )
 
 
@@ -112,13 +112,13 @@ def create_test_rng():
     return galsim.random.BaseDeviate(seed=42)
 
 
-def test_lsst_optics() -> None:
+def test_rubin_optics() -> None:
     """Check that the image of a star is contained in a disc."""
 
-    lsst_optics = create_test_lsst_optics()
+    rubin_optics = create_test_rubin_optics()
     photon_array = create_test_photon_array()
     local_wcs = create_test_wcs()
-    lsst_optics.applyTo(photon_array, local_wcs=local_wcs, rng=create_test_rng())
+    rubin_optics.applyTo(photon_array, local_wcs=local_wcs, rng=create_test_rng())
     expected_x_pic_center = 564.5
     expected_y_pic_center = -1431.4
     expected_r_pic_center = 20.0
@@ -131,12 +131,12 @@ def test_lsst_optics() -> None:
     )
 
 
-def test_lsst_diffraction_produces_spikes() -> None:
+def test_rubin_diffraction_produces_spikes() -> None:
     """Checks that we have spike photons and that the spkies form a cross."""
-    lsst_diffraction_optics = create_test_lsst_diffraction_optics()
+    rubin_diffraction_optics = create_test_rubin_diffraction_optics()
     photon_array = create_test_photon_array(n_photons=1000000)
     local_wcs = create_test_wcs()
-    lsst_diffraction_optics.applyTo(
+    rubin_diffraction_optics.applyTo(
         photon_array, local_wcs=local_wcs, rng=create_test_rng()
     )
 
@@ -182,22 +182,22 @@ def test_lsst_diffraction_produces_spikes() -> None:
     np.testing.assert_array_less(0, h[0::2])
 
 
-def test_lsst_diffraction_optics_is_same_as_diffraction_and_optics() -> None:
-    """Checks that the result of applying LsstDiffraction and then LsstOptics
-    is the same as applying the combined photon op LsstDiffractionOptics."""
+def test_rubin_diffraction_optics_is_same_as_diffraction_and_optics() -> None:
+    """Checks that the result of applying RubinDiffraction and then RubinOptics
+    is the same as applying the combined photon op RubinDiffractionOptics."""
     photon_array_combined = create_test_photon_array(n_photons=100000)
     local_wcs = create_test_wcs()
-    lsst_diffraction_optics = create_test_lsst_diffraction_optics()
-    lsst_diffraction_optics.applyTo(
+    rubin_diffraction_optics = create_test_rubin_diffraction_optics()
+    rubin_diffraction_optics.applyTo(
         photon_array_combined, local_wcs=local_wcs, rng=create_test_rng()
     )
-    lsst_diffraction = create_test_lsst_diffraction()
-    lsst_optics = create_test_lsst_optics()
+    rubin_diffraction = create_test_rubin_diffraction()
+    rubin_optics = create_test_rubin_optics()
     photon_array_modular = create_test_photon_array(n_photons=100000)
-    lsst_diffraction.applyTo(
+    rubin_diffraction.applyTo(
         photon_array_modular, local_wcs=local_wcs, rng=create_test_rng()
     )
-    lsst_optics.applyTo(
+    rubin_optics.applyTo(
         photon_array_modular, local_wcs=local_wcs, rng=create_test_rng()
     )
     np.testing.assert_array_almost_equal(
@@ -226,22 +226,22 @@ def extract_spike_angles(photon_array, x_center, y_center, r):
     )
 
 
-def test_lsst_diffraction_shows_field_rotation() -> None:
+def test_rubin_diffraction_shows_field_rotation() -> None:
     """Checks that the spikes rotate."""
     latitude = -30.24463
     azimuth = 45.0
     altitude = 89.9
-    lsst_diffraction_optics = create_test_lsst_diffraction_optics(
+    rubin_diffraction_optics = create_test_rubin_diffraction_optics(
         latitude, azimuth, altitude
     )
     dt = 1.0
     photon_array_0 = create_test_photon_array(t=0.0, n_photons=1000000)
     photon_array_1 = create_test_photon_array(t=dt, n_photons=1000000)
     local_wcs = create_test_wcs()
-    lsst_diffraction_optics.applyTo(
+    rubin_diffraction_optics.applyTo(
         photon_array_0, local_wcs=local_wcs, rng=create_test_rng()
     )
-    lsst_diffraction_optics.applyTo(
+    rubin_diffraction_optics.applyTo(
         photon_array_1, local_wcs=local_wcs, rng=create_test_rng()
     )
 
@@ -276,22 +276,22 @@ def test_lsst_diffraction_shows_field_rotation() -> None:
     )
 
 
-def test_lsst_diffraction_does_not_show_field_rotation_when_deactivated() -> None:
+def test_rubin_diffraction_does_not_show_field_rotation_when_deactivated() -> None:
     """Checks that the spikes dont rotate if disable_field_rotation is set."""
     latitude = -30.24463
     azimuth = 45.0
     altitude = 89.9
-    lsst_diffraction_optics = create_test_lsst_diffraction_optics(
+    rubin_diffraction_optics = create_test_rubin_diffraction_optics(
         latitude, azimuth, altitude, disable_field_rotation=True
     )
     dt = 1.0
     photon_array_0 = create_test_photon_array(t=0.0, n_photons=100000)
     photon_array_1 = create_test_photon_array(t=dt, n_photons=100000)
     local_wcs = create_test_wcs()
-    lsst_diffraction_optics.applyTo(
+    rubin_diffraction_optics.applyTo(
         photon_array_0, local_wcs=local_wcs, rng=create_test_rng()
     )
-    lsst_diffraction_optics.applyTo(
+    rubin_diffraction_optics.applyTo(
         photon_array_1, local_wcs=local_wcs, rng=create_test_rng()
     )
 
@@ -391,8 +391,8 @@ TEST_OPSIM_META_CONFIG = {
 }
 
 
-def test_config_lsst_diffraction():
-    """Check the config interface to LsstDiffraction."""
+def test_config_rubin_diffraction():
+    """Check the config interface to RubinDiffraction."""
 
     config = {
         **TEST_BASE_CONFIG,
@@ -400,7 +400,7 @@ def test_config_lsst_diffraction():
         "stamp": {
             "photon_ops": [
                 {
-                    "type": "lsst_diffraction",
+                    "type": "RubinDiffraction",
                     "latitude": -30.24463,
                 }
             ]
@@ -410,8 +410,8 @@ def test_config_lsst_diffraction():
     galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
 
 
-def test_config_lsst_diffraction_without_field_rotation():
-    """Check the config interface to LsstDiffraction."""
+def test_config_rubin_diffraction_without_field_rotation():
+    """Check the config interface to RubinDiffraction."""
 
     config = {
         **TEST_BASE_CONFIG,
@@ -419,7 +419,7 @@ def test_config_lsst_diffraction_without_field_rotation():
         "stamp": {
             "photon_ops": [
                 {
-                    "type": "lsst_diffraction",
+                    "type": "RubinDiffraction",
                     "latitude": -30.24463,
                     "disable_field_rotation": True,
                 }
@@ -430,8 +430,8 @@ def test_config_lsst_diffraction_without_field_rotation():
     galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
 
 
-def test_config_lsst_diffraction_optics():
-    """Check the config interface to LsstDiffractionOptics."""
+def test_config_rubin_diffraction_optics():
+    """Check the config interface to RubinDiffractionOptics."""
 
     config = {
         **TEST_BASE_CONFIG,
@@ -443,7 +443,7 @@ def test_config_lsst_diffraction_optics():
         "stamp": {
             "photon_ops": [
                 {
-                    "type": "lsst_diffraction_optics",
+                    "type": "RubinDiffractionOptics",
                     "camera": "LsstCam",
                     "boresight": {
                         "type": "RADec",
@@ -459,8 +459,8 @@ def test_config_lsst_diffraction_optics():
     galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
 
 
-def test_config_lsst_diffraction_optics_without_field_rotation():
-    """Check the config interface to LsstDiffractionOptics."""
+def test_config_rubin_diffraction_optics_without_field_rotation():
+    """Check the config interface to RubinDiffractionOptics."""
 
     config = {
         **TEST_BASE_CONFIG,
@@ -472,7 +472,7 @@ def test_config_lsst_diffraction_optics_without_field_rotation():
         "stamp": {
             "photon_ops": [
                 {
-                    "type": "lsst_diffraction_optics",
+                    "type": "RubinDiffractionOptics",
                     "camera": "LsstCam",
                     "boresight": {
                         "type": "RADec",
@@ -489,8 +489,8 @@ def test_config_lsst_diffraction_optics_without_field_rotation():
     galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
 
 
-def test_config_lsst_optics():
-    """Check the config interface to LsstOptics."""
+def test_config_rubin_optics():
+    """Check the config interface to RubinOptics."""
 
     config = {
         **TEST_BASE_CONFIG,
@@ -501,7 +501,7 @@ def test_config_lsst_optics():
         "stamp": {
             "photon_ops": [
                 {
-                    "type": "lsst_optics",
+                    "type": "RubinOptics",
                     "camera": "LsstCam",
                     "boresight": {
                         "type": "RADec",

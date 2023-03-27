@@ -13,15 +13,15 @@ from galsim.config.util import get_cls_params
 from .camera import get_camera
 from .utils import focal_to_pixel
 from .diffraction import (
-    LSST_SPIDER_GEOMETRY,
+    RUBIN_SPIDER_GEOMETRY,
     apply_diffraction_delta,
     apply_diffraction_delta_field_rot,
     prepare_field_rotation_matrix,
 )
 
 
-class LsstOptics(PhotonOp):
-    """A photon operator that performs raytracing through the LSST optics.
+class RubinOptics(PhotonOp):
+    """A photon operator that performs raytracing through the Rubin optics.
 
     Parameters
     ----------
@@ -130,8 +130,8 @@ def photon_velocity(photon_array, xy_to_v: "XyToV", get_n) -> np.ndarray:
     return v
 
 
-class LsstDiffractionOptics(LsstOptics):
-    """Combination of LsstDiffraction and LsstOptics.
+class RubinDiffractionOptics(RubinOptics):
+    """Combination of RubinDiffraction and RubinOptics.
 
     This is for performance reasons, to prevent performing and reversing a transform.
 
@@ -148,7 +148,7 @@ class LsstDiffractionOptics(LsstOptics):
     icrf_to_field : galsim.GSFitsWCS
     det_name : str
     camera : lsst.afw.cameraGeom.Camera
-    lsst_diffraction : Instance of a LsstDiffraction photon operator
+    rubin_diffraction : Instance of a RubinDiffraction photon operator
     """
 
     _req_params = {
@@ -167,24 +167,24 @@ class LsstDiffractionOptics(LsstOptics):
         icrf_to_field,
         det_name,
         camera,
-        lsst_diffraction: "LsstDiffraction",
+        rubin_diffraction: "RubinDiffraction",
     ):
         super().__init__(
             telescope, boresight, sky_pos, image_pos, icrf_to_field, det_name, camera
         )
-        self.lsst_diffraction = lsst_diffraction
+        self.rubin_diffraction = rubin_diffraction
 
     def photon_velocity(self, photon_array, local_wcs, rng) -> np.ndarray:
         """Computes the velocity of the photons after applying diffraction."""
 
-        return self.lsst_diffraction.photon_velocity(
+        return self.rubin_diffraction.photon_velocity(
             photon_array, local_wcs=local_wcs, rng=rng
         )
 
 
-class LsstDiffraction(PhotonOp):
+class RubinDiffraction(PhotonOp):
     """Photon operator that applies statistical diffraction by the
-    LSST spider.
+    Rubin spider.
 
     Parameters
     ----------
@@ -267,7 +267,7 @@ class LsstDiffraction(PhotonOp):
             v,
             photon_array.time,
             wavelength=photon_array.wavelength * 1.0e-9,
-            geometry=LSST_SPIDER_GEOMETRY,
+            geometry=RUBIN_SPIDER_GEOMETRY,
             distribution=self.diffraction_rng(rng),
         )
         return v
@@ -305,7 +305,7 @@ class LsstDiffraction(PhotonOp):
             v,
             photon_array.time,
             wavelength,
-            geometry=LSST_SPIDER_GEOMETRY,
+            geometry=RUBIN_SPIDER_GEOMETRY,
             distribution=self.diffraction_rng(rng),
         )
         photon_array.x, photon_array.y = xy_to_v.inverse(v)
@@ -352,12 +352,12 @@ def config_kwargs(config, base, cls):
     return kwargs
 
 
-@photon_op_type("lsst_optics", input_type="telescope")
-def deserialize_lsst_optics(config, base, _logger):
-    kwargs = config_kwargs(config, base, LsstOptics)
+@photon_op_type("RubinOptics", input_type="telescope")
+def deserialize_rubin_optics(config, base, _logger):
+    kwargs = config_kwargs(config, base, RubinOptics)
     telescope = galsim.config.GetInputObj("telescope", config, base, "telescope")["det"]
 
-    return LsstOptics(
+    return RubinOptics(
         telescope=telescope,
         sky_pos=base["sky_pos"],
         image_pos=base["image_pos"],
@@ -368,12 +368,12 @@ def deserialize_lsst_optics(config, base, _logger):
     )
 
 
-@photon_op_type("lsst_diffraction_optics", input_type="telescope")
-def deserialize_lsst_diffraction_optics(config, base, _logger):
-    kwargs = config_kwargs(config, base, LsstDiffractionOptics)
+@photon_op_type("RubinDiffractionOptics", input_type="telescope")
+def deserialize_rubin_diffraction_optics(config, base, _logger):
+    kwargs = config_kwargs(config, base, RubinDiffractionOptics)
     opsim_meta = get_opsim_meta(config, base)
     telescope = galsim.config.GetInputObj("telescope", config, base, "telescope")["det"]
-    lsst_diffraction = LsstDiffraction(
+    rubin_diffraction = RubinDiffraction(
         telescope=telescope,
         latitude=kwargs.pop("latitude"),
         altitude=opsim_meta.get("altitude"),
@@ -383,14 +383,14 @@ def deserialize_lsst_diffraction_optics(config, base, _logger):
         disable_field_rotation=kwargs.pop("disable_field_rotation", False),
     )
 
-    return LsstDiffractionOptics(
+    return RubinDiffractionOptics(
         telescope=telescope,
         sky_pos=base["sky_pos"],
         image_pos=base["image_pos"],
         icrf_to_field=base["_icrf_to_field"],
         det_name=base["det_name"],
         camera=get_camera_cached(kwargs.pop("camera")),
-        lsst_diffraction=lsst_diffraction,
+        rubin_diffraction=rubin_diffraction,
         **kwargs,
     )
 
@@ -400,13 +400,13 @@ def get_camera_cached(camera_name: str):
     return get_camera(camera_name)
 
 
-@photon_op_type("lsst_diffraction", input_type="telescope")
-def deserialize_lsst_diffraction(config, base, _logger):
-    kwargs = config_kwargs(config, base, LsstDiffraction)
+@photon_op_type("RubinDiffraction", input_type="telescope")
+def deserialize_rubin_diffraction(config, base, _logger):
+    kwargs = config_kwargs(config, base, RubinDiffraction)
     opsim_meta = get_opsim_meta(config, base)
     telescope = galsim.config.GetInputObj("telescope", config, base, "telescope")["det"]
 
-    return LsstDiffraction(
+    return RubinDiffraction(
         telescope=telescope,
         altitude=opsim_meta.get("altitude"),
         azimuth=opsim_meta.get("azimuth"),

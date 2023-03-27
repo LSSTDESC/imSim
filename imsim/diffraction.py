@@ -1,4 +1,4 @@
-"""Routines to implement diffraction due to the LSST spider.
+"""Routines to implement diffraction due to the Rubin spider.
 
 The core idea is taken from https://ntrs.nasa.gov/citations/19990094899
 For more details, see doc/diffraction.md (Statistical Aproach)
@@ -29,7 +29,7 @@ class Geometry:
     circles: np.ndarray
 
 
-LSST_SPIDER_GEOMETRY = Geometry(
+RUBIN_SPIDER_GEOMETRY = Geometry(
     thick_lines=np.array(
         [
             [1 / np.sqrt(2.0), 1 / np.sqrt(2.0), -0.4, 0.025],
