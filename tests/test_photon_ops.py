@@ -481,7 +481,6 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
                         "ra": "1.1047934165124105 radians",
                         "dec": "-0.5261230452954583 radians",
                     },
-                    "latitude": -30.24463,
                     "disable_field_rotation": True,
                 }
             ]

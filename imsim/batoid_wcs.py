@@ -12,6 +12,7 @@ import erfa  # Installed as part of astropy.
 import astropy.time
 import galsim
 from galsim.config import WCSBuilder, RegisterWCSType, GetInputObj
+from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 from .camera import get_camera
 from .utils import pixel_to_focal, focal_to_pixel
 
@@ -88,9 +89,9 @@ class BatoidWCSFactory:
         # self.elong = -np.deg2rad(70 + 44/60 + 57.9/3600)
         # self.hm = 2663.0  # meters
         # Opsim seems to use:
-        self.phi = -np.deg2rad(30.2444)
-        self.elong = -np.deg2rad(70.7494)
-        self.hm = 2650.0
+        self.phi = RUBIN_LOC.lat.rad
+        self.elong = RUBIN_LOC.lon.rad
+        self.hm = RUBIN_LOC.height.value
 
         # Various conversions required for ERFA functions
         self.utc1, self.utc2 = erfa.dtf2d("UTC", *self.obstime.utc.ymdhms)

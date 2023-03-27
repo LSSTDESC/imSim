@@ -10,6 +10,7 @@ from galsim.config import RegisterPhotonOpType, PhotonOpBuilder, GetAllParams
 from galsim.celestial import CelestialCoord
 from galsim.config.util import get_cls_params
 from coord import Angle
+from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 from .camera import get_camera
 from .utils import focal_to_pixel
 from .diffraction import (
@@ -154,9 +155,8 @@ class RubinDiffractionOptics(RubinOptics):
     _req_params = {
         "boresight": CelestialCoord,
         "camera": str,
-        "latitude": Angle,
     }
-    _opt_params = {"disable_field_rotation": bool}
+    _opt_params = {"latitude": Angle, "disable_field_rotation": bool}
 
     def __init__(
         self,
@@ -199,8 +199,7 @@ class RubinDiffraction(PhotonOp):
     icrf_to_field : galsim.GSFitsWCS
     """
 
-    _req_params = {"latitude": Angle}
-    _opt_params = {"disable_field_rotation": bool}
+    _opt_params = {"latitude": Angle, "disable_field_rotation": bool}
 
     def __init__(
         self,
@@ -374,7 +373,7 @@ def deserialize_rubin_diffraction_optics(config, base, _logger):
     telescope = galsim.config.GetInputObj("telescope", config, base, "telescope")["det"]
     rubin_diffraction = RubinDiffraction(
         telescope=telescope,
-        latitude=np.deg2rad(kwargs.pop("latitude")),
+        latitude=kwargs.pop("latitude", RUBIN_LOC.lat.rad),
         altitude=np.deg2rad(opsim_meta.get("altitude")),
         azimuth=np.deg2rad(opsim_meta.get("azimuth")),
         sky_pos=base["sky_pos"],

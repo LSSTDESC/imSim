@@ -245,7 +245,6 @@ stamp:
             type: RubinDiffractionOptics
             boresight: "$boresight"
             camera: "@output.camera"
-            latitude: -30.24463
         -
             # Note: If FocusDepth is before Refraction, then the depth is the amount of focus
             #       change required relative to the rays coming to a focus at the surface.

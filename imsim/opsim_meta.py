@@ -7,7 +7,7 @@ import astropy.coordinates
 import pandas as pd
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, RegisterBandpassType
 import galsim
-from .instcat import fopen
+from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 
 def get_opsim_md(config, base):
@@ -341,12 +341,7 @@ class OpsimMetaDict(object):
         -------
         float: hour angle in degrees
         """
-        # cf. http://www.ctio.noao.edu/noao/content/coordinates-observatories-cerro-tololo-and-cerro-pachon
-        lsst_lat = '-30d 14m 40.68s'
-        lsst_long = '-70d 44m 57.90s'
-        lsst_elev = '2647m'
-        lsst_loc = astropy.coordinates.EarthLocation.from_geodetic(
-                        lsst_lat, lsst_long, lsst_elev)
+        lsst_loc = RUBIN_LOC
 
         time = astropy.time.Time(mjd, format='mjd', location=lsst_loc)
         # Get the local apparent sidereal time.
