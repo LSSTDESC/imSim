@@ -262,4 +262,6 @@ Release and approval log:
 
 07/09/2022 - Initial version - Gerhard Bräunlich, Josh Meyers
 
-xx/xx/2022 - Add field rotation to the spikes - Gerhard Bräunlich
+08/11/2022 - Add field rotation to the spikes - Gerhard Bräunlich
+
+xx/04/2023 - Optimize algorithms - Gerhard Bräunlich
