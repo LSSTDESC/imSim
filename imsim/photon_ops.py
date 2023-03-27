@@ -7,9 +7,9 @@ import galsim
 import batoid
 from galsim import PhotonArray, PhotonOp, GaussianDeviate
 from galsim.config import RegisterPhotonOpType, PhotonOpBuilder, GetAllParams
-
 from galsim.celestial import CelestialCoord
 from galsim.config.util import get_cls_params
+from coord import Angle
 from .camera import get_camera
 from .utils import focal_to_pixel
 from .diffraction import (
@@ -154,7 +154,7 @@ class RubinDiffractionOptics(RubinOptics):
     _req_params = {
         "boresight": CelestialCoord,
         "camera": str,
-        "latitude": float,
+        "latitude": Angle,
     }
     _opt_params = {"disable_field_rotation": bool}
 
@@ -191,15 +191,15 @@ class RubinDiffraction(PhotonOp):
     telescope : batoid.Optic
         The telescope to trace through.
     latitude : float
-        Geographic latitude of telescope. Needed to calculate the field rotation
+        Geographic latitude of telescope (in rad). Needed to calculate the field rotation
         for the spider diffraction.
     altitude, azimuth : float
-        alt/az coordinates the telescope is pointing to (in degree).
+        alt/az coordinates the telescope is pointing to (in rad).
     sky_pos : galsim.CelestialCoord
     icrf_to_field : galsim.GSFitsWCS
     """
 
-    _req_params = {"latitude": float}
+    _req_params = {"latitude": Angle}
     _opt_params = {"disable_field_rotation": bool}
 
     def __init__(
@@ -213,7 +213,6 @@ class RubinDiffraction(PhotonOp):
         disable_field_rotation: bool = False,
     ):
         self.telescope = telescope
-        lat = latitude / 180.0 * np.pi
         self.sky_pos = sky_pos
         self.icrf_to_field = icrf_to_field
         if disable_field_rotation:
@@ -222,9 +221,9 @@ class RubinDiffraction(PhotonOp):
             )
         else:
             field_rot_matrix = prepare_field_rotation_matrix(
-                latitude=lat,
-                azimuth=azimuth / 180.0 * np.pi,
-                altitude=altitude / 180.0 * np.pi,
+                latitude=latitude,
+                azimuth=azimuth,
+                altitude=altitude,
             )
             self.apply_diffraction_delta = lambda pos, v, t, wavelength, geometry, distribution: apply_diffraction_delta_field_rot(
                 pos, v, t, wavelength, field_rot_matrix, geometry, distribution
@@ -375,9 +374,9 @@ def deserialize_rubin_diffraction_optics(config, base, _logger):
     telescope = galsim.config.GetInputObj("telescope", config, base, "telescope")["det"]
     rubin_diffraction = RubinDiffraction(
         telescope=telescope,
-        latitude=kwargs.pop("latitude"),
-        altitude=opsim_meta.get("altitude"),
-        azimuth=opsim_meta.get("azimuth"),
+        latitude=np.deg2rad(kwargs.pop("latitude")),
+        altitude=np.deg2rad(opsim_meta.get("altitude")),
+        azimuth=np.deg2rad(opsim_meta.get("azimuth")),
         sky_pos=base["sky_pos"],
         icrf_to_field=base["_icrf_to_field"],
         disable_field_rotation=kwargs.pop("disable_field_rotation", False),
@@ -408,8 +407,8 @@ def deserialize_rubin_diffraction(config, base, _logger):
 
     return RubinDiffraction(
         telescope=telescope,
-        altitude=opsim_meta.get("altitude"),
-        azimuth=opsim_meta.get("azimuth"),
+        altitude=np.deg2rad(opsim_meta.get("altitude")),
+        azimuth=np.deg2rad(opsim_meta.get("azimuth")),
         sky_pos=base["sky_pos"],
         icrf_to_field=base["_icrf_to_field"],
         **kwargs,

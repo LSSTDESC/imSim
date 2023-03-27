@@ -3,6 +3,7 @@ import galsim
 import batoid
 from astropy.time import Time
 from astropy import units
+from coord import degrees
 
 from imsim import photon_ops, BatoidWCSFactory, get_camera, diffraction
 from imsim.opsim_meta import OpsimMetaDict
@@ -81,7 +82,10 @@ def create_test_rubin_optics_kwargs():
 
 
 def create_test_rubin_diffraction(
-    latitude=-30.24463, azimuth=45.0, altitude=89.9, **kwargs
+    latitude=-30.24463 * degrees,
+    azimuth=45.0 * degrees,
+    altitude=89.9 * degrees,
+    **kwargs
 ):
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
     det_name = "R22_S11"
@@ -98,7 +102,10 @@ def create_test_rubin_diffraction(
 
 
 def create_test_rubin_diffraction_optics(
-    latitude=-30.24463, azimuth=45.0, altitude=89.9, **kwargs
+    latitude=-30.24463 * degrees,
+    azimuth=45.0 * degrees,
+    altitude=89.9 * degrees,
+    **kwargs
 ):
     rubin_diffraction = create_test_rubin_diffraction(
         latitude=latitude, azimuth=azimuth, altitude=altitude, **kwargs
@@ -228,9 +235,9 @@ def extract_spike_angles(photon_array, x_center, y_center, r):
 
 def test_rubin_diffraction_shows_field_rotation() -> None:
     """Checks that the spikes rotate."""
-    latitude = -30.24463
-    azimuth = 45.0
-    altitude = 89.9
+    latitude = -30.24463 * degrees
+    azimuth = 45.0 * degrees
+    altitude = 89.9 * degrees
     rubin_diffraction_optics = create_test_rubin_diffraction_optics(
         latitude, azimuth, altitude
     )
@@ -264,12 +271,7 @@ def test_rubin_diffraction_shows_field_rotation() -> None:
     cross_rot_angle_1 = np.mean(spike_angles_1 % (np.pi / 2.0))
 
     # Check that the angle of the crosses are rotated relative to each other:
-    expected_angle_difference = field_rotation_angle(
-        latitude / 180.0 * np.pi,
-        altitude / 180.0 * np.pi,
-        azimuth / 180.0 * np.pi,
-        dt,
-    )
+    expected_angle_difference = field_rotation_angle(latitude, altitude, azimuth, dt)
 
     np.testing.assert_allclose(
         cross_rot_angle_1 - cross_rot_angle_0, expected_angle_difference, rtol=0.03
@@ -278,9 +280,9 @@ def test_rubin_diffraction_shows_field_rotation() -> None:
 
 def test_rubin_diffraction_does_not_show_field_rotation_when_deactivated() -> None:
     """Checks that the spikes dont rotate if disable_field_rotation is set."""
-    latitude = -30.24463
-    azimuth = 45.0
-    altitude = 89.9
+    latitude = -30.24463 * degrees
+    azimuth = 45.0 * degrees
+    altitude = 89.9 * degrees
     rubin_diffraction_optics = create_test_rubin_diffraction_optics(
         latitude, azimuth, altitude, disable_field_rotation=True
     )
@@ -401,7 +403,7 @@ def test_config_rubin_diffraction():
             "photon_ops": [
                 {
                     "type": "RubinDiffraction",
-                    "latitude": -30.24463,
+                    "latitude": "-30.24463 degrees",
                 }
             ]
         },
@@ -420,7 +422,7 @@ def test_config_rubin_diffraction_without_field_rotation():
             "photon_ops": [
                 {
                     "type": "RubinDiffraction",
-                    "latitude": -30.24463,
+                    "latitude": "-30.24463 degrees",
                     "disable_field_rotation": True,
                 }
             ]
@@ -450,7 +452,7 @@ def test_config_rubin_diffraction_optics():
                         "ra": "1.1047934165124105 radians",
                         "dec": "-0.5261230452954583 radians",
                     },
-                    "latitude": -30.24463,
+                    "latitude": "-30.24463 degrees",
                 }
             ]
         },
