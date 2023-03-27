@@ -130,7 +130,7 @@ class AtmosphericPSF(object):
             self.logger.warning(f'Reading atmospheric PSF from {save_file}')
             self.load_psf(save_file)
         else:
-            self.logger.warning('Buidling atmospheric PSF')
+            self.logger.warning('Building atmospheric PSF')
             self._build_atm(kcrit, doOpt, nproc)
             if save_file:
                 self.logger.warning(f'Saving atmospheric PSF to {save_file}')
