@@ -25,8 +25,8 @@ RUN source /opt/lsst/software/stack/loadLSST.bash &&\
     setup lsst_distrib &&\
     mamba install -y --file imSim/etc/docker_conda_requirements.txt &&\
     python3 -m pip install batoid skyCatalogs==1.2.0 gitpython &&\
-    python3 -m pip install -e rubin_sim/ &&\
-    python3 -m pip install -e imSim/
+    python3 -m pip install rubin_sim/ &&\
+    python3 -m pip install imSim/
 
 WORKDIR /opt/lsst/software/stack
 
