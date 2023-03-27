@@ -111,10 +111,10 @@ Field rotation angle
 In a non-rotating reference system outside earth, let :math:`\boldsymbol{e}_*` be a star
 on the celstial sphere and :math:`\boldsymbol{e}_r(t)` be the unit vector pointing to
 zenith on some location on earth, at latitute :math:`\mathrm{lat}`.
-If :math:`\Omega` is the rotation rate of earth and :math:`R_\phi`
+If :math:`\omega` is the rotation rate of earth and :math:`R_\phi`
 denotes the rotation operator rotating around the earth axis with
 angle :math:`\phi`, then
-:math:`\boldsymbol{e}_r(t) = R_{\Omega t} \boldsymbol{e}_r(0)`.
+:math:`\boldsymbol{e}_r(t) = R_{\omega t} \boldsymbol{e}_r(0)`.
 
 
 .. figure:: img/field-rotation.svg
@@ -158,14 +158,16 @@ and :math:`\boldsymbol{e}_h(0)` are tangent vectors at
 .. math::
    :label: sin_alpha
 
-   \sin(\alpha(t)) = \langle \boldsymbol{e}_*, \boldsymbol{e}_h(0)
-   \times \boldsymbol{e}_h(t) \rangle
-    = \frac{
+   \begin{align}
+   \sin(\alpha(t)) &= \langle \boldsymbol{e}_*, \boldsymbol{e}_h(0)
+   \times \boldsymbol{e}_h(t) \rangle \\
+    &= \frac{
         \langle \boldsymbol{e}_r(t), \boldsymbol{e}_* \times \boldsymbol{e}_r(0) \rangle
       }{
         \| \boldsymbol{e}_* \times \boldsymbol{e}_r(0) \|
         \cdot \| \boldsymbol{e}_* \times \boldsymbol{e}_r(t) \|
       },
+   \end{align}
 
 using
 
@@ -182,16 +184,17 @@ The form :eq:`sin_alpha` is convenient to derive the equation [1]_
 
 .. math::
 
-   \dot{\alpha}(0) = \Omega \cos(\mathrm{lat}) \frac{\cos(\mathrm{az}_*)}{\cos(\mathrm{alt}_*)},
+   \dot{\alpha}(0) = \omega \cos(\mathrm{lat}) \frac{\cos(\mathrm{az}_*)}{\cos(\mathrm{alt}_*)},
 
 using
 
 .. math::
 
+   \begin{align}
    \dot{\alpha}(0)
-   = \cos(\alpha(0)) \dot{\alpha}(0)
-   = \left[ \frac{d}{dt}(\sin(\alpha(t))) \right]_{t=0}
-   = \left[ \frac{d}{dt}
+   &= \cos(\alpha(0)) \dot{\alpha}(0) \\
+   &= \left[ \frac{d}{dt}(\sin(\alpha(t))) \right]_{t=0} \\
+   &= \left[ \frac{d}{dt}
       \frac{
         \langle \boldsymbol{e}_r(t), \boldsymbol{e}_* \times \boldsymbol{e}_r(0) \rangle
       }{
@@ -199,6 +202,7 @@ using
         \cdot \| \boldsymbol{e}_* \times \boldsymbol{e}_r(t) \|
       }
      \right]_{t=0}
+   \end{align}
 
 and
 
@@ -208,7 +212,7 @@ and
 
 .. math::
 
-   \dot{\boldsymbol{e}_r}(t) = \Omega \cos(\mathrm{lat}) \boldsymbol{e}_\phi(t),
+   \dot{\boldsymbol{e}_r}(t) = \omega \cos(\mathrm{lat}) \boldsymbol{e}_\phi(t),
 
 .. math::
 
@@ -232,8 +236,8 @@ There, we have:
 .. math::
 
    \boldsymbol{e}_r(t) = \left(\begin{array}[c] \\
-         \cos(\Omega t)\cos(\mathrm{lat}) \\
-         \sin(\Omega t)\cos(\mathrm{lat}) \\
+         \cos(\omega t)\cos(\mathrm{lat}) \\
+         \sin(\omega t)\cos(\mathrm{lat}) \\
          \sin(\mathrm{lat})
          \end{array}\right)
 
