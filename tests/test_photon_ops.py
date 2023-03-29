@@ -10,9 +10,13 @@ from imsim.opsim_meta import OpsimMetaDict
 from imsim.telescope_loader import load_telescope
 
 
+def create_test_telescope(rottelpos=np.pi / 3 * galsim.radians):
+    return load_telescope("LSST_r.yaml", rotTelPos=rottelpos)
+
+
 def create_test_icrf_to_field(boresight, det_name):
     camera = get_camera()
-    telescope = load_telescope("LSST_r.yaml", rotTelPos=np.pi / 3 * galsim.radians)
+    telescope = create_test_telescope()
     factory = BatoidWCSFactory(
         boresight,
         obstime=Time("J2020") + 0.5 * units.year,
@@ -61,21 +65,26 @@ def create_test_photon_array(t=0.0, n_photons=10000):
     )
 
 
-def create_test_rubin_optics():
-    return photon_ops.RubinOptics(**create_test_rubin_optics_kwargs())
+def create_test_rubin_optics(**kwargs):
+    return photon_ops.RubinOptics(**create_test_rubin_optics_kwargs(**kwargs))
 
 
-def create_test_rubin_optics_kwargs():
-    boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    telescope = load_telescope("LSST_r.yaml")
-
+def create_test_rubin_optics_kwargs(
+    boresight=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
+    icrf_to_field=None,
+    sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
+    image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
+    rottelpos=np.pi / 3 * galsim.radians,
+):
     det_name = "R22_S11"
+    if icrf_to_field is None:
+        icrf_to_field = create_test_icrf_to_field(boresight, det_name=det_name)
     return dict(
-        telescope=telescope,
+        telescope=create_test_telescope(rottelpos),
         boresight=boresight,
-        sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
-        image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
-        icrf_to_field=create_test_icrf_to_field(boresight, det_name),
+        sky_pos=sky_pos,
+        image_pos=image_pos,
+        icrf_to_field=icrf_to_field,
         det_name=det_name,
         camera=get_camera(),
     )
@@ -85,19 +94,24 @@ def create_test_rubin_diffraction(
     latitude=-30.24463 * degrees,
     azimuth=45.0 * degrees,
     altitude=89.9 * degrees,
+    sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
+    icrf_to_field=None,
     **kwargs
 ):
-    boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    det_name = "R22_S11"
+    if icrf_to_field is None:
+        boresight = galsim.CelestialCoord(
+            0.543 * galsim.radians, -0.174 * galsim.radians
+        )
+        icrf_to_field = create_test_icrf_to_field(boresight, det_name="R22_S11")
 
     return photon_ops.RubinDiffraction(
-        telescope=load_telescope("LSST_r.yaml"),
-        sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
-        icrf_to_field=create_test_icrf_to_field(boresight, det_name),
+        telescope=create_test_telescope(),
+        sky_pos=sky_pos,
+        icrf_to_field=icrf_to_field,
         latitude=latitude,
         azimuth=azimuth,
         altitude=altitude,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -105,13 +119,30 @@ def create_test_rubin_diffraction_optics(
     latitude=-30.24463 * degrees,
     azimuth=45.0 * degrees,
     altitude=89.9 * degrees,
+    boresight=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
+    icrf_to_field=None,
+    sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
+    image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
+    rottelpos=np.pi / 3 * galsim.radians,
     **kwargs
 ):
     rubin_diffraction = create_test_rubin_diffraction(
-        latitude=latitude, azimuth=azimuth, altitude=altitude, **kwargs
+        latitude=latitude,
+        azimuth=azimuth,
+        altitude=altitude,
+        sky_pos=sky_pos,
+        icrf_to_field=icrf_to_field,
+        **kwargs,
     )
     return photon_ops.RubinDiffractionOptics(
-        **create_test_rubin_optics_kwargs(), rubin_diffraction=rubin_diffraction
+        **create_test_rubin_optics_kwargs(
+            boresight,
+            icrf_to_field,
+            image_pos=image_pos,
+            sky_pos=sky_pos,
+            rottelpos=rottelpos,
+        ),
+        rubin_diffraction=rubin_diffraction,
     )
 
 
@@ -122,7 +153,7 @@ def create_test_rng():
 def test_rubin_optics() -> None:
     """Check that the image of a star is contained in a disc."""
 
-    rubin_optics = create_test_rubin_optics()
+    rubin_optics = create_test_rubin_optics(rottelpos=0.0 * galsim.radians)
     photon_array = create_test_photon_array()
     local_wcs = create_test_wcs()
     rubin_optics.applyTo(photon_array, local_wcs=local_wcs, rng=create_test_rng())
@@ -140,7 +171,9 @@ def test_rubin_optics() -> None:
 
 def test_rubin_diffraction_produces_spikes() -> None:
     """Checks that we have spike photons and that the spkies form a cross."""
-    rubin_diffraction_optics = create_test_rubin_diffraction_optics()
+    rubin_diffraction_optics = create_test_rubin_diffraction_optics(
+        rottelpos=0.0 * galsim.radians
+    )
     photon_array = create_test_photon_array(n_photons=1000000)
     local_wcs = create_test_wcs()
     rubin_diffraction_optics.applyTo(
@@ -239,7 +272,7 @@ def test_rubin_diffraction_shows_field_rotation() -> None:
     azimuth = 45.0 * degrees
     altitude = 89.9 * degrees
     rubin_diffraction_optics = create_test_rubin_diffraction_optics(
-        latitude, azimuth, altitude
+        latitude, azimuth, altitude, rottelpos=0.0 * galsim.radians
     )
     dt = 1.0
     photon_array_0 = create_test_photon_array(t=0.0, n_photons=1000000)
@@ -368,23 +401,39 @@ def test_xy_to_v():
     np.testing.assert_array_almost_equal(y, y_after)
 
 
+def assert_photon_ops_act_equal(photon_op, photon_op_reference):
+    photon_array = apply_to_photon_array(photon_op)
+    photon_array_reference = apply_to_photon_array(photon_op_reference)
+    np.testing.assert_array_almost_equal(
+        np.c_[photon_array.x, photon_array.y],
+        np.c_[photon_array_reference.x, photon_array_reference.y],
+    )
+
+
+def apply_to_photon_array(photon_op):
+    photon_array = create_test_photon_array(n_photons=10000)
+    photon_op.applyTo(photon_array, local_wcs=create_test_wcs(), rng=create_test_rng())
+    return photon_array
+
+
 TEST_BASE_CONFIG = {
     "input": {
         "telescope": {
             "file_name": "LSST_r.yaml",
+            "rotTelPos": np.pi / 3 * galsim.radians,
         }
     },
+    "det_name": "R22_S11",
+    "output": {"camera": "LsstCam"},
     "_icrf_to_field": create_test_icrf_to_field(
         galsim.CelestialCoord(
             1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
         ),
         "R22_S11",
     ),
-    "sky_pos": {
-        "type": "RADec",
-        "ra": "1.1056660811384078 radians",
-        "dec": "-0.5253441048502933 radians",
-    },
+    "sky_pos": galsim.CelestialCoord(
+        1.1056660811384078 * galsim.radians, -0.5253441048502933 * galsim.radians
+    ),
 }
 TEST_OPSIM_META_CONFIG = {
     "_input_objs": {
@@ -409,7 +458,15 @@ def test_config_rubin_diffraction():
         },
     }
     galsim.config.ProcessInput(config)
-    galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    galsim.config.input.SetupInputsForImage(config, None)
+    [photon_op] = galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    reference_op = create_test_rubin_diffraction(
+        altitude=43.0 * degrees,
+        azimuth=0.0 * degrees,
+        sky_pos=TEST_BASE_CONFIG["sky_pos"],
+        icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
+    )
+    assert_photon_ops_act_equal(photon_op, reference_op)
 
 
 def test_config_rubin_diffraction_without_field_rotation():
@@ -429,19 +486,26 @@ def test_config_rubin_diffraction_without_field_rotation():
         },
     }
     galsim.config.ProcessInput(config)
-    galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    galsim.config.input.SetupInputsForImage(config, None)
+    [photon_op] = galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    reference_op = create_test_rubin_diffraction(
+        altitude=43.0 * degrees,
+        azimuth=0.0 * degrees,
+        sky_pos=TEST_BASE_CONFIG["sky_pos"],
+        disable_field_rotation=True,
+        icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
+    )
+    assert_photon_ops_act_equal(photon_op, reference_op)
 
 
 def test_config_rubin_diffraction_optics():
     """Check the config interface to RubinDiffractionOptics."""
 
+    image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
     config = {
         **TEST_BASE_CONFIG,
         **TEST_OPSIM_META_CONFIG,
-        "det_name": "R22_S11",
-        "image_pos": galsim.PositionD(
-            3076.4462608524213, 1566.4896702703757
-        ),  # This would get set appropriately during normal config processing.
+        "image_pos": image_pos,  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
                 {
@@ -458,19 +522,27 @@ def test_config_rubin_diffraction_optics():
         },
     }
     galsim.config.ProcessInput(config)
-    galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    galsim.config.input.SetupInputsForImage(config, None)
+    [photon_op] = galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    reference_op = create_test_rubin_diffraction_optics(
+        altitude=43.0 * degrees,
+        azimuth=0.0 * degrees,
+        sky_pos=TEST_BASE_CONFIG["sky_pos"],
+        image_pos=image_pos,
+        icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
+        boresight=photon_op.boresight,
+    )
+    assert_photon_ops_act_equal(photon_op, reference_op)
 
 
 def test_config_rubin_diffraction_optics_without_field_rotation():
     """Check the config interface to RubinDiffractionOptics."""
 
+    image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
     config = {
         **TEST_BASE_CONFIG,
         **TEST_OPSIM_META_CONFIG,
-        "det_name": "R22_S11",
-        "image_pos": galsim.PositionD(
-            3076.4462608524213, 1566.4896702703757
-        ),  # This would get set appropriately during normal config processing.
+        "image_pos": image_pos,  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
                 {
@@ -487,18 +559,27 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
         },
     }
     galsim.config.ProcessInput(config)
-    galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    galsim.config.input.SetupInputsForImage(config, None)
+    [photon_op] = galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    reference_op = create_test_rubin_diffraction_optics(
+        altitude=43.0 * degrees,
+        azimuth=0.0 * degrees,
+        sky_pos=TEST_BASE_CONFIG["sky_pos"],
+        image_pos=image_pos,
+        icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
+        boresight=photon_op.boresight,
+        disable_field_rotation=True,
+    )
+    assert_photon_ops_act_equal(photon_op, reference_op)
 
 
 def test_config_rubin_optics():
     """Check the config interface to RubinOptics."""
 
+    image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
     config = {
         **TEST_BASE_CONFIG,
-        "det_name": "R22_S11",
-        "image_pos": galsim.PositionD(
-            3076.4462608524213, 1566.4896702703757
-        ),  # This would get set appropriately during normal config processing.
+        "image_pos": image_pos,  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
                 {
@@ -514,7 +595,15 @@ def test_config_rubin_optics():
         },
     }
     galsim.config.ProcessInput(config)
-    galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    galsim.config.input.SetupInputsForImage(config, None)
+    [photon_op] = galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    reference_op = create_test_rubin_optics(
+        sky_pos=TEST_BASE_CONFIG["sky_pos"],
+        image_pos=image_pos,
+        icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
+        boresight=photon_op.boresight,
+    )
+    assert_photon_ops_act_equal(photon_op, reference_op)
 
 
 if __name__ == "__main__":
