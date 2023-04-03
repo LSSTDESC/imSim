@@ -222,7 +222,7 @@ stamp:
             R_outer: 4.18
             R_inner: 2.55  # M1 inner diameter is 2.558, but we need a bit of slack for off-axis rays
         -
-            type: lsst_diffraction
+            type: RubinDiffraction
             latitude: -30.24463
 
     photon_ops:
@@ -242,10 +242,7 @@ stamp:
                 type: Degrees
                 theta: { type: OpsimMeta, field: HA }
         -
-            type: lsst_diffraction
-            latitude: -30.24463
-        -
-            type: lsst_optics
+            type: RubinDiffractionOptics
             boresight: "$boresight"
             camera: "@output.camera"
         -

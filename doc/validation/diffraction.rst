@@ -111,6 +111,11 @@ Field rotation angle
 In a non-rotating reference system outside earth, let :math:`\boldsymbol{e}_*` be a star
 on the celstial sphere and :math:`\boldsymbol{e}_r(t)` be the unit vector pointing to
 zenith on some location on earth, at latitute :math:`\mathrm{lat}`.
+If :math:`\omega` is the rotation rate of earth and :math:`R_\phi`
+denotes the rotation operator rotating around the earth axis with
+angle :math:`\phi`, then
+:math:`\boldsymbol{e}_r(t) = R_{\omega t} \boldsymbol{e}_r(0)`.
+
 
 .. figure:: img/field-rotation.svg
 
@@ -118,24 +123,17 @@ zenith on some location on earth, at latitute :math:`\mathrm{lat}`.
    celestial sphere and rotating :math:`\boldsymbol{e}_r(t)`
    (observers direction to zenith).
 
-In a system where the unit vector in :math:`z` direction points to earth's
-axis, we would write:
-
-.. math::
-
-   \boldsymbol{e}_r(t) = (\cos(\mathrm{lat}) \cos(\omega t), \cos(\mathrm{lat}) \sin(\omega t), \sin(\mathrm{lat})).
-
-
-Then the "horizontal" direction :math:`\boldsymbol{e}_h(t)` (as observed from the
-given location on the earth) through the star is given by
+Then the "horizontal" direction :math:`\boldsymbol{e}_h(t)` as observed from the
+given location on the earth through the star is given by
 
 .. math::
 
    \boldsymbol{e}_h(t) = \frac{\boldsymbol{e}_* \times \boldsymbol{e}_r(t)}{\|\boldsymbol{e}_* \times \boldsymbol{e}_r(t)\|}.
 
 
-With this notation, the field rotation angle :math:`\alpha(t)` at time
-:math:`t` relative to :math:`t=0` is determined by
+The field rotation angle :math:`\alpha(t)` at time
+:math:`t` relative to :math:`t=0` corresponds to the angle between
+:math:`\boldsymbol{e}_h(0)` and :math:`\boldsymbol{e}_h(t)`:
 
 .. math::
    :label: cos_alpha
@@ -145,7 +143,7 @@ With this notation, the field rotation angle :math:`\alpha(t)` at time
    \boldsymbol{e}_* \times \boldsymbol{e}_r(t)
    \rangle}{\|\boldsymbol{e}_* \times \boldsymbol{e}_r(0)\| \cdot \|\boldsymbol{e}_* \times \boldsymbol{e}_r(t)\|},
 
-or alternatively,
+and
 
 .. math::
 
@@ -160,8 +158,23 @@ and :math:`\boldsymbol{e}_h(0)` are tangent vectors at
 .. math::
    :label: sin_alpha
 
-   \sin(\alpha(t)) = \langle \boldsymbol{e}_*, \boldsymbol{e}_h(0)
-   \times \boldsymbol{e}_h(t) \rangle.
+   \begin{align}
+   \sin(\alpha(t)) &= \langle \boldsymbol{e}_*, \boldsymbol{e}_h(0)
+   \times \boldsymbol{e}_h(t) \rangle \\
+    &= \frac{
+        \langle \boldsymbol{e}_r(t), \boldsymbol{e}_* \times \boldsymbol{e}_r(0) \rangle
+      }{
+        \| \boldsymbol{e}_* \times \boldsymbol{e}_r(0) \|
+        \cdot \| \boldsymbol{e}_* \times \boldsymbol{e}_r(t) \|
+      },
+   \end{align}
+
+using
+
+.. math::
+   \langle \boldsymbol{e}_*, (\boldsymbol{e}_* \times \boldsymbol{e}_r(0))
+     \times (\boldsymbol{e}_* \times \boldsymbol{e}_r(t)) \rangle
+     = \langle \boldsymbol{e}_r(t), \boldsymbol{e}_* \times \boldsymbol{e}_r(0) \rangle.
 
 
 Field rotation rate
@@ -177,116 +190,65 @@ using
 
 .. math::
 
+   \begin{align}
    \dot{\alpha}(0)
-   = \cos(\alpha(0)) \dot{\alpha}(0)
-   = \left[ \frac{d}{dt}(\sin(\alpha(t))) \right]_{t=0}
-   = \left[ \frac{d}{dt} \langle \boldsymbol{e}_*, \boldsymbol{e}_h(0)
-   \times \boldsymbol{e}_h(t) \rangle \right]_{t=0}
+   &= \cos(\alpha(0)) \dot{\alpha}(0) \\
+   &= \left[ \frac{d}{dt}(\sin(\alpha(t))) \right]_{t=0} \\
+   &= \left[ \frac{d}{dt}
+      \frac{
+        \langle \boldsymbol{e}_r(t), \boldsymbol{e}_* \times \boldsymbol{e}_r(0) \rangle
+      }{
+        \| \boldsymbol{e}_* \times \boldsymbol{e}_r(0) \|
+        \cdot \| \boldsymbol{e}_* \times \boldsymbol{e}_r(t) \|
+      }
+     \right]_{t=0}
+   \end{align}
 
 and
 
 .. math::
 
-   \cos(\mathrm{alt}_*) = \langle \boldsymbol{e}_*, \boldsymbol{e}_r(0) \rangle,
+   \cos(\mathrm{alt}_*) = \| \boldsymbol{e}_* \times \boldsymbol{e}_r(0) \|,
 
 .. math::
 
-   \cos(\mathrm{az}_*) = \frac{\| \boldsymbol{e}_* \times \boldsymbol{e}_\theta(0) \|}{\| \boldsymbol{e}_* \times \boldsymbol{e}_r(0) \|},
-
-:math:`\boldsymbol{e}_\theta` being the unit surface direction on earth pointing to
-the north pole.
-
-Earth-fixed coordinate system
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-We now switch back to :eq:`cos_alpha`, :eq:`sin_alpha` and change into
-a reference system attached to the given location on earth, by
-introducing the rotation matrix :math:`R_{\omega t}` rotating around
-the earth axis:
+   \dot{\boldsymbol{e}_r}(t) = \omega \cos(\mathrm{lat}) \boldsymbol{e}_\phi(t),
 
 .. math::
 
-   \boldsymbol{e}_h(t)
-     = \frac{\boldsymbol{e}_* \times \boldsymbol{e}_r(t)}{
-         \|\boldsymbol{e}_* \times \boldsymbol{e}_r(t)\|}
-     =  R_{\omega t} \frac{(R_{-\omega t}\boldsymbol{e}_*) \times \boldsymbol{e}_r(0)}{
-         \|(R_{-\omega t}\boldsymbol{e}_*) \times \boldsymbol{e}_r(0)\|}.
+   \cos(\mathrm{az}_*) = \frac{\langle \boldsymbol{e}_*, \boldsymbol{e}_\theta(0) \rangle}{\| \boldsymbol{e}_* \times \boldsymbol{e}_r(0) \|},
 
-Introducing
-:math:`\boldsymbol{e}_*(t) := R_{-\omega t} \boldsymbol{e}_*`
-and now using :math:`\boldsymbol{e}_z = \boldsymbol{e}_r(0)`,
 
-.. math::
+:math:`\boldsymbol{e}_\theta`, :math:`\boldsymbol{e}_\phi` being the
+unit surface directions on earth pointing to north, east respectively.
 
-   \boldsymbol{e}_h(t)
-     =  R_{\omega t} \frac{\boldsymbol{e}_*(t) \times \boldsymbol{e}_z}{
-         \|\boldsymbol{e}_*(t) \times \boldsymbol{e}_z\|}.
+Equatorial coordinate system
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Similarily,
+In imsim, we use an equatorial coordinate system to compute the field
+rotation:
+* :math:`\boldsymbol{e}_z`: Earth axis,
+* :math:`\boldsymbol{e}_x`: Location of observer projected to the equatorial plane,
+* :math:`\boldsymbol{e}_x`: Orthonormal complement of :math:`\boldsymbol{e}_x` and :math:`\boldsymbol{e}_z`.
 
-.. math::
-
-   \boldsymbol{e}_h(0)
-     =  R_{\omega t} \frac{\boldsymbol{e}_*(t) \times (R_{-\omega t} \boldsymbol{e}_z)}{
-         \|\boldsymbol{e}_*(t) \times (R_{-\omega t} \boldsymbol{e}_z) \|}.
-
-Inserting this into :eq:`cos_alpha` and :eq:`sin_alpha`, we obtain
+There, we have:
 
 .. math::
 
-   \cos(\alpha(t))
-    &= \frac{
-       \langle
-         \boldsymbol{e}_*(t) \times (R_{-\omega t} \boldsymbol{e}_z),
-         \boldsymbol{e}_*(t) \times \boldsymbol{e}_z
-       \rangle
-     }{
-       \|\boldsymbol{e}_*(t) \times (R_{-\omega t} \boldsymbol{e}_z) \|
-       \cdot \|\boldsymbol{e}_*(t) \times \boldsymbol{e}_z\|
-     }, \\
-   \sin(\alpha(t))
-    &= \left< \boldsymbol{e}_*(t),
-         \frac{
-           \boldsymbol{e}_*(t) \times (R_{-\omega t} \boldsymbol{e}_z)
-         }{
-           \|\boldsymbol{e}_*(t) \times (R_{-\omega t} \boldsymbol{e}_z) \|
-         }
-         \times \frac{
-           \boldsymbol{e}_*(t) \times \boldsymbol{e}_z
-         }{
-           \|\boldsymbol{e}_*(t) \times \boldsymbol{e}_z\|
-         }
-       \right>
-    = \frac{
-       \langle
-         \boldsymbol{e}_*(t),
-          (R_{-\omega t} \boldsymbol{e}_z) \times \boldsymbol{e}_z
-       \rangle
-     }{
-       \|\boldsymbol{e}_*(t) \times (R_{-\omega t} \boldsymbol{e}_z) \|
-       \cdot \|\boldsymbol{e}_*(t) \times \boldsymbol{e}_z\|
-     }
-
-Choosing coordinates, such that :math:`\boldsymbol{e}_z = (0,0,1)` and
-the earth axis is :math:`\boldsymbol{a} = (0, \cos(\mathrm{lat}),
-\sin(\mathrm{lat}))`, we have
+   \boldsymbol{e}_r(t) = \left(\begin{array}[c] \\
+         \cos(\omega t)\cos(\mathrm{lat}) \\
+         \sin(\omega t)\cos(\mathrm{lat}) \\
+         \sin(\mathrm{lat})
+         \end{array}\right)
 
 .. math::
 
-   R_{-\omega t} \boldsymbol{e}_z
-     &= \langle \boldsymbol{e}_z, \boldsymbol{a} \rangle \boldsymbol{a}
-       + (\boldsymbol{a} \times \boldsymbol{e}_z) \times \boldsymbol{a} \cos(-\omega t)
-       + \boldsymbol{a} \times \boldsymbol{e}_z \sin(-\omega t) \\
-     &= \left(\begin{array}[c] \\
-       0 \\ \cos^2(\mathrm{lat}) \\
-       \sin(\mathrm{lat})\cos(\mathrm{lat})
-       \end{array}\right)
-     + \cos(-\omega t) \left(\begin{array}[c] \\
-         0 \\
-         -\cos^2(\mathrm{lat}) \\ 1-\sin(\mathrm{lat})\cos(\mathrm{lat})\end{array}\right)
-       + \sin(-\omega t) \left(\begin{array}[c] \\
-         -\sin(\mathrm{lat}) \\
-         -\cos(\mathrm{lat}) \\ 0\end{array}\right)
+   \boldsymbol{e}_* = \cos(\mathrm{alt}_*) \sin(\mathrm{az}_*) \boldsymbol{e}_E \\
+     + \cos(\mathrm{alt}_*) \cos(\mathrm{az}_*) \boldsymbol{e}_N \\
+     + \sin(\mathrm{alt}_*) \boldsymbol{e}_r(0),
+
+where :math:`\boldsymbol{e}_E = (0, 1, 0)`
+and :math:`\boldsymbol{e}_N = \boldsymbol{e}_r(0) \times \boldsymbol{e}_E`.
 
 .. [1] https://calgary.rasc.ca/field_rotation.htm
 
@@ -304,4 +266,6 @@ Release and approval log:
 
 07/09/2022 - Initial version - Gerhard Bräunlich, Josh Meyers
 
-xx/xx/2022 - Add field rotation to the spikes - Gerhard Bräunlich
+08/11/2022 - Add field rotation to the spikes - Gerhard Bräunlich
+
+xx/04/2023 - Optimize algorithms - Gerhard Bräunlich
