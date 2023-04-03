@@ -213,7 +213,8 @@ class TelescopeLoader(InputLoader):
         ccd_orientation = camera[det_name].getOrientation()
         if hasattr(ccd_orientation, 'getHeight'):
             z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
-            logger.info("Setting CCD z-offset to %.2e m", z_offset)
+            if logger is not None:
+                logger.info("Setting CCD z-offset to %.2e m", z_offset)
         else:
             z_offset = 0
 
