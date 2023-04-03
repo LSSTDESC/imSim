@@ -223,7 +223,7 @@ stamp:
             R_inner: 2.55  # M1 inner diameter is 2.558, but we need a bit of slack for off-axis rays
         -
             type: RubinDiffraction
-            latitude: -30.24463
+            latitude: -30.24463 degrees
 
     photon_ops:
         -
