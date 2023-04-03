@@ -1,3 +1,4 @@
+[<img src="https://img.shields.io/badge/dockerhub-imSim image-orange.svg?logo=Docker">](https://hub.docker.com/r/lsstdesc/imsim-env)
 [![Build Status](https://travis-ci.org/LSSTDESC/imSim.svg?branch=main)](https://travis-ci.org/LSSTDESC/imSim)
 [![Coverage Status](https://coveralls.io/repos/github/LSSTDESC/imSim/badge.svg?branch=main)](https://coveralls.io/github/LSSTDESC/imSim?branch=main)
 
