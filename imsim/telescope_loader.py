@@ -1,5 +1,6 @@
 from galsim.config import (
-    InputLoader, RegisterInputType, GetAllParams, get_cls_params, ParseValue
+    InputLoader, RegisterInputType, GetAllParams, get_cls_params, ParseValue,
+    LoggerWrapper
 )
 from galsim import Angle
 import batoid
@@ -207,14 +208,14 @@ class TelescopeLoader(InputLoader):
 
     def setupImage(self, input_obj, config, base, logger=None):
         """Set up the telescope for the current image."""
+        logger = LoggerWrapper(logger)
         camera = get_camera(base['output']['camera'])
         det_name = base['det_name']
 
         ccd_orientation = camera[det_name].getOrientation()
         if hasattr(ccd_orientation, 'getHeight'):
             z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
-            if logger is not None:
-                logger.info("Setting CCD z-offset to %.2e m", z_offset)
+            logger.info("Setting CCD z-offset to %.2e m", z_offset)
         else:
             z_offset = 0
 
