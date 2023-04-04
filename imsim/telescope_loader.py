@@ -1,5 +1,6 @@
 from galsim.config import (
-    InputLoader, RegisterInputType, GetAllParams, get_cls_params, ParseValue
+    InputLoader, RegisterInputType, GetAllParams, get_cls_params, ParseValue,
+    LoggerWrapper
 )
 from galsim import Angle
 import batoid
@@ -207,6 +208,7 @@ class TelescopeLoader(InputLoader):
 
     def setupImage(self, input_obj, config, base, logger=None):
         """Set up the telescope for the current image."""
+        logger = LoggerWrapper(logger)
         camera = get_camera(base['output']['camera'])
         det_name = base['det_name']
 
