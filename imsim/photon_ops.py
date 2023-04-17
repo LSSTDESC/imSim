@@ -158,7 +158,12 @@ class RubinDiffractionOptics(RubinOptics):
         "altitude": Angle,
         "azimuth": Angle,
     }
-    _opt_params = {"latitude": Angle, "disable_field_rotation": bool}
+    _opt_params = {
+        "altitude": Angle,
+        "azimuth": Angle,
+        "latitude": Angle,
+        "disable_field_rotation": bool,
+    }
 
     def __init__(
         self,
@@ -346,24 +351,25 @@ def photon_op_type(identifier: str, input_type=None):
     return decorator
 
 
-def config_kwargs(config, base, cls):
+def config_kwargs(config, base, cls, base_args=()):
     """Given config and base, extract parameters."""
     req, opt, single, _takes_rng = get_cls_params(cls)
     kwargs, _safe = GetAllParams(config, base, req, opt, single)
+    kwargs.update({key: base[key] for key in base_args})
     return kwargs
+
+
+_rubin_optics_base_args = ("sky_pos", "image_pos", "det_name")
 
 
 @photon_op_type("RubinOptics", input_type="telescope")
 def deserialize_rubin_optics(config, base, _logger):
-    kwargs = config_kwargs(config, base, RubinOptics)
-    telescope = base['det_telescope']
+    kwargs = config_kwargs(config, base, RubinOptics, base_args=_rubin_optics_base_args)
+    telescope = base["det_telescope"]
 
     return RubinOptics(
         telescope=telescope,
-        sky_pos=base["sky_pos"],
-        image_pos=base["image_pos"],
         icrf_to_field=base["_icrf_to_field"],
-        det_name=base["det_name"],
         camera=get_camera_cached(kwargs.pop("camera")),
         **kwargs,
     )
@@ -385,10 +391,7 @@ def deserialize_rubin_diffraction_optics(config, base, _logger):
 
     return RubinDiffractionOptics(
         telescope=telescope,
-        sky_pos=base["sky_pos"],
-        image_pos=base["image_pos"],
         icrf_to_field=base["_icrf_to_field"],
-        det_name=base["det_name"],
         camera=get_camera_cached(kwargs.pop("camera")),
         rubin_diffraction=rubin_diffraction,
         **kwargs,
@@ -407,7 +410,6 @@ def deserialize_rubin_diffraction(config, base, _logger):
 
     return RubinDiffraction(
         telescope=telescope,
-        sky_pos=base["sky_pos"],
         icrf_to_field=base["_icrf_to_field"],
         **kwargs,
     )
