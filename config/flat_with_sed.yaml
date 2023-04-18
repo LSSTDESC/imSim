@@ -5,6 +5,9 @@
 modules:
     - imsim
 
+eval_variables:
+    sfilter: r
+
 input:
 
     tree_rings:
@@ -15,6 +18,14 @@ input:
         # Can limit the detectors to read in.  This is handy while debugging, since it takes
         # a minute or so to read all 189 detectors (the default behavior).
         only_dets: [R22_S11]
+
+    telescope:
+        file_name:
+            type: FormattedStr
+            format : LSST_%s.yaml
+            items:
+                - "$filter"
+        rotTelPos: "0 degrees"
 
 
 image:
@@ -40,12 +51,10 @@ image:
             type: RADec
             ra: "0 degrees"
             dec: "-30 degrees"
-        rotTelPos: "0 degrees"
         obstime: "2024-01-01"
 
         # These are relevant for a flat, so should make sure to get these right.
         det_name: $det_name
-        band: y
 
     noise:
         type: Poisson
@@ -99,7 +108,7 @@ output:
         format : flat_eimage_%05d-%s-%s-det%03d.fits
         items:
             - 1  # When making multiple flats, probably should increment this for each file.
-            - "@image.wcs.band"
+            - "$filter"
             - "$det_name"   # A value stored in the dict by LSST_CCD
             - "@output.det_num"
 
@@ -110,13 +119,13 @@ output:
         bias_level: 1000.
         pcti: 1.e-6
         scti: 1.e-6
-        filter: "@image.wcs.band"
+        filter: "$filter"
 
         file_name:
             type: FormattedStr
             format : flat_amp_%05d-%s-%s-det%03d.fits.fz
             items:
                 - "@output.file_name.items.0"
-                - "@image.wcs.band"
+                - "$filter"
                 - "$det_name"
                 - "@output.det_num"

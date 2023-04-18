@@ -81,3 +81,12 @@ jobs:
                 export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
                 eups list lsst_distrib
                 pytest
+
+            - name: Check example config files
+              run: |
+                export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
+                cd config
+                # Just check that they haven't gotten stale and produce errors.
+                galsim imsim-user.yaml
+                galsim flat.yaml image.counts_per_pixel=500
+                galsim flat_with_sed.yaml image.counts_per_pixel=5
