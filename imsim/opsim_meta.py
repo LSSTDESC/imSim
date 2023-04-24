@@ -111,7 +111,7 @@ class OpsimMetaDict(object):
             # counting the number of snaps since int(observationStartMJD).
             t0 = int(self.meta['observationStartMJD'])
             sql = f'''select numExposures from observations where
-                      {t0} < observationStartMJD and
+                      {t0} <= observationStartMJD and
                       observationId < {self.visit}'''
             df = pd.read_sql(sql, con)
             self.meta['seqnum'] = sum(df['numExposures']) + self.meta['snap']
