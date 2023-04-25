@@ -155,7 +155,7 @@ class SkyCatalogInterface:
         -------
         galsim.GSObject
         """
-        if not self._objects:
+        if not self.objects:
             raise RuntimeError("Trying to get an object from an empty sky catalog")
 
         skycat_obj = self.objects[index]
