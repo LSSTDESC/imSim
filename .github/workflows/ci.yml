@@ -64,9 +64,11 @@ jobs:
                 pip install -e .
                 cd ..
                 mkdir rubin_sim_data
-                # Just get the skybrightness and throughputs data for now.
+                mkdir rubin_sim_data/sims_sed_library
+                # Just get the skybrightness, throughputs, and SED data for now.
                 curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
                 curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
+                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
 
             - name: Install imSim
               run:
@@ -85,6 +87,7 @@ jobs:
             - name: Check example config files
               run: |
                 export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
+                export SIMS_SED_LIBRARY_DIR=`pwd`/rubin_sim_data/sims_sed_library
                 cd config
                 # Just check that they haven't gotten stale and produce errors.
                 galsim imsim-user.yaml
