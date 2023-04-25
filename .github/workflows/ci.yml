@@ -64,6 +64,7 @@ jobs:
                 pip install -e .
                 cd ..
                 mkdir rubin_sim_data
+                mkdir rubin_sim_data/sims_sed_library
                 # Just get the skybrightness, throughputs, and SED data for now.
                 curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
                 curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
