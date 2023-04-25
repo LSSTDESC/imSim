@@ -183,17 +183,43 @@ def load_telescope(
     return telescope
 
 
-def load_telescope_dict(*args, **kwargs):
-    return {
-        'base': load_telescope(*args, **kwargs),
-        'det': None  # placeholder for detector specific telescope
+class Telescopes:
+    """
+    This input class stores one or more batoid telescope instances.
+
+    There is always a base telescope, which is created at the start.
+    This is accessible via telescopes.get('base')
+
+    Whenever `set_shifted_det` is called, then a shifted telescope will
+    be set in the 'det' key, so it will be accessible via telescopes.get('det').
+    """
+    # Note: We don't use a simple dict for this,  because subscripting doesn't
+    # work correctly through proxies, which will be required whenever using this
+    # in multiprocessing.
+
+    _req_params = { 'file_name' : str }
+    _opt_params = {
+        'rotTelPos': Angle,
+        'cameraName': str
     }
 
-load_telescope_dict._req_params = { 'file_name' : str }
-load_telescope_dict._opt_params = {
-    'rotTelPos': Angle,
-    'cameraName': str
-}
+    def __init__(self, file_name, perturbations=(), rotTelPos=None, cameraName='LSSTCamera'):
+        self._d = {
+            # Always start with the base telescope
+            'base': load_telescope(file_name, perturbations=perturbations,
+                                   rotTelPos=rotTelPos, cameraName=cameraName)
+        }
+
+    def set_shifted_det(self, z_offset):
+        """Set the 'det' key to a shifted optics version with the given z_offset
+        """
+        self._d['det'] = self._d['base'].withLocallyShiftedOptic(
+                "Detector",
+                [0, 0, -z_offset]  # batoid convention is opposite of DM
+            )
+
+    def get(self, key):
+        return self._d.get(key)
 
 
 class TelescopeLoader(InputLoader):
@@ -218,11 +244,7 @@ class TelescopeLoader(InputLoader):
             logger.info("Setting CCD z-offset to %.2e m", z_offset)
         else:
             z_offset = 0
-
-        input_obj['det'] = input_obj['base'].withLocallyShiftedOptic(
-            "Detector",
-            [0, 0, -z_offset]  # batoid convention is opposite of DM
-        )
+        input_obj.set_shifted_det(z_offset)
 
 
-RegisterInputType('telescope', TelescopeLoader(load_telescope_dict))
+RegisterInputType('telescope', TelescopeLoader(Telescopes))

@@ -496,7 +496,7 @@ class BatoidWCSBuilder(WCSBuilder):
             self._camera = get_camera(self._camera_name)
         order = kwargs.pop('order', 3)
         det_name = kwargs.pop('det_name')
-        kwargs['telescope'] = GetInputObj('telescope', config, base, 'telescope')['base']
+        kwargs['telescope'] = GetInputObj('telescope', config, base, 'telescope').get('base')
         factory = self.makeWCSFactory(**kwargs)
         det = self.camera[det_name]
         logger.info("Building Batoid WCS for %s and %s", det_name,
