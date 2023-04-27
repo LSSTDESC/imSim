@@ -7,57 +7,6 @@ import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
     RegisterObjectType
 from desc.skycatalogs import skyCatalogs
-from .instcat import get_radec_limits
-
-
-def get_skycat_objects(sky_cat, wcs, xsize, ysize, edge_pix, logger, obj_types):
-    """
-    Find skycat objects that land on the CCD + edge_pix buffer region.
-
-    Parameters
-    ----------
-    sky_cat : desc.skycatalogs.SkyCatalog
-        SkyCatalog object.
-    wcs : GalSim.GSFitsWCS
-        WCS object for the current CCD.
-    xsize : int
-        Size in pixels of CCD in x-direction.
-    ysize : int
-        Size in pixels of CCD in y-direction.
-    edge_pix : float
-        Size in pixels of the buffer region around nominal image
-        to consider objects.
-    logger : logging.Logger
-        Logger object.
-    obj_types : list-like
-        List or tuple of object types to render, e.g., ('star', 'galaxy').
-        If None, then consider all object types.
-
-    Returns
-    -------
-    list of skyCatalogs objects, CCD center as galsim.CelestialCoord
-    """
-    # Get range of ra, dec values given CCD size + edge_pix buffer.
-    radec_limits = get_radec_limits(wcs, xsize, ysize, logger, edge_pix)
-
-    # Initial pass using skyCatalogs.Box in ra, dec.
-    region = skyCatalogs.Box(*radec_limits[:4])
-    candidates = sky_cat.get_objects_by_region(region, obj_type_set=obj_types)
-
-    # Compute pixel coords of candidate objects and downselect in pixel
-    # coordinates.
-    min_x, min_y, max_x, max_y = radec_limits[4:]
-    objects = []
-    for candidate in candidates:
-        sky_coords = galsim.CelestialCoord(candidate.ra*galsim.degrees,
-                                           candidate.dec*galsim.degrees)
-        pixel_coords = wcs.toImage(sky_coords)
-        if ((min_x < pixel_coords.x < max_x) and
-            (min_y < pixel_coords.y < max_y)):
-            objects.append(candidate)
-
-    ccd_center = wcs.toWorld(galsim.PositionD(xsize/2.0, ysize/2.0))
-    return objects, ccd_center
 
 
 class SkyCatalogInterface:
@@ -68,7 +17,7 @@ class SkyCatalogInterface:
 
     def __init__(self, file_name, wcs, band, xsize=4096, ysize=4096, obj_types=None,
                  skycatalog_root=None, edge_pix=100, max_flux=None, logger=None,
-                 apply_dc2_dilation=False):
+                 apply_dc2_dilation=False, approx_nobjects=None):
         """
         Parameters
         ----------
@@ -95,7 +44,7 @@ class SkyCatalogInterface:
         max_flux : float [None]
             If object flux exceeds max_flux, the return None for that object.
             if max_flux == None, then don't apply a maximum flux cut.
-        logger : logging.Logger
+        logger : logging.Logger [None]
             Logger object.
         apply_dc2_dilation : bool [False]
             Flag to increase object sizes by a factor sqrt(a/b) where
@@ -103,25 +52,53 @@ class SkyCatalogInterface:
             This has the net effect of using the semi-major axis as the
             sersic half-light radius when building the object.  This will
             only be applied to galaxies.
+        approx_nobjects : int [None]
+            Approximate number of objects per CCD used by galsim to
+            set up the image processing.  If None, then the actual number
+            of objects found by skyCatalogs, via .getNObjects, will be used.
         """
-        logger = galsim.config.LoggerWrapper(logger)
-        if obj_types is not None:
-            logger.warning(f'Object types restricted to {obj_types}')
         self.file_name = file_name
         self.wcs = wcs
         self.band = band
-        self.max_flux = max_flux
-        self.apply_dc2_dilation = apply_dc2_dilation
+        self.xsize = xsize
+        self.ysize = ysize
+        self.obj_types = obj_types
         if skycatalog_root is None:
-            skycatalog_root = os.path.dirname(os.path.abspath(file_name))
-        sky_cat = skyCatalogs.open_catalog(file_name,
-                                           skycatalog_root=skycatalog_root)
+            self.skycatalog_root = os.path.dirname(os.path.abspath(file_name))
+        else:
+            self.skycatalog_root = skycatalog_root
+        self.edge_pix = edge_pix
+        self.max_flux = max_flux
+        self.logger = galsim.config.LoggerWrapper(logger)
+        self.apply_dc2_dilation = apply_dc2_dilation
+        self.approx_nobjects = approx_nobjects
 
-        self.objects, self.ccd_center \
-            = get_skycat_objects(sky_cat, wcs, xsize, ysize,
-                                 edge_pix, logger, obj_types)
-        if not self.objects and logger is not None:
-            logger.warning("No objects found on image")
+        if obj_types is not None:
+            self.logger.warning(f'Object types restricted to {obj_types}')
+        self.ccd_center = wcs.toWorld(galsim.PositionD(xsize/2.0, ysize/2.0))
+        self._objects = None
+
+    @property
+    def objects(self):
+        if self._objects is None:
+            # Select objects from polygonal region bounded by CCD edges
+            corners = ((-self.edge_pix, -self.edge_pix),
+                       (self.xsize + self.edge_pix, -self.edge_pix),
+                       (self.xsize + self.edge_pix, self.ysize + self.edge_pix),
+                       (-self.edge_pix, self.ysize + self.edge_pix))
+            vertices = []
+            for x, y in corners:
+                sky_coord = self.wcs.toWorld(galsim.PositionD(x, y))
+                vertices.append((sky_coord.ra/galsim.degrees,
+                                 sky_coord.dec/galsim.degrees))
+            region = skyCatalogs.PolygonalRegion(vertices)
+            sky_cat = skyCatalogs.open_catalog(
+                self.file_name, skycatalog_root=self.skycatalog_root)
+            self._objects = sky_cat.get_objects_by_region(
+                region, obj_type_set=self.obj_types)
+            if not self._objects:
+                self.logger.warning("No objects found on image.")
+        return self._objects
 
     def get_ccd_center(self):
         """
@@ -131,11 +108,18 @@ class SkyCatalogInterface:
 
     def getNObjects(self):
         """
-        Return the number of GSObjects to render, where each subcomponent
-        (e.g., bulge, disk, etc.) of each skyCatalog object is a distinct
-        GSObject.
+        Return the number of GSObjects to render
         """
         return len(self.objects)
+
+    def getApproxNObjects(self):
+        """
+        Return the approximate number of GSObjects to render, as set in
+        the class initializer.
+        """
+        if self.approx_nobjects is not None:
+            return self.approx_nobjects
+        return self.getNObjects()
 
     def getWorldPos(self, index):
         """
@@ -222,7 +206,8 @@ class SkyCatalogLoader(InputLoader):
                'edge_pix' : float,
                'obj_types' : list,
                'max_flux' : float,
-               'apply_dc2_dilation': bool
+               'apply_dc2_dilation': bool,
+               'approx_nobjects': int
               }
         meta = galsim.config.GetInputObj('opsim_meta_dict', config, base,
                                          'SkyCatalogLoader')

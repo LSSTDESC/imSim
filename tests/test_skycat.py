@@ -141,7 +141,7 @@ class EmptySkyCatalogInterfaceTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Setup an empty catalog"""
         cls.skycat = load_test_skycat()
-        cls.skycat.objects = type(cls.skycat.objects)()
+        cls.skycat._objects = []
 
     def test_empty_catalog_raises_on_get_obj(self):
         with self.assertRaises(RuntimeError):
