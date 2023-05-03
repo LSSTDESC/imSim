@@ -44,9 +44,116 @@ def parse_xyz(xyz, base):
     return parsed_xyz, all(safe)
 
 
+def parse_fea(config, base, telescope):
+    """ Parse a finite element analysis config dict.  Used to add detailed
+    effects like mirror print through or temperature originating figure
+    perturbations.  Also facilitates direct manipulation of standard active
+    optics degrees of freedom.
+
+    Parameters
+    ----------
+    config : dict
+        The configuration dictionary to parse.
+    base : dict
+        Base configuration dictionary.
+    telescope : batoid.Optic
+        Telescope to perturb
+
+    Examples of fea config dicts
+    ----------------------------
+
+    # Set M1M3 gravitational perturbations.  This requires a zenith angle
+    # be supplied.
+    fea:
+      m1m3_gravity:
+        zenith_angle: 30 deg
+
+
+    # Set M1M3 temperature induced figure perturbations.  This requires
+    # the bulk temperature and 4 temperature gradients be supplied.
+    fea:
+      m1m3_temperature:
+        m1m3_TBulk: 0.1  # Kelvin
+        m1m3_TxGrad: 0.01  # Kelvin/meter
+        m1m3_TyGrad: 0.01  # Kelvin/meter
+        m1m3_TzGrad: 0.01  # Kelvin/meter
+        m1m3_TrGrad: 0.01  # Kelvin/meter
+
+    # Engage M1M3 lookup table.  Requires zenith angle and optionally a
+    # fractional random error to apply to each force actuator.
+    fea:
+      m1m3_lut:
+        zenith_angle: 39 deg
+        error: 0.01  # fractional random error to apply to each actuator
+        seed: 1  # random seed for error above
+
+    # Set M2 gravitational perturbations.  Requires zenith angle.
+    fea:
+      m2_gravity:
+        zenith_angle: 30 deg
+
+    # Set M2 temperature gradient induced figure errors.  Requires 2 temperature
+    # gradients (in the z and radial directions).
+    fea:
+      m2_temperature:
+        m2_TzGrad: 0.01  # Kelvin/meter
+        m2_TrGrad: 0.01  # Kelvin/meter
+
+    # Set camera gravitational perturbations.  Requires zenith angle and camera
+    # rotator angle.
+    fea:
+      camera_gravity:
+        zenith_angle: 30 deg
+        rotation_angle: -25 deg
+
+    # Set camera temperature-induced perturbations.  Requires the bulk
+    # temperature of the camera.
+    fea:
+      camera_temperature:
+        camera_TBulk: 0.1
+
+    # Set the Active Optics degrees of freedom.  There are 50 baseline degrees
+    # of freedom, so we won't copy them all here, but you can imagine a list of
+    # 50 floats as the specifications for each degree of freedom.
+    fea:
+      aos_dof:
+        dof: list-of-50-floats
+
+    Notes
+    -----
+    The implementation of FEA degrees of freedom in ImSim uses the batoid_rubin
+    package.  The available perturbations are algorithmically determined from
+    the `with_*` methods of the LSSTBuilder class there.  The arguments to each
+    `with_*` method are passed in as **kwargs from the config dict.  The only
+    additional processing is that arguments with names ending in `_angle` are
+    parsed using the normal galsim config parsing architecture, which allows one
+    to use unit-ful string "30 deg" or "25.2 arcsec" in addition to a bare
+    float.  Future additions to the `batoid_rubin` package may include new or
+    changed APIs to the examples above.
+    """
+    from batoid_rubin import LSSTBuilder
+    base = {} if base is None else base
+    fea_dir = config.pop("fea_dir", "fea_legacy")
+    bend_dir = config.pop("bend_dir", "bend_legacy")
+    builder = LSSTBuilder(telescope, fea_dir=fea_dir, bend_dir=bend_dir)
+    for k, v in config.items():
+        method = getattr(builder, "with_"+k)
+        # parse angles
+        for kk, vv in v.items():
+            if kk.endswith("_angle"):
+                v[kk], safe = ParseValue(v, kk, base, Angle)
+            elif kk == 'dof':
+                v[kk], safe = ParseValue(v, kk, base, None)
+            else:
+                v[kk], safe = ParseValue(v, kk, base, float)
+        builder = method(**v)
+    return builder.build()
+
+
 def load_telescope(
     file_name,
     perturbations=(),
+    fea=None,
     rotTelPos=None,
     cameraName="LSSTCamera",
     base=None
@@ -64,13 +171,16 @@ def load_telescope(
         to apply (each perturbation is a dictionary keyed by the type of
         perturbation and value the magnitude of the perturbation.)  See notes
         for details.
+    fea : dict, optional
+        Finite element analysis perturbations.  See parse_fea docstring for
+        details.
     rotTelPos : galsim.Angle, optional
         Rotator angle to apply.
     cameraName : str, optional
         The name of the camera to rotate.
 
     Examples of perturbations dicts:
-    --------------------------
+    --------------------------------
     # Shift M2 in x and y by 1 mm
         {'M2': {'shift': [1e-3, 1e-3, 0.0]}}
 
@@ -174,6 +284,8 @@ def load_telescope(
                         optic,
                         batoid.Zernike(coef, R_outer, R_inner)
                     )
+    if fea is not None:
+        telescope = parse_fea(fea, base, telescope)
 
     if rotTelPos is not None:
         telescope = telescope.withLocallyRotatedOptic(
@@ -200,14 +312,18 @@ class Telescopes:
     _req_params = { 'file_name' : str }
     _opt_params = {
         'rotTelPos': Angle,
-        'cameraName': str
+        'cameraName': str,
+        'fea': None,
     }
 
-    def __init__(self, file_name, perturbations=(), rotTelPos=None, cameraName='LSSTCamera'):
+    def __init__(self, file_name, perturbations=(), rotTelPos=None, cameraName='LSSTCamera', fea=None):
         self._d = {
             # Always start with the base telescope
-            'base': load_telescope(file_name, perturbations=perturbations,
-                                   rotTelPos=rotTelPos, cameraName=cameraName)
+            'base': load_telescope(
+                file_name, perturbations=perturbations,
+                rotTelPos=rotTelPos, cameraName=cameraName,
+                fea=fea
+            )
         }
 
     def set_shifted_det(self, z_offset):
@@ -228,8 +344,10 @@ class TelescopeLoader(InputLoader):
     def getKwargs(self, config, base, logger):
         req, opt, single, takes_rng = get_cls_params(self.init_func)
         perturbations = config.pop('perturbations', ())
+        fea = config.pop('fea', None)
         kwargs, safe = GetAllParams(config, base, req=req, opt=opt, single=single)
         kwargs['perturbations'] = perturbations
+        kwargs['fea'] = fea
         return kwargs, True
 
     def setupImage(self, input_obj, config, base, logger=None):
