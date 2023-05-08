@@ -217,6 +217,7 @@ def get_primary_hdu(eimage, lsst_num='LCA-11021_RTM-000', camera_name=None,
     phdu.header['LSST_NUM'] = lsst_num
     phdu.header['IMGTYPE'] = eimage.header['IMGTYPE']
     phdu.header['OBSTYPE'] = eimage.header['IMGTYPE']
+    phdu.header['REASON'] = eimage.header['REASON']
     phdu.header['MONOWL'] = -1
     det_name = eimage.header['DET_NAME']
     raft, sensor = det_name.split('_')
