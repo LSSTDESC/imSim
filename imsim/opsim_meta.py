@@ -46,7 +46,9 @@ class OpsimMetaDict(object):
     """
     _req_params = {'file_name' : str}
     _opt_params = {'visit' : int,
-                   'snap' : int}
+                   'snap' : int,
+                   'image_type' : str,
+                   'reason' : str}
     _single_params = []
     _takes_rng = False
 
@@ -70,11 +72,14 @@ class OpsimMetaDict(object):
                                 sunalt
                                 vistime""".split())
 
-    def __init__(self, file_name, visit=None, snap=0, logger=None):
+    def __init__(self, file_name, visit=None, snap=0, image_type='SKYEXP',
+                 reason='survey', logger=None):
         self.logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
         self.visit = visit
-        self.meta = {'snap' : snap}
+        self.meta = {'snap' : snap,
+                     'image_type': image_type,
+                     'reason': reason}
 
         if _is_sqlite3_file(self.file_name):
             self._read_opsim_db()

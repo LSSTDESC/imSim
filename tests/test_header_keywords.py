@@ -29,6 +29,8 @@ def run_imsim(camera):
               'input.tree_rings.only_dets': only_dets,
               'input.atm_psf': '',
               'input.checkpoint': '',
+              'input.opsim_meta_dict.image_type': 'BIAS',
+              'input.opsim_meta_dict.reason': 'calibration',
               'image.sky_level': 0,
               'image.random_seed': 42,
               'image.sensor': '',
@@ -56,6 +58,8 @@ def test_header_keywords():
     with fits.open(eimage_file) as hdus:
         mjd = hdus[0].header['MJD']
         exptime = hdus[0].header['EXPTIME']
+        assert hdus[0].header['IMGTYPE'] == 'BIAS'
+        assert hdus[0].header['REASON'] == 'calibration'
         mjd_obs = mjd + exptime/2./86400.
         np.testing.assert_approx_equal(hdus[0].header['MJD-OBS'], mjd_obs,
                                        significant=7)

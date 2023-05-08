@@ -140,6 +140,7 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header['CONTRLLR'] = 'P'  # For simulated data.
         image.header['OBSID'] = f"IM_P_{dayobs}_{seqnum:06d}"
         image.header['IMGTYPE'] = opsim_md.get('image_type', 'SKYEXP')
+        image.header['REASON'] = opsim_md.get('reason', 'survey')
         ratel = opsim_md.get('fieldRA', 0.)
         dectel = opsim_md.get('fieldDec', 0.)
         image.header['RATEL'] = ratel
