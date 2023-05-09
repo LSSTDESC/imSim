@@ -135,7 +135,7 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header['MJD-OBS'] = mjd_obs
         dayobs = astropy.time.Time(mjd_obs, format='mjd').strftime('%Y%m%d')
         image.header['DAYOBS'] = dayobs
-        seqnum = opsim_md.get('seqnum', opsim_md.get('snap', 0))
+        seqnum = opsim_md.get('seqnum', 0)
         image.header['SEQNUM'] = seqnum
         image.header['CONTRLLR'] = 'P'  # For simulated data.
         image.header['OBSID'] = f"IM_P_{dayobs}_{seqnum:06d}"

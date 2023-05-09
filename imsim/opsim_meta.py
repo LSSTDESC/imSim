@@ -66,6 +66,7 @@ class OpsimMetaDict(object):
                                 moonphase
                                 moonra
                                 nsnap
+                                seqnum
                                 obshistid
                                 seed
                                 seeing
