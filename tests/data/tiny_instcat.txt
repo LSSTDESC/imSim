@@ -13,6 +13,7 @@ moondec -18.7702120
 moonphase 59.6288830
 moonra 230.9832941
 nsnap 2
+seqnum 0
 obshistid 161899
 seed 161899
 seeing 0.7613760

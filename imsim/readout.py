@@ -208,8 +208,9 @@ def get_primary_hdu(eimage, lsst_num='LCA-11021_RTM-000', camera_name=None,
     phdu.header['MJD'] = eimage.header['MJD']
     date = Time(eimage.header['MJD'], format='mjd')
     phdu.header['DATE'] = date.isot
-    phdu.header['DAYOBS'] = date.strftime('%Y%m%d')
+    phdu.header['DAYOBS'] = eimage.header['DAYOBS']
     phdu.header['SEQNUM'] = eimage.header['SEQNUM']
+    phdu.header['CONTRLLR'] = eimage.header['CONTRLLR']
     exptime = eimage.header['EXPTIME']
     phdu.header['EXPTIME'] = exptime
     phdu.header['DARKTIME'] = exptime
@@ -217,6 +218,7 @@ def get_primary_hdu(eimage, lsst_num='LCA-11021_RTM-000', camera_name=None,
     phdu.header['LSST_NUM'] = lsst_num
     phdu.header['IMGTYPE'] = eimage.header['IMGTYPE']
     phdu.header['OBSTYPE'] = eimage.header['IMGTYPE']
+    phdu.header['REASON'] = eimage.header['REASON']
     phdu.header['MONOWL'] = -1
     det_name = eimage.header['DET_NAME']
     raft, sensor = det_name.split('_')

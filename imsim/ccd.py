@@ -1,5 +1,6 @@
 import os
 import warnings
+import astropy.time
 import galsim
 from galsim.config import OutputBuilder, RegisterOutputType
 from .cosmic_rays import CosmicRays
@@ -125,7 +126,6 @@ class LSST_CCDBuilder(OutputBuilder):
         exp_time = base['exp_time']
         image.header['EXPTIME'] = exp_time
         image.header['DET_NAME'] = base['det_name']
-        image.header['OBSID'] = opsim_md.get('observationId', -999)
         # MJD is the midpoint of the exposure.  51444 = Jan 1, 2000, which is
         # not a real observing date.
         image.header['MJD'] = opsim_md.get('mjd', 51444)
@@ -133,8 +133,14 @@ class LSST_CCDBuilder(OutputBuilder):
         mjd_obs = opsim_md.get('observationStartMJD', 51444)
         mjd_end =  mjd_obs + exp_time/86400.
         image.header['MJD-OBS'] = mjd_obs
-        image.header['SEQNUM'] = opsim_md.get('seqnum', 0)
+        dayobs = astropy.time.Time(mjd_obs, format='mjd').strftime('%Y%m%d')
+        image.header['DAYOBS'] = dayobs
+        seqnum = opsim_md.get('seqnum', 0)
+        image.header['SEQNUM'] = seqnum
+        image.header['CONTRLLR'] = 'P'  # For simulated data.
+        image.header['OBSID'] = f"IM_P_{dayobs}_{seqnum:06d}"
         image.header['IMGTYPE'] = opsim_md.get('image_type', 'SKYEXP')
+        image.header['REASON'] = opsim_md.get('reason', 'survey')
         ratel = opsim_md.get('fieldRA', 0.)
         dectel = opsim_md.get('fieldDec', 0.)
         image.header['RATEL'] = ratel

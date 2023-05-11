@@ -12,6 +12,7 @@ moondec -7.1468227
 moonphase 15.6416168
 moonra 203.0453564
 nsnap 1
+seqnum 0
 obshistid 182850
 rottelpos 28.8262515
 seed 182850
