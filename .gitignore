@@ -98,3 +98,8 @@ ENV/
 bin/
 .sconf_temp
 .sconsign.dblite
+
+# Test outputs that don't always get cleaned up.
+fits_LsstCam/
+fits_LsstCamImSim/
+output/
