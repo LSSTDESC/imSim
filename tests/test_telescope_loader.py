@@ -65,7 +65,7 @@ def test_config_shift():
             config['input']['telescope'],
             config,
             'telescope'
-        ).get('base')
+        ).fiducial
         assert shifted == shifted_ref
 
     # Test out exceptions
@@ -155,7 +155,7 @@ def test_config_rot():
             config['input']['telescope'],
             config,
             'telescope'
-        ).get('base')
+        ).fiducial
         assert rotated == rotated_ref
 
     # Check that we can rotate the camera using rotTelPos
@@ -173,7 +173,7 @@ def test_config_rot():
         config['input']['telescope'],
         config,
         'telescope'
-    ).get('base')
+    ).fiducial
     assert (
         rotated ==
         telescope.withLocallyRotatedOptic(
@@ -284,7 +284,7 @@ def test_config_zernike_perturbation():
             config['input']['telescope'],
             config,
             'telescope'
-        ).get('base')
+        ).fiducial
         assert perturbed == ref
 
     # Test that we can set more than one Zernike at a time,
@@ -342,7 +342,7 @@ def test_config_zernike_perturbation():
             config['input']['telescope'],
             config,
             'telescope'
-        ).get('base')
+        ).fiducial
         assert perturbed == ref
 
 
@@ -381,7 +381,7 @@ def test_config_fea():
         config['input']['telescope'],
         config,
         'telescope'
-    ).get('base')
+    ).fiducial
     assert ref == perturbed
 
     # Next is M2 -dx and +dy
@@ -413,7 +413,7 @@ def test_config_fea():
         config['input']['telescope'],
         config,
         'telescope'
-    ).get('base')
+    ).fiducial
     assert ref == perturbed
 
     # Next is M2 -Rx and Ry in arcsec
@@ -445,7 +445,7 @@ def test_config_fea():
         config['input']['telescope'],
         config,
         'telescope'
-    ).get('base')
+    ).fiducial
     # Just get close for this one since it depends slightly on order of applying
     # X,Y rotations.
     np.testing.assert_allclose(
@@ -483,7 +483,7 @@ def test_config_fea():
         config['input']['telescope'],
         config,
         'telescope'
-    ).get('base')
+    ).fiducial
     assert ref == perturbed
 
     # Next is camera -dx and +dy
@@ -515,7 +515,7 @@ def test_config_fea():
         config['input']['telescope'],
         config,
         'telescope'
-    ).get('base')
+    ).fiducial
     assert ref == perturbed
 
     # Next is camera -Rx and Ry in arcsec
@@ -547,7 +547,7 @@ def test_config_fea():
         config['input']['telescope'],
         config,
         'telescope'
-    ).get('base')
+    ).fiducial
     # Just get close for this one since it depends slightly on order of applying
     # X,Y rotations.
     np.testing.assert_allclose(
@@ -610,4 +610,4 @@ def test_config_fea():
         config['input']['telescope'],
         config,
         'telescope'
-    ).get('base')
+    ).fiducial

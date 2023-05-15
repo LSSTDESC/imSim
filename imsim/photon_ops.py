@@ -52,7 +52,7 @@ class RubinOptics(PhotonOp):
         image_pos,
         icrf_to_field,
         det_name,
-        camera,
+        camera
     ):
         self.telescope = telescope
         self.detector = camera[det_name]
@@ -353,7 +353,7 @@ def config_kwargs(config, base, cls):
 @photon_op_type("RubinOptics", input_type="telescope")
 def deserialize_rubin_optics(config, base, _logger):
     kwargs = config_kwargs(config, base, RubinOptics)
-    telescope = galsim.config.GetInputObj("telescope", config, base, "telescope").get("det")
+    telescope = base['det_telescope']
 
     return RubinOptics(
         telescope=telescope,
@@ -370,7 +370,7 @@ def deserialize_rubin_optics(config, base, _logger):
 def deserialize_rubin_diffraction_optics(config, base, _logger):
     kwargs = config_kwargs(config, base, RubinDiffractionOptics)
     opsim_meta = get_opsim_meta(config, base)
-    telescope = galsim.config.GetInputObj("telescope", config, base, "telescope").get("det")
+    telescope = base['det_telescope']
     rubin_diffraction = RubinDiffraction(
         telescope=telescope,
         latitude=kwargs.pop("latitude", RUBIN_LOC.lat.rad),
@@ -402,7 +402,7 @@ def get_camera_cached(camera_name: str):
 def deserialize_rubin_diffraction(config, base, _logger):
     kwargs = config_kwargs(config, base, RubinDiffraction)
     opsim_meta = get_opsim_meta(config, base)
-    telescope = galsim.config.GetInputObj("telescope", config, base, "telescope").get("det")
+    telescope = base['det_telescope']
 
     return RubinDiffraction(
         telescope=telescope,

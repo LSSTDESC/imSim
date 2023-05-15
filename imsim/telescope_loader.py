@@ -1,3 +1,4 @@
+import os
 from galsim.config import (
     InputLoader, RegisterInputType, GetAllParams, get_cls_params, ParseValue,
     LoggerWrapper
@@ -295,20 +296,11 @@ def load_telescope(
     return telescope
 
 
-class Telescopes:
+class DetectorTelescope:
     """
-    This input class stores one or more batoid telescope instances.
-
-    There is always a base telescope, which is created at the start.
-    This is accessible via telescopes.get('base')
-
-    Whenever `set_shifted_det` is called, then a shifted telescope will
-    be set in the 'det' key, so it will be accessible via telescopes.get('det').
+    Produce a batoid telescope instance appropriate for a particular detector,
+    optionally with a shifted detector position.
     """
-    # Note: We don't use a simple dict for this,  because subscripting doesn't
-    # work correctly through proxies, which will be required whenever using this
-    # in multiprocessing.
-
     _req_params = { 'file_name' : str }
     _opt_params = {
         'rotTelPos': Angle,
@@ -316,27 +308,29 @@ class Telescopes:
         'fea': None,
     }
 
-    def __init__(self, file_name, perturbations=(), rotTelPos=None, cameraName='LSSTCamera', fea=None):
-        self._d = {
-            # Always start with the base telescope
-            'base': load_telescope(
-                file_name, perturbations=perturbations,
-                rotTelPos=rotTelPos, cameraName=cameraName,
-                fea=fea
-            )
-        }
+    def __init__(
+        self,
+        file_name,
+        perturbations=(),
+        rotTelPos=None,
+        cameraName='LSSTCamera',
+        fea=None,
+        logger=None
+    ):
+        self.fiducial = load_telescope(
+            file_name, perturbations=perturbations,
+            rotTelPos=rotTelPos, cameraName=cameraName,
+            fea=fea
+        )
+        self.logger = logger
 
-    def set_shifted_det(self, z_offset):
-        """Set the 'det' key to a shifted optics version with the given z_offset
+    def get_telescope(self, z_offset):
+        """Get a potentially detector-shifted version of the telescope with the given z_offset.
         """
-        self._d['det'] = self._d['base'].withLocallyShiftedOptic(
-                "Detector",
-                [0, 0, -z_offset]  # batoid convention is opposite of DM
-            )
-
-    def get(self, key):
-        return self._d.get(key)
-
+        return self.fiducial.withLocallyShiftedOptic(
+            "Detector",
+            [0, 0, -z_offset]  # batoid convention is opposite of DM
+        )
 
 class TelescopeLoader(InputLoader):
     """Load a telescope from a yaml file.
@@ -348,6 +342,7 @@ class TelescopeLoader(InputLoader):
         kwargs, safe = GetAllParams(config, base, req=req, opt=opt, single=single)
         kwargs['perturbations'] = perturbations
         kwargs['fea'] = fea
+        kwargs['logger'] = logger
         return kwargs, True
 
     def setupImage(self, input_obj, config, base, logger=None):
@@ -359,10 +354,9 @@ class TelescopeLoader(InputLoader):
         ccd_orientation = camera[det_name].getOrientation()
         if hasattr(ccd_orientation, 'getHeight'):
             z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
-            logger.info("Setting CCD z-offset to %.2e m", z_offset)
         else:
             z_offset = 0
-        input_obj.set_shifted_det(z_offset)
+        det_telescope = input_obj.get_telescope(z_offset)
+        base['det_telescope'] = det_telescope
 
-
-RegisterInputType('telescope', TelescopeLoader(Telescopes))
+RegisterInputType('telescope', TelescopeLoader(DetectorTelescope))
