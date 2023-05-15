@@ -324,7 +324,7 @@ class DetectorTelescope:
         )
         self.logger = logger
 
-    def get_shifted_det(self, z_offset):
+    def get_telescope(self, z_offset):
         """Get a potentially detector-shifted version of the telescope with the given z_offset.
         """
         return self.fiducial.withLocallyShiftedOptic(
@@ -356,7 +356,7 @@ class TelescopeLoader(InputLoader):
             z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
         else:
             z_offset = 0
-        det_telescope = input_obj.get_shifted_det(z_offset)
+        det_telescope = input_obj.get_telescope(z_offset)
         base['det_telescope'] = det_telescope
 
 RegisterInputType('telescope', TelescopeLoader(DetectorTelescope))
