@@ -1,3 +1,4 @@
+import os
 from galsim.config import (
     InputLoader, RegisterInputType, GetAllParams, get_cls_params, ParseValue,
     LoggerWrapper
@@ -316,7 +317,7 @@ class Telescopes:
         'fea': None,
     }
 
-    def __init__(self, file_name, perturbations=(), rotTelPos=None, cameraName='LSSTCamera', fea=None):
+    def __init__(self, file_name, perturbations=(), rotTelPos=None, cameraName='LSSTCamera', fea=None, logger=None):
         self._d = {
             # Always start with the base telescope
             'base': load_telescope(
@@ -325,6 +326,9 @@ class Telescopes:
                 fea=fea
             )
         }
+        self.logger = logger
+        if self.logger:
+            self.logger.info("Telescopes.__init__ id(base)=%d pid=%d", id(self.get('base')), os.getpid())
 
     def set_shifted_det(self, z_offset):
         """Set the 'det' key to a shifted optics version with the given z_offset
@@ -333,6 +337,8 @@ class Telescopes:
                 "Detector",
                 [0, 0, -z_offset]  # batoid convention is opposite of DM
             )
+        # if self.logger:
+        #     self.logger.info("set_shifted_det id(base)=%d id(det)=%d pid=%d", id(self.get('base')), id(self.get('det')), os.getpid())
 
     def get(self, key):
         return self._d.get(key)
@@ -348,6 +354,7 @@ class TelescopeLoader(InputLoader):
         kwargs, safe = GetAllParams(config, base, req=req, opt=opt, single=single)
         kwargs['perturbations'] = perturbations
         kwargs['fea'] = fea
+        kwargs['logger'] = logger
         return kwargs, True
 
     def setupImage(self, input_obj, config, base, logger=None):
@@ -359,10 +366,13 @@ class TelescopeLoader(InputLoader):
         ccd_orientation = camera[det_name].getOrientation()
         if hasattr(ccd_orientation, 'getHeight'):
             z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
-            logger.info("Setting CCD z-offset to %.2e m", z_offset)
+            logger.info("Setting CCD z-offset for %s to %.2e m", det_name, z_offset)
         else:
             z_offset = 0
         input_obj.set_shifted_det(z_offset)
-
+        if logger:
+            logger.info("setupImage det_name=%s z_offset=%f id(base)=%d id(det)=%d pid=%d", det_name, z_offset, id(input_obj.get('base')), id(input_obj.get('det')), os.getpid())
+            # logger.info("setupImage det_name=%s z_offset=%f pid=%d", det_name, z_offset, os.getpid())
+            # logger.info("setupImage")
 
 RegisterInputType('telescope', TelescopeLoader(Telescopes))

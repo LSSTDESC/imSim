@@ -1,5 +1,6 @@
 
 # These need conda (via stackvana).  Not pip-installable
+import os
 from lsst.afw import cameraGeom
 
 # This is not on conda yet, but is pip installable.
@@ -73,7 +74,8 @@ class BatoidWCSFactory:
         camera,
         temperature,
         pressure,
-        H2O_pressure
+        H2O_pressure,
+        logger=None
     ):
         self.boresight = boresight
         self.obstime = obstime
@@ -102,6 +104,8 @@ class BatoidWCSFactory:
         es = 6.11 * np.exp(17.27 * self.tc / (237.3 + self.tc))  # mbar
         self.rh = self.H2O_pressure/es  # relative humidity
         self.wl = self.wavelength * 1e-3  # nm -> micron
+
+        self.logger = logger
 
     def _ICRF_to_observed(self, rc, dc, all=False):
         """
@@ -292,7 +296,7 @@ class BatoidWCSFactory:
         """
         return self._field_wcs.xyToradec(thx, thy, units="rad")
 
-    def _field_to_focal(self, thx, thy, z_offset=0.0):
+    def _field_to_focal(self, thx, thy, z_offset=0.0, _telescope=None):
         """
         Parameters
         ----------
@@ -310,11 +314,32 @@ class BatoidWCSFactory:
             optic=self.telescope,
             wavelength=self.wavelength*1e-9
         )
-        telescope = self.telescope
-        if z_offset != 0.0:
-            telescope = self.telescope.withLocallyShiftedOptic(
-                "Detector", [0.0, 0.0, -z_offset]  # batoid convention is opposite of DM
-            )
+        if _telescope is not None:
+            telescope = _telescope
+        else:
+            telescope = self.telescope
+            if self.logger:
+                self.logger.info(
+                    "_field_to_focal first  id(telescope)=%d z_offset=%f z-origin=%f id(self.telescope)=%d pid=%d",
+                    id(telescope),
+                    z_offset,
+                    telescope['Detector'].coordSys.origin[2]-4.42942460820456,
+                    id(self.telescope),
+                    os.getpid()
+                )
+            if z_offset != 0.0:
+                telescope = telescope.withLocallyShiftedOptic(
+                    "Detector", [0.0, 0.0, -z_offset]  # batoid convention is opposite of DM
+                )
+            if self.logger:
+                self.logger.info(
+                    "_field_to_focal second id(telescope)=%d z_offset=%f z-origin=%f id(self.telescope)=%d pid=%d",
+                    id(telescope),
+                    z_offset,
+                    telescope['Detector'].coordSys.origin[2]-4.42942460820456,
+                    id(self.telescope),
+                    os.getpid()
+                )
         telescope.trace(rv)
         # x/y transpose to convert from EDCS to DVCS
         return rv.y*1e3, rv.x*1e3
@@ -332,6 +357,30 @@ class BatoidWCSFactory:
         thx, thy : array
             Field angle in radians
         """
+        telescope = self.telescope
+        if self.logger:
+            self.logger.info(
+                "_focal_to_field first  id(telescope)=%d z_offset=%f z-origin=%f id(self.telescope)=%d pid=%d",
+                id(telescope),
+                z_offset,
+                telescope['Detector'].coordSys.origin[2]-4.42942460820456,
+                id(self.telescope),
+                os.getpid()
+            )
+        if z_offset != 0.0:
+            telescope = telescope.withLocallyShiftedOptic(
+                "Detector", [0.0, 0.0, -z_offset]  # batoid convention is opposite of DM
+            )
+        if self.logger:
+            self.logger.info(
+                "_focal_to_field second id(telescope)=%d z_offset=%f z-origin=%f id(self.telescope)=%d pid=%d",
+                id(telescope),
+                z_offset,
+                telescope['Detector'].coordSys.origin[2]-4.42942460820456,
+                id(self.telescope),
+                os.getpid()
+            )
+
         fpx = np.atleast_1d(fpx)
         fpy = np.atleast_1d(fpy)
         N = len(fpx)
@@ -340,7 +389,7 @@ class BatoidWCSFactory:
         def resid(p):
             thx = p[:N]
             thy = p[N:]
-            x, y = self._field_to_focal(thx, thy, z_offset=z_offset)
+            x, y = self._field_to_focal(thx, thy, z_offset=z_offset, _telescope=telescope)
             return np.concatenate([x-fpx, y-fpy])
         result = least_squares(resid, np.zeros(2*N))
         return result.x[:N], result.x[N:]
@@ -385,6 +434,14 @@ class BatoidWCSFactory:
 
         # trace both directions (field -> ICRF and field -> pixel)
         # then fit TanSIP to ICRF -> pixel.
+        if self.logger:
+            self.logger.info(
+                "getWCS id(telescope)=%d det_name=%s z_offset=%f pid=%d",
+                id(self.telescope),
+                det.getName(),
+                z_offset,
+                os.getpid()
+            )
         fpxs, fpys = self._field_to_focal(thxs, thys, z_offset=z_offset)
         xs, ys = focal_to_pixel(fpxs, fpys, det)
         rob, dob = self._field_to_observed(thxs, thys)
@@ -497,10 +554,11 @@ class BatoidWCSBuilder(WCSBuilder):
         order = kwargs.pop('order', 3)
         det_name = kwargs.pop('det_name')
         kwargs['telescope'] = GetInputObj('telescope', config, base, 'telescope').get('base')
+        kwargs['logger'] = logger
         factory = self.makeWCSFactory(**kwargs)
         det = self.camera[det_name]
-        logger.info("Building Batoid WCS for %s and %s", det_name,
-                    self.camera.getName())
+        logger.info("Building Batoid WCS for %s and %s on pid=%d", det_name,
+                    self.camera.getName(), os.getpid())
         wcs = factory.getWCS(det, order=order)
         base['_icrf_to_field'] = factory.get_icrf_to_field(det, order=order)
         return wcs
@@ -509,7 +567,7 @@ class BatoidWCSBuilder(WCSBuilder):
         self, boresight, obstime, telescope,
         camera='LsstCam',
         temperature=None, pressure=None, H2O_pressure=None,
-        wavelength=None, bandpass=None
+        wavelength=None, bandpass=None, logger=None
     ):
         """Make the WCS factory given the parameters explicitly rather than via a config dict.
 
@@ -576,7 +634,7 @@ class BatoidWCSBuilder(WCSBuilder):
         # Finally, build the WCS.
         return BatoidWCSFactory(
             boresight, obstime, telescope, wavelength, self.camera, temperature,
-            pressure, H2O_pressure
+            pressure, H2O_pressure, logger
         )
 
 
