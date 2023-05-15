@@ -73,8 +73,7 @@ class BatoidWCSFactory:
         camera,
         temperature,
         pressure,
-        H2O_pressure,
-        logger=None
+        H2O_pressure
     ):
         self.boresight = boresight
         self.obstime = obstime
@@ -103,8 +102,6 @@ class BatoidWCSFactory:
         es = 6.11 * np.exp(17.27 * self.tc / (237.3 + self.tc))  # mbar
         self.rh = self.H2O_pressure/es  # relative humidity
         self.wl = self.wavelength * 1e-3  # nm -> micron
-
-        self.logger = logger
 
     def _ICRF_to_observed(self, rc, dc, all=False):
         """
@@ -509,7 +506,6 @@ class BatoidWCSBuilder(WCSBuilder):
         order = kwargs.pop('order', 3)
         det_name = kwargs.pop('det_name')
         kwargs['telescope'] = GetInputObj('telescope', config, base, 'telescope').fiducial
-        kwargs['logger'] = logger
         factory = self.makeWCSFactory(**kwargs)
         det = self.camera[det_name]
         logger.info("Building Batoid WCS for %s and %s on pid=%d", det_name,
@@ -522,7 +518,7 @@ class BatoidWCSBuilder(WCSBuilder):
         self, boresight, obstime, telescope,
         camera='LsstCam',
         temperature=None, pressure=None, H2O_pressure=None,
-        wavelength=None, bandpass=None, logger=None
+        wavelength=None, bandpass=None
     ):
         """Make the WCS factory given the parameters explicitly rather than via a config dict.
 
@@ -589,7 +585,7 @@ class BatoidWCSBuilder(WCSBuilder):
         # Finally, build the WCS.
         return BatoidWCSFactory(
             boresight, obstime, telescope, wavelength, self.camera, temperature,
-            pressure, H2O_pressure, logger
+            pressure, H2O_pressure
         )
 
 

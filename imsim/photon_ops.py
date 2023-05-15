@@ -52,8 +52,7 @@ class RubinOptics(PhotonOp):
         image_pos,
         icrf_to_field,
         det_name,
-        camera,
-        logger=None
+        camera
     ):
         self.telescope = telescope
         self.detector = camera[det_name]
@@ -61,7 +60,6 @@ class RubinOptics(PhotonOp):
         self.sky_pos = sky_pos
         self.image_pos = image_pos
         self.icrf_to_field = icrf_to_field
-        self.logger = logger
 
     def photon_velocity(self, photon_array, local_wcs, rng) -> np.ndarray:
         """Computes the velocity of the photons directly."""
@@ -364,7 +362,6 @@ def deserialize_rubin_optics(config, base, _logger):
         icrf_to_field=base["_icrf_to_field"],
         det_name=base["det_name"],
         camera=get_camera_cached(kwargs.pop("camera")),
-        logger=_logger,
         **kwargs,
     )
 
