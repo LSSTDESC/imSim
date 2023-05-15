@@ -1,4 +1,3 @@
-
 # These need conda (via stackvana).  Not pip-installable
 import os
 from lsst.afw import cameraGeom
@@ -315,32 +314,14 @@ class BatoidWCSFactory:
             wavelength=self.wavelength*1e-9
         )
         if _telescope is not None:
-            telescope = _telescope
+            det_telescope = _telescope
         else:
-            telescope = self.telescope
-            if self.logger:
-                self.logger.info(
-                    "_field_to_focal first  id(telescope)=%d z_offset=%f z-origin=%f id(self.telescope)=%d pid=%d",
-                    id(telescope),
-                    z_offset,
-                    telescope['Detector'].coordSys.origin[2]-4.42942460820456,
-                    id(self.telescope),
-                    os.getpid()
-                )
+            det_telescope = self.telescope
             if z_offset != 0.0:
-                telescope = telescope.withLocallyShiftedOptic(
+                det_telescope = det_telescope.withLocallyShiftedOptic(
                     "Detector", [0.0, 0.0, -z_offset]  # batoid convention is opposite of DM
                 )
-            if self.logger:
-                self.logger.info(
-                    "_field_to_focal second id(telescope)=%d z_offset=%f z-origin=%f id(self.telescope)=%d pid=%d",
-                    id(telescope),
-                    z_offset,
-                    telescope['Detector'].coordSys.origin[2]-4.42942460820456,
-                    id(self.telescope),
-                    os.getpid()
-                )
-        telescope.trace(rv)
+        det_telescope.trace(rv)
         # x/y transpose to convert from EDCS to DVCS
         return rv.y*1e3, rv.x*1e3
 
@@ -357,28 +338,10 @@ class BatoidWCSFactory:
         thx, thy : array
             Field angle in radians
         """
-        telescope = self.telescope
-        if self.logger:
-            self.logger.info(
-                "_focal_to_field first  id(telescope)=%d z_offset=%f z-origin=%f id(self.telescope)=%d pid=%d",
-                id(telescope),
-                z_offset,
-                telescope['Detector'].coordSys.origin[2]-4.42942460820456,
-                id(self.telescope),
-                os.getpid()
-            )
+        det_telescope = self.telescope
         if z_offset != 0.0:
-            telescope = telescope.withLocallyShiftedOptic(
+            det_telescope = det_telescope.withLocallyShiftedOptic(
                 "Detector", [0.0, 0.0, -z_offset]  # batoid convention is opposite of DM
-            )
-        if self.logger:
-            self.logger.info(
-                "_focal_to_field second id(telescope)=%d z_offset=%f z-origin=%f id(self.telescope)=%d pid=%d",
-                id(telescope),
-                z_offset,
-                telescope['Detector'].coordSys.origin[2]-4.42942460820456,
-                id(self.telescope),
-                os.getpid()
             )
 
         fpx = np.atleast_1d(fpx)
@@ -389,7 +352,7 @@ class BatoidWCSFactory:
         def resid(p):
             thx = p[:N]
             thy = p[N:]
-            x, y = self._field_to_focal(thx, thy, z_offset=z_offset, _telescope=telescope)
+            x, y = self._field_to_focal(thx, thy, z_offset=z_offset, _telescope=det_telescope)
             return np.concatenate([x-fpx, y-fpy])
         result = least_squares(resid, np.zeros(2*N))
         return result.x[:N], result.x[N:]
@@ -434,14 +397,6 @@ class BatoidWCSFactory:
 
         # trace both directions (field -> ICRF and field -> pixel)
         # then fit TanSIP to ICRF -> pixel.
-        if self.logger:
-            self.logger.info(
-                "getWCS id(telescope)=%d det_name=%s z_offset=%f pid=%d",
-                id(self.telescope),
-                det.getName(),
-                z_offset,
-                os.getpid()
-            )
         fpxs, fpys = self._field_to_focal(thxs, thys, z_offset=z_offset)
         xs, ys = focal_to_pixel(fpxs, fpys, det)
         rob, dob = self._field_to_observed(thxs, thys)
@@ -553,7 +508,7 @@ class BatoidWCSBuilder(WCSBuilder):
             self._camera = get_camera(self._camera_name)
         order = kwargs.pop('order', 3)
         det_name = kwargs.pop('det_name')
-        kwargs['telescope'] = GetInputObj('telescope', config, base, 'telescope').get('base')
+        kwargs['telescope'] = GetInputObj('telescope', config, base, 'telescope').fiducial
         kwargs['logger'] = logger
         factory = self.makeWCSFactory(**kwargs)
         det = self.camera[det_name]
