@@ -103,6 +103,16 @@ class BatoidWCSFactory:
         self.rh = self.H2O_pressure/es  # relative humidity
         self.wl = self.wavelength * 1e-3  # nm -> micron
 
+    def _get_det_telescope(self, z_offset, _telescope=None):
+        if _telescope is not None:
+            return _telescope
+        elif z_offset != 0.0:
+            return self.telescope.withLocallyShiftedOptic(
+                "Detector", [0.0, 0.0, -z_offset]  # batoid convention is opposite of DM
+            )
+        else:
+            return self.telescope
+
     def _ICRF_to_observed(self, rc, dc, all=False):
         """
         Parameters
@@ -310,14 +320,7 @@ class BatoidWCSFactory:
             optic=self.telescope,
             wavelength=self.wavelength*1e-9
         )
-        if _telescope is not None:
-            det_telescope = _telescope
-        else:
-            det_telescope = self.telescope
-            if z_offset != 0.0:
-                det_telescope = det_telescope.withLocallyShiftedOptic(
-                    "Detector", [0.0, 0.0, -z_offset]  # batoid convention is opposite of DM
-                )
+        det_telescope = self._get_det_telescope(z_offset, _telescope)
         det_telescope.trace(rv)
         # x/y transpose to convert from EDCS to DVCS
         return rv.y*1e3, rv.x*1e3
@@ -335,11 +338,7 @@ class BatoidWCSFactory:
         thx, thy : array
             Field angle in radians
         """
-        det_telescope = self.telescope
-        if z_offset != 0.0:
-            det_telescope = det_telescope.withLocallyShiftedOptic(
-                "Detector", [0.0, 0.0, -z_offset]  # batoid convention is opposite of DM
-            )
+        det_telescope = self._get_det_telescope(z_offset)
 
         fpx = np.atleast_1d(fpx)
         fpy = np.atleast_1d(fpy)
@@ -349,7 +348,12 @@ class BatoidWCSFactory:
         def resid(p):
             thx = p[:N]
             thy = p[N:]
-            x, y = self._field_to_focal(thx, thy, z_offset=z_offset, _telescope=det_telescope)
+            x, y = self._field_to_focal(
+                thx,
+                thy,
+                z_offset=z_offset,
+                _telescope=det_telescope
+            )
             return np.concatenate([x-fpx, y-fpy])
         result = least_squares(resid, np.zeros(2*N))
         return result.x[:N], result.x[N:]
