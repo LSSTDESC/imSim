@@ -24,7 +24,7 @@ RUN sed '/stackvana/d' imSim/etc/standalone_conda_requirements.txt > imSim/etc/d
 RUN source /opt/lsst/software/stack/loadLSST.bash &&\
     setup lsst_distrib &&\
     mamba install -y --file imSim/etc/docker_conda_requirements.txt &&\
-    python3 -m pip install batoid skyCatalogs==1.2.0 gitpython &&\
+    python3 -m pip install batoid skyCatalogs==1.3.0 gitpython &&\
     python3 -m pip install rubin_sim/ &&\
     python3 -m pip install imSim/
 
