@@ -51,6 +51,7 @@ def create_test_lsst_silicon(faint: bool):
     lsst_silicon = stamp.LSST_SiliconBuilder()
     lsst_silicon.realized_flux = 100 if not faint else 99
     lsst_silicon.rng = mock.Mock()
+    lsst_silicon.diffraction_psf = mock.Mock()
     return lsst_silicon
 
 
