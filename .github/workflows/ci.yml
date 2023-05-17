@@ -62,6 +62,7 @@ jobs:
                 # a bunch of unneeded packages.
                 git clone https://github.com/lsst/rubin_sim.git
                 cd rubin_sim
+                git checkout 1.1.1
                 pip install -e .
                 cd ..
                 mkdir rubin_sim_data
