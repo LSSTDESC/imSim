@@ -534,26 +534,20 @@ class LSST_SiliconBuilder(StampBuilder):
             maxN = galsim.config.ParseValue(config, 'maxN', base, int)[0]
 
         if method == 'fft':
-            if not faint and 'fft_photon_ops' in config:
-                photon_ops = galsim.config.BuildPhotonOps(config, 'fft_photon_ops', base, logger)
-            else:
-                photon_ops = []
-
             fft_image = image.copy()
             fft_offset = offset
+            kwargs = dict(
+                method='fft',
+                offset=fft_offset,
+                image=fft_image,
+                wcs=wcs,
+                n_subsample=1,
+            )
+            if not faint and config.get('fft_photon_ops'):
+                kwargs["photon_ops"] = galsim.config.BuildPhotonOps(config, 'fft_photon_ops', base, logger)
 
             try:
-                prof.drawImage(bandpass,
-                               method='fft',
-                               offset=fft_offset,
-                               image=fft_image,
-                               wcs=wcs,
-                               photon_ops=photon_ops,
-                               rng=self.rng,
-                               sensor=galsim.Sensor(),
-                               n_subsample=1,
-                               maxN=maxN
-                               )
+                prof.drawImage(bandpass, **kwargs)
             except galsim.errors.GalSimFFTSizeError as e:
                 # I think this shouldn't happen with the updates I made to how the image size
                 # is calculated, even for extremely bright things.  So it should be ok to

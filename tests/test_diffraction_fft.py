@@ -78,7 +78,8 @@ def create_test_config(
         }
     else:
         optics_args = {"type": "RubinOptics"}
-    photon_ops = [
+    if mode == Mode.RAYTRACING:
+        stamp_args = {"photon_ops": [
         {"type": "TimeSampler", "t0": 0.0, "exptime": exptime},
         {"type": "PupilAnnulusSampler", "R_outer": 4.18, "R_inner": 2.55},
         {
@@ -87,6 +88,9 @@ def create_test_config(
             "camera": "LsstCam",
         },
     ]
+                      }
+    else:
+        stamp_args = {}
     config = {
         **raytracing_config,
         "gal": {
@@ -121,9 +125,7 @@ def create_test_config(
                 1.1056660811384078 * galsim.radians,
                 -0.5253441048502933 * galsim.radians,
             ),
-            "fft_photon_ops": [],
             "size": stamp_size,
-            "photon_ops": photon_ops,
             "diffraction_psf": {
                 **alt_az,
                 "exptime": exptime,
@@ -131,6 +133,7 @@ def create_test_config(
                 "enabled": enable_diffraction,
                 "full_well": 1.0e5,
             },
+            **stamp_args
         },
     }
     galsim.config.ProcessInput(config)

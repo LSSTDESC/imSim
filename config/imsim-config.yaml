@@ -229,8 +229,6 @@ stamp:
     world_pos:
         type: InstCatWorldPos
 
-    fft_photon_ops: []
-
     photon_ops:
         -
             type: TimeSampler
