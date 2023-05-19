@@ -304,8 +304,9 @@ def test_fft_diffraction_is_similar_to_raytracing_for_0_exptime():
     np.testing.assert_allclose(
         np.rad2deg(raytrace_data["angle"]), expected_angle.deg, atol=1.0, rtol=0.0
     )
-    expected_max_spike_width = 5.0
-    np.testing.assert_array_less(np.rad2deg(angle_stddev), expected_max_spike_width)
+    np.testing.assert_allclose(
+        np.rad2deg(angle_stddev), np.rad2deg(raytrace_data["angle_stddev"]), atol=2.0, rtol=0.0
+    )
     slope, intercept, slope_stderr, intercept_stderr = brightness_log_profile(
         brightness, c_x, c_y
     )
