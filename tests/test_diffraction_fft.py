@@ -440,7 +440,7 @@ def save_pic(filename: str, exptime: float, mode: Mode, enable_diffraction: bool
         enable_diffraction=enable_diffraction,
     )
     image = galsim.config.BuildImage(config, logger=None)
-    image.write(file_name)
+    image.write(filename)
 
 
 def save_pics():
@@ -465,13 +465,16 @@ def save_pics():
 
 if __name__ == "__main__":
     import sys
-    if sys.argv[1] == "--pics":
+
+    if "--pics" in sys.argv:
         save_pics()
         sys.exit(0)
-    if sys.argv[1] == "-k":
+    if len(sys.argv) > 1 and sys.argv[1] == "-k":
         test_prefix = sys.argv[2]
     else:
         test_prefix = "test_"
-    testfns = [v for k, v in vars().items() if k.startswith(test_prefix) and callable(v)]
+    testfns = [
+        v for k, v in vars().items() if k.startswith(test_prefix) and callable(v)
+    ]
     for testfn in testfns:
         testfn()
