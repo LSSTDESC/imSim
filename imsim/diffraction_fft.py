@@ -30,7 +30,9 @@ def field_rotation_profile(
 
     Approximations:
     - Assume that the rotation rate is constant over time.
-    - A pixel is approximated by an "angular pixel" (r0-1/2 <= r <= r0+1/2, 0 <= \phi <= \phi_pix(r0), where \phi_pix(r) is chosen such that the arclength r \phi_pix(r) is 1.
+    - A pixel is approximated by an "angular pixel"
+      (r0-1/2 <= r <= r0+1/2, 0 <= \phi <= \phi_pix(r0),
+      where \phi_pix(r) is chosen such that the arclength r \phi_pix(r) is 1).
     """
 
     l_pix = resolution  # length of a pixel
@@ -38,9 +40,12 @@ def field_rotation_profile(
     def arclength_dose(r: np.ndarray) -> np.ndarray:
         """If the arclength r * d_alpha is smaller than the length of a pixel,
         return 1.0, otherwise return l_pix / (r * d_alpha)."""
+        # The following also allows d_alpha = 0:
         return 1.0 / np.maximum(r * d_alpha / l_pix, 1.0)
 
     d_pix = 0.5 * l_pix  # Half a pixel
+    # use int_spike_profile, to compute the radial integral
+    # int(spike_profile(r), r=r-d_pix..r+d_pix):
     return (
         int_spike_profile(r + d_pix) - int_spike_profile(r - d_pix)
     ) * arclength_dose(r)

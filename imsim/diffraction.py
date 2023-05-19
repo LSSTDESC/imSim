@@ -321,8 +321,9 @@ def field_rotation_sin_cos(
     t: np.ndarray,
     out: np.ndarray
 ):
-    """Computes the field rotation matrix for a given latitude lat, times t and a
-    focal point given by cartesian coordinates in an equatorial system.
+    """Computes `sin(theta), cos(theta)` (`theta`: field rotation angle)
+    for a given latitude lat,times t and a focal point given by cartesian coordinates
+    in an equatorial system.
 
     Parameters
     ----------
