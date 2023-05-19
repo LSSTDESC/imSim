@@ -8,14 +8,15 @@ from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 from .diffraction_fft import apply_diffraction_psf
 from .readout import CcdReadout
 
+
 @dataclass
 class DiffractionPSF:
     exptime: float
     azimuth: galsim.Angle
     altitude: galsim.Angle
     rottelpos: galsim.Angle
-    psf_size: float = 4000
-    full_well: float = CcdReadout.full_well
+    spike_length_cutoff: float = 4000
+    brightness_threshold: float = CcdReadout.full_well
     pixel_length: float = 100.0  # TODO: fill in some reasonable value here.
     latitude: galsim.Angle = RUBIN_LOC.lat
     enabled: bool = True
@@ -29,9 +30,9 @@ class DiffractionPSF:
                 latitude=self.latitude.rad,
                 azimuth=self.azimuth.rad,
                 altitude=self.altitude.rad,
-                full_well=self.full_well,
+                brightness_threshold=self.brightness_threshold,
                 pixel_length=self.pixel_length,
-                psf_size=self.psf_size
+                spike_length_cutoff=self.spike_length_cutoff,
             )
 
     @classmethod

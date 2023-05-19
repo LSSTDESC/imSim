@@ -112,9 +112,9 @@ def apply_diffraction_psf(
     latitude: float,
     azimuth: float,
     altitude: float,
-    full_well: float,
+    brightness_threshold: float,
     pixel_length: float,
-    psf_size: int,
+    spike_length_cutoff: int,
 ):
     """2d convolve, leaving image dimension invariant.
     image: Brightness pixel data
@@ -123,28 +123,28 @@ def apply_diffraction_psf(
     latitude: Geographic latitude of observators
     azimuth: Azimuth of the telescope
     altitude: Altitude of the telescope
-    full_well: Threshold value for saturated pixels
+    brightness_threshold: Minimum pixel value onto which to put diffraction spikes
     pixel_length: Scaling factor: The length of 1px in `spike_profile`
-    psf_size: Size of the PSF (width and height) which will be layed over saturated pixels.
+    spike_length_cutoff: Size of the PSF (width and height) which will be layed over saturated pixels.
     """
 
-    psf_w = psf_h = psf_size  # neglect the outer region (~1/r^2)
+    psf_w = psf_h = spike_length_cutoff  # neglect the outer region (~1/r^2)
     sin_cos = np.empty(2)
     e_z_0, e_z = prepare_e_z(latitude)
     e_focal = e_equatorial(latitude=latitude, azimuth=azimuth, altitude=altitude)
     field_rotation_sin_cos(e_z_0, e_z, e_focal, exptime, sin_cos)
     d_alpha = np.arctan2(sin_cos[1], sin_cos[0])
     rottelpos = np.pi/4. - rottelpos
-    psf = prepare_psf_field_rotation(
+    spike_per_pixel = prepare_psf_field_rotation(
         psf_w,
         psf_h,
         resolution=pixel_length,
         alpha=rottelpos,
         d_alpha=d_alpha,
     )
-    for region_row, region_col in saturated_clusters(image, full_well):
+    for region_row, region_col in saturated_clusters(image, brightness_threshold):
         img_region = image[region_row, region_col]
-        diffracted = scipy.signal.convolve2d(psf, img_region, mode="full")
+        diffracted = scipy.signal.convolve2d(spike_per_pixel, img_region, mode="full")
         img_region[()] = 0.0
         add_image(
             image,
@@ -166,8 +166,8 @@ def add_image(image, overlay, row, col) -> None:
     ]
 
 
-def saturated_clusters(image, full_well: float):
-    """Detect clusters of saturated pixels ( > full_well) in an image.
+def saturated_clusters(image, brightness_threshold: float):
+    """Detect clusters of saturated pixels ( > brightness_threshold) in an image.
     Returns a list of 2-tuples of slices (pixel ranges (x and y) containing one cluster).
     """
     (w, h) = image.shape
@@ -179,7 +179,7 @@ def saturated_clusters(image, full_well: float):
             copy=False,
         )
     ]
-    pixel_coordinates = xy[:, image > full_well]
+    pixel_coordinates = xy[:, image > brightness_threshold]
     regions = []
     for i, j in pixel_coordinates.T:
         neighbor_indices = [n for n, r in enumerate(regions) if dist_2d(r, (i, j)) <= 1]

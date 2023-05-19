@@ -131,7 +131,7 @@ def create_test_config(
                 "exptime": exptime,
                 "rottelpos": rottelpos,
                 "enabled": enable_diffraction,
-                "full_well": 1.0e5,
+                "brightness_threshold": 1.0e5,
             },
             **stamp_args
         },
