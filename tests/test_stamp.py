@@ -148,7 +148,7 @@ def test_stamp_builder_works_without_photon_ops_or_faint() -> None:
         "photon_ops": [],
         "rng": mock.ANY,
     }
-    expected_fft_args = {"n_subsample": 1, "image": image_copy}
+    expected_fft_args = {"image": image_copy}
     for method, expected_specific_args in (
         ("phot", expected_phot_args),
         ("fft", expected_fft_args),

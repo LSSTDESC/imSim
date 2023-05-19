@@ -538,13 +538,13 @@ class LSST_SiliconBuilder(StampBuilder):
                 offset=fft_offset,
                 image=fft_image,
                 wcs=wcs,
-                n_subsample=1,
             )
             if not faint and config.get('fft_photon_ops'):
                 kwargs.update({
                     "photon_ops": galsim.config.BuildPhotonOps(config, 'fft_photon_ops', base, logger),
                     "maxN": maxN,
-                    "rng": self.rng
+                    "rng": self.rng,
+                    "n_subsample": 1,
                 })
 
             try:
