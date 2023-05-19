@@ -33,30 +33,6 @@ def get_opsim_data(config, base):
     return opsim_data
 
 
-def opsim_fallback_values(config, base, required_fields):
-    """Loads required fields (specified by a dict where keys are field names
-    and values are the types of the fields) from opsim meta if not specified in config.
-
-    Currently only the type of an Angle will will have an inpact on the processed fields.
-    Angles are assumed to be degree values in opsim meta.
-    """
-    missing_values = set(required_fields) - set(config)
-    if not missing_values:
-        return {}
-    opsim_meta = galsim.config.GetInputObj(
-        "opsim_meta_dict", config, base, "opsim_meta_dict"
-    )
-
-    def convert(val, dest_type):
-        if dest_type == galsim.Angle:
-            return val * galsim.degrees
-        return dest_type(val)
-
-    return {
-        key: convert(opsim_meta[key], required_fields[key]) for key in missing_values
-    }
-
-
 def _is_sqlite3_file(filename):
     """Check if a file is an sqlite3 db file."""
     with open(filename, 'rb') as fd:

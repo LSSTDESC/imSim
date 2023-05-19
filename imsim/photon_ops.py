@@ -377,8 +377,8 @@ def deserialize_rubin_optics(config, base, _logger):
 
 @photon_op_type("RubinDiffractionOptics", input_type="telescope")
 def deserialize_rubin_diffraction_optics(config, base, _logger):
-    kwargs = config_kwargs(config, base, RubinDiffractionOptics)
-    telescope = base['det_telescope']
+    kwargs = config_kwargs(config, base, RubinDiffractionOptics, _rubin_optics_base_args)
+    telescope = base["det_telescope"]
     rubin_diffraction = RubinDiffraction(
         telescope=telescope,
         latitude=kwargs.pop("latitude", RUBIN_LOC.lat.rad),
@@ -405,8 +405,8 @@ def get_camera_cached(camera_name: str):
 
 @photon_op_type("RubinDiffraction", input_type="telescope")
 def deserialize_rubin_diffraction(config, base, _logger):
-    kwargs = config_kwargs(config, base, RubinDiffraction)
-    telescope = base['det_telescope']
+    kwargs = config_kwargs(config, base, RubinDiffraction, base_args=("sky_pos",))
+    telescope = base["det_telescope"]
 
     return RubinDiffraction(
         telescope=telescope,

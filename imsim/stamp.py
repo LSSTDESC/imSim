@@ -4,7 +4,6 @@ import numpy as np
 import galsim
 from galsim.config import StampBuilder, RegisterStampType, GetAllParams
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
-from .opsim_meta import opsim_fallback_values
 
 from .diffraction_fft import apply_diffraction_psf
 from .readout import CcdReadout
@@ -37,17 +36,14 @@ class DiffractionPSF:
 
     @classmethod
     def from_config(cls, config: dict, base: dict) -> "DiffractionPSF":
-        """Create a DiffractionPSF from config values, falling back to OpsimMeta,
-        if not specified in config.
-        """
-        all_fields = {f.name: f.type for f in fields(cls)}
+        """Create a DiffractionPSF from config values."""
+        req_fields = {f.name: f.type for f in fields(cls) if f.default is MISSING}
+        opt_fields = {f.name: f.type for f in fields(cls) if f.default is not MISSING}
         diffraction_psf_config = config.get("diffraction_psf", {})
-        # Treat all fields as optional, try to fill up missing fields from opsim later:
-        kwargs, _safe = GetAllParams(diffraction_psf_config, base, opt=all_fields)
-        required_fields = {f.name: f.type for f in fields(cls) if f.default is MISSING}
-        missing_fields = {k: v for k, v in required_fields.items() if k not in kwargs}
-        fallback_values = opsim_fallback_values(config, base, missing_fields)
-        return cls(**kwargs, **fallback_values)
+        kwargs, _safe = GetAllParams(
+            diffraction_psf_config, base, req=req_fields, opt=opt_fields
+        )
+        return cls(**kwargs)
 
 
 class LSST_SiliconBuilder(StampBuilder):

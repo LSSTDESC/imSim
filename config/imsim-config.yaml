@@ -226,6 +226,18 @@ stamp:
     rawSeeing:  { type: OpsimData, field: rawSeeing }
     band:  { type: OpsimData, field: band }
 
+    diffraction_psf:
+      exptime: { type: OpsimData, field: exptime }
+      azimuth:
+        type: Degrees
+        theta: { type: OpsimData, field: azimuth }
+      altitude:
+        type: Degrees
+        theta: { type: OpsimData, field: altitude }
+      rottelpos:
+        type: Degrees
+        theta: { type: OpsimData, field: rottelpos }
+
     world_pos:
         type: InstCatWorldPos
 
