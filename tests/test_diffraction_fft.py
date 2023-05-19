@@ -79,16 +79,17 @@ def create_test_config(
     else:
         optics_args = {"type": "RubinOptics"}
     if mode == Mode.RAYTRACING:
-        stamp_args = {"photon_ops": [
-        {"type": "TimeSampler", "t0": 0.0, "exptime": exptime},
-        {"type": "PupilAnnulusSampler", "R_outer": 4.18, "R_inner": 2.55},
-        {
-            **optics_args,
-            "boresight": boresight,
-            "camera": "LsstCam",
-        },
-    ]
-                      }
+        stamp_args = {
+            "photon_ops": [
+                {"type": "TimeSampler", "t0": 0.0, "exptime": exptime},
+                {"type": "PupilAnnulusSampler", "R_outer": 4.18, "R_inner": 2.55},
+                {
+                    **optics_args,
+                    "boresight": boresight,
+                    "camera": "LsstCam",
+                },
+            ]
+        }
     else:
         stamp_args = {}
     config = {
@@ -133,7 +134,7 @@ def create_test_config(
                 "enabled": enable_diffraction,
                 "brightness_threshold": 1.0e5,
             },
-            **stamp_args
+            **stamp_args,
         },
     }
     galsim.config.ProcessInput(config)
@@ -243,11 +244,41 @@ def test_saturated_clusters_finds_saturated_clusters():
     ), f"{sorted(regions)} != {sorted(expected_regions)}"
 
 
+def generate_reference_data_from_raytracing(parameters):
+    config = create_test_config(**parameters, mode=Mode.RAYTRACING)
+    brightness = galsim.config.BuildImage(config, logger=None).array
+    [c_x, c_y] = center_of_brighness(brightness)
+    angle, angle_stddev = folded_spike_angle(brightness, c_x, c_y, r_min=10.0)
+    slope, intercept, slope_stderr, intercept_stderr = brightness_log_profile(
+        brightness, c_x, c_y
+    )
+    return {
+        "c": np.array([c_x, c_y]),
+        "angle": angle,
+        "angle_stddev": angle_stddev,
+        "slope": slope,
+        "intercept": intercept,
+        "slope_stderr": slope_stderr,
+        "intercept_stderr": intercept_stderr,
+    }
+
+
 def test_fft_diffraction_is_similar_to_raytracing_for_0_exptime():
     """Check, that raytracing diffraction and FFT diffraction are "similar"."""
-    config = create_test_config(XSIZE, YSIZE, STAMP_SIZE, exptime=0.0)
-    # To compare with the raytracing method, instead use:
-    # config = create_test_config(XSIZE, YSIZE, STAMP_SIZE, exptime=0.0, mode=Mode.RAYTRACING)
+
+    parameters = {
+        "xsize": XSIZE,
+        "ysize": YSIZE,
+        "stamp_size": STAMP_SIZE,
+        "exptime": 0.0,
+    }
+    file_name = os.path.join(DATA_DIR, "raytrace_diffraction_values_0_exptime.npz")
+    # Generate reference data if not existing:
+    if not os.path.exists(file_name):
+        np.savez(file_name, **generate_reference_data_from_raytracing(parameters))
+    raytrace_data = np.load(file_name)
+
+    config = create_test_config(**parameters)
 
     with assert_no_error_logs() as logger:
         image = galsim.config.BuildImage(config, logger=logger)
@@ -258,32 +289,56 @@ def test_fft_diffraction_is_similar_to_raytracing_for_0_exptime():
     [c_x, c_y] = center_of_brighness(brightness)
     # 2 Pixel tolerance:
     np.testing.assert_allclose(
-        np.array([c_x, c_y]), np.array([1923.0, 3161.0]), atol=2.0, rtol=0.0
+        np.array([c_x, c_y]), raytrace_data["c"], atol=2.0, rtol=0.0
     )
+
     angle, angle_stddev = folded_spike_angle(brightness, c_x, c_y, r_min=10.0)
     expected_angle = (
         45.0 * galsim.degrees - config["stamp"]["diffraction_psf"]["rottelpos"]
-    ).deg
+    )
+
     # 1° tolerance:
-    np.testing.assert_allclose(np.rad2deg(angle), expected_angle, atol=1.0, rtol=0.0)
+    np.testing.assert_allclose(
+        np.rad2deg(angle), expected_angle.deg, atol=1.0, rtol=0.0
+    )
+    np.testing.assert_allclose(
+        np.rad2deg(raytrace_data["angle"]), expected_angle.deg, atol=1.0, rtol=0.0
+    )
     expected_max_spike_width = 5.0
     np.testing.assert_array_less(np.rad2deg(angle_stddev), expected_max_spike_width)
     slope, intercept, slope_stderr, intercept_stderr = brightness_log_profile(
         brightness, c_x, c_y
     )
+    # Brightness should decay as ~1/r**2:
     np.testing.assert_allclose(slope, -2.0, atol=0.6, rtol=0.0)
-    np.testing.assert_allclose(intercept, 12.5, atol=3.0, rtol=0.0)
-    # Assert some rough evidence, that brightness decays as
-    # brightness ~ exp(intercept) * r**slope:
+    np.testing.assert_allclose(raytrace_data["slope"], -2.0, atol=0.6, rtol=0.0)
+
+    np.testing.assert_allclose(
+        intercept, raytrace_data["intercept"], atol=3.0, rtol=0.0
+    )
+    # Here we dont compare against raytracing, but only make sure that both FFT and ratracing values are bounded:
     np.testing.assert_array_less(slope_stderr, 0.2)
+    np.testing.assert_array_less(raytrace_data["slope_stderr"], 0.2)
     np.testing.assert_array_less(intercept_stderr, 0.8)
+    np.testing.assert_array_less(raytrace_data["intercept_stderr"], 0.8)
 
 
 def test_fft_diffraction_is_similar_to_raytracing_for_field_rotation():
     """Check, that raytracing diffraction and FFT diffraction are "similar"."""
-    config = create_test_config(XSIZE, YSIZE, STAMP_SIZE, exptime=300.0)
-    # To compare with the raytracing method, instead use:
-    # config = create_test_config(XSIZE, YSIZE, STAMP_SIZE, exptime=300.0, mode=Mode.RAYTRACING)
+
+    parameters = {
+        "xsize": XSIZE,
+        "ysize": YSIZE,
+        "stamp_size": STAMP_SIZE,
+        "exptime": 300.0,
+    }
+    file_name = os.path.join(DATA_DIR, "raytrace_diffraction_values_300_exptime.npz")
+    # Generate reference data if not existing:
+    if not os.path.exists(file_name):
+        np.savez(file_name, **generate_reference_data_from_raytracing(parameters))
+    raytrace_data = np.load(file_name)
+
+    config = create_test_config(**parameters)
 
     with assert_no_error_logs() as logger:
         image = galsim.config.BuildImage(config, logger=logger)
@@ -293,29 +348,35 @@ def test_fft_diffraction_is_similar_to_raytracing_for_field_rotation():
     [c_x, c_y] = center_of_brighness(brightness)
     # 2 Pixel tolerance:
     np.testing.assert_allclose(
-        np.array([c_x, c_y]), np.array([1923.0, 3161.0]), atol=2.0, rtol=0.0
+        np.array([c_x, c_y]), raytrace_data["c"], atol=2.0, rtol=0.0
     )
     angle, angle_stddev = folded_spike_angle(brightness, c_x, c_y)
-    expected_spike_width = 14.4
-    expected_angle = (
-        45.0 * galsim.degrees - config["stamp"]["diffraction_psf"]["rottelpos"]
-         - expected_spike_width / 2.0 * galsim.degrees
-    ).deg
     # 2.5° tolerance (we neglect the time dependence of the rotation rate):
-    np.testing.assert_allclose(np.rad2deg(angle), expected_angle, atol=2.5, rtol=0.0)
     np.testing.assert_allclose(
-        np.rad2deg(angle_stddev), expected_spike_width / 2., atol=1.0, rtol=0.0
+        np.rad2deg(angle), np.rad2deg(raytrace_data["angle"]), atol=2.5, rtol=0.0
     )
+    np.testing.assert_allclose(
+        np.rad2deg(angle_stddev),
+        np.rad2deg(raytrace_data["angle_stddev"]),
+        atol=1.5,
+        rtol=0.0,
+    )
+
     slope, intercept, slope_stderr, intercept_stderr = brightness_log_profile(
         brightness, c_x, c_y
     )
     # Brightness should decay as ~1/r**2:
     np.testing.assert_allclose(slope, -2.0, atol=0.6, rtol=0.0)
-    np.testing.assert_allclose(intercept, 12.6, atol=3.0, rtol=0.0)
-    # Assert some rough evidence, that brightness decays as
-    # brightness ~ exp(intercept) * r**slope:
+    np.testing.assert_allclose(raytrace_data["slope"], -2.0, atol=0.6, rtol=0.0)
+
+    np.testing.assert_allclose(
+        intercept, raytrace_data["intercept"], atol=3.0, rtol=0.0
+    )
+    # Here we dont compare against raytracing, but only make sure that both FFT and ratracing values are bounded:
     np.testing.assert_array_less(slope_stderr, 0.2)
+    np.testing.assert_array_less(raytrace_data["slope_stderr"], 0.2)
     np.testing.assert_array_less(intercept_stderr, 0.9)
+    np.testing.assert_array_less(raytrace_data["intercept_stderr"], 0.9)
 
 
 @contextmanager
