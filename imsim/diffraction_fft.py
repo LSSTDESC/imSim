@@ -142,16 +142,18 @@ def apply_diffraction_psf(
         alpha=rottelpos,
         d_alpha=d_alpha,
     )
-    for region_row, region_col in saturated_clusters(image, brightness_threshold):
-        img_region = image[region_row, region_col]
-        diffracted = scipy.signal.convolve2d(spike_per_pixel, img_region, mode="full")
-        img_region[()] = 0.0
-        add_image(
-            image,
-            diffracted,
-            row=region_row.start - psf_w,
-            col=region_col.start - psf_h,
-        )
+    region_row, region_col = saturated_region(image, brightness_threshold)
+    img_region = image[region_row, region_col]
+    diffracted = scipy.signal.convolve2d(spike_per_pixel, img_region, mode="same")
+    # Set saturated pixels to 0 before adding the convoluted region.
+    # Otherwise, the saturated pixels would get brighter than before:
+    image[image > brightness_threshold] = 0.0
+    add_image(
+        image,
+        diffracted,
+        row=region_row.start - psf_w,
+        col=region_col.start - psf_h,
+    )
 
 
 def add_image(image, overlay, row, col) -> None:
@@ -166,47 +168,20 @@ def add_image(image, overlay, row, col) -> None:
     ]
 
 
-def saturated_clusters(image, brightness_threshold: float):
-    """Detect clusters of saturated pixels ( > brightness_threshold) in an image.
-    Returns a list of 2-tuples of slices (pixel ranges (x and y) containing one cluster).
+def saturated_region(image, brightness_threshold: float):
+    """Detect the smallest rectangular region containing all saturated pixels
+    ( > brightness_threshold) in an image.
     """
-    (w, h) = image.shape
-    xy = np.c_[
+    w, h = image.shape
+    xy = np.array(
         np.meshgrid(
             np.arange(w),
             np.arange(h),
             indexing="ij",
             copy=False,
         )
-    ]
-    pixel_coordinates = xy[:, image > brightness_threshold]
-    regions = []
-    for i, j in pixel_coordinates.T:
-        neighbor_indices = [n for n, r in enumerate(regions) if dist_2d(r, (i, j)) <= 1]
-        pix_region = (slice(i, i + 1), slice(j, j + 1))
-        if not neighbor_indices:
-            regions.append(pix_region)
-            continue
-        neighbor_regions = [regions.pop(n) for n in reversed(neighbor_indices)]
-        regions.append(merge_regions(neighbor_regions + [pix_region]))
-    return regions
-
-
-def merge_regions(regions: list):
-    """Merge 2d intervals"""
-    return tuple(
-        slice(min(r[dim].start for r in regions), max(r[dim].stop for r in regions))
-        for dim in (0, 1)
     )
-
-
-def dist_2d(region, p):
-    """Distance of pixel p to a 2-slice (2-tuple of slices)."""
-    return max(dist_1d(slc, n) for slc, n in zip(region, p))
-
-
-def dist_1d(slc, n):
-    """Distance of a pixel coordinate n to a slice in 1 dimension."""
-    if slc.start <= n < slc.stop:
-        return 0
-    return max(slc.start - n, n - slc.stop + 1)
+    x, y = xy[:, image > brightness_threshold]
+    if x.size == 0:
+        return None
+    return slice(np.min(x), np.max(x)+1), slice(np.min(y), np.max(y)+1)

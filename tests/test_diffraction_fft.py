@@ -209,39 +209,33 @@ def test_add_image_works_for_covering_overlay():
     np.testing.assert_array_equal(img_a, expected_img)
 
 
-def test_saturated_clusters_works_for_no_saturated_pixels():
+def test_saturated_region_works_for_no_saturated_pixels():
     img = np.zeros((5, 6), dtype=int)
-    regions = diffraction_fft.saturated_clusters(img, 0.5)
-    assert not regions
+    region = diffraction_fft.saturated_region(img, 0.5)
+    assert region is None
 
 
-def test_saturated_clusters_works_for_1_saturated_pixel():
+def test_saturated_region_works_for_1_saturated_pixel():
     img = np.zeros((5, 6), dtype=int)
     img[2, 3] = 1.0
-    regions = diffraction_fft.saturated_clusters(img, 0.5)
-    assert regions == [(slice(2, 3), slice(3, 4))]
+    region = diffraction_fft.saturated_region(img, 0.5)
+    expected_region = (slice(2, 3), slice(3, 4))
+    assert region == expected_region, f"{region} != {expected_region}"
 
 
-def test_saturated_clusters_finds_saturated_clusters():
+def test_saturated_region_works_for_multiple_saturated_pixel():
     img = np.array(
         [
-            [0, 1, 0, 0, 0, 0],
-            [0, 0, 0, 0, 1, 1],
-            [1, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0],
+            [0, 0, 1, 0, 0, 0],
             [0, 1, 0, 0, 0, 1],
-            [1, 0, 1, 0, 0, 1],
+            [0, 0, 1, 0, 0, 1],
         ]
     )
-    regions = diffraction_fft.saturated_clusters(img, 0.5)
-    expected_regions = [
-        (slice(0, 1), slice(1, 2)),
-        (slice(1, 2), slice(4, 6)),
-        (slice(2, 5), slice(0, 3)),
-        (slice(3, 5), slice(5, 6)),
-    ]
-    assert sorted(regions) == sorted(
-        expected_regions
-    ), f"{sorted(regions)} != {sorted(expected_regions)}"
+    region = diffraction_fft.saturated_region(img, 0.5)
+    expected_region = (slice(1, 5), slice(1, 6))
+    assert region == expected_region, f"{region} != {expected_region}"
 
 
 def generate_reference_data_from_raytracing(parameters):
