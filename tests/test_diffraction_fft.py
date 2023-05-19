@@ -252,7 +252,7 @@ def test_fft_diffraction_is_similar_to_raytracing_for_0_exptime():
     with assert_no_error_logs() as logger:
         image = galsim.config.BuildImage(config, logger=logger)
     # To save the image produced here, use:
-    # galsim.fits.write(image, file_name="/tmp/spikes.fits")
+    # image.write("/tmp/spikes.fits")
     brightness = image.array
     # Center of star:
     [c_x, c_y] = center_of_brighness(brightness)
@@ -288,7 +288,7 @@ def test_fft_diffraction_is_similar_to_raytracing_for_field_rotation():
     with assert_no_error_logs() as logger:
         image = galsim.config.BuildImage(config, logger=logger)
     # To save the image produced here, use:
-    # galsim.fits.write(image, file_name="/tmp/spikes.fits")
+    # image.write("/tmp/spikes.fits")
     brightness = image.array
     [c_x, c_y] = center_of_brighness(brightness)
     # 2 Pixel tolerance:
@@ -440,7 +440,7 @@ def save_pic(filename: str, exptime: float, mode: Mode, enable_diffraction: bool
         enable_diffraction=enable_diffraction,
     )
     image = galsim.config.BuildImage(config, logger=None)
-    galsim.fits.write(image, file_name=filename)
+    image.write(file_name)
 
 
 def save_pics():
