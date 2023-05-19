@@ -51,25 +51,6 @@ def field_rotation_profile(
     ) * arclength_dose(r)
 
 
-def prepare_psf(w: int, h: int, resolution: float, alpha: float) -> np.ndarray:
-    """Spike PSF for 0 angular spike with (no field rotation).
-    w: Pixel width of the image
-    h: Pixel height of the image
-    resolution: length per pixel
-    alpha: Rotation angle of the spikes [rad]
-
-    Will return an image of the spike PSF of dimension (2w+1)x(2h+1).
-    """
-    p = np.mgrid[-w : w + 1, -h : h + 1]
-    psf = antialiased_cross(p, alpha)
-    r = np.hypot(p[0], p[1]) * resolution
-    psf *= spike_profile(r)
-    # Normalize, so pixel values add up to 1.
-    # Here we actually are neglecting the non-visible tails of the cross.
-    psf /= np.sum(psf)
-    return psf
-
-
 def antialiased_cross(xy: np.ndarray, alpha: float) -> np.ndarray:
     """Fills a numpy array of same shape as xy with 1. along the x and y axis, rotated by alpha
     with a linear decay with the distance to the axes."""
