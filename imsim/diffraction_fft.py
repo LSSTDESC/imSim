@@ -81,14 +81,14 @@ def prepare_psf_field_rotation(
     """
     x_range = np.arange(-w, w + 1)
     y_range = np.arange(-h, h + 1)
-    [x, y] = xy = np.c_[
-        np.meshgrid(
+    x, y = np.meshgrid(
             x_range,
             y_range,
             indexing="ij",
             copy=False,
         )
-    ]
+    xy = np.array([x,y])
+    
     # Antialiased cross at alpha - d_alpha / 2:
     psf = antialiased_cross(xy, alpha - d_alpha / 2.0)
     # Interior:
