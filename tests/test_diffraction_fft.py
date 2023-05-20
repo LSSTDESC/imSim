@@ -309,7 +309,7 @@ def test_fft_diffraction_is_similar_to_raytracing_for_0_exptime():
     np.testing.assert_allclose(raytrace_data["slope"], -2.0, atol=0.6, rtol=0.0)
 
     np.testing.assert_allclose(
-        intercept, raytrace_data["intercept"], atol=3.0, rtol=0.0
+        intercept, raytrace_data["intercept"], atol=0.5, rtol=0.0
     )
     # Here we dont compare against raytracing, but only make sure that both FFT and ratracing values are bounded:
     np.testing.assert_array_less(slope_stderr, 0.2)
@@ -365,7 +365,7 @@ def test_fft_diffraction_is_similar_to_raytracing_for_field_rotation():
     np.testing.assert_allclose(raytrace_data["slope"], -2.0, atol=0.6, rtol=0.0)
 
     np.testing.assert_allclose(
-        intercept, raytrace_data["intercept"], atol=3.0, rtol=0.0
+        intercept, raytrace_data["intercept"], atol=0.5, rtol=0.0
     )
     # Here we dont compare against raytracing, but only make sure that both FFT and ratracing values are bounded:
     np.testing.assert_array_less(slope_stderr, 0.2)
