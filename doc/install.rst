@@ -15,7 +15,7 @@ We list four options below in increasing levels of complexity.  These options al
 Method 1: Using the *cvmfs* distribution
 ---------------------------------------------
 
-If you are working at the USDF (Rubin Project computing)or at NERSC (DESC computing), perhaps the easiest way to setup and use *imSim* is to rely on the prebuilt versions of the pipelines contained in the cvmfs distribution which is installed there.  This solution is also appropriate for personal laptops and university/lab based computing systems if you are able to install the *cvmfs* system.
+If you are working at the USDF (Rubin Project computing) or at NERSC (DESC computing), perhaps the easiest way to setup and use *imSim* is to rely on the prebuilt versions of the pipelines contained in the cvmfs distribution which is installed there.  This solution is also appropriate for personal laptops and university/lab based computing systems if you are able to install the *cvmfs* system.
 
 The `CernVM file system <https://cvmfs.readthedocs.io/>`_  (cvmfs) is a distributed read-only file system developed at CERN for reliable low-maintenance world-wide software distribution.  LSST-France distributes weekly builds of the Rubin science pipelines for both Linux and MacOS.  Details and installation instructions can  be found at `sw.lsst.eu <https://sw.lsst.eu/index.html>`_ .  The distribution includes conda and imSim dependencies from conda-forge along with the science pipelines.
 
@@ -27,6 +27,8 @@ First you need to setup the science pipelines.  This involves sourcing a setup f
 .. note:: 
 
    You will need at least version  ``w_2023_21-dev`` of the science pipelines to complete these instructions.
+
+   Also note: the cvmfs distribution is a read-only distribution.  This means you cannot add packages to the included conda environment and packages you install via *pip* will be installed in the user area.  If you need a *conda*  environment you can modify while running *imSim*, then you may consider :ref:`method_2` below. 
 
 Source the appropriate setup script (note the -ext in the name) and then setup the distribution.
 
@@ -89,7 +91,7 @@ This setup step should be repeated for each new session.  Here is an ``imsim-set
 
 
 
-Now you can run *imSim* with the command 
+Now you can run *imSim* from anywhere with the command:
 
 .. code-block:: sh
 
@@ -97,44 +99,51 @@ Now you can run *imSim* with the command
 
 
 
+.. _method_2:
 Method 2: *Conda* and the *Stackvana* package
 ---------------------------------------------
+
+If using the *cvmfs* distribution is not an appropriate solution, you can install a standalone pre-built conda distribution from conda-forge  instead. With this method, you will install a version of lsst_distrib which has been compiled for conda along with extra needed dependencies. 
 
 Install *Conda*
 ~~~~~~~~~~~~~~~
 
-First, install `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`__
-(if you do not have a *Conda* installation already):
+First install conda from  `Miniforge <https://github.com/conda-forge/miniforge>`_.   You need to download an installer and run the script.
 
 .. code-block:: sh
 
-   wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
-   bash /tmp/miniconda.sh -b -u -p ./conda
-   rm -rf /tmp/miniconda.sh
+   curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
+   bash Mambaforge-$(uname)-$(uname -m).sh
 
-Next, create a *Python* 3.10 *Conda* environment and install *Mamba*:
+
+.. note:: 
+
+   If you prefer you can use  `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`__  or your own conda installation but, in that case, be careful to specify that you want to use the conda-forge channel.
+
+Next, create a *Conda* environment and activate it.
 
 .. code-block:: sh
 
-   conda create -n imSim python=3.10
+   conda create -n imSim 
    conda activate imSim
-   conda install -c conda-forge mamba
 
 Clone *imSim* and dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Now we are ready to install *imSim*:
+Now we are ready to install *imSim*. First go to the directory where you would like to do the installation. If you are not using Miniforge, first conda install the ``mamba`` package and then:
 
 .. code-block:: sh
 
    git clone https://github.com/LSSTDESC/imSim.git
+   git clone https://github.com/LSSTDESC/skyCatalogs
+
    # conda dependencies:
-   mamba install -y -c conda-forge --file imSim/etc/standalone_conda_requirements.txt
-   # pip dependencies:
-   pip install batoid skyCatalogs==1.2.0 gitpython
-   pip install git+https://github.com/lsst/rubin_sim.git
+   mamba install -y --file imSim/etc/standalone_conda_requirements.txt
+   mamba install -y --no-deps rubin-sim
+
    # Install imSim:
-   pip install imSim/
+   pip install --no-deps imSim/
+   pip install --no-deps skyCatalogs/
 
 Install *rubin_sim_data*
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -161,6 +170,18 @@ Set runtime environment variables for the *Conda* environment
 
     conda env config vars set RUBIN_SIM_DATA_DIR=$(pwd)/rubin_sim_data
     conda env config vars set SIMS_SED_LIBRARY_DIR=$(pwd)/rubin_sim_data/sims_sed_library
+
+
+Run *imSim*
+~~~~~~~~~~~
+
+
+Now you can run *imSim* from anywhere with the command:
+
+.. code-block:: sh
+
+   galsim some_imsim_file.yaml
+
 
 Method 3: Using the pre-built *imSim* Docker image
 --------------------------------------------------
