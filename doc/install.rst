@@ -30,11 +30,11 @@ First you need to setup the science pipelines.  This involves sourcing a setup f
 
    Also note: the cvmfs distribution is a read-only distribution.  This means you cannot add packages to the included conda environment and packages you install via *pip* will be installed in the user area.  If you need a *conda*  environment you can modify while running *imSim*, then you may consider :ref:`method_2` below. 
 
-Source the appropriate setup script (note the -ext in the name) and then setup the distribution.
+Source the appropriate setup script (note the -ext in the name) and then setup the distribution (if you are on MacOS use darwin-x86_64 instead of linux-x86_64).
 
 .. code-block:: sh
 
-   source /cvmfs/sw.lsst.eu/darwin-x86_64/lsst_distrib/w_2023_21-dev/loadLSST-ext.bash
+   source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_distrib/w_2023_21-dev/loadLSST-ext.bash
    setup lsst-distrib
 
 
