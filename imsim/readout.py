@@ -6,7 +6,7 @@ from collections import namedtuple
 from astropy.io import fits
 from astropy.time import Time
 import galsim
-from galsim.config import ExtraOutputBuilder, RegisterExtraOutput
+from galsim.config import ExtraOutputBuilder, RegisterExtraOutput, GetAllParams
 from lsst.afw import cameraGeom
 import lsst.obs.lsst
 from .bleed_trails import bleed_eimage
@@ -270,7 +270,9 @@ class CcdReadout:
     Class to convert eimage to a "raw" FITS file with 1 amplifier segment
     per image HDU, simulating the electronics readout effects for each amp.
     """
-    def __init__(self, eimage, logger, camera_name=None, ccd_params=None):
+    def __init__(self, eimage, logger, camera_name=None,
+                 readout_time=2.0, dark_current=0.02, bias_level=1000.0,
+                 scti=1.0e-6, pcti=1.0e-6, full_well=1.0e5, read_noise=None):
         """
         Parameters
         ----------
@@ -278,15 +280,15 @@ class CcdReadout:
             The eimage with the rendered scene, wcs, and header information.
         logger : logging.Logger
             Logger object
-        camera_name : str [None]
-            Camera class to use, e.g., 'LsstCam', 'LsstCamImSim'.  If None,
-            then use camera name from eimage header.
-        ccd_params : dict [None]
-            Parameters describing the CCD readout parameters, i.e.,
-            readout_time [2 s], dark_current [0.02 e-/s],
-            bias_level [1000 ADU], scti [1e-6], pcti [1e-6],
-            full_well [1e5 e-], that are not yet available from the
-            camera object.
+        camera_name : str, Camera class to use, e.g., 'LsstCam', 'LsstCamImSim'.
+            [default: use the camera from the eimage header]
+        readout_time: float (seconds) [default: 2.0]
+        dark_current: float (e-/s) [default: 0.02]
+        bias_level: float (ADU) [default: 1000.0]
+        scti: float, the serial CTI [default: 1.e-6]
+        pcti: float, the parallel CTI [default: 1.e-6]
+        full_well: float (e-) [default: 1.e5]
+        read_noise: float (ADU) [default: get from Camera object]
         """
         self.eimage = eimage
         self.det_name = eimage.header['DET_NAME']
@@ -298,14 +300,12 @@ class CcdReadout:
         camera = Camera(self.camera_name)
         self.ccd = camera[self.det_name]
         self.exp_time = self.eimage.header['EXPTIME']
-        if ccd_params is None:
-            ccd_params = {}
-        self.readout_time = ccd_params.get('readout_time', 2.0)  # seconds
-        self.dark_current = ccd_params.get('dark_current', 0.02)  # e-/s
-        self.bias_level = ccd_params.get('bias_level', 1000.0)  # ADU
-        scti = ccd_params.get('scti', 1.0e-6)  # serial CTI
-        pcti = ccd_params.get('pcti', 1.0e-6)  # parallel CTI
-        self.full_well = ccd_params.get('full_well', 1e5)  # e-
+
+        self.readout_time = readout_time
+        self.dark_current = dark_current
+        self.bias_level = bias_level
+        self.full_well = full_well
+        self.read_noise = read_noise
 
         amp_bounds = list(self.ccd.values())[0].raw_bounds
         self.scte_matrix = (None if scti == 0
@@ -384,14 +384,16 @@ class CcdReadout:
         self.amp_images = self.apply_cte(self.amp_images)
 
         # Add bias levels and read noise.
-        for full_segment in self.amp_images:
+        for full_segment, amp in zip(self.amp_images, self.ccd.values()):
             full_segment += self.bias_level
             # Setting gain=0 turns off the addition of Poisson noise,
             # which is already in the e-image, so that only the read
             # noise is added.
-            read_noise = galsim.CCDNoise(rng, gain=0,
-                                         read_noise=amp.read_noise)
-            full_segment.addNoise(read_noise)
+            if self.read_noise is None:
+                noise = galsim.GaussianNoise(rng, sigma=amp.read_noise)
+            else:
+                noise = galsim.GaussianNoise(rng, sigma=self.read_noise)
+            full_segment.addNoise(noise)
 
     def prepare_hdus(self, rng):
         """
@@ -477,7 +479,21 @@ class CameraReadout(ExtraOutputBuilder):
 
         rng = galsim.config.GetRNG(config, base)
 
-        ccd_readout = CcdReadout(main_data[0], logger)
+        # Parse parameters from the config dict.
+        opt = {
+            'camera_name': str,
+            'readout_time': float,
+            'dark_current': float,
+            'bias_level': float,
+            'scti': float,
+            'pcti': float,
+            'full_well': float,
+            'read_noise': float,
+            }
+        ignore = ['file_name', 'dir', 'hdu', 'filter']
+        kwargs = GetAllParams(config, base, opt=opt, ignore=ignore)[0]
+
+        ccd_readout = CcdReadout(main_data[0], logger, **kwargs)
 
         hdus = ccd_readout.prepare_hdus(rng)
         return hdus

@@ -2,6 +2,8 @@
 Unit tests for electronics readout simulation code.
 """
 import os
+import copy
+import numpy as np
 from pathlib import Path
 import itertools
 import unittest
@@ -103,10 +105,35 @@ class ImageSourceTestCase(unittest.TestCase):
             'det_name': 'R20_S00',
             'exp_time': 30,
         }
+        # Use an image that starts as all 0.
+        image = copy.copy(self.image)
+        image.setZero()
+
+        galsim.config.SetupConfigRNG(config)
         readout = imsim.CameraReadout()
         readout_config = config['output']['readout']
         readout.initialize(None,None, readout_config, config, self.logger)
-        readout.ensureFinalized(readout_config, config, [self.image], self.logger)
+        readout.ensureFinalized(readout_config, config, [image], self.logger)
+
+        # Mean value in eimage should be ~ dark_current * dark_time
+        dark_time = image.header['EXPTIME'] + 3
+        eimage_mean = np.mean(image.array)
+        eimage_var = np.var(image.array)
+        assert np.isclose(eimage_mean, 0.02 * dark_time, rtol=1.e-3)
+        assert np.isclose(eimage_var, 0.02 * dark_time, rtol=1.e-3)
+
+        # Amp images also have the bias applied.
+        camera_name = image.header['CAMERA']
+        det_name = image.header['DET_NAME']
+        ccd = imsim.Camera(camera_name)[det_name]
+        for amp in range(16):
+            read_noise = list(ccd.values())[amp].read_noise
+            amp_mean = np.mean(readout.final_data[amp+1].data)
+            amp_var = np.var(readout.final_data[amp+1].data)
+            assert np.isclose(amp_mean, 1000 + 0.02*dark_time, rtol=1.e-3)
+            print(amp_var, 0.02*dark_time + read_noise**2, (0.02*dark_time + read_noise**2-amp_var)/amp_var)
+            assert np.isclose(amp_var, 0.02*dark_time + read_noise**2, rtol=3.e-3)
+
         readout.writeFile(outfile, self.readout_config, self.config, self.logger)
         with fits.open(outfile) as hdus:
             self.assertEqual(hdus[0].header['IMSIMVER'], imsim.__version__)
@@ -117,7 +144,7 @@ class ImageSourceTestCase(unittest.TestCase):
         # Filter is option in the readout section to show up in the header.
         readout_config['filter'] = 'r'
         readout.initialize(None,None, readout_config, config, self.logger)
-        readout.ensureFinalized(readout_config, config, [self.image], self.logger)
+        readout.ensureFinalized(readout_config, config, [image], self.logger)
         readout.writeFile(outfile, self.readout_config, self.config, self.logger)
         with fits.open(outfile) as hdus:
             self.assertEqual(hdus[0].header['FILTER'], 'r')
@@ -125,11 +152,24 @@ class ImageSourceTestCase(unittest.TestCase):
         # Make sure it parses it, not just gets it.
         readout_config['filter'] = '$"Happy Birthday!"[8]'
         readout.initialize(None,None, readout_config, config, self.logger)
-        readout.ensureFinalized(readout_config, config, [self.image], self.logger)
+        readout.ensureFinalized(readout_config, config, [image], self.logger)
         readout.writeFile(outfile, self.readout_config, self.config, self.logger)
         with fits.open(outfile) as hdus:
             self.assertEqual(hdus[0].header['FILTER'], 'r')
         os.remove(outfile)
+
+        # If bias level, dark_current, and read_noise are all 0, then output should be 0.
+        readout_config = galsim.config.CleanConfig(readout_config)
+        readout_config['bias_level'] = 0.
+        readout_config['dark_current'] = 0.
+        readout_config['read_noise'] = 0.
+        readout.initialize(None,None, readout_config, config, self.logger)
+        image.setZero()
+        readout.ensureFinalized(readout_config, config, [image], self.logger)
+        np.testing.assert_array_equal(image.array, 0.)
+        for amp in range(16):
+            amp_image = readout.final_data[amp+1].data
+            np.testing.assert_array_equal(amp_image, 0.)
 
 
 def sky_coord(ra, dec, units=lsst.geom.degrees):
