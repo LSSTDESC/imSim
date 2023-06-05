@@ -35,7 +35,7 @@ Source the appropriate setup script (note the -ext in the name) and then setup t
 .. code-block:: sh
 
    source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_distrib/w_2023_21-dev/loadLSST-ext.bash
-   setup lsst-distrib
+   setup lsst_distrib
 
 
 Install needed data files
@@ -206,7 +206,7 @@ To then run the image do:
 
     docker run -it --privileged --rm lsstdesc/imsim-env:latest
 
-*imSim* is installed (as an editable install) under ``/home/lsst``. The LSST
+*imSim* is installed under ``/home/lsst``. The LSST
 stack is activated automatically on the startup of the image. 
 
 .. note:: If you have trouble accessing the internet within the container, you
