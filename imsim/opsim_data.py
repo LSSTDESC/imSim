@@ -1,4 +1,3 @@
-
 import warnings
 import sqlite3
 import numpy as np
@@ -10,27 +9,27 @@ import galsim
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 
-def get_opsim_md(config, base):
+def get_opsim_data(config, base):
     """
-    If we don't have an OpsimMeta, then skip some header items.
+    If we don't have an OpsimData, then skip some header items.
     E.g. when reading out flat field images, most of these don't apply.
     The only exception is filter, which we look for in config and use
     that if present.
     """
     try:
-        opsim_md = galsim.config.GetInputObj('opsim_meta_dict', config,
-                                             base, 'get_opsim_md')
+        opsim_data = galsim.config.GetInputObj('opsim_data', config,
+                                             base, 'get_opsim_data')
     except galsim.GalSimConfigError:
         if 'filter' in config:
             filt = galsim.config.ParseValue(config, 'filter', base, str)[0]
         else:
             filt = 'N/A'
-        opsim_md = OpsimMetaDict.from_dict(
+        opsim_data = OpsimDataLoader.from_dict(
             dict(band=filt,
                  exptime = base['exptime']
             )
         )
-    return opsim_md
+    return opsim_data
 
 
 def _is_sqlite3_file(filename):
@@ -39,7 +38,7 @@ def _is_sqlite3_file(filename):
         return fd.read(100).startswith(b'SQLite format 3')
 
 
-class OpsimMetaDict(object):
+class OpsimDataLoader(object):
     """Read the exposure information from the opsim db file.
 
     The objects are handled by InstCatalog.
@@ -215,7 +214,7 @@ class OpsimMetaDict(object):
 
     @classmethod
     def from_dict(cls, d):
-        """Build an OpsimMetaDict directly from the provided dict.
+        """Build an OpsimDataLoader directly from the provided dict.
 
         (Mostly used for unit tests.)
         """
@@ -328,7 +327,7 @@ class OpsimMetaDict(object):
 
     def get(self, field, default=None):
         if field not in self.meta and default is None:
-            raise KeyError("OpsimMeta field %s not present in instance catalog"%field)
+            raise KeyError("OpsimData field %s not present in instance catalog"%field)
         return self.meta.get(field, default)
 
     def getHourAngle(self, mjd, ra):
@@ -360,10 +359,10 @@ class OpsimMetaDict(object):
         return ha
 
 
-def OpsimMeta(config, base, value_type):
+def OpsimData(config, base, value_type):
     """Return one of the meta values stored in the instance catalog.
     """
-    meta = galsim.config.GetInputObj('opsim_meta_dict', config, base, 'OpsimMeta')
+    meta = galsim.config.GetInputObj('opsim_data', config, base, 'OpsimData')
 
     req = { 'field' : str }
     opt = { 'num' : int }  # num, if present, was used by GetInputObj
@@ -373,7 +372,7 @@ def OpsimMeta(config, base, value_type):
     val = value_type(meta.get(field))
     return val, safe
 
-class OpsimMetaBandpass(galsim.config.BandpassBuilder):
+class OpsimBandpass(galsim.config.BandpassBuilder):
     """A class for loading a Bandpass for a given instcat
     """
     def buildBandpass(self, config, base, logger):
@@ -387,7 +386,7 @@ class OpsimMetaBandpass(galsim.config.BandpassBuilder):
         Returns:
             the constructed Bandpass object.
         """
-        meta = galsim.config.GetInputObj('opsim_meta_dict', config, base, 'InstCatWorldPos')
+        meta = galsim.config.GetInputObj('opsim_data', config, base, 'InstCatWorldPos')
 
         # Note: Previous code used the lsst.sims versions of these.  Here we just use the ones in
         #       the GalSim share directory.  Not sure whether those are current, but probably
@@ -398,6 +397,6 @@ class OpsimMetaBandpass(galsim.config.BandpassBuilder):
         logger.debug('bandpass = %s',bandpass)
         return bandpass, False
 
-RegisterInputType('opsim_meta_dict', InputLoader(OpsimMetaDict, file_scope=True, takes_logger=True))
-RegisterValueType('OpsimMeta', OpsimMeta, [float, int, str], input_type='opsim_meta_dict')
-RegisterBandpassType('OpsimMetaBandpass', OpsimMetaBandpass(), input_type='opsim_meta_dict')
+RegisterInputType('opsim_data', InputLoader(OpsimDataLoader, file_scope=True, takes_logger=True))
+RegisterValueType('OpsimData', OpsimData, [float, int, str], input_type='opsim_data')
+RegisterBandpassType('OpsimBandpass', OpsimBandpass(), input_type='opsim_data')

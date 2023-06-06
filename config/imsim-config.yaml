@@ -27,24 +27,24 @@ eval_variables:
         type: RADec
         ra:
             type: Degrees
-            theta: { type: OpsimMeta, field: fieldRA }
+            theta: { type: OpsimData, field: fieldRA }
         dec:
             type: Degrees
-            theta: { type: OpsimMeta, field: fieldDec }
+            theta: { type: OpsimData, field: fieldDec }
 
     aazimuth:
         type: Degrees
-        theta: { type: OpsimMeta, field: azimuth }
+        theta: { type: OpsimData, field: azimuth }
     aaltitude:
         type: Degrees
-        theta: { type: OpsimMeta, field: altitude }
+        theta: { type: OpsimData, field: altitude }
     arotTelPos:
         type: Degrees
-        theta: { type: OpsimMeta, field: rotTelPos }
+        theta: { type: OpsimData, field: rotTelPos }
 
-    sband: { type: OpsimMeta, field: band }
+    sband: { type: OpsimData, field: band }
 
-    fexptime: { type: OpsimMeta, field: exptime }
+    fexptime: { type: OpsimData, field: exptime }
 
 
 
@@ -58,9 +58,9 @@ input:
                                             # on the command line.  See imsim-user.yaml for instructions.
         sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
-    opsim_meta_dict:
+    opsim_data:
         # Read the visit meta data from the opsim db file.  Note: We
-        # want some OpsimMeta items at file scope, in particular to
+        # want some OpsimData items at file scope, in particular to
         # define the WCS, which is needed by the InstCat items.
         file_name: small_opsim.db
         visit: 19500
@@ -71,22 +71,22 @@ input:
             type: FormattedStr
             format : LSST_%s.yaml
             items:
-                - { type: OpsimMeta, field: band }
+                - { type: OpsimData, field: band }
         rotTelPos: $rotTelPos
 
     sky_model:
         # Use the rubin_sim.skybrightness model to compute the sky
         # background level.
         exptime: $exptime
-        mjd: { type: OpsimMeta, field: mjd }
+        mjd: { type: OpsimData, field: mjd }
 
     atm_psf:
         # This enables the AtmosphericPSF type for the PSF
 
         # The first 4 items are required.
-        airmass: { type: OpsimMeta, field: airmass }
-        rawSeeing:  { type: OpsimMeta, field: rawSeeing }
-        band:  { type: OpsimMeta, field: band }
+        airmass: { type: OpsimData, field: airmass }
+        rawSeeing:  { type: OpsimData, field: rawSeeing }
+        band:  { type: OpsimData, field: band }
         boresight: "$boresight"
 
         # Optional parameters:  (Unless otherwise stated, these are the default values.)
@@ -119,7 +119,7 @@ input:
           type: FormattedStr
           format : checkpoint_%08d-%s.hdf
           items:
-              - { type: OpsimMeta, field: observationId }
+              - { type: OpsimData, field: observationId }
               - "$det_name"
 
 
@@ -127,7 +127,7 @@ input:
 image:
     type: LSST_Image
 
-    random_seed: { type: OpsimMeta, field: seed }
+    random_seed: { type: OpsimData, field: seed }
 
     nproc: 1    # Can set this to -1 to use all CPUs if you want.  That probably won't be
                 # particularly efficient until we switch to using MakePhot rather than DrawImage.
@@ -138,7 +138,7 @@ image:
     xsize: "$xsize"
     ysize: "$ysize"
 
-    bandpass: { type: OpsimMetaBandpass }
+    bandpass: { type: OpsimBandpass }
 
     wcs:
         type: Batoid
@@ -150,7 +150,7 @@ image:
         obstime:
             type: Eval
             str: "astropy.time.Time(mjd_val, format='mjd', scale='tai')"
-            fmjd_val: { type: OpsimMeta, field: mjd }
+            fmjd_val: { type: OpsimData, field: mjd }
 
         det_name: $det_name
         wavelength: "$(@image.bandpass).effective_wavelength"
@@ -256,7 +256,7 @@ stamp:
             latitude: -30.24463 degrees
             HA:
                 type: Degrees
-                theta: { type: OpsimMeta, field: HA }
+                theta: { type: OpsimData, field: HA }
         -
             type: RubinDiffractionOptics
             boresight: "$boresight"
@@ -275,7 +275,7 @@ stamp:
                 # TODO: Figure out the depth to use for other bands.  Josh found -0.6 for y.
                 # These numbers are in units of pixels.
                 ddepth_dict: {'u':0, 'g':0, 'r':0, 'i':0, 'z':0, 'y':-0.6}
-                sband: { type: OpsimMeta, field: band }
+                sband: { type: OpsimData, field: band }
         -
             type: Refraction
             index_ratio: 3.9  # TODO: This is what Josh used for y band.
@@ -305,9 +305,9 @@ output:
         type: FormattedStr
         format : eimage_%08d-%1d-%s-%s-det%03d.fits
         items:
-            - { type: OpsimMeta, field: observationId }
-            - { type: OpsimMeta, field: snap }
-            - { type: OpsimMeta, field: band }
+            - { type: OpsimData, field: observationId }
+            - { type: OpsimData, field: snap }
+            - { type: OpsimData, field: band }
             - "$det_name"   # A value stored in the dict by LSST_CCD
             - "@output.det_num"
 
@@ -323,9 +323,9 @@ output:
             type: FormattedStr
             format : amp_%08d-%1d-%s-%s-det%03d.fits.fz
             items:
-                - { type: OpsimMeta, field: observationId }
-                - { type: OpsimMeta, field: snap }
-                - { type: OpsimMeta, field: band }
+                - { type: OpsimData, field: observationId }
+                - { type: OpsimData, field: snap }
+                - { type: OpsimData, field: band }
                 - "$det_name"
                 - "@output.det_num"
 
@@ -335,9 +335,9 @@ output:
             type: FormattedStr
             format : centroid_%08d-%1d-%s-%s-det%03d.txt.gz
             items:
-                - { type: OpsimMeta, field: observationId }
-                - { type: OpsimMeta, field: snap }
-                - { type: OpsimMeta, field: band }
+                - { type: OpsimData, field: observationId }
+                - { type: OpsimData, field: snap }
+                - { type: OpsimData, field: band }
                 - "$det_name"
                 - "@output.det_num"
         columns:

@@ -32,7 +32,7 @@ input.instance_catalog.sort_mag: False
 # Our tiny instance catalog only uses one det, so save time not loading treerings for other dets.
 input.tree_rings.only_dets: [R22_S11]
 
-input.opsim_meta_dict:
+input.opsim_data:
     file_name: ../tests/data/tiny_instcat.txt
 
 #image.nobjects: 5    # (Default is all objects in input file.)

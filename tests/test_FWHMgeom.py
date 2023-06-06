@@ -20,10 +20,10 @@ class FWHMgeomTestCase(unittest.TestCase):
     def test_airmass(self):
         """Test the calculation of airmass from altitude in degrees."""
         altitude = 52.542
-        opsim = imsim.OpsimMetaDict.from_dict({})
+        opsim = imsim.OpsimDataLoader.from_dict({})
         self.assertAlmostEqual(opsim.getAirmass(altitude), 1.24522984, places=7)
 
-        opsim = imsim.OpsimMetaDict.from_dict(dict(altitude=altitude))
+        opsim = imsim.OpsimDataLoader.from_dict(dict(altitude=altitude))
         self.assertAlmostEqual(opsim.getAirmass(), 1.24522984, places=7)
 
     def test_FWHMeff(self):
@@ -35,10 +35,10 @@ class FWHMgeomTestCase(unittest.TestCase):
         rawSeeing = 0.5059960
         band = 'r'
         altitude = 52.54199126195116065
-        opsim = imsim.OpsimMetaDict.from_dict({})
+        opsim = imsim.OpsimDataLoader.from_dict({})
         self.assertLess(np.abs(opsim.FWHMeff(rawSeeing, band, altitude) - 0.8300650), 0.03)
 
-        opsim = imsim.OpsimMetaDict.from_dict(
+        opsim = imsim.OpsimDataLoader.from_dict(
                 dict(rawSeeing=0.5059960,
                      band='r', altitude=52.54199126195116065))
         self.assertLess(np.abs(opsim.FWHMeff() - 0.8300650), 0.03)
@@ -51,10 +51,10 @@ class FWHMgeomTestCase(unittest.TestCase):
         rawSeeing = 0.5059960
         band = 'r'
         altitude = 52.54199126195116065
-        opsim = imsim.OpsimMetaDict.from_dict({})
+        opsim = imsim.OpsimDataLoader.from_dict({})
         self.assertLess(np.abs(opsim.FWHMgeom(rawSeeing, band, altitude) - 0.7343130), 0.03)
 
-        opsim = imsim.OpsimMetaDict.from_dict(
+        opsim = imsim.OpsimDataLoader.from_dict(
                 dict(rawSeeing=0.5059960,
                      band='r', altitude=52.54199126195116065))
         self.assertLess(np.abs(opsim.FWHMgeom() - 0.7343130), 0.03)

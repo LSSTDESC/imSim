@@ -21,13 +21,13 @@ class InstCatTrimmerTestCase(unittest.TestCase):
         pass
 
     def make_wcs(self, instcat_file, det_name):
-        obs_md = imsim.OpsimMetaDict(instcat_file)
-        boresight = galsim.CelestialCoord(ra=obs_md['rightascension'] * galsim.degrees,
-                                          dec=obs_md['declination'] * galsim.degrees)
-        rotTelPos = obs_md['rottelpos'] * galsim.degrees
+        opsim_data = imsim.OpsimDataLoader(instcat_file)
+        boresight = galsim.CelestialCoord(ra=opsim_data['rightascension'] * galsim.degrees,
+                                          dec=opsim_data['declination'] * galsim.degrees)
+        rotTelPos = opsim_data['rottelpos'] * galsim.degrees
         rotTelPos += 180*galsim.degrees  # We used to simulate the camera upside down.
-        obstime = astropy.time.Time(obs_md['mjd'], format='mjd', scale='tai')
-        band = obs_md['band']
+        obstime = astropy.time.Time(opsim_data['mjd'], format='mjd', scale='tai')
+        band = opsim_data['band']
 
         builder = imsim.BatoidWCSBuilder()
         telescope = imsim.load_telescope(f"LSST_{band}.yaml", rotTelPos=rotTelPos)

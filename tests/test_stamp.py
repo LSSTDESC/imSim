@@ -1,7 +1,7 @@
 from unittest import mock, TestCase
 import galsim
 from imsim import stamp
-from imsim.opsim_meta import OpsimMetaDict
+from imsim.opsim_data import OpsimDataLoader
 
 METHOD_PHOT = "phot"
 METHOD_FFT = "fft"
@@ -15,8 +15,8 @@ def create_test_config(methods):
             }
         },
         "_input_objs": {
-            "opsim_meta_dict": [
-                OpsimMetaDict.from_dict({"altitude": 43.0, "azimuth": 0.0})
+            "opsim_data": [
+                OpsimDataLoader.from_dict({"altitude": 43.0, "azimuth": 0.0})
             ]
         },
         "sky_pos": {

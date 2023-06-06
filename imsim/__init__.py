@@ -3,7 +3,7 @@ from ._version import *
 from .meta_data import *
 from .stamp import *
 from .instcat import *
-from .opsim_meta import *
+from .opsim_data import *
 from .ccd import *
 from .treerings import *
 from .atmPSF import *

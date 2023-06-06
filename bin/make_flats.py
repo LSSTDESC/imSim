@@ -28,7 +28,7 @@ args = parser.parse_args()
 
 config = desc.imsim.read_config()
 
-obs_md, phot_params, _ = desc.imsim.parsePhoSimInstanceFile(args.instcat,
+opsim_data, phot_params, _ = desc.imsim.parsePhoSimInstanceFile(args.instcat,
                                                             numRows=30)
 sensor_list = args.sensors.split('^') if args.sensors is not None \
     else args.sensors
@@ -37,7 +37,7 @@ niter = int(args.counts_total/args.counts_per_iter + 0.5)
 counts_per_iter = args.counts_total/niter
 logger = desc.imsim.get_logger(args.log_level, name='make_flats')
 
-visit = obs_md.OpsimMetaData['obshistID']
+visit = opsim_data.OpsimData['obshistID']
 
 camera_wrapper = LSSTCameraWrapper()
 
@@ -49,11 +49,11 @@ for det in camera_wrapper.camera:
             (args.sensors is not None and det_name not in sensor_list)):
         continue
     logger.info("processing %s", det_name)
-    gs_det = make_galsim_detector(camera_wrapper, det_name, phot_params, obs_md)
+    gs_det = make_galsim_detector(camera_wrapper, det_name, phot_params, opsim_data)
     desc.imsim.add_treering_info([gs_det])
     my_flat = desc.imsim.make_flat(gs_det, counts_per_iter, niter, rng,
                                    logger=logger, wcs=wcs)
     ccd_id = "R{}_S{}".format(det_name[2:5:2], det_name[8:11:2])
     prefix = config['persistence']['eimage_prefix']
     my_flat.write('{}_{}_{}_{}.fits'.format(prefix, visit, ccd_id,
-                                            obs_md.bandpass))
+                                            opsim_data.bandpass))

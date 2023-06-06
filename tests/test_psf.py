@@ -20,7 +20,7 @@ class PsfTestCase(unittest.TestCase):
     def setUp(self):
         self.test_dir = 'psf_tests_dir'
         instcat = DATA_DIR / 'tiny_instcat.txt'
-        self.obs_md = imsim.OpsimMetaDict(str(instcat))
+        self.opsim_data = imsim.OpsimDataLoader(str(instcat))
         if not os.path.exists(self.test_dir):
             os.makedirs(self.test_dir)
 
@@ -37,14 +37,14 @@ class PsfTestCase(unittest.TestCase):
         config = {
             'DoubleGaussian': {
                 'type': 'DoubleGaussianPSF',
-                'fwhm': self.obs_md['FWHMgeom'],
+                'fwhm': self.opsim_data['FWHMgeom'],
                 'pixel_scale': 0.2,
             },
             'Kolmogorov': {
                 'type': 'KolmogorovPSF',
-                'airmass': self.obs_md['airmass'],
-                'rawSeeing': self.obs_md['rawSeeing'],
-                'band': self.obs_md['band'],
+                'airmass': self.opsim_data['airmass'],
+                'rawSeeing': self.opsim_data['rawSeeing'],
+                'band': self.opsim_data['band'],
             },
             'Atmospheric': {
                 'type': 'Convolve',
@@ -55,14 +55,14 @@ class PsfTestCase(unittest.TestCase):
             },
             'input': {
                 'atm_psf': {
-                    'airmass': self.obs_md['airmass'],
-                    'rawSeeing': self.obs_md['rawSeeing'],
-                    'band':  self.obs_md['band'],
+                    'airmass': self.opsim_data['airmass'],
+                    'rawSeeing': self.opsim_data['rawSeeing'],
+                    'band':  self.opsim_data['band'],
                     'screen_scale': 6.4,
                     'boresight': {
                         'type': 'RADec',
-                        'ra': { 'type': 'Degrees', 'theta': self.obs_md['rightascension'], },
-                        'dec': { 'type': 'Degrees', 'theta': self.obs_md['declination'], }
+                        'ra': { 'type': 'Degrees', 'theta': self.opsim_data['rightascension'], },
+                        'dec': { 'type': 'Degrees', 'theta': self.opsim_data['declination'], }
                     }
                 }
             },
@@ -100,14 +100,14 @@ class PsfTestCase(unittest.TestCase):
             },
             'input': {
                 'atm_psf': {
-                    'airmass': self.obs_md['airmass'],
-                    'rawSeeing': self.obs_md['rawSeeing'],
-                    'band':  self.obs_md['band'],
+                    'airmass': self.opsim_data['airmass'],
+                    'rawSeeing': self.opsim_data['rawSeeing'],
+                    'band':  self.opsim_data['band'],
                     'screen_scale': 6.4,
                     'boresight': {
                         'type': 'RADec',
-                        'ra': { 'type': 'Degrees', 'theta': self.obs_md['rightascension'], },
-                        'dec': { 'type': 'Degrees', 'theta': self.obs_md['declination'], }
+                        'ra': { 'type': 'Degrees', 'theta': self.opsim_data['rightascension'], },
+                        'dec': { 'type': 'Degrees', 'theta': self.opsim_data['declination'], }
                     },
                     'save_file': psf_file
                 }
@@ -171,14 +171,14 @@ class PsfTestCase(unittest.TestCase):
             },
             'input': {
                 'atm_psf': {
-                    'airmass': self.obs_md['airmass'],
-                    'rawSeeing': self.obs_md['rawSeeing'],
-                    'band':  self.obs_md['band'],
+                    'airmass': self.opsim_data['airmass'],
+                    'rawSeeing': self.opsim_data['rawSeeing'],
+                    'band':  self.opsim_data['band'],
                     'screen_scale': 6.4,
                     'boresight': {
                         'type': 'RADec',
-                        'ra': { 'type': 'Degrees', 'theta': self.obs_md['rightascension'], },
-                        'dec': { 'type': 'Degrees', 'theta': self.obs_md['declination'], }
+                        'ra': { 'type': 'Degrees', 'theta': self.opsim_data['rightascension'], },
+                        'dec': { 'type': 'Degrees', 'theta': self.opsim_data['declination'], }
                     }
                 }
             },

@@ -25,7 +25,7 @@ def run_imsim(camera):
 
     config = {'template': template,
               'input.instance_catalog.file_name': instcat_file,
-              'input.opsim_meta_dict.file_name': instcat_file,
+              'input.opsim_data.file_name': instcat_file,
               'input.tree_rings.only_dets': only_dets,
               'input.atm_psf': '',
               'input.checkpoint': '',

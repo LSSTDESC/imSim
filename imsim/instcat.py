@@ -92,7 +92,7 @@ def fopen_generator(fd, abspath, **kwds):
 class InstCatalog(object):
     """This just handles the objects part of the instance catalog.
 
-    The other "phosim commands" are handled by OpsimMetaDict.
+    The other "phosim commands" are handled by OpsimDataLoader.
     """
     _bp500 = galsim.Bandpass(galsim.LookupTable([499,500,501],[0,1,0], interpolant='linear'),
                              wave_type='nm').withZeropoint('AB')
