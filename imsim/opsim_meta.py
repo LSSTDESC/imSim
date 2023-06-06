@@ -27,7 +27,7 @@ def get_opsim_md(config, base):
             filt = 'N/A'
         opsim_md = OpsimMetaDict.from_dict(
             dict(band=filt,
-                 exptime = base['exp_time']
+                 exptime = base['exptime']
             )
         )
     return opsim_md

@@ -291,7 +291,7 @@ output:
 
     camera: LsstCam
 
-    exp_time: $exptime
+    exptime: $exptime
 
     cosmic_ray_rate: 0.2
 

@@ -139,7 +139,7 @@ class SkyCatalogInterface:
         ra, dec = skycat_obj.ra, skycat_obj.dec
         return galsim.CelestialCoord(ra*galsim.degrees, dec*galsim.degrees)
 
-    def getObj(self, index, gsparams=None, rng=None, exp_time=30):
+    def getObj(self, index, gsparams=None, rng=None, exptime=30):
         """
         Return the galsim object for the skyCatalog object
         corresponding to the specified index.  If the skyCatalog
@@ -176,7 +176,7 @@ class SkyCatalogInterface:
         for component in gsobjs:
             if component in seds:
                 gs_obj_list.append(gsobjs[component]*seds[component]
-                                   *exp_time*self._eff_area)
+                                   *exptime*self._eff_area)
 
         if not gs_obj_list:
             return None
@@ -188,7 +188,7 @@ class SkyCatalogInterface:
 
         # Compute the flux or get the cached value.
         gs_object.flux \
-            = skycat_obj.get_LSST_flux(self.band)*exp_time*self._eff_area
+            = skycat_obj.get_LSST_flux(self.band)*exptime*self._eff_area
 
         if self.max_flux is not None and gs_object.flux > self.max_flux:
             return None
@@ -258,9 +258,9 @@ def SkyCatObj(config, base, ignore, gsparams, logger):
     index = kwargs['index']
 
     rng = galsim.config.GetRNG(config, base, logger, 'SkyCatObj')
-    exp_time = base.get('exp_time', None)
+    exptime = base.get('exptime', None)
 
-    obj = skycat.getObj(index, gsparams=gsparams, rng=rng, exp_time=exp_time)
+    obj = skycat.getObj(index, gsparams=gsparams, rng=rng, exptime=exptime)
     base['object_id'] = skycat.objects[index].id
 
     return obj, safe

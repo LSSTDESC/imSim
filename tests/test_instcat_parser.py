@@ -275,8 +275,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                 magnorm = cat.getMagNorm(i)
                 flux = np.exp(-0.9210340371976184 * magnorm)
                 rubin_area = 0.25 * np.pi * 649**2 # cm^2
-                exp_time = 30
-                fAt = flux * rubin_area * exp_time
+                exptime = 30
+                fAt = flux * rubin_area * exptime
                 sed = cat.getSED(i)
                 flux = sed.calculateFlux(bp) * fAt
                 self.assertAlmostEqual(flux, obj.calculateFlux(bp))
@@ -451,8 +451,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                 magnorm = cat.getMagNorm(i)
                 flux = np.exp(-0.9210340371976184 * magnorm)
                 rubin_area = 0.25 * np.pi * 649**2 # cm^2
-                exp_time = 30
-                fAt = flux * rubin_area * exp_time
+                exptime = 30
+                fAt = flux * rubin_area * exptime
                 sed = cat.getSED(i) # This applies the redshift internally.
                 # TODO: We aren't applying dust terms currently.
                 flux = sed.calculateFlux(bp) * fAt

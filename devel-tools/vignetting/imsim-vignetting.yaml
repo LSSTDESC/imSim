@@ -89,7 +89,7 @@ stamp:
         -
             type: TimeSampler
             t0: 0.0
-            exptime: "@output.exp_time"
+            exptime: "@output.exptime"
         -
             type: PupilAnnulusSampler
             R_outer: 4.18
@@ -126,7 +126,7 @@ output:
 
     camera: LsstCam
 
-    exp_time: 30
+    exptime: 30
 
     cosmic_ray_rate: 0.
 

@@ -52,12 +52,12 @@ class LSST_CCDBuilder(OutputBuilder):
         base['xsize'] = det_bbox.width
         base['ysize'] = det_bbox.height
 
-        if 'exp_time' in config:
-            base['exp_time'] = galsim.config.ParseValue(
-                config, 'exp_time', base, float
+        if 'exptime' in config:
+            base['exptime'] = galsim.config.ParseValue(
+                config, 'exptime', base, float
             )[0]
         else:
-            base['exp_time'] = 30.0
+            base['exptime'] = 30.0
 
     def getNFiles(self, config, base, logger=None):
         """Returns the number of files to be built.
@@ -97,7 +97,7 @@ class LSST_CCDBuilder(OutputBuilder):
         # This is basically the same as the base class version.  Just a few extra things to
         # add to the ignore list.
         ignore += [ 'file_name', 'dir', 'nfiles', 'det_num',
-                    'only_dets', 'readout', 'exp_time', 'camera' ]
+                    'only_dets', 'readout', 'exptime', 'camera' ]
 
         opt = {
             'cosmic_ray_rate': float,
@@ -119,18 +119,18 @@ class LSST_CCDBuilder(OutputBuilder):
 
             logger.info('Adding cosmic rays with rate %f using %s.',
                         cosmic_ray_rate, cosmic_ray_catalog)
-            exp_time = base['exp_time']
+            exptime = base['exptime']
             det_name = base['det_name']
             cosmic_rays = CosmicRays(cosmic_ray_rate, cosmic_ray_catalog)
             rng = galsim.config.GetRNG(config, base)
-            cosmic_rays.paint(image.array, rng, exptime=exp_time)
+            cosmic_rays.paint(image.array, rng, exptime=exptime)
 
         # Add header keywords for various values written to the primary
         # header of the simulated raw output file, so that all the needed
         # information is in the eimage file.
         image.header = galsim.FitsHeader()
-        exp_time = base['exp_time']
-        image.header['EXPTIME'] = exp_time
+        exptime = base['exptime']
+        image.header['EXPTIME'] = exptime
         image.header['DET_NAME'] = base['det_name']
 
 
@@ -145,7 +145,7 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header['MJD'] = opsim_md.get('mjd', 51444)
         # MJD-OBS is the start of the exposure
         mjd_obs = opsim_md.get('observationStartMJD', image.header['MJD'])
-        mjd_end =  mjd_obs + exp_time/86400.
+        mjd_end =  mjd_obs + exptime/86400.
         image.header['MJD-OBS'] = mjd_obs
         dayobs = astropy.time.Time(mjd_obs, format='mjd').strftime('%Y%m%d')
         image.header['DAYOBS'] = dayobs

@@ -42,7 +42,7 @@ class ImageSourceTestCase(unittest.TestCase):
             'index_key': 'image_num',
             'image_num': 0,
             'det_name': 'R22_S11',
-            'exp_time': 30,
+            'exptime': 30,
         }
 
         galsim.config.SetupConfigRNG(self.config)
@@ -103,7 +103,7 @@ class ImageSourceTestCase(unittest.TestCase):
             'index_key': 'image_num',
             'image_num': 0,
             'det_name': 'R20_S00',
-            'exp_time': 30,
+            'exptime': 30,
         }
         # Use an image that starts as all 0.
         image = copy.copy(self.image)

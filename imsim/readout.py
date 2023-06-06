@@ -299,7 +299,7 @@ class CcdReadout:
         self.logger = logger
         camera = Camera(self.camera_name)
         self.ccd = camera[self.det_name]
-        self.exp_time = self.eimage.header['EXPTIME']
+        self.exptime = self.eimage.header['EXPTIME']
 
         self.readout_time = readout_time
         self.dark_current = dark_current
@@ -352,7 +352,7 @@ class CcdReadout:
         self.eimage.array[:] = bleed_eimage(self.eimage.array, full_well=self.full_well)
 
         # Add dark current.
-        dark_time = self.exp_time + self.readout_time
+        dark_time = self.exptime + self.readout_time
         dark_current = self.dark_current
         poisson = galsim.PoissonDeviate(rng, mean=dark_current*dark_time)
         dc_data = np.zeros(np.prod(self.eimage.array.shape))

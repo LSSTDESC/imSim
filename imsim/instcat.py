@@ -346,7 +346,7 @@ class InstCatalog(object):
 
         return internal_av, internal_rv, galactic_av, galactic_rv
 
-    def getObj(self, index, gsparams=None, rng=None, exp_time=30):
+    def getObj(self, index, gsparams=None, rng=None, exptime=30):
         if self.objinfo.size == 0:
             raise RuntimeError("Trying to get an object from an empty instance catalog")
         params = self.objinfo[index]
@@ -440,7 +440,7 @@ class InstCatalog(object):
 
         # This gives the normalization in photons/cm^2/sec.
         # Multiply by area and exptime to get photons.
-        fAt = flux * self._rubin_area * exp_time
+        fAt = flux * self._rubin_area * exptime
 
         sed = self.getSED(index)
         return obj.withFlux(fAt) * sed
@@ -462,9 +462,9 @@ def InstCatObj(config, base, ignore, gsparams, logger):
     index = kwargs['index']
 
     rng = galsim.config.GetRNG(config, base, logger, 'InstCatObj')
-    exp_time = base.get('exp_time',None)
+    exptime = base.get('exptime',None)
 
-    obj = inst.getObj(index, gsparams=gsparams, rng=rng, exp_time=exp_time)
+    obj = inst.getObj(index, gsparams=gsparams, rng=rng, exptime=exptime)
     base['object_id'] = inst.getID(index)
 
     return obj, safe
