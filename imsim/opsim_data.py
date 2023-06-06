@@ -25,8 +25,9 @@ def get_opsim_data(config, base):
         else:
             filt = 'N/A'
         opsim_data = OpsimDataLoader.from_dict(
-            dict(band=filt,
-                 exptime = base['exptime']
+            dict(
+                band=filt,
+                exptime=base.get('exptime', 30.0)
             )
         )
     return opsim_data
