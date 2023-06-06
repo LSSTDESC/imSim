@@ -78,7 +78,7 @@ class OPDBuilder(ExtraOutputBuilder):
         self.nx = kwargs.pop('nx', 255)
         self.projection = kwargs.pop('projection', 'postel')
         self.reference = kwargs.pop('reference', 'chief')
-        self.telescope = GetInputObj(
+        telescope = GetInputObj(
             'telescope',
             config,
             base,
@@ -86,9 +86,9 @@ class OPDBuilder(ExtraOutputBuilder):
         ).fiducial
         self.sphereRadius = kwargs.pop(
             'sphereRadius',
-            self.telescope.sphereRadius
+            telescope.sphereRadius
         )
-        self.eps = kwargs.pop('eps', self.telescope.pupilObscuration)
+        self.eps = kwargs.pop('eps', telescope.pupilObscuration)
         self.jmax = kwargs.pop('jmax', 28)
 
         # Try to get wavelength from bandpass if not specified
@@ -130,7 +130,12 @@ class OPDBuilder(ExtraOutputBuilder):
         self.final_data = None
 
     def finalize(self, config, base, main_data, logger):
-        telescope = self.telescope
+        telescope = GetInputObj(
+            'telescope',
+            config,
+            base,
+            'telescope'
+        ).fiducial
         wavelength = self.wavelength
         self.final_data = []
         for (r_thx, r_thy), (thx, thy) in zip(self.rot_fields, self.fields):
