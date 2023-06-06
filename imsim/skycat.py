@@ -201,7 +201,7 @@ class SkyCatalogLoader(InputLoader):
     Class to load SkyCatalogInterface object.
     """
     def getKwargs(self, config, base, logger):
-        req = {'file_name': str}
+        req = {'file_name': str, 'band':str}
         opt = {
                'edge_pix' : float,
                'obj_types' : list,
@@ -209,18 +209,12 @@ class SkyCatalogLoader(InputLoader):
                'apply_dc2_dilation': bool,
                'approx_nobjects': int
               }
-        meta = galsim.config.GetInputObj('opsim_meta_dict', config, base,
-                                         'SkyCatalogLoader')
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
         kwargs['wcs'] = wcs
         kwargs['xsize'] = base['xsize']
         kwargs['ysize'] = base['ysize']
-        # The skyCatalogs code will use the LSST bandpasses from the
-        # throughputs distribution, so just need the LSST band (=filter)
-        # from the opsim metadata object.
-        kwargs['band'] = meta.get('band')
         kwargs['logger'] = logger
 
         # Sky catalog object lists are created per CCD, so they are

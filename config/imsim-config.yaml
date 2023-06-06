@@ -224,6 +224,12 @@ stamp:
         -
             type: RubinDiffraction
             latitude: -30.24463 degrees
+            altitude:
+                type: Degrees
+                theta: { type: OpsimMeta, field: altitude }
+            azimuth:
+                type: Degrees
+                theta: { type: OpsimMeta, field: azimuth }
 
     photon_ops:
         -
@@ -245,6 +251,12 @@ stamp:
             type: RubinDiffractionOptics
             boresight: "$boresight"
             camera: "@output.camera"
+            altitude:
+                type: Degrees
+                theta: { type: OpsimMeta, field: altitude }
+            azimuth:
+                type: Degrees
+                theta: { type: OpsimMeta, field: azimuth }
         -
             # Note: If FocusDepth is before Refraction, then the depth is the amount of focus
             #       change required relative to the rays coming to a focus at the surface.
