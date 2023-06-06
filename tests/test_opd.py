@@ -13,7 +13,7 @@ import imsim
 DATA_DIR = Path(__file__).parent / 'data'
 
 
-def test_opd():
+def test_opd_zemax():
     with TemporaryDirectory() as d:
         config = textwrap.dedent(
             f"""
@@ -90,6 +90,113 @@ def test_opd():
         rtol=1e-5
     )
 
+    # Verify that other data made it into the header
+    assert hdu.header['units'] == 'nm'
+    np.testing.assert_allclose(
+        hdu.header['dx'], 8.36/(255-1),
+        rtol=1e-10, atol=1e-10
+    )
+    np.testing.assert_allclose(
+        hdu.header['dy'], 8.36/(255-1),
+        rtol=1e-10, atol=1e-10
+    )
+    assert hdu.header['thx'] == 1.121
+    assert hdu.header['thy'] == 1.231
+    assert hdu.header['r_thx'] == hdu.header['thx']  # rotator not engaged
+    assert hdu.header['r_thy'] == hdu.header['thy']
+    assert hdu.header['wavelen'] == 694.0
+    assert hdu.header['prjct'] == 'zemax'
+    assert hdu.header['sph_ref'] == 'chief'
+    assert hdu.header['eps'] == 0.612
+    assert hdu.header['jmax'] == 28
+    assert hdu.header['telescop'] == "LSST"
+
+
+def test_opd_wavelength():
+    with TemporaryDirectory() as d:
+        # Write out an OPD at the bandpass effective wavelength
+        config = textwrap.dedent(
+            f"""
+            input:
+                telescope:
+                    file_name: LSST_r.yaml
+            image:
+                bandpass:
+                    file_name: LSST_r.dat
+                    wave_type: nm
+            output:
+                dir: {d}
+                opd:
+                    file_name: opd1.fits
+                    fields:
+                        - {{thx: 1.121 deg, thy: 1.231 deg}}
+            """
+        )
+        config = yaml.safe_load(config)
+        galsim.config.ProcessInput(config)
+        galsim.config.SetupExtraOutput(config)
+        # Need to mock file_num for following method to be happy:
+        config['file_num'] = 0
+        galsim.config.extra.WriteExtraOutputs(config, None)
+        fn = Path(d) / "opd1.fits"
+        hdu1 = fits.open(fn)[0]
+
+        # Now repeat but remove the bandpass and explicitly specifiy the
+        # wavelength
+        config = textwrap.dedent(
+            f"""
+            input:
+                telescope:
+                    file_name: LSST_r.yaml
+            output:
+                dir: {d}
+                opd:
+                    file_name: opd2.fits
+                    fields:
+                        - {{thx: 1.121 deg, thy: 1.231 deg}}
+                    wavelength: {hdu1.header['wavelen']}
+            """
+        )
+        config = yaml.safe_load(config)
+        galsim.config.ProcessInput(config)
+        galsim.config.SetupExtraOutput(config)
+        # Need to mock file_num for following method to be happy:
+        config['file_num'] = 0
+        galsim.config.extra.WriteExtraOutputs(config, None)
+        fn = Path(d) / "opd2.fits"
+        hdu2 = fits.open(fn)[0]
+
+        np.testing.assert_allclose(
+            hdu1.data, hdu2.data,
+            rtol=1e-16, atol=1e-16
+        )
+        for j in range(1, 29):
+            np.testing.assert_allclose(
+                hdu1.header[f'AZ_{j:03d}'], hdu2.header[f'AZ_{j:03d}'],
+                atol=1e-16, rtol=1e-16
+            )
+
+        # It's an error to not have either bandpass or wavelength
+        config = textwrap.dedent(
+            f"""
+            input:
+                telescope:
+                    file_name: LSST_r.yaml
+            output:
+                dir: {d}
+                opd:
+                    file_name: opd3.fits
+                    fields:
+                        - {{thx: 1.121 deg, thy: 1.231 deg}}
+            """
+        )
+        config = yaml.safe_load(config)
+        with np.testing.assert_raises(ValueError):
+            galsim.config.ProcessInput(config)
+            galsim.config.SetupExtraOutput(config)
+
+
 
 if __name__ == '__main__':
-    test_opd()
+    test_opd_zemax()
+    test_opd_wavelength()
