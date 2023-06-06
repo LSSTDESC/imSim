@@ -17,11 +17,12 @@ modules:
 # used in multiple places.
 eval_variables:
     # The first letters of these variables indicates the type.
-    # s=string is the only one we have here.
-    # So to use this in an Eval string, you would write just run, not srun.
-    srun: '0001'
-
-    # Put this here for convenience, since it is used by several fields.
+    # c = CelestialCoord
+    # a = Angle
+    # s = string
+    # f = float
+    # So to use one of these in an Eval string, you would write just boresight,
+    # not cboresight.
     cboresight:
         type: RADec
         ra:
@@ -30,6 +31,21 @@ eval_variables:
         dec:
             type: Degrees
             theta: { type: OpsimMeta, field: fieldDec }
+
+    aazimuth:
+        type: Degrees
+        theta: { type: OpsimMeta, field: azimuth }
+    aaltitude:
+        type: Degrees
+        theta: { type: OpsimMeta, field: altitude }
+    arotTelPos:
+        type: Degrees
+        theta: { type: OpsimMeta, field: rotTelPos }
+
+    sband: { type: OpsimMeta, field: band }
+
+    fexptime: { type: OpsimMeta, field: exptime }
+
 
 
 # Any input data is set here.  These are read in at the start of the program and potentially
@@ -56,14 +72,12 @@ input:
             format : LSST_%s.yaml
             items:
                 - { type: OpsimMeta, field: band }
-        rotTelPos:
-            type: Degrees
-            theta: { type: OpsimMeta, field: rotTelPos }
+        rotTelPos: $rotTelPos
 
     sky_model:
         # Use the rubin_sim.skybrightness model to compute the sky
         # background level.
-        exptime: { type: OpsimMeta, field: exptime }
+        exptime: $exptime
         mjd: { type: OpsimMeta, field: mjd }
 
     atm_psf:
@@ -77,7 +91,7 @@ input:
 
         # Optional parameters:  (Unless otherwise stated, these are the default values.)
         t0: 0               # seconds
-        exptime: { type: OpsimMeta, field: exptime }
+        exptime: $exptime
         kcrit: 0.2          # in units of 1/r0
         screen_size: 409.6  # Default=812.2, which takes a lot of memory, so use this for testing.
         screen_scale: 0.1   # meters
@@ -216,7 +230,7 @@ stamp:
         -
             type: TimeSampler
             t0: 0.0
-            exptime: "@output.exp_time"
+            exptime: $exptime
         -
             type: PupilAnnulusSampler
             R_outer: 4.18
@@ -224,18 +238,14 @@ stamp:
         -
             type: RubinDiffraction
             latitude: -30.24463 degrees
-            altitude:
-                type: Degrees
-                theta: { type: OpsimMeta, field: altitude }
-            azimuth:
-                type: Degrees
-                theta: { type: OpsimMeta, field: azimuth }
+            altitude: $altitude
+            azimuth: $azimuth
 
     photon_ops:
         -
             type: TimeSampler
             t0: 0.0
-            exptime: "@output.exp_time"
+            exptime: $exptime
         -
             type: PupilAnnulusSampler
             R_outer: 4.18
@@ -251,12 +261,8 @@ stamp:
             type: RubinDiffractionOptics
             boresight: "$boresight"
             camera: "@output.camera"
-            altitude:
-                type: Degrees
-                theta: { type: OpsimMeta, field: altitude }
-            azimuth:
-                type: Degrees
-                theta: { type: OpsimMeta, field: azimuth }
+            altitude: $altitude
+            azimuth: $azimuth
         -
             # Note: If FocusDepth is before Refraction, then the depth is the amount of focus
             #       change required relative to the rays coming to a focus at the surface.
@@ -285,7 +291,7 @@ output:
 
     camera: LsstCam
 
-    exp_time: 30
+    exp_time: $exptime
 
     cosmic_ray_rate: 0.2
 
