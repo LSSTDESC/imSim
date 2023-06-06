@@ -142,33 +142,39 @@ class LSST_CCDBuilder(OutputBuilder):
 
         # MJD is the midpoint of the exposure.  51444 = Jan 1, 2000, which is
         # not a real observing date.
-        image.header['MJD'] = opsim_data.get('mjd', 51444)
+        image.header['MJD'] = header_vals.pop('mjd', opsim_data.get('mjd', 51444))
         # MJD-OBS is the start of the exposure
-        mjd_obs = opsim_data.get('observationStartMJD', image.header['MJD'])
+        mjd_obs = header_vals.pop(
+            'observationStartMJD',
+            opsim_data.get('observationStartMJD', image.header['MJD'])
+        )
         mjd_end =  mjd_obs + exptime/86400.
-        image.header['MJD-OBS'] = mjd_obs
+        image.header['MJD-OBS'] = mjd_obs, 'Start of exposure'
         dayobs = astropy.time.Time(mjd_obs, format='mjd').strftime('%Y%m%d')
         image.header['DAYOBS'] = dayobs
         seqnum = opsim_data.get('seqnum', 0)
         image.header['SEQNUM'] = seqnum
-        image.header['CONTRLLR'] = 'P'  # For simulated data.
+        image.header['CONTRLLR'] = 'P', 'simulated data'  # For simulated data.
         image.header['OBSID'] = f"IM_P_{dayobs}_{seqnum:06d}"
-        image.header['IMGTYPE'] = opsim_data.get('image_type', 'SKYEXP')
+        image.header['IMGTYPE'] = header_vals.pop(
+            'image_type',
+            opsim_data.get('image_type', 'SKYEXP')
+        )
         image.header['REASON'] = opsim_data.get('reason', 'survey')
-        ratel = opsim_data.get('fieldRA', 0.)
-        dectel = opsim_data.get('fieldDec', 0.)
+        ratel = header_vals.pop('fieldRA', opsim_data.get('fieldRA', 0.))
+        dectel = header_vals.pop('fieldDec', opsim_data.get('fieldDec', 0.))
         image.header['RATEL'] = ratel
         image.header['DECTEL'] = dectel
         with warnings.catch_warnings():
             # Silence FITS warning about long header keyword
             warnings.simplefilter('ignore')
             image.header['ROTTELPOS'] = opsim_data.get('rotTelPos', 0.)
-        image.header['FILTER'] = opsim_data.get('band')
+        image.header['FILTER'] = header_vals.pop('band', opsim_data.get('band'))
         image.header['CAMERA'] = base['output']['camera']
         image.header['HASTART'] = opsim_data.getHourAngle(mjd_obs, ratel)
         image.header['HAEND'] = opsim_data.getHourAngle(mjd_end, ratel)
-        image.header['AMSTART'] = opsim_data.get('airmass', 'N/A')
-        image.header['AMEND'] = image.header['AMSTART']  # XXX: This is not correct. Does anyone care?
+        image.header['AMSTART'] = header_vals.pop('airmass', opsim_data.get('airmass', 'N/A')), 'airmass at start of exposure'
+        image.header['AMEND'] = image.header['AMSTART'], 'airmass at end of exposure'  # XXX: This is not correct. Does anyone care?
 
         image.header.update(header_vals)
         return [ image ]
