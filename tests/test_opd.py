@@ -45,7 +45,14 @@ def test_opd():
         fn = Path(d) / "opd.fits"
         hdu = fits.open(fn)[0]
 
-    # First, check annular Zernike coefficients in fits header
+    # Compare computed annular Zernike coefficients in OPD header to values
+    # from Zemax.  For the Zemax run, I used the design file from
+    # https://docushare.lsstcorp.org/docushare/dsweb/View/Collection-2097
+    # specifically, the file
+    # LSST_Ver_3.3_Baseline_Design_Spiders_Baffles.ZMX
+    # with the following modifications:
+    # - I set the stop surface to the baffle just above M1
+    # - I decentered M2 by 100 microns in x
     with open(
         DATA_DIR / "LSST_AZ_v3.3_c3_f6_w3_M2_dx_100um.txt",
         encoding='utf-16-le'
@@ -59,7 +66,7 @@ def test_opd():
             rtol=1e-3
         )
 
-    # Next, check the OPD image data
+    # Compare the OPD image to Zemax reference.  The setup is the same as above.
     with open(
         DATA_DIR / "LSST_WF_v3.3_c3_f6_w3_M2_dx_100um.txt",
         encoding='utf-16-le'
