@@ -1,3 +1,4 @@
+import copy
 import os
 import warnings
 import astropy.time
@@ -51,7 +52,12 @@ class LSST_CCDBuilder(OutputBuilder):
         base['xsize'] = det_bbox.width
         base['ysize'] = det_bbox.height
 
-        base['exp_time'] = float(config.get('exp_time', 30))
+        if 'exp_time' in config:
+            base['exp_time'] = galsim.config.ParseValue(
+                config, 'exp_time', base, float
+            )[0]
+        else:
+            base['exp_time'] = 30.0
 
     def getNFiles(self, config, base, logger=None):
         """Returns the number of files to be built.
@@ -95,7 +101,8 @@ class LSST_CCDBuilder(OutputBuilder):
 
         opt = {
             'cosmic_ray_rate': float,
-            'cosmic_ray_catalog': str
+            'cosmic_ray_catalog': str,
+            'header': dict
         }
         params, safe = galsim.config.GetAllParams(config, base, opt=opt, ignore=ignore)
 
@@ -121,16 +128,23 @@ class LSST_CCDBuilder(OutputBuilder):
         # Add header keywords for various values written to the primary
         # header of the simulated raw output file, so that all the needed
         # information is in the eimage file.
-        opsim_md = get_opsim_md(config, base)
         image.header = galsim.FitsHeader()
         exp_time = base['exp_time']
         image.header['EXPTIME'] = exp_time
         image.header['DET_NAME'] = base['det_name']
+
+
+        # Make a copy so we can modify without affecting the original.
+        opsim_md = copy.deepcopy(get_opsim_md(config, base))
+        # Update using config header values.
+        header_vals = params.pop('header', {})
+        opsim_md.meta.update(header_vals)
+
         # MJD is the midpoint of the exposure.  51444 = Jan 1, 2000, which is
         # not a real observing date.
         image.header['MJD'] = opsim_md.get('mjd', 51444)
         # MJD-OBS is the start of the exposure
-        mjd_obs = opsim_md.get('observationStartMJD', 51444)
+        mjd_obs = opsim_md.get('observationStartMJD', image.header['MJD'])
         mjd_end =  mjd_obs + exp_time/86400.
         image.header['MJD-OBS'] = mjd_obs
         dayobs = astropy.time.Time(mjd_obs, format='mjd').strftime('%Y%m%d')
@@ -155,6 +169,8 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header['HAEND'] = opsim_md.getHourAngle(mjd_end, ratel)
         image.header['AMSTART'] = opsim_md.get('airmass', 'N/A')
         image.header['AMEND'] = image.header['AMSTART']  # XXX: This is not correct. Does anyone care?
+
+        image.header.update(header_vals)
         return [ image ]
 
 RegisterOutputType('LSST_CCD', LSST_CCDBuilder())
