@@ -74,11 +74,11 @@ def parse_fea(config, base, telescope):
     # the bulk temperature and 4 temperature gradients be supplied.
     fea:
       m1m3_temperature:
-        m1m3_TBulk: 0.1  # Kelvin
-        m1m3_TxGrad: 0.01  # Kelvin/meter
-        m1m3_TyGrad: 0.01  # Kelvin/meter
-        m1m3_TzGrad: 0.01  # Kelvin/meter
-        m1m3_TrGrad: 0.01  # Kelvin/meter
+        m1m3_TBulk: 0.1  # Celsius
+        m1m3_TxGrad: 0.01  # Celsius/meter
+        m1m3_TyGrad: 0.01  # Celsius/meter
+        m1m3_TzGrad: 0.01  # Celsius/meter
+        m1m3_TrGrad: 0.01  # Celsius/meter
 
     # Engage M1M3 lookup table.  Requires zenith angle and optionally a
     # fractional random error to apply to each force actuator.
@@ -97,8 +97,8 @@ def parse_fea(config, base, telescope):
     # gradients (in the z and radial directions).
     fea:
       m2_temperature:
-        m2_TzGrad: 0.01  # Kelvin/meter
-        m2_TrGrad: 0.01  # Kelvin/meter
+        m2_TzGrad: 0.01  # Celsius/meter
+        m2_TrGrad: 0.01  # Celsius/meter
 
     # Set camera gravitational perturbations.  Requires zenith angle and camera
     # rotator angle.
@@ -111,7 +111,7 @@ def parse_fea(config, base, telescope):
     # temperature of the camera.
     fea:
       camera_temperature:
-        camera_TBulk: 0.1
+        camera_TBulk: 0.1  # Celsius
 
     # Set the Active Optics degrees of freedom.  There are 50 baseline degrees
     # of freedom, so we won't copy them all here, but you can imagine a list of
