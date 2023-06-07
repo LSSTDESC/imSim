@@ -15,14 +15,14 @@ def load_test_skycat(apply_dc2_dilation=False):
     det_name = "R22_S11"  # detector 94
 
     # Make the WCS object.
-    obs_md = imsim.OpsimMetaDict(opsim_db_file, visit=visit)
+    opsim_data = imsim.OpsimDataLoader(opsim_db_file, visit=visit)
     boresight = galsim.CelestialCoord(
-        ra=obs_md["fieldRA"] * galsim.degrees,
-        dec=obs_md["fieldDec"] * galsim.degrees,
+        ra=opsim_data["fieldRA"] * galsim.degrees,
+        dec=opsim_data["fieldDec"] * galsim.degrees,
     )
-    rottelpos = obs_md["rotTelPos"] * galsim.degrees
-    obstime = astropy.time.Time(obs_md["mjd"], format="mjd", scale="tai")
-    band = obs_md["band"]
+    rottelpos = opsim_data["rotTelPos"] * galsim.degrees
+    obstime = astropy.time.Time(opsim_data["mjd"], format="mjd", scale="tai")
+    band = opsim_data["band"]
     bandpass = galsim.Bandpass(
         f"LSST_{band}.dat", wave_type="nm"
     ).withZeropoint("AB")

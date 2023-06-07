@@ -6,7 +6,6 @@ from astropy import units
 from coord import degrees
 
 from imsim import photon_ops, BatoidWCSFactory, get_camera, diffraction
-from imsim.opsim_meta import OpsimMetaDict
 from imsim.telescope_loader import load_telescope
 
 
@@ -435,11 +434,6 @@ TEST_BASE_CONFIG = {
         1.1056660811384078 * galsim.radians, -0.5253441048502933 * galsim.radians
     ),
 }
-TEST_OPSIM_META_CONFIG = {
-    "_input_objs": {
-        "opsim_meta_dict": [OpsimMetaDict.from_dict({"altitude": 43.0, "azimuth": 0.0})]
-    }
-}
 
 
 def test_config_rubin_diffraction():
@@ -447,12 +441,13 @@ def test_config_rubin_diffraction():
 
     config = {
         **TEST_BASE_CONFIG,
-        **TEST_OPSIM_META_CONFIG,
         "stamp": {
             "photon_ops": [
                 {
                     "type": "RubinDiffraction",
                     "latitude": "-30.24463 degrees",
+                    "altitude": "43.0 degrees",
+                    "azimuth": "0.0 degrees"
                 }
             ]
         },
@@ -474,12 +469,13 @@ def test_config_rubin_diffraction_without_field_rotation():
 
     config = {
         **TEST_BASE_CONFIG,
-        **TEST_OPSIM_META_CONFIG,
         "stamp": {
             "photon_ops": [
                 {
                     "type": "RubinDiffraction",
                     "latitude": "-30.24463 degrees",
+                    "altitude": "43.0 degrees",
+                    "azimuth": "0.0 degrees",
                     "disable_field_rotation": True,
                 }
             ]
@@ -504,7 +500,6 @@ def test_config_rubin_diffraction_optics():
     image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
     config = {
         **TEST_BASE_CONFIG,
-        **TEST_OPSIM_META_CONFIG,
         "image_pos": image_pos,  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
@@ -517,6 +512,8 @@ def test_config_rubin_diffraction_optics():
                         "dec": "-0.5261230452954583 radians",
                     },
                     "latitude": "-30.24463 degrees",
+                    "altitude": "43.0 degrees",
+                    "azimuth": "0.0 degrees",
                 }
             ]
         },
@@ -541,7 +538,6 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
     image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
     config = {
         **TEST_BASE_CONFIG,
-        **TEST_OPSIM_META_CONFIG,
         "image_pos": image_pos,  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
@@ -554,6 +550,8 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
                         "dec": "-0.5261230452954583 radians",
                     },
                     "disable_field_rotation": True,
+                    "altitude": "43.0 degrees",
+                    "azimuth": "0.0 degrees",
                 }
             ]
         },

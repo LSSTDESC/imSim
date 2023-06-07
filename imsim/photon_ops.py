@@ -155,6 +155,8 @@ class RubinDiffractionOptics(RubinOptics):
     _req_params = {
         "boresight": CelestialCoord,
         "camera": str,
+        "altitude": Angle,
+        "azimuth": Angle,
     }
     _opt_params = {"latitude": Angle, "disable_field_rotation": bool}
 
@@ -199,7 +201,8 @@ class RubinDiffraction(PhotonOp):
     icrf_to_field : galsim.GSFitsWCS
     """
 
-    _opt_params = {"latitude": Angle, "disable_field_rotation": bool}
+    _req_params = {"altitude": Angle, "azimuth": Angle, "latitude": Angle}
+    _opt_params = {"disable_field_rotation": bool}
 
     def __init__(
         self,
@@ -369,13 +372,12 @@ def deserialize_rubin_optics(config, base, _logger):
 @photon_op_type("RubinDiffractionOptics", input_type="telescope")
 def deserialize_rubin_diffraction_optics(config, base, _logger):
     kwargs = config_kwargs(config, base, RubinDiffractionOptics)
-    opsim_meta = get_opsim_meta(config, base)
     telescope = base['det_telescope']
     rubin_diffraction = RubinDiffraction(
         telescope=telescope,
         latitude=kwargs.pop("latitude", RUBIN_LOC.lat.rad),
-        altitude=np.deg2rad(opsim_meta.get("altitude")),
-        azimuth=np.deg2rad(opsim_meta.get("azimuth")),
+        altitude=kwargs.pop("altitude"),
+        azimuth=kwargs.pop("azimuth"),
         sky_pos=base["sky_pos"],
         icrf_to_field=base["_icrf_to_field"],
         disable_field_rotation=kwargs.pop("disable_field_rotation", False),
@@ -401,21 +403,14 @@ def get_camera_cached(camera_name: str):
 @photon_op_type("RubinDiffraction", input_type="telescope")
 def deserialize_rubin_diffraction(config, base, _logger):
     kwargs = config_kwargs(config, base, RubinDiffraction)
-    opsim_meta = get_opsim_meta(config, base)
     telescope = base['det_telescope']
 
     return RubinDiffraction(
         telescope=telescope,
-        altitude=np.deg2rad(opsim_meta.get("altitude")),
-        azimuth=np.deg2rad(opsim_meta.get("azimuth")),
         sky_pos=base["sky_pos"],
         icrf_to_field=base["_icrf_to_field"],
         **kwargs,
     )
-
-
-def get_opsim_meta(config, base):
-    return galsim.config.GetInputObj("opsim_meta_dict", config, base, "opsim_meta_dict")
 
 
 class XyToV:

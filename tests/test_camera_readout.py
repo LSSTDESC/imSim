@@ -27,7 +27,7 @@ class ImageSourceTestCase(unittest.TestCase):
         self.config = {
             'image': {'random_seed': 1234},
             'input': {
-                'opsim_meta_dict': {'file_name': instcat_file}
+                'opsim_data': {'file_name': instcat_file}
             },
             'output': {
                 'readout' : {
@@ -42,7 +42,7 @@ class ImageSourceTestCase(unittest.TestCase):
             'index_key': 'image_num',
             'image_num': 0,
             'det_name': 'R22_S11',
-            'exp_time': 30,
+            'exptime': 30,
         }
 
         galsim.config.SetupConfigRNG(self.config)
@@ -86,7 +86,7 @@ class ImageSourceTestCase(unittest.TestCase):
         os.remove(outfile)
 
     def test_no_opsim(self):
-        "Test running readout without OpsimMeta (e.g. for flats)"
+        "Test running readout without OpsimData (e.g. for flats)"
         outfile = 'raw_no_opsim_test.fits'
         config = {  # Same as above, but no input field.
             'image': {'random_seed': 1234},
@@ -103,7 +103,7 @@ class ImageSourceTestCase(unittest.TestCase):
             'index_key': 'image_num',
             'image_num': 0,
             'det_name': 'R20_S00',
-            'exp_time': 30,
+            'exptime': 30,
         }
         # Use an image that starts as all 0.
         image = copy.copy(self.image)

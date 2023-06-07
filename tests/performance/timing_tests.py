@@ -50,8 +50,8 @@ def sky_bg_timing(skymodel, nxy_min=10, nxy_max=300, npts=8, pixel_scale=0.2):
     return timing, nphot
 
 class StarTimer(object):
-    def __init__(self, obs_md, seed, nxy=64, pixel_scale=0.2):
-        self.psf = SNRdocumentPSF(obs_md.OpsimMetaData['FWHMgeom'])
+    def __init__(self, opsim_data, seed, nxy=64, pixel_scale=0.2):
+        self.psf = SNRdocumentPSF(opsim_data.OpsimData['FWHMgeom'])
         self._rng = galsim.UniformDeviate(seed)
         self.nxy = nxy
         self.pixel_scale = pixel_scale
@@ -60,7 +60,7 @@ class StarTimer(object):
         obscuration = 0.606
         angles = galsim.FRatioAngles(fratio, obscuration, self._rng)
 
-        self.bandpass = gs_bandpasses(obs_md.bandpass)
+        self.bandpass = gs_bandpasses(opsim_data.bandpass)
         self.sed = galsim.SED(lambda x: 1, 'nm',
                               'flambda').withFlux(1., self.bandpass)
         waves = galsim.WavelengthSampler(sed=self.sed, bandpass=self.bandpass,
@@ -112,7 +112,7 @@ if __name__ == '__main__':
                                              apply_sensor_model=args.apply_sensor_model)
         print(sky_bg_timing(skymodel))
     else:
-        star_timer = StarTimer(obs_md, args.seed)
+        star_timer = StarTimer(opsim_data, args.seed)
         for nrecalc in (1000, 3e3):
             print(nrecalc,
                   star_timer.flux_loop_timing(args.apply_sensor_model,

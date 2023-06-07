@@ -16,7 +16,7 @@ from test_batoid_wcs import sphere_dist
 
 DATA_DIR = Path(__file__).parent / 'data'
 
-def sources_from_list(lines, obs_md, phot_params, file_name):
+def sources_from_list(lines, opsim_data, phot_params, file_name):
     """Return a two-item tuple containing
        * a list of GalSimCelestialObjects for each object entry in `lines`
        * a dictionary of these objects disaggregated by chip_name.
@@ -26,7 +26,7 @@ def sources_from_list(lines, obs_md, phot_params, file_name):
     out_obj_dict = dict()
     for chip_name in target_chips:
         out_obj_dict[chip_name] \
-            = [_ for _ in imsim.GsObjectList(lines, obs_md, phot_params,
+            = [_ for _ in imsim.GsObjectList(lines, opsim_data, phot_params,
                                              file_name, chip_name)]
         for gsobj in out_obj_dict[chip_name]:
             gs_object_dict[gsobj.uniqueId] = gsobj
@@ -56,13 +56,13 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         if instcat_file is None:
             instcat_file = self.phosim_file
 
-        obs_md = imsim.OpsimMetaDict(instcat_file)
-        boresight = galsim.CelestialCoord(ra=obs_md['rightascension'] * galsim.degrees,
-                                          dec=obs_md['declination'] * galsim.degrees)
-        rotTelPos = obs_md['rottelpos'] * galsim.degrees
+        opsim_data = imsim.OpsimDataLoader(instcat_file)
+        boresight = galsim.CelestialCoord(ra=opsim_data['rightascension'] * galsim.degrees,
+                                          dec=opsim_data['declination'] * galsim.degrees)
+        rotTelPos = opsim_data['rottelpos'] * galsim.degrees
         rotTelPos += 180*galsim.degrees  # We used to simulate the camera upside down...
-        obstime = astropy.time.Time(obs_md['mjd'], format='mjd', scale='tai')
-        band = obs_md['band']
+        obstime = astropy.time.Time(opsim_data['mjd'], format='mjd', scale='tai')
+        band = opsim_data['band']
         builder = imsim.BatoidWCSBuilder()
 
         if sensors is None:
@@ -86,7 +86,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         """
         opsim_db_file = os.path.join(imsim.meta_data.data_dir, 'small_opsim.db')
         visit = 22184
-        md = imsim.OpsimMetaDict(opsim_db_file, visit=visit, snap=0)
+        md = imsim.OpsimDataLoader(opsim_db_file, visit=visit, snap=0)
         self.assertAlmostEqual(md['observationId'], visit)
         self.assertAlmostEqual(md['fieldRA'], 65.00821243449612)
         self.assertAlmostEqual(md['fieldDec'], -33.20121826915378)
@@ -120,7 +120,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                     output_file.write(line)
 
         with self.assertRaises(ValueError) as ee:
-            instcat = imsim.OpsimMetaDict(dummy_catalog)
+            instcat = imsim.OpsimDataLoader(dummy_catalog)
         self.assertIn("Required commands", ee.exception.args[0])
         if os.path.isfile(dummy_catalog):
             os.remove(dummy_catalog)
@@ -130,7 +130,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         Test methods that get ObservationMetaData
         from InstanceCatalogs.
         """
-        metadata = imsim.OpsimMetaDict(self.phosim_file)
+        metadata = imsim.OpsimDataLoader(self.phosim_file)
         self.assertAlmostEqual(metadata['fieldRA'], 53.00913847303155535, 16)
         self.assertAlmostEqual(metadata['fieldDec'], -27.43894880881512321, 16)
         self.assertAlmostEqual(metadata['mjd'], 59580.13974597222113516, 16)
@@ -161,7 +161,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         Test that method to get GalSimCelestialObjects from
         InstanceCatalogs works
         """
-        md = imsim.OpsimMetaDict(self.phosim_file)
+        md = imsim.OpsimDataLoader(self.phosim_file)
 
         truth_dtype = np.dtype([('uniqueId', str, 200), ('x_pupil', float), ('y_pupil', float),
                                 ('sedFilename', str, 200), ('magNorm', float),
@@ -207,7 +207,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                                                            pm_dec=truth_data['pmDec'],
                                                            v_rad=truth_data['v_rad'],
                                                            parallax=truth_data['parallax'],
-                                                           obs_metadata=obs_md)
+                                                           obs_metadata=opsim_data)
 
             for gs_obj in gs_object_arr:
                 i_obj = np.where(truth_data['uniqueId'] == gs_obj.uniqueId)[0][0]
@@ -275,8 +275,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                 magnorm = cat.getMagNorm(i)
                 flux = np.exp(-0.9210340371976184 * magnorm)
                 rubin_area = 0.25 * np.pi * 649**2 # cm^2
-                exp_time = 30
-                fAt = flux * rubin_area * exp_time
+                exptime = 30
+                fAt = flux * rubin_area * exptime
                 sed = cat.getSED(i)
                 flux = sed.calculateFlux(bp) * fAt
                 self.assertAlmostEqual(flux, obj.calculateFlux(bp))
@@ -317,7 +317,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         """
         # Read in test_imsim_configs since default ones may change.
         galaxy_phosim_file = os.path.join(self.data_dir, 'phosim_galaxies.txt')
-        md = imsim.OpsimMetaDict(galaxy_phosim_file)
+        md = imsim.OpsimDataLoader(galaxy_phosim_file)
 
         truth_dtype = np.dtype([('uniqueId', str, 200), ('x_pupil', float), ('y_pupil', float),
                                 ('sedFilename', str, 200), ('magNorm', float),
@@ -451,8 +451,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                 magnorm = cat.getMagNorm(i)
                 flux = np.exp(-0.9210340371976184 * magnorm)
                 rubin_area = 0.25 * np.pi * 649**2 # cm^2
-                exp_time = 30
-                fAt = flux * rubin_area * exp_time
+                exptime = 30
+                fAt = flux * rubin_area * exptime
                 sed = cat.getSED(i) # This applies the redshift internally.
                 # TODO: We aren't applying dust terms currently.
                 flux = sed.calculateFlux(bp) * fAt
@@ -488,7 +488,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
     def test_photometricParameters(self):
         "Test the photometricParameters function."
-        meta = imsim.OpsimMetaDict(self.phosim_file)
+        meta = imsim.OpsimDataLoader(self.phosim_file)
 
         self.assertEqual(meta['gain'], 1)
         self.assertEqual(meta['band'], 'r')

@@ -10,17 +10,17 @@ eval_variables:
         type: RADec
         ra:
             type: Degrees
-            theta: { type: OpsimMeta, field: fieldRA }
+            theta: { type: OpsimData, field: fieldRA }
         dec:
             type: Degrees
-            theta: { type: OpsimMeta, field: fieldDec }
+            theta: { type: OpsimData, field: fieldDec }
 
 input:
     instance_catalog:
         file_name: ./instcat_vignetting.txt
         sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
-    opsim_meta_dict:
+    opsim_data:
         file_name: '@input.instance_catalog.file_name'
         snap: 1
 
@@ -29,14 +29,14 @@ input:
             type: FormattedStr
             format : LSST_%s.yaml
             items:
-                - { type: OpsimMeta, field: band }
+                - { type: OpsimData, field: band }
         rotTelPos:
             type: Degrees
-            theta: { type: OpsimMeta, field: rotTelPos }
+            theta: { type: OpsimData, field: rotTelPos }
 
 #     sky_model:
-#         exptime: { type: OpsimMeta, field: exptime }
-#         mjd: { type: OpsimMeta, field: mjd }
+#         exptime: { type: OpsimData, field: exptime }
+#         mjd: { type: OpsimData, field: mjd }
 
 
 image:
@@ -45,7 +45,7 @@ image:
     nproc: 1
     xsize: "$xsize"
     ysize: "$ysize"
-    bandpass: { type: OpsimMetaBandpass }
+    bandpass: { type: OpsimBandpass }
     wcs:
         type: Batoid
         camera: "@output.camera"
@@ -53,7 +53,7 @@ image:
         obstime:
             type: Eval
             str: "astropy.time.Time(mjd_val, format='mjd', scale='tai')"
-            fmjd_val: { type: OpsimMeta, field: mjd }
+            fmjd_val: { type: OpsimData, field: mjd }
         det_name: $det_name
         wavelength: "$(@image.bandpass).effective_wavelength"
         temperature: 280  # Kelvin
@@ -89,7 +89,7 @@ stamp:
         -
             type: TimeSampler
             t0: 0.0
-            exptime: "@output.exp_time"
+            exptime: "@output.exptime"
         -
             type: PupilAnnulusSampler
             R_outer: 4.18
@@ -100,7 +100,7 @@ stamp:
             latitude: -30.24463 degrees
             HA:
                 type: Degrees
-                theta: { type: OpsimMeta, field: HA }
+                theta: { type: OpsimData, field: HA }
         -
             type: lsst_diffraction
             latitude: -30.24463
@@ -114,7 +114,7 @@ stamp:
                 type: Eval
                 str: depth_dict[band]
                 ddepth_dict: {'u':0, 'g':0, 'r':0, 'i':0, 'z':0, 'y':-0.6}
-                sband: { type: OpsimMeta, field: band }
+                sband: { type: OpsimData, field: band }
         -
             type: Refraction
             index_ratio: 3.9
@@ -126,7 +126,7 @@ output:
 
     camera: LsstCam
 
-    exp_time: 30
+    exptime: 30
 
     cosmic_ray_rate: 0.
 
@@ -140,8 +140,8 @@ output:
         type: FormattedStr
         format : eimage_%08d-%1d-%s-%s-det%03d.fits
         items:
-            - { type: OpsimMeta, field: observationId }
-            - { type: OpsimMeta, field: snap }
-            - { type: OpsimMeta, field: band }
+            - { type: OpsimData, field: observationId }
+            - { type: OpsimData, field: snap }
+            - { type: OpsimData, field: band }
             - "$det_name"   # A value stored in the dict by LSST_CCD
             - "@output.det_num"

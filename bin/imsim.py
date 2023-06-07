@@ -67,10 +67,10 @@ if args.image_path is not None:
 
 commands = desc.imsim.metadata_from_file(args.instcat)
 
-obs_md = desc.imsim.phosim_obs_metadata(commands)
+opsim_data = desc.imsim.phosim_obs_metadata(commands)
 
 if args.psf_file is None or not os.path.isfile(args.psf_file):
-    psf = desc.imsim.make_psf(args.psf, obs_md, log_level=args.log_level)
+    psf = desc.imsim.make_psf(args.psf, opsim_data, log_level=args.log_level)
     if args.psf_file is not None:
         desc.imsim.save_psf(psf, args.psf_file)
 else:

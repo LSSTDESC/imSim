@@ -95,11 +95,13 @@ class LSST_SiliconBuilder(StampBuilder):
                 logger.debug('From: noise_var = %s, flux = %s',noise_var,self.realized_flux)
                 gsparams = galsim.GSParams(folding_threshold=folding_threshold)
 
-            md = galsim.config.GetInputObj('opsim_meta_dict', config, base, 'OpsimMeta')
+            airmass = galsim.config.ParseValue(config, 'airmass', base, float)[0]
+            rawSeeing = galsim.config.ParseValue(config, 'rawSeeing', base, float)[0]
+            band = galsim.config.ParseValue(config, 'band', base, str)[0]
             psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams,
-                                                   airmass=md.get('airmass'),
-                                                   rawSeeing=md.get('rawSeeing'),
-                                                   band=md.get('band'))
+                                                   airmass=airmass,
+                                                   rawSeeing=rawSeeing,
+                                                   band=band)
             image_size = psf.getGoodImageSize(self._pixel_scale)
             # No point in this being larger than a CCD.  Cut back to Nmax if larger than this.
             image_size = min(image_size, self._Nmax)

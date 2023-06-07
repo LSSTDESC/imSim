@@ -19,7 +19,7 @@ Here is another minimal scenario, using a one-star catalog:
    template: imsim-config
 
    input.instance_catalog.file_name: 1-star.txt
-   input.opsim_meta_dict.file_name: 1-star.txt
+   input.opsim_data.file_name: 1-star.txt
    input.tree_rings.only_dets: [R22_S11]
 
    output.dir: output

@@ -11,13 +11,13 @@ import imsim
 
 
 instcat_file = 'instcat_vignetting.txt'
-opsim_md = imsim.OpsimMetaDict(instcat_file)
+opsim_data = imsim.OpsimDataLoader(instcat_file)
 
-ra = opsim_md.get('fieldRA')
-dec = opsim_md.get('fieldDec')
-rottelpos = opsim_md.get('rotTelPos')
-mjd = opsim_md.get('mjd')
-band = opsim_md.get('band')
+ra = opsim_data.get('fieldRA')
+dec = opsim_data.get('fieldDec')
+rottelpos = opsim_data.get('rotTelPos')
+mjd = opsim_data.get('mjd')
+band = opsim_data.get('band')
 
 # The number of stars per CCD.
 nsamp = 10
