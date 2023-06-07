@@ -222,6 +222,9 @@ stamp:
 
     fft_sb_thresh: 2.e5   # When to switch to fft and a simpler PSF and skip silicon
     max_flux_simple: 100  # When to switch to simple SED
+    airmass: { type: OpsimData, field: airmass }
+    rawSeeing:  { type: OpsimData, field: rawSeeing }
+    band:  { type: OpsimData, field: band }
 
     world_pos:
         type: InstCatWorldPos
