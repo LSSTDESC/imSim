@@ -82,7 +82,7 @@ class OPDBuilder(ExtraOutputBuilder):
             'telescope',
             config,
             base,
-            'telescope'
+            'opd'
         ).fiducial
         self.sphereRadius = kwargs.pop(
             'sphereRadius',
@@ -134,7 +134,7 @@ class OPDBuilder(ExtraOutputBuilder):
             'telescope',
             config,
             base,
-            'telescope'
+            'opd'
         ).fiducial
         wavelength = self.wavelength
         self.final_data = []
