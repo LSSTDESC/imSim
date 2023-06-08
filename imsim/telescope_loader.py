@@ -145,6 +145,8 @@ def parse_fea(config, base, telescope):
                 v[kk], safe = ParseValue(v, kk, base, Angle)
             elif kk == 'dof':
                 v[kk], safe = ParseValue(v, kk, base, None)
+            elif kk == 'seed':
+                v[kk], safe = ParseValue(v, kk, base, int)
             else:
                 v[kk], safe = ParseValue(v, kk, base, float)
         builder = method(**v)
