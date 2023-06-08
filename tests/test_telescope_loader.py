@@ -589,7 +589,7 @@ def test_config_fea():
                         m1m3_TrGrad: 0.1
                     m1m3_lut:
                         zenith_angle: *zenith
-                        error: 0.0
+                        error: 0.01
                         seed: 1
                     m2_gravity:
                         zenith_angle: *zenith
