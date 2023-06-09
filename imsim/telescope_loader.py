@@ -139,17 +139,15 @@ def parse_fea(config, base, telescope):
     builder = LSSTBuilder(telescope, fea_dir=fea_dir, bend_dir=bend_dir)
     for k, v in config.items():
         method = getattr(builder, "with_"+k)
-        # parse angles
-        for kk, vv in v.items():
-            if kk.endswith("_angle"):
-                v[kk], safe = ParseValue(v, kk, base, Angle)
-            elif kk == 'dof':
-                v[kk], safe = ParseValue(v, kk, base, None)
-            elif kk == 'seed':
-                v[kk], safe = ParseValue(v, kk, base, int)
-            else:
-                v[kk], safe = ParseValue(v, kk, base, float)
-        builder = method(**v)
+        req = getattr(method, "_req_params", {})
+        opt = getattr(method, "_opt_params", {})
+        single = getattr(method, "_single_params", {})
+        ignore = getattr(method, "_ignore_params", {})
+        kwargs, safe = GetAllParams(
+            v, base,
+            req=req, opt=opt, single=single, ignore=ignore
+        )
+        builder = method(**kwargs)
     return builder.build()
 
 
