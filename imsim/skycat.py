@@ -211,7 +211,8 @@ class SkyCatalogLoader(InputLoader):
                'obj_types' : list,
                'max_flux' : float,
                'apply_dc2_dilation': bool,
-               'approx_nobjects': int
+               'approx_nobjects': int,
+               'mjd': float,
               }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
