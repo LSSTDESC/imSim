@@ -67,7 +67,7 @@ def parse_fea(config, base, telescope):
     # be supplied.
     fea:
       m1m3_gravity:
-        zenith_angle: 30 deg
+        zenith: 30 deg
 
 
     # Set M1M3 temperature induced figure perturbations.  This requires
@@ -84,14 +84,14 @@ def parse_fea(config, base, telescope):
     # fractional random error to apply to each force actuator.
     fea:
       m1m3_lut:
-        zenith_angle: 39 deg
+        zenith: 39 deg
         error: 0.01  # fractional random error to apply to each actuator
         seed: 1  # random seed for error above
 
     # Set M2 gravitational perturbations.  Requires zenith angle.
     fea:
       m2_gravity:
-        zenith_angle: 30 deg
+        zenith: 30 deg
 
     # Set M2 temperature gradient induced figure errors.  Requires 2 temperature
     # gradients (in the z and radial directions).
@@ -104,8 +104,8 @@ def parse_fea(config, base, telescope):
     # rotator angle.
     fea:
       camera_gravity:
-        zenith_angle: 30 deg
-        rotation_angle: -25 deg
+        zenith: 30 deg
+        rotation: -25 deg
 
     # Set camera temperature-induced perturbations.  Requires the bulk
     # temperature of the camera.
@@ -139,15 +139,15 @@ def parse_fea(config, base, telescope):
     builder = LSSTBuilder(telescope, fea_dir=fea_dir, bend_dir=bend_dir)
     for k, v in config.items():
         method = getattr(builder, "with_"+k)
-        # parse angles
-        for kk, vv in v.items():
-            if kk.endswith("_angle"):
-                v[kk], safe = ParseValue(v, kk, base, Angle)
-            elif kk == 'dof':
-                v[kk], safe = ParseValue(v, kk, base, None)
-            else:
-                v[kk], safe = ParseValue(v, kk, base, float)
-        builder = method(**v)
+        req = getattr(method, "_req_params", {})
+        opt = getattr(method, "_opt_params", {})
+        single = getattr(method, "_single_params", {})
+        ignore = getattr(method, "_ignore_params", {})
+        kwargs, safe = GetAllParams(
+            v, base,
+            req=req, opt=opt, single=single, ignore=ignore
+        )
+        builder = method(**kwargs)
     return builder.build()
 
 
