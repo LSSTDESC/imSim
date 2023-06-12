@@ -580,7 +580,7 @@ def test_config_fea():
                 file_name: LSST_r.yaml
                 fea:
                     m1m3_gravity:
-                        zenith_angle: *zenith
+                        zenith: *zenith
                     m1m3_temperature:
                         m1m3_TBulk: 0.0
                         m1m3_TxGrad: 0.1
@@ -588,17 +588,17 @@ def test_config_fea():
                         m1m3_TzGrad: 0.1
                         m1m3_TrGrad: 0.1
                     m1m3_lut:
-                        zenith_angle: *zenith
+                        zenith: *zenith
                         error: 0.01
                         seed: 1
                     m2_gravity:
-                        zenith_angle: *zenith
+                        zenith: *zenith
                     m2_temperature:
                         m2_TzGrad: 0.1
                         m2_TrGrad: 0.1
                     camera_gravity:
-                        zenith_angle: *zenith
-                        rotation_angle: *rot
+                        zenith: *zenith
+                        rotation: *rot
                     camera_temperature:
                         camera_TBulk: 0.1
         """
