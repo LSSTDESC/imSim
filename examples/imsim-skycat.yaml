@@ -11,7 +11,7 @@ input.sky_catalog:
     file_name: ../tests/data/sky_cat_9683.yaml
     obj_types: [galaxy]   # restrict to galaxies to avoid bright stars
     band: { type: OpsimData, field: band }
-    band: { type: OpsimData, field: mjd }
+    mjd: { type: OpsimData, field: mjd }
 
 input.opsim_data.file_name: ../tests/data/small_opsim_9683.db
 input.opsim_data.visit: 449053
