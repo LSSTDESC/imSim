@@ -243,7 +243,7 @@ def generate_reference_data_from_raytracing(parameters):
     brightness = galsim.config.BuildImage(config, logger=None).array
     [c_x, c_y] = center_of_brighness(brightness)
     angle, angle_stddev = folded_spike_angle(brightness, c_x, c_y, r_min=10.0)
-    slope, intercept, slope_stderr, intercept_stderr = brightness_log_profile(
+    slope, intercept, slope_stderr, intercept_stderr = radial_brightness_asymptotics(
         brightness, c_x, c_y
     )
     return {
@@ -255,6 +255,61 @@ def generate_reference_data_from_raytracing(parameters):
         "slope_stderr": slope_stderr,
         "intercept_stderr": intercept_stderr,
     }
+
+
+def test_photon_and_pixel_distributions_match():
+    """Check that computing the radial brightness distribution based on
+    photon positions and based on pixel brightness yield a similar results."""
+    config = create_test_config(
+        xsize=XSIZE,
+        ysize=YSIZE,
+        stamp_size=STAMP_SIZE,
+        exptime=0.0,
+        mode=Mode.RAYTRACING,
+    )
+    sensor = config["sensor"] = PhotonCapturingSensor()
+    brightness = galsim.config.BuildImage(config, logger=None).array
+    (
+        phot_slope,
+        phot_intercept,
+        phot_slope_stderr,
+        phot_intercept_stderr,
+    ) = radial_photon_asymptotics(sensor.detected_photons())
+    [c_x, c_y] = center_of_brighness(brightness)
+    slope, intercept, slope_stderr, intercept_stderr = radial_brightness_asymptotics(
+        brightness, c_x, c_y
+    )
+    # Brightness should decay as ~1/r**2:
+    np.testing.assert_allclose(slope, -2.0, atol=0.2, rtol=0.0)
+    np.testing.assert_allclose(phot_slope, -2.0, atol=0.2, rtol=0.0)
+
+    np.testing.assert_allclose(intercept, phot_intercept, atol=0.5, rtol=0.0)
+
+    np.testing.assert_array_less(slope_stderr, 0.2)
+    np.testing.assert_array_less(phot_slope_stderr, 0.2)
+    np.testing.assert_array_less(intercept_stderr, 0.8)
+    np.testing.assert_array_less(phot_intercept_stderr, 0.8)
+
+
+def test_spike_profile_has_correct_radial_brightness_distribution():
+    """Check that the spikes resulting from 1 pixel have the correct radial
+    brightness distribution."""
+    for d_alpha in (0.0, np.pi/6.):
+        spikes = diffraction_fft.prepare_psf_field_rotation(
+            w=1000,
+            h=1000,
+            alpha=0.0,
+            d_alpha=d_alpha,
+        )
+        [c_x, c_y] = center_of_brighness(spikes)
+        slope, intercept, slope_stderr, intercept_stderr = radial_brightness_asymptotics(
+            spikes, c_x, c_y
+        )
+        # Brightness should decay as ~1/r**2:
+        np.testing.assert_allclose(slope, -2.0, atol=0.2, rtol=0.0)
+        np.testing.assert_allclose(intercept, np.log(diffraction_fft.A), atol=0.25, rtol=0.0)
+        np.testing.assert_array_less(slope_stderr, 0.2)
+        np.testing.assert_array_less(intercept_stderr, 0.8)
 
 
 def test_fft_diffraction_is_similar_to_raytracing_for_0_exptime():
@@ -299,9 +354,12 @@ def test_fft_diffraction_is_similar_to_raytracing_for_0_exptime():
         np.rad2deg(raytrace_data["angle"]), expected_angle.deg, atol=1.0, rtol=0.0
     )
     np.testing.assert_allclose(
-        np.rad2deg(angle_stddev), np.rad2deg(raytrace_data["angle_stddev"]), atol=2.0, rtol=0.0
+        np.rad2deg(angle_stddev),
+        np.rad2deg(raytrace_data["angle_stddev"]),
+        atol=2.0,
+        rtol=0.0,
     )
-    slope, intercept, slope_stderr, intercept_stderr = brightness_log_profile(
+    slope, intercept, slope_stderr, intercept_stderr = radial_brightness_asymptotics(
         brightness, c_x, c_y
     )
     # Brightness should decay as ~1/r**2:
@@ -357,7 +415,7 @@ def test_fft_diffraction_is_similar_to_raytracing_for_field_rotation():
         rtol=0.0,
     )
 
-    slope, intercept, slope_stderr, intercept_stderr = brightness_log_profile(
+    slope, intercept, slope_stderr, intercept_stderr = radial_brightness_asymptotics(
         brightness, c_x, c_y
     )
     # Brightness should decay as ~1/r**2:
@@ -447,46 +505,90 @@ def angular_mean(angles, weights):
     return np.arctan2(y_mean, x_mean), stddev
 
 
-def brightness_log_profile(image, x_center, y_center, r_min=R_MIN):
+def radial_brightness_asymptotics(image, x_center, y_center, r_min=R_MIN):
     """Fits a curve brightness = a*r**b to the radial distribution of brighness
     of image around a center `x_center`, `y_center`.
     Returns `log(a)`, `b` and stderr of `log(a)` and `b`.
     """
 
-    def radius(x, y, image):
-        r = np.hypot(y - y_center, x - x_center)
-        # Determine max radius where there are non 0 pixels:
-        r_max = np.max(r[image > 0.0])
-        brightness = image[(r_min <= r) & (r <= r_max)]
-        r = r[(r_min <= r) & (r <= r_max)]
-        return r, brightness
+    x, y = np.mgrid[0 : image.shape[0], 0 : image.shape[1]]
+    r = np.hypot(y - y_center, x - x_center)
+    # Determine max radius where there are non 0 pixels:
+    r_max = np.max(r[image > 0.0])
+    brightness = image[r <= r_max]
+    r = r[r <= r_max]
 
-    r_m, brightness_dist = brightness_distribution(image, radius, scale=np.geomspace)
-    reg = scipy.stats.linregress(np.log(r_m), np.log(brightness_dist))
+    r_m, brightness_dist = brightness_distribution(
+        r, brightness, q_min=r_min, scale=np.geomspace
+    )
+    return linear_regression(np.log(r_m), np.log(brightness_dist))
+
+
+def linear_regression(
+    x: np.ndarray, y: np.ndarray
+) -> "tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]":
+    """Wrapper around scipy.stats.linregress which directly returns slope, intercept
+    with stderr."""
+    reg = scipy.stats.linregress(x, y)
     return reg.slope, reg.intercept, reg.stderr, reg.intercept_stderr
 
 
 def brightness_distribution(
-    image: np.ndarray,
-    quantity: "Callable[[np.ndarray], tuple[np.ndarray, np.ndarray]]",
+    quantity: np.ndarray,
+    brightness: np.ndarray,
+    q_min: float,
     scale=np.linspace,
     num_bins: int = 25,
-):
-    """Computes the distribution of a quantity weighted with the brightness."""
-    x, y = np.mgrid[0 : image.shape[0], 0 : image.shape[1]]
-    q, brightness = quantity(x, y, image)
+) -> "tuple[np.ndarray, np.ndarray]":
+    """Computes the distribution of a quantity weighted with brightness."""
     # Determine max q where there are non 0 pixels:
-    q_min = np.min(q)
-    q_max = np.max(q)
+    q_max = np.max(quantity)
     q_bins = scale(q_min, q_max, num=num_bins)
-    dist, _ = np.histogram(q, bins=q_bins, weights=brightness)
-    dist /= np.diff(q_bins)
+    dist, _ = np.histogram(quantity, bins=q_bins, weights=brightness)
+    dist /= np.diff(q_bins) * np.sum(brightness)
+    q_m = (q_bins[1:] + q_bins[:-1]) / 2.0
+    return q_m, dist
+
+
+def radial_photon_asymptotics(photons, r_min=R_MIN):
+    """Fits a curve brightness = a*r**b to the radial distribution of photon coordinates
+    of detection. The center of the coordinates is determined automatically.
+    Returns `log(a)`, `b` and stderr of `log(a)` and `b`.
+    """
+
+    c = np.nanmean(photons, axis=1)
+    r = np.hypot(*(photons - c[:, None]))
+    r = r[~np.isnan(r)]
+
+    r_m, radial_dist = photon_distribution(r, q_min=r_min, scale=np.geomspace)
+    log_mask = radial_dist > 1.0e-30
+    return linear_regression(np.log(r_m[log_mask]), np.log(radial_dist[log_mask]))
+
+
+def photon_distribution(
+    quantity: np.ndarray,
+    q_min: float,
+    q_quantile: float = 0.99,
+    scale=np.linspace,
+    num_bins: int = 50,
+) -> "tuple[np.ndarray, np.ndarray]":
+    """Photon version of brightness_distribution: Instead of brightness pixel data
+    and quantity, process a np.ndarray of that quantity.
+    """
+    q_sorted = np.sort(quantity[quantity > q_min])
+    # Cut off a queue of lonely photons (beyond quantile(p=q_quantile):
+    i_quantile = int(q_sorted.size * q_quantile)
+    q_max = q_sorted[i_quantile]
+    q_bins = scale(q_min, q_max, num=num_bins)
+    dist, _ = np.histogram(quantity, bins=q_bins)
+    dist = dist / (np.diff(q_bins) * quantity.size)
     q_m = (q_bins[1:] + q_bins[:-1]) / 2.0
     return q_m, dist
 
 
 def save_pic(filename: str, exptime: float, mode: Mode, enable_diffraction: bool):
     """Save a fits image of a single star."""
+
     config = create_test_config(
         XSIZE,
         YSIZE,
@@ -495,8 +597,32 @@ def save_pic(filename: str, exptime: float, mode: Mode, enable_diffraction: bool
         mode=mode,
         enable_diffraction=enable_diffraction,
     )
+    if mode == Mode.RAYTRACING:
+        sensor = config["sensor"] = PhotonCapturingSensor()
     image = galsim.config.BuildImage(config, logger=None)
     image.write(filename)
+    if mode == Mode.RAYTRACING:
+        np.save(filename.removesuffix("fits") + "npy", sensor.detected_photons())
+
+
+class PhotonCapturingSensor(galsim.Sensor):
+    """Sensor which captures the exact photon coordinates."""
+
+    def __init__(self):
+        super().__init__()
+        self._photons = []
+
+    def accumulate(self, photons, image, orig_center=None, resume=False):
+        self._photons.append(photons)
+        return super().accumulate(photons, image, orig_center, resume)
+
+    def detected_photons(self) -> np.ndarray:
+        return np.array(
+            [
+                np.concatenate([p.x for p in self._photons]),
+                np.concatenate([p.y for p in self._photons]),
+            ]
+        )
 
 
 def save_pics():
@@ -520,17 +646,29 @@ def save_pics():
 
 
 if __name__ == "__main__":
+    import argparse
     import sys
 
-    if "--pics" in sys.argv:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--pics",
+        action="store_true",
+        help="Save fits images for all test cases and exit without testing.",
+    )
+    parser.add_argument(
+        "-k",
+        dest="test_prefix",
+        help="Similar to -k of pytest / unittest: restrict tests to tests starting with the specified prefix.",
+        default="test_",
+    )
+    args = parser.parse_args()
+    if args.pics:
         save_pics()
         sys.exit(0)
-    if len(sys.argv) > 1 and sys.argv[1] == "-k":
-        test_prefix = sys.argv[2]
-    else:
-        test_prefix = "test_"
+
     testfns = [
-        v for k, v in vars().items() if k.startswith(test_prefix) and callable(v)
+        v for k, v in vars().items() if k.startswith(args.test_prefix) and callable(v)
     ]
     for testfn in testfns:
         testfn()

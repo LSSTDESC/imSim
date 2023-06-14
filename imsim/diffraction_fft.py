@@ -3,24 +3,29 @@ import scipy.signal
 
 from .diffraction import field_rotation_sin_cos, prepare_e_z, e_equatorial
 
-# Obtained from linear regression of the photon shooting r distribution:
-INTERCEPT = 0.0706052627908828
-A_SQRT = 1.0 / (2.0 * np.exp(INTERCEPT) * np.pi)
+# The radial brightness distribution \rho(r) of spikes is modelled as a Lorentzian
+# with aysmptotic behaviour \rho(r) ~ A*r^{-2}.
+# A is obtained from linear regression of photon shooting data:
+A = 0.0706052627908828
+# A uniquely determines the Lorentzian \rho(r), such that
+# 1. \int_0^\infty \rho(r) = 1,
+# 2. \rho(r) ~ A*r^{-2}:
+# \rho(r) = 2.0 / (R_0 \pi) / (1 + (r / R_0)^2), with
+R_0 = 0.5 * A * np.pi
 
 
 def spike_profile(r: np.ndarray) -> np.ndarray:
-    """Spike profile fit to the spikes produced by the statistical approach."""
-    return 0.5 * A_SQRT / np.pi / (1 + (A_SQRT * r) ** 2)
+    """Radial brightness distribution (Lorentzian) of the spikes produced by the
+    statistical approach."""
+    return 2.0 / (R_0 * np.pi) / (1 + (r / R_0) ** 2)
 
 
 def int_spike_profile(r: np.ndarray) -> np.ndarray:
-    """Antiderivative of the spike profile."""
-    return 0.5 * A_SQRT / np.pi / A_SQRT * np.arctan(A_SQRT * r)
+    """Antiderivative of the radial spike brightness distribution."""
+    return 2.0 / np.pi * np.arctan(r / R_0)
 
 
-def field_rotation_profile(
-    r: np.ndarray, d_alpha: float, resolution: float
-) -> np.ndarray:
+def field_rotation_profile(r: np.ndarray, d_alpha: float) -> np.ndarray:
     r"""Due to field rotation, the spike cross is rotating with time.
     As a consequence outer pixels receive a lower dose of photons than inner pixels.
     This function returns version of `spike_profile` including the field rotation effect.
@@ -35,7 +40,7 @@ def field_rotation_profile(
       where \phi_pix(r) is chosen such that the arclength r \phi_pix(r) is 1).
     """
 
-    l_pix = resolution  # length of a pixel
+    l_pix = 1.0  # length of a pixel
 
     def arclength_dose(r: np.ndarray) -> np.ndarray:
         """If the arclength r * d_alpha is smaller than the length of a pixel,
@@ -45,7 +50,9 @@ def field_rotation_profile(
 
     d_pix = 0.5 * l_pix  # Half a pixel
     # use int_spike_profile, to compute the radial integral
-    # int(spike_profile(r), r=r-d_pix..r+d_pix):
+    # int(spike_profile(r), r=r-d_pix..r+d_pix).
+    # Note: The pixel at r=0 will receive 2x the dose:
+    # \int_{-l_pix}^{l_pix} \rho(r) dr = 2 \int_0^{l_pix} \rho(r) dr
     return (
         int_spike_profile(r + d_pix) - int_spike_profile(r - d_pix)
     ) * arclength_dose(r)
@@ -65,14 +72,12 @@ def antialiased_cross(xy: np.ndarray, alpha: float) -> np.ndarray:
 def prepare_psf_field_rotation(
     w: int,
     h: int,
-    resolution: float,
     alpha: float,
     d_alpha: float,
 ) -> np.ndarray:
-    """Spike PSF for finite angular spike with (field rotation).
+    """Spike PSF for finite angular spike width (field rotation).
     w: Pixel width of the image
     h: Pixel height of the image
-    resolution: length per pixel
     alpha: Rotation angle of the spikes [rad]
     d_alpha: angular spike width (field rotation angle)
 
@@ -82,13 +87,13 @@ def prepare_psf_field_rotation(
     x_range = np.arange(-w, w + 1)
     y_range = np.arange(-h, h + 1)
     x, y = np.meshgrid(
-            x_range,
-            y_range,
-            indexing="ij",
-            copy=False,
-        )
-    xy = np.array([x,y])
-    
+        x_range,
+        y_range,
+        indexing="ij",
+        copy=False,
+    )
+    xy = np.array([x, y])
+
     # Antialiased cross at alpha - d_alpha / 2:
     psf = antialiased_cross(xy, alpha - d_alpha / 2.0)
     # Interior:
@@ -97,8 +102,12 @@ def prepare_psf_field_rotation(
     dth %= np.pi / 2  # 4-fold symmetry
     psf[dth <= d_alpha] = 1.0
     # Radial profile:
-    r = np.hypot(x, y) * resolution
-    psf *= field_rotation_profile(r, d_alpha, resolution)
+    r = np.hypot(x, y)
+    psf *= field_rotation_profile(r, d_alpha)
+    # The center pixel should be weighted with a factor of 4 (4 spikes) to recover the
+    # radial distribution. Due to the above comment in field_rotation_profile,
+    # we already have a factor 2:
+    psf[w, h] *= 2
     # Normalize, so pixel values add up to 1.
     # Here we actually are neglecting the non-visible tails of the cross.
     psf /= np.sum(psf)
@@ -113,7 +122,6 @@ def apply_diffraction_psf(
     azimuth: float,
     altitude: float,
     brightness_threshold: float,
-    pixel_length: float,
     spike_length_cutoff: int,
 ):
     """2d convolve, leaving image dimension invariant.
@@ -124,7 +132,6 @@ def apply_diffraction_psf(
     azimuth: Azimuth of the telescope
     altitude: Altitude of the telescope
     brightness_threshold: Minimum pixel value onto which to put diffraction spikes
-    pixel_length: Scaling factor: The length of 1px in `spike_profile`
     spike_length_cutoff: Size of the PSF (width and height) which will be layed over saturated pixels.
     """
 
@@ -134,11 +141,10 @@ def apply_diffraction_psf(
     e_focal = e_equatorial(latitude=latitude, azimuth=azimuth, altitude=altitude)
     field_rotation_sin_cos(e_z_0, e_z, e_focal, exptime, sin_cos)
     d_alpha = np.arctan2(sin_cos[1], sin_cos[0])
-    rottelpos = np.pi/4. - rottelpos
+    rottelpos = np.pi / 4.0 - rottelpos
     spike_per_pixel = prepare_psf_field_rotation(
         psf_w,
         psf_h,
-        resolution=pixel_length,
         alpha=rottelpos,
         d_alpha=d_alpha,
     )
@@ -184,4 +190,4 @@ def saturated_region(image, brightness_threshold: float):
     x, y = xy[:, image > brightness_threshold]
     if x.size == 0:
         return None
-    return slice(np.min(x), np.max(x)+1), slice(np.min(y), np.max(y)+1)
+    return slice(np.min(x), np.max(x) + 1), slice(np.min(y), np.max(y) + 1)

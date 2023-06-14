@@ -17,7 +17,6 @@ class DiffractionPSF:
     rottelpos: galsim.Angle
     spike_length_cutoff: float = 4000
     brightness_threshold: float = CcdReadout.full_well
-    pixel_length: float = 100.0  # TODO: fill in some reasonable value here.
     latitude: galsim.Angle = RUBIN_LOC.lat
     enabled: bool = True
 
@@ -31,7 +30,6 @@ class DiffractionPSF:
                 azimuth=self.azimuth.rad,
                 altitude=self.altitude.rad,
                 brightness_threshold=self.brightness_threshold,
-                pixel_length=self.pixel_length,
                 spike_length_cutoff=self.spike_length_cutoff,
             )
 
