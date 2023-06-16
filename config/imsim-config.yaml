@@ -175,7 +175,7 @@ image:
 
     apply_sky_gradient: True
     
-    apply_fringe: True
+    apply_fringe: False # Only set to True if simulating y-bands images!
 
     use_flux_sky_areas: False   # This means don't bother with the BFE from sky flux when computing
                                 # the pixel areas for drawing the sky.

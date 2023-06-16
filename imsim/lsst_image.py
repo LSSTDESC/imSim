@@ -260,14 +260,14 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                                                   'LSST_ImageBuilder')
             sky_gradient = SkyGradient(sky_model, image.wcs,
                                        base['world_center'], nx)
-            logger.warning("Applying sky gradient = %s", sky_gradient)
+            logger.info("Applying sky gradient = %s", sky_gradient)
             xarr, yarr = np.meshgrid(range(nx), range(ny))
             sky.array[:] *= sky_gradient(xarr, yarr)
 
         if self.vignetting is not None:
             det_name = base['det_name']
             camera = get_camera(self.camera_name)
-            logger.warning("Applying vignetting according to radial spline model.")
+            logger.info("Applying vignetting according to radial spline model.")
             sky.array[:] *= self.vignetting(camera[det_name])
             
         if self.apply_fringe:
@@ -275,7 +275,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             As of now, the fringing map is made for y-band only
             '''
             
-            logger.warning("Apply fringing")
+            logger.info("Apply fringing")
             ny, nx = sky.array.shape
             ccd_fringing = CCD_Fringe()
             xarr, yarr = np.meshgrid(range(nx), range(ny))
