@@ -4,6 +4,10 @@ import warnings
 import numpy as np
 import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
+from astropy.io import fits
+from scipy.interpolate import RegularGridInterpolator
+import os
+from .meta_data import data_dir
 
 
 RUBIN_AREA = 0.25 * np.pi * 649**2  # cm^2
@@ -111,6 +115,50 @@ class SkyGradient:
         value at the CCD center.
         """
         return (self.a*x + self.b*y + self.c)/self.sky_level_center
+    
+class CCD_Fringe:
+    """
+    Class generates normalized fringing map. 
+    
+    The function call operator returns the normlized fringing level
+    as a function of pixel coordinates relative to the value at the 
+    CCD center.
+    """
+    def __init__(self):
+        
+        # Load the 4k x 4k normalized map
+        fringing_filename = os.path.join(data_dir, 'fringing_data',
+                                    'e2v-321-fringe-sim-norm-center.fits.gz')
+        
+        fringe_im = fits.open(fringing_filename)[0].data
+        
+        # Interpolate
+        x = np.linspace(0,fringe_im.shape[-1]-1,fringe_im.shape[-1],dtype= int)
+        y = np.linspace(0, fringe_im.shape[0]-1,fringe_im.shape[0],dtype = int )
+        self.interp_func = RegularGridInterpolator((x, y), fringe_im.T)
+        
+    def fringe_variation_level(self):
+        '''
+        This is a place holder for the function that will be used to 
+        characterize temporal and spatial variation of fringing. 
+        
+        The function will return a multiplicative factor that modifies
+        the fringing amplitude from sensor to sensor based on the time
+        and its location on the focal plane.
+        Right now just return 1 since we are still waiting for the data.
+        '''
+        
+        level = 1.
+        
+        return(level)
+
+    def __call__(self, x, y):
+        """
+        Return the normalized fringing amplitude at the desired pixel 
+        wrt the value at the CCD center.
+        """
+        level = self.fringe_variation_level()
+        return (self.interp_func((x,y))*level)
 
 
 class SkyModelLoader(InputLoader):
