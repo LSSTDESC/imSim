@@ -42,9 +42,9 @@ def create_test_config(
     mode=Mode.FFT,
     exptime: float = 30.0,
     enable_diffraction: bool = True,
+    band="r",
     rottelpos=20.0 * galsim.degrees,
 ):
-    band = "r"
     bandpass = galsim.Bandpass(f"LSST_{band}.dat", wave_type="nm").withZeropoint("AB")
     boresight = galsim.CelestialCoord(
         1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
@@ -294,20 +294,26 @@ def test_photon_and_pixel_distributions_match():
 def test_spike_profile_has_correct_radial_brightness_distribution():
     """Check that the spikes resulting from 1 pixel have the correct radial
     brightness distribution."""
-    for d_alpha in (0.0, np.pi/6.):
+    for d_alpha in (0.0, np.pi / 6.0):
         spikes = diffraction_fft.prepare_psf_field_rotation(
             w=1000,
             h=1000,
+            wavelength=diffraction_fft.WAVELENGTH,
             alpha=0.0,
             d_alpha=d_alpha,
         )
         [c_x, c_y] = center_of_brighness(spikes)
-        slope, intercept, slope_stderr, intercept_stderr = radial_brightness_asymptotics(
-            spikes, c_x, c_y
-        )
+        (
+            slope,
+            intercept,
+            slope_stderr,
+            intercept_stderr,
+        ) = radial_brightness_asymptotics(spikes, c_x, c_y)
         # Brightness should decay as ~1/r**2:
         np.testing.assert_allclose(slope, -2.0, atol=0.2, rtol=0.0)
-        np.testing.assert_allclose(intercept, np.log(diffraction_fft.A), atol=0.25, rtol=0.0)
+        np.testing.assert_allclose(
+            intercept, np.log(diffraction_fft.A), atol=0.25, rtol=0.0
+        )
         np.testing.assert_array_less(slope_stderr, 0.2)
         np.testing.assert_array_less(intercept_stderr, 0.8)
 
@@ -366,9 +372,12 @@ def test_fft_diffraction_is_similar_to_raytracing_for_0_exptime():
     np.testing.assert_allclose(slope, -2.0, atol=0.6, rtol=0.0)
     np.testing.assert_allclose(raytrace_data["slope"], -2.0, atol=0.6, rtol=0.0)
 
-    np.testing.assert_allclose(
-        intercept, raytrace_data["intercept"], atol=0.5, rtol=0.0
-    )
+    # rho(r) ~ a*r^-2
+    s = diffraction_fft.WAVELENGTH / config["bandpass"].effective_wavelength
+    # \int rho(s*r) s dr = 1
+    # => rho(s*r)*s ~ a/s * r^-2
+    expected_intercept = raytrace_data["intercept"] - np.log(s)
+    np.testing.assert_allclose(intercept, expected_intercept, atol=0.5, rtol=0.0)
     # Here we dont compare against raytracing, but only make sure that both FFT and ratracing values are bounded:
     np.testing.assert_array_less(slope_stderr, 0.2)
     np.testing.assert_array_less(raytrace_data["slope_stderr"], 0.2)
@@ -422,9 +431,12 @@ def test_fft_diffraction_is_similar_to_raytracing_for_field_rotation():
     np.testing.assert_allclose(slope, -2.0, atol=0.6, rtol=0.0)
     np.testing.assert_allclose(raytrace_data["slope"], -2.0, atol=0.6, rtol=0.0)
 
-    np.testing.assert_allclose(
-        intercept, raytrace_data["intercept"], atol=0.5, rtol=0.0
-    )
+    # rho(r) ~ a*r^-2
+    s = diffraction_fft.WAVELENGTH / config["bandpass"].effective_wavelength
+    # \int rho(s*r) s dr = 1
+    # => rho(s*r)*s ~ a/s * r^-2
+    expected_intercept = raytrace_data["intercept"] - np.log(s)
+    np.testing.assert_allclose(intercept, expected_intercept, atol=0.5, rtol=0.0)
     # Here we dont compare against raytracing, but only make sure that both FFT and ratracing values are bounded:
     np.testing.assert_array_less(slope_stderr, 0.2)
     np.testing.assert_array_less(raytrace_data["slope_stderr"], 0.2)

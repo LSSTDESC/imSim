@@ -8,10 +8,11 @@ from .diffraction import field_rotation_sin_cos, prepare_e_z, e_equatorial
 # A is obtained from linear regression of photon shooting data:
 A = 0.0706052627908828
 # A uniquely determines the Lorentzian \rho(r), such that
-# 1. \int_0^\infty \rho(r) = 1,
+# 1. \int_0^\infty \rho(r) dr = 1,
 # 2. \rho(r) ~ A*r^{-2}:
 # \rho(r) = 2.0 / (R_0 \pi) / (1 + (r / R_0)^2), with
 R_0 = 0.5 * A * np.pi
+WAVELENGTH = 577.6
 
 
 def spike_profile(r: np.ndarray) -> np.ndarray:
@@ -25,10 +26,15 @@ def int_spike_profile(r: np.ndarray) -> np.ndarray:
     return 2.0 / np.pi * np.arctan(r / R_0)
 
 
-def field_rotation_profile(r: np.ndarray, d_alpha: float) -> np.ndarray:
+def field_rotation_profile(r: np.ndarray, d_alpha: float, scale: float) -> np.ndarray:
     r"""Due to field rotation, the spike cross is rotating with time.
     As a consequence outer pixels receive a lower dose of photons than inner pixels.
     This function returns version of `spike_profile` including the field rotation effect.
+
+    r: Radii for which to compute the photon distribution
+    d_alpha: Field rotation angle
+    scale: Scale factor for the density distribution
+           Resulting distribution for scale=s: \rho(r*s) s (this preserves \int \rho(r)dr=1).
 
     Idea: Calculate the photon dose a single pixel in a distance of r to the
     spike center receives.
@@ -54,7 +60,7 @@ def field_rotation_profile(r: np.ndarray, d_alpha: float) -> np.ndarray:
     # Note: The pixel at r=0 will receive 2x the dose:
     # \int_{-l_pix}^{l_pix} \rho(r) dr = 2 \int_0^{l_pix} \rho(r) dr
     return (
-        int_spike_profile(r + d_pix) - int_spike_profile(r - d_pix)
+        int_spike_profile((r + d_pix) * scale) - int_spike_profile((r - d_pix) * scale)
     ) * arclength_dose(r)
 
 
@@ -72,12 +78,14 @@ def antialiased_cross(xy: np.ndarray, alpha: float) -> np.ndarray:
 def prepare_psf_field_rotation(
     w: int,
     h: int,
+    wavelength: float,
     alpha: float,
     d_alpha: float,
 ) -> np.ndarray:
     """Spike PSF for finite angular spike width (field rotation).
     w: Pixel width of the image
     h: Pixel height of the image
+    wavelength: Wavelength [nm] of the point source
     alpha: Rotation angle of the spikes [rad]
     d_alpha: angular spike width (field rotation angle)
 
@@ -103,7 +111,8 @@ def prepare_psf_field_rotation(
     psf[dth <= d_alpha] = 1.0
     # Radial profile:
     r = np.hypot(x, y)
-    psf *= field_rotation_profile(r, d_alpha)
+    # Scale according to wavelength:
+    psf *= field_rotation_profile(r, d_alpha, scale=WAVELENGTH / wavelength)
     # The center pixel should be weighted with a factor of 4 (4 spikes) to recover the
     # radial distribution. Due to the above comment in field_rotation_profile,
     # we already have a factor 2:
@@ -116,6 +125,7 @@ def prepare_psf_field_rotation(
 
 def apply_diffraction_psf(
     image: np.ndarray,
+    wavelength: float,
     rottelpos: float,
     exptime: np.ndarray,
     latitude: float,
@@ -126,6 +136,7 @@ def apply_diffraction_psf(
 ):
     """2d convolve, leaving image dimension invariant.
     image: Brightness pixel data
+    wavelength: Wavelength [nm] of the bright pixels in the image
     rottelpos: Telescope rotation angle [rad]
     exptime: Exposure time (used to determine the spike width)
     latitude: Geographic latitude of observators
@@ -145,6 +156,7 @@ def apply_diffraction_psf(
     spike_per_pixel = prepare_psf_field_rotation(
         psf_w,
         psf_h,
+        wavelength=wavelength,
         alpha=rottelpos,
         d_alpha=d_alpha,
     )

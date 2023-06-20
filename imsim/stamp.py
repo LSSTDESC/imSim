@@ -20,10 +20,11 @@ class DiffractionPSF:
     latitude: galsim.Angle = RUBIN_LOC.lat
     enabled: bool = True
 
-    def apply(self, image: galsim.Image) -> None:
+    def apply(self, image: galsim.Image, wavelength: float) -> None:
         if self.enabled:
             apply_diffraction_psf(
                 image.array,
+                wavelength=wavelength,
                 rottelpos=self.rottelpos.rad,
                 exptime=self.exptime,
                 latitude=self.latitude.rad,
@@ -563,7 +564,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 raise
             # Some pixels can end up negative from FFT numerics.  Just set them to 0.
             fft_image.array[fft_image.array < 0] = 0.
-            self.diffraction_psf.apply(fft_image)
+            self.diffraction_psf.apply(fft_image, bandpass.effective_wavelength)
             fft_image.addNoise(galsim.PoissonNoise(rng=self.rng))
             # In case we had to make a bigger image, just copy the part we need.
             image += fft_image[image.bounds]
