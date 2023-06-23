@@ -179,7 +179,9 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                 "Both image_pos and world_pos specified for LSST_Image.",
                 (config['image_pos'], config['world_pos']))
 
-        if 'image_pos' not in config and 'world_pos' not in config:
+        if ('image_pos' not in config and 'world_pos' not in config and
+                not ('stamp' in base and
+                    ('image_pos' in base['stamp'] or 'world_pos' in base['stamp']))):
             xmin = base['image_origin'].x
             xmax = xmin + full_xsize-1
             ymin = base['image_origin'].y
