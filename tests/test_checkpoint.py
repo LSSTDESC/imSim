@@ -285,7 +285,7 @@ def test_checkpoint_flatten():
 
     # Lastly, one additional test to complete the coverage of the buildImage method in
     # LSST_ImageBuilder.
-    config['image']['world_pos'] = config['image']['image_pos']
+    config['image']['world_pos'] = config['image']['image_pos'] = config['stamp'].pop('image_pos')
     with np.testing.assert_raises(galsim.GalSimConfigError):
         galsim.config.BuildImage(config)
 
