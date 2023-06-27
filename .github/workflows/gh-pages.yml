@@ -10,6 +10,7 @@ on:
     branches:
       - main
       - releases/*
+      - /*-docs
   workflow_dispatch:
 
 
