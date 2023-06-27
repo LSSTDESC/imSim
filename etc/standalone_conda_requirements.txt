@@ -2,7 +2,6 @@
 
 stackvana>=0.2023.24
 dust_extinction
-rubin-sim
 batoid
 batoid-rubin
 sncosmo
