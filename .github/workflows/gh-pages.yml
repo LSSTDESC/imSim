@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - releases/*
+      - u/*/*-docs
   pull_request:
     branches:
       - main
