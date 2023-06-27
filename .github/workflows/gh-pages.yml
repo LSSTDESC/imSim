@@ -6,14 +6,15 @@ on:
     branches:
       - main
       - releases/*
-      - u/*/*-docs
   pull_request:
     branches:
       - main
       - releases/*
-      - u/*/*-docs
   workflow_dispatch:
-
+    branches:
+      - main
+      - releases/*
+      - u/*/*-docs
 
 jobs:
   build:
