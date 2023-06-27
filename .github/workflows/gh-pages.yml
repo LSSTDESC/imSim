@@ -11,10 +11,6 @@ on:
       - main
       - releases/*
   workflow_dispatch:
-    branches:
-      - main
-      - releases/*
-      - u/*/*-docs
 
 jobs:
   build:
