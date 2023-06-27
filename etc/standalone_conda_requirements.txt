@@ -1,7 +1,7 @@
 # conda install --file etc/standalone_conda_requirements should install all required dependencies of imSim including a conda based version of the Rubin pipelines.
 
 stackvana>=0.2023.24
-dust_extinction>=1.0
+dust_extinction
 rubin-sim
 batoid
 batoid-rubin
