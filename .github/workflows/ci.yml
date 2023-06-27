@@ -19,7 +19,7 @@ jobs:
             matrix:
                 # For now, just ubuntu, 3.8.  Can add more later.
                 os: [ ubuntu-latest ]
-                py: [ 3.10 ]
+                py: [ "3.10" ]
                 CC: [ gcc ]
                 CXX: [ g++ ]
 
