@@ -15,9 +15,10 @@ class SkyCatalogInterface:
     # https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _eff_area = 0.25 * np.pi * 649**2  # cm^2
 
-    def __init__(self, file_name, wcs, band, xsize=4096, ysize=4096, obj_types=None,
-                 skycatalog_root=None, edge_pix=100, max_flux=None, logger=None,
-                 apply_dc2_dilation=False, approx_nobjects=None):
+    def __init__(self, file_name, wcs, band, mjd, xsize=4096, ysize=4096,
+                 obj_types=None, skycatalog_root=None, edge_pix=100,
+                 max_flux=None, logger=None, apply_dc2_dilation=False,
+                 approx_nobjects=None):
         """
         Parameters
         ----------
@@ -27,6 +28,8 @@ class SkyCatalogInterface:
             WCS of the image to render.
         band : str
             LSST band, one of ugrizy
+        mjd : float
+            MJD of the midpoint of the exposure.
         xsize : int
             Size in pixels of CCD in x-direction.
         ysize : int
@@ -60,6 +63,7 @@ class SkyCatalogInterface:
         self.file_name = file_name
         self.wcs = wcs
         self.band = band
+        self.mjd = mjd
         self.xsize = xsize
         self.ysize = ysize
         self.obj_types = obj_types
@@ -170,7 +174,7 @@ class SkyCatalogInterface:
                 scale = np.sqrt(a/b)
                 gsobjs[component] = gsobj.dilate(scale)
 
-        seds = skycat_obj.get_observer_sed_components()
+        seds = skycat_obj.get_observer_sed_components(mjd=self.mjd)
 
         gs_obj_list = []
         for component in gsobjs:
@@ -188,7 +192,7 @@ class SkyCatalogInterface:
 
         # Compute the flux or get the cached value.
         gs_object.flux \
-            = skycat_obj.get_LSST_flux(self.band)*exptime*self._eff_area
+            = skycat_obj.get_LSST_flux(self.band, mjd=self.mjd)*exptime*self._eff_area
 
         if self.max_flux is not None and gs_object.flux > self.max_flux:
             return None
@@ -207,7 +211,8 @@ class SkyCatalogLoader(InputLoader):
                'obj_types' : list,
                'max_flux' : float,
                'apply_dc2_dilation': bool,
-               'approx_nobjects': int
+               'approx_nobjects': int,
+               'mjd': float,
               }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)

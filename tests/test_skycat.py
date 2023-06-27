@@ -13,13 +13,13 @@ def load_test_skycat(apply_dc2_dilation=False):
     opsim_db_file = str(DATA_DIR / "small_opsim_9683.db")
     visit = 449053
     det_name = "R22_S11"  # detector 94
-
     # Make the WCS object.
     opsim_data = imsim.OpsimDataLoader(opsim_db_file, visit=visit)
     boresight = galsim.CelestialCoord(
         ra=opsim_data["fieldRA"] * galsim.degrees,
         dec=opsim_data["fieldDec"] * galsim.degrees,
     )
+    mjd = opsim_data["mjd"]
     rottelpos = opsim_data["rotTelPos"] * galsim.degrees
     obstime = astropy.time.Time(opsim_data["mjd"], format="mjd", scale="tai")
     band = opsim_data["band"]
@@ -35,7 +35,7 @@ def load_test_skycat(apply_dc2_dilation=False):
     skycat_file = str(DATA_DIR / "sky_cat_9683.yaml")
 
     return imsim.SkyCatalogInterface(
-        skycat_file, wcs, band, obj_types=["galaxy"],
+        skycat_file, wcs, band, mjd, obj_types=["galaxy"],
         apply_dc2_dilation=apply_dc2_dilation
     )
 

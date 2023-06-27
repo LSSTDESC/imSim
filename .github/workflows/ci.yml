@@ -52,7 +52,7 @@ jobs:
                 # We need to get batoid onto conda, but for now, this is a separate step.
                 pip install batoid
                 pip install batoid_rubin
-                pip install skyCatalogs==1.3.0
+                pip install skyCatalogs==1.4.0-rc5
                 conda info
                 conda list
 
