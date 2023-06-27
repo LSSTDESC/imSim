@@ -100,6 +100,7 @@ Now you can run *imSim* from anywhere with the command:
 
 
 .. _method_2:
+
 Method 2: *Conda* and the *Stackvana* package
 ---------------------------------------------
 
