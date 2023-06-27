@@ -19,7 +19,7 @@ jobs:
             matrix:
                 # For now, just ubuntu, 3.8.  Can add more later.
                 os: [ ubuntu-latest ]
-                py: [ 3.8 ]
+                py: [ "3.10" ]
                 CC: [ gcc ]
                 CXX: [ g++ ]
 
@@ -35,7 +35,7 @@ jobs:
               uses: conda-incubator/setup-miniconda@v2
               with:
                   activate-environment: stack
-                  python-version: 3.8
+                  python-version: ${{ matrix.py }}
                   condarc-file: etc/.condarc
 
             - name: Install conda deps
@@ -49,9 +49,6 @@ jobs:
 
             - name: Install pip deps
               run: |
-                # We need to get batoid onto conda, but for now, this is a separate step.
-                pip install batoid
-                pip install batoid_rubin
                 pip install skyCatalogs==1.4.0-rc5
                 conda info
                 conda list
