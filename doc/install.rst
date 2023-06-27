@@ -140,7 +140,6 @@ Now we are ready to install *imSim*. First go to the directory where you would l
 
    # conda dependencies:
    mamba install -y --file imSim/etc/standalone_conda_requirements.txt
-   mamba install -y --no-deps rubin-sim
 
    # Install imSim:
    pip install --no-deps imSim/
