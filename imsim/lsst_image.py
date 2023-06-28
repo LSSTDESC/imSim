@@ -7,7 +7,6 @@ import galsim
 from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
 from lsst.afw import cameraGeom
-import lsst.geom
 from .sky_model import SkyGradient
 from .camera import get_camera
 from .meta_data import data_dir
@@ -50,23 +49,36 @@ class Vignetting:
         det : lsst.afw.cameraGeom.Detector
             CCD in the focal plane.
         """
+        # Compute the distance from the center of the focal plane to
+        # each pixel in the CCD, by generating the grid of pixel x-y
+        # locations in the focal plane.
         bbox = det.getBBox()
         nx = bbox.getWidth()
         ny = bbox.getHeight()
 
-        # Compute the location of the lower-left corner pixel of the
-        # CCD in focal plane coordinates.
-        pix_to_fp = det.getTransform(cameraGeom.PIXELS,
-                                     cameraGeom.FOCAL_PLANE)
+        # Pixel size in mm
         pixel_size = det.getPixelSize()
-        llc = pix_to_fp.applyForward(lsst.geom.Point2D(0, 0))
 
-        # Generate a grid of pixel x, y locations in the focal plane.
-        xarr, yarr = np.meshgrid(np.arange(nx)*pixel_size.x + llc.x,
-                                 np.arange(ny)*pixel_size.y + llc.y)
+        # CCD center in focal plane coordinates (mm)
+        center = det.getCenter(cameraGeom.FOCAL_PLANE)
 
-        # Compute the radial distance of each pixel to the focal plane
-        # center.
+        # Pixel center x-y offsets from the CCD center in mm
+        dx = pixel_size.x*(np.arange(-nx/2, nx/2, dtype=float) + 0.5)
+        dy = pixel_size.y*(np.arange(-ny/2, ny/2, dtype=float) + 0.5)
+
+        # Corner raft CCDs have integral numbers of 90 degree
+        # rotations about the CCD center, so account for these when
+        # computing the x-y pixel locations.
+        n_rot = det.getOrientation().getNQuarter() % 4
+        if n_rot == 0:
+            xarr, yarr = np.meshgrid(center.x + dx, center.y + dy)
+        elif n_rot == 1:
+            yarr, xarr = np.meshgrid(center.y + dx, center.x - dy)
+        elif n_rot == 2:
+            xarr, yarr = np.meshgrid(center.x - dx, center.y - dy)
+        else:
+            yarr, xarr = np.meshgrid(center.y - dx, center.x + dy)
+
         r = np.sqrt(xarr**2 + yarr**2)
 
         return self.spline_model(r)/self.value_at_zero
@@ -333,5 +345,6 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         image += sky
 
         AddNoise(base,image,current_var,logger)
+
 
 RegisterImageType('LSST_Image', LSST_ImageBuilder())
