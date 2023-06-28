@@ -72,7 +72,7 @@ jobs:
                 wget --no-check-certificate https://webhome.phy.duke.edu/~cwalter/tmp/sims-data.tar.gz
                 tar xzvf sims-data.tar.gz
                 rm sims-data.tar.gz
-		 
+
             - name: Install imSim
               run:
                 pip install .
