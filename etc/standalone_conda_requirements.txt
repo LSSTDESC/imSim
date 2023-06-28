@@ -5,3 +5,4 @@ dust_extinction
 batoid
 batoid-rubin
 sncosmo
+palpy
