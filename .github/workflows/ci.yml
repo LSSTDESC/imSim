@@ -69,9 +69,9 @@ jobs:
 #                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
 #                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
 		# Temporary fix for USDF downtime. 
-		wget --no-check-certificate https://webhome.phy.duke.edu/~cwalter/tmp/sims-data.tar.gz
-		tar xzvf sims-data.tar.gz
-		rm sims-data.tar.gz
+                wget --no-check-certificate https://webhome.phy.duke.edu/~cwalter/tmp/sims-data.tar.gz
+                tar xzvf sims-data.tar.gz
+                rm sims-data.tar.gz
 		 
             - name: Install imSim
               run:
