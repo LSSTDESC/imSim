@@ -46,7 +46,15 @@ def run_imsim(camera):
               'output.nfiles': 1,
               'output.readout': '',
               'output.dir': 'fits_header_test',
-              'output.truth': ''}
+              'output.truth': '',
+              'output.header': {
+                  'fieldRA': '$boresight.ra.deg',
+                  'fieldDec': '$boresight.dec.deg',
+                  'test1': '$1+2.3',
+                  'test2': '@output.det_num',
+                  'test3': 'banana'
+              }
+             }
 
     galsim.config.Process(config, logger=logger)
 
@@ -63,6 +71,9 @@ def test_header_keywords():
         mjd_obs = mjd + exptime/2./86400.
         np.testing.assert_approx_equal(hdus[0].header['MJD-OBS'], mjd_obs,
                                        significant=7)
+        assert hdus[0].header['TEST1'] == 3.3
+        assert hdus[0].header['TEST2'] == 0
+        assert hdus[0].header['TEST3'] == 'banana'
     os.remove(os.path.join(eimage_file))
     os.removedirs(os.path.dirname(eimage_file))
 
