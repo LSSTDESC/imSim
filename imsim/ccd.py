@@ -183,7 +183,10 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header['AMEND'] = airmass  # wrong, does anyone care?
 
         # If there's anything left in header_vals, add it to the header.
-        image.header.update(header_vals)
+        for k in header_vals:
+            image.header[k] = galsim.config.ParseValue(
+                header_vals, k, base, None
+            )[0]
 
         return [ image ]
 
