@@ -249,7 +249,7 @@ def test_rubin_diffraction_optics_is_same_as_diffraction_and_optics() -> None:
 
 def extract_spike_angles(photon_array, x_center, y_center, r):
     """Filters out a disc centered at (x_center, y_center) with radius r.
-    The reminding photons will be considered as spike photons.
+    The remaining photons will be considered as spike photons.
     Returns the angles of the spike photons wrt (x_center, y_center).
     """
     spike_photons = (
@@ -434,6 +434,7 @@ TEST_BASE_CONFIG = {
         1.1056660811384078 * galsim.radians, -0.5253441048502933 * galsim.radians
     ),
 }
+TEST_ALT_AZ_CONFIG = {"altitude": "43.0 degrees", "azimuth": "0.0 degrees"}
 
 
 def test_config_rubin_diffraction():
@@ -446,8 +447,7 @@ def test_config_rubin_diffraction():
                 {
                     "type": "RubinDiffraction",
                     "latitude": "-30.24463 degrees",
-                    "altitude": "43.0 degrees",
-                    "azimuth": "0.0 degrees"
+                    **TEST_ALT_AZ_CONFIG
                 }
             ]
         },
@@ -474,9 +474,8 @@ def test_config_rubin_diffraction_without_field_rotation():
                 {
                     "type": "RubinDiffraction",
                     "latitude": "-30.24463 degrees",
-                    "altitude": "43.0 degrees",
-                    "azimuth": "0.0 degrees",
                     "disable_field_rotation": True,
+                    **TEST_ALT_AZ_CONFIG
                 }
             ]
         },
@@ -512,8 +511,7 @@ def test_config_rubin_diffraction_optics():
                         "dec": "-0.5261230452954583 radians",
                     },
                     "latitude": "-30.24463 degrees",
-                    "altitude": "43.0 degrees",
-                    "azimuth": "0.0 degrees",
+                    **TEST_ALT_AZ_CONFIG
                 }
             ]
         },
@@ -550,8 +548,7 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
                         "dec": "-0.5261230452954583 radians",
                     },
                     "disable_field_rotation": True,
-                    "altitude": "43.0 degrees",
-                    "azimuth": "0.0 degrees",
+                    **TEST_ALT_AZ_CONFIG
                 }
             ]
         },

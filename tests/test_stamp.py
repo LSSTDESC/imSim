@@ -51,6 +51,7 @@ def create_test_lsst_silicon(faint: bool):
     lsst_silicon = stamp.LSST_SiliconBuilder()
     lsst_silicon.realized_flux = 100 if not faint else 99
     lsst_silicon.rng = mock.Mock()
+    lsst_silicon.diffraction_psf = mock.Mock()
     return lsst_silicon
 
 
@@ -84,6 +85,7 @@ def test_lsst_silicon_builder_passes_correct_photon_ops_to_drawImage() -> None:
         "add_to_image": True,
         "poisson_flux": False,
         "image": image,
+        "sensor": None,
     }
     expected_fft_args = {"n_subsample": 1, "image": image_copy, "maxN": mock.ANY}
     for method, expected_specific_args in (
@@ -114,7 +116,6 @@ def test_lsst_silicon_builder_passes_correct_photon_ops_to_drawImage() -> None:
                 wcs=mock.ANY,
                 photon_ops=built_photon_ops,
                 rng=lsst_silicon.rng,
-                sensor=mock.ANY,
                 **expected_specific_args
             )
             expected_photon_ops_config_field = {
@@ -143,8 +144,11 @@ def test_stamp_builder_works_without_photon_ops_or_faint() -> None:
         "add_to_image": True,
         "poisson_flux": False,
         "image": image,
+        "sensor": None,
+        "photon_ops": [],
+        "rng": mock.ANY,
     }
-    expected_fft_args = {"n_subsample": 1, "image": image_copy, "maxN": mock.ANY}
+    expected_fft_args = {"image": image_copy}
     for method, expected_specific_args in (
         ("phot", expected_phot_args),
         ("fft", expected_fft_args),
@@ -182,8 +186,5 @@ def test_stamp_builder_works_without_photon_ops_or_faint() -> None:
                         method=method,
                         offset=offset,
                         wcs=mock.ANY,
-                        photon_ops=[],
-                        rng=lsst_silicon.rng,
-                        sensor=mock.ANY,
                         **expected_specific_args
                     )

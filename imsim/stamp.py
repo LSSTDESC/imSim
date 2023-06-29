@@ -1,8 +1,50 @@
-
 from functools import lru_cache
+from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
-from galsim.config import StampBuilder, RegisterStampType
+from galsim.config import StampBuilder, RegisterStampType, GetAllParams
+from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
+
+from .diffraction_fft import apply_diffraction_psf
+from .readout import CcdReadout
+
+
+@dataclass
+class DiffractionPSF:
+    exptime: float
+    azimuth: galsim.Angle
+    altitude: galsim.Angle
+    rottelpos: galsim.Angle
+    spike_length_cutoff: float = 4000
+    brightness_threshold: float = CcdReadout.full_well
+    latitude: galsim.Angle = RUBIN_LOC.lat
+    enabled: bool = True
+
+    def apply(self, image: galsim.Image, wavelength: float) -> None:
+        if self.enabled:
+            apply_diffraction_psf(
+                image.array,
+                wavelength=wavelength,
+                rottelpos=self.rottelpos.rad,
+                exptime=self.exptime,
+                latitude=self.latitude.rad,
+                azimuth=self.azimuth.rad,
+                altitude=self.altitude.rad,
+                brightness_threshold=self.brightness_threshold,
+                spike_length_cutoff=self.spike_length_cutoff,
+            )
+
+    @classmethod
+    def from_config(cls, config: dict, base: dict) -> "DiffractionPSF":
+        """Create a DiffractionPSF from config values."""
+        req_fields = {f.name: f.type for f in fields(cls) if f.default is MISSING}
+        opt_fields = {f.name: f.type for f in fields(cls) if f.default is not MISSING}
+        diffraction_psf_config = config.get("diffraction_psf", {})
+        kwargs, _safe = GetAllParams(
+            diffraction_psf_config, base, req=req_fields, opt=opt_fields
+        )
+        return cls(**kwargs)
+
 
 class LSST_SiliconBuilder(StampBuilder):
     """This performs the tasks necessary for building the stamp for a single object.
@@ -15,6 +57,8 @@ class LSST_SiliconBuilder(StampBuilder):
     _trivial_sed = galsim.SED(galsim.LookupTable([100, 2000], [1,1], interpolant='linear'),
                               wave_type='nm', flux_type='fphotons')
     _Nmax = 4096  # (Don't go bigger than 4096)
+
+    diffraction_psf: DiffractionPSF
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
         """
@@ -43,6 +87,8 @@ class LSST_SiliconBuilder(StampBuilder):
         if gal is None:
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
         self.gal = gal
+
+        self.diffraction_psf = DiffractionPSF.from_config(config, base)
 
         # Compute or retrieve the realized flux.
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
@@ -484,26 +530,24 @@ class LSST_SiliconBuilder(StampBuilder):
             maxN = galsim.config.ParseValue(config, 'maxN', base, int)[0]
 
         if method == 'fft':
-            if not faint and 'fft_photon_ops' in config:
-                photon_ops = galsim.config.BuildPhotonOps(config, 'fft_photon_ops', base, logger)
-            else:
-                photon_ops = []
-
             fft_image = image.copy()
             fft_offset = offset
+            kwargs = dict(
+                method='fft',
+                offset=fft_offset,
+                image=fft_image,
+                wcs=wcs,
+            )
+            if not faint and config.get('fft_photon_ops'):
+                kwargs.update({
+                    "photon_ops": galsim.config.BuildPhotonOps(config, 'fft_photon_ops', base, logger),
+                    "maxN": maxN,
+                    "rng": self.rng,
+                    "n_subsample": 1,
+                })
 
             try:
-                prof.drawImage(bandpass,
-                               method='fft',
-                               offset=fft_offset,
-                               image=fft_image,
-                               wcs=wcs,
-                               photon_ops=photon_ops,
-                               rng=self.rng,
-                               sensor=galsim.Sensor(),
-                               n_subsample=1,
-                               maxN=maxN
-                               )
+                prof.drawImage(bandpass, **kwargs)
             except galsim.errors.GalSimFFTSizeError as e:
                 # I think this shouldn't happen with the updates I made to how the image size
                 # is calculated, even for extremely bright things.  So it should be ok to
@@ -518,12 +562,12 @@ class LSST_SiliconBuilder(StampBuilder):
                 logger.info('offset = %r',offset)
                 logger.info('wcs = %r',wcs)
                 raise
-            else:
-                # Some pixels can end up negative from FFT numerics.  Just set them to 0.
-                fft_image.array[fft_image.array < 0] = 0.
-                fft_image.addNoise(galsim.PoissonNoise(rng=self.rng))
-                # In case we had to make a bigger image, just copy the part we need.
-                image += fft_image[image.bounds]
+            # Some pixels can end up negative from FFT numerics.  Just set them to 0.
+            fft_image.array[fft_image.array < 0] = 0.
+            self.diffraction_psf.apply(fft_image, bandpass.effective_wavelength)
+            fft_image.addNoise(galsim.PoissonNoise(rng=self.rng))
+            # In case we had to make a bigger image, just copy the part we need.
+            image += fft_image[image.bounds]
 
         else:
             if not faint and 'photon_ops' in config:
