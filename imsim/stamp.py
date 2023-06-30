@@ -14,7 +14,7 @@ class DiffractionPSF:
     exptime: float
     azimuth: galsim.Angle
     altitude: galsim.Angle
-    rottelpos: galsim.Angle
+    rotTelPos: galsim.Angle
     spike_length_cutoff: float = 4000
     brightness_threshold: float = CcdReadout.full_well
     latitude: galsim.Angle = RUBIN_LOC.lat
@@ -25,7 +25,7 @@ class DiffractionPSF:
             apply_diffraction_psf(
                 image.array,
                 wavelength=wavelength,
-                rottelpos=self.rottelpos.rad,
+                rottelpos=self.rotTelPos.rad,
                 exptime=self.exptime,
                 latitude=self.latitude.rad,
                 azimuth=self.azimuth.rad,

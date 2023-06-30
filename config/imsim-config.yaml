@@ -234,9 +234,9 @@ stamp:
       altitude:
         type: Degrees
         theta: { type: OpsimData, field: altitude }
-      rottelpos:
+      rotTelPos:
         type: Degrees
-        theta: { type: OpsimData, field: rottelpos }
+        theta: { type: OpsimData, field: rotTelPos }
 
     world_pos:
         type: InstCatWorldPos
