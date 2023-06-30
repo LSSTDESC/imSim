@@ -52,7 +52,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         try:
             self.vignetting = galsim.config.GetInputObj('vignetting', config,
                                                         base, 'LSST_Image')
-        except galsm.config.GalSimConfigError:
+        except galsim.config.GalSimConfigError:
             self.vignetting = None
 
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
