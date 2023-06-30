@@ -2,11 +2,12 @@ from functools import lru_cache
 from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
-from galsim.config import StampBuilder, RegisterStampType, GetAllParams
+from galsim.config import StampBuilder, RegisterStampType, GetAllParams, GetInputObj
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 from .diffraction_fft import apply_diffraction_psf
 from .readout import CcdReadout
+from .camera import get_camera
 
 
 @dataclass
@@ -90,18 +91,23 @@ class LSST_SiliconBuilder(StampBuilder):
 
         self.diffraction_psf = DiffractionPSF.from_config(config, base)
 
+        try:
+            self.vignetting = GetInputObj('vignetting', config, base,
+                                          'LSST_SiliconBuilder')
+        except galsim.config.GalSimConfigError:
+            self.vignetting = None
+
         # Compute or retrieve the realized flux.
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
         bandpass = base['bandpass']
-        if hasattr(gal, 'flux'):
-            flux = gal.flux
-        else:
-            # TODO: This calculation is slow, so we'd like to avoid
-            # doing here it for faint objects.  Eventually, this call
-            # will be replaced by retrieving precomputed/cached values
-            # via skyCatalogs.
-            flux = gal.calculateFlux(bandpass)
-        self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
+        self.image = base['current_image']
+        camera = get_camera(base['output']['camera'])
+        self.det = camera[base['det_name']]
+        if not hasattr(gal, 'flux'):
+            # In this case, the object flux has not been precomputed
+            # or cached by the skyCatalogs code.
+            gal.flux = gal.calculateFlux(bandpass)
+        self.realized_flux = galsim.PoissonDeviate(self.rng, mean=gal.flux)()
 
         # Check if the realized flux is 0.
         if self.realized_flux == 0:
@@ -190,6 +196,7 @@ class LSST_SiliconBuilder(StampBuilder):
 
         # Also the position
         world_pos = galsim.config.ParseWorldPos(config, 'world_pos', base, logger)
+        self.sky_coord = world_pos
         image_pos = None  # GalSim will figure this out from the wcs.
 
         return image_size, image_size, image_pos, world_pos
@@ -399,6 +406,14 @@ class LSST_SiliconBuilder(StampBuilder):
         logger.debug('max_sb = %s. cf. %s',max_sb,fft_sb_thresh)
         if max_sb > fft_sb_thresh:
             self.use_fft = True
+            # For FFT-rendered objects, the telescope vignetting isn't
+            # emergent as it is for the ray-traced objects, so use the
+            # empirical vignetting function to recompute the realized
+            # flux.
+            flux = self.gal.flux*self.vignetting.at_sky_coord(self.sky_coord, self.image.wcs,
+                                                              self.det)
+            self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
+
             logger.warning('Yes. Use FFT for this object.  max_sb = %.0f > %.0f',
                            max_sb, fft_sb_thresh)
             return fft_psf
