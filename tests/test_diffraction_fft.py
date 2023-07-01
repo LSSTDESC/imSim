@@ -130,7 +130,7 @@ def create_test_config(
             "diffraction_psf": {
                 **alt_az,
                 "exptime": exptime,
-                "rottelpos": rottelpos,
+                "rotTelPos": rottelpos,
                 "enabled": enable_diffraction,
                 "brightness_threshold": 1.0e5,
             },
@@ -349,7 +349,7 @@ def test_fft_diffraction_is_similar_to_raytracing_for_0_exptime():
 
     angle, angle_stddev = folded_spike_angle(brightness, c_x, c_y, r_min=10.0)
     expected_angle = (
-        45.0 * galsim.degrees - config["stamp"]["diffraction_psf"]["rottelpos"]
+        45.0 * galsim.degrees - config["stamp"]["diffraction_psf"]["rotTelPos"]
     )
 
     # 1° tolerance:
