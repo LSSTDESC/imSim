@@ -137,7 +137,7 @@ class ImageSourceTestCase(unittest.TestCase):
         readout.writeFile(outfile, self.readout_config, self.config, self.logger)
         with fits.open(outfile) as hdus:
             self.assertEqual(hdus[0].header['IMSIMVER'], imsim.__version__)
-            self.assertEqual(hdus[0].header['FILTER'], 'r')
+            self.assertEqual(hdus[0].header['FILTER'], 'r_57')
             self.assertEqual(hdus[0].header['MJD-OBS'], 61017.0451099272)
         os.remove(outfile)
 
@@ -147,7 +147,7 @@ class ImageSourceTestCase(unittest.TestCase):
         readout.ensureFinalized(readout_config, config, [image], self.logger)
         readout.writeFile(outfile, self.readout_config, self.config, self.logger)
         with fits.open(outfile) as hdus:
-            self.assertEqual(hdus[0].header['FILTER'], 'r')
+            self.assertEqual(hdus[0].header['FILTER'], 'r_57')
 
         # Make sure it parses it, not just gets it.
         readout_config['filter'] = '$"Happy Birthday!"[8]'
@@ -155,7 +155,7 @@ class ImageSourceTestCase(unittest.TestCase):
         readout.ensureFinalized(readout_config, config, [image], self.logger)
         readout.writeFile(outfile, self.readout_config, self.config, self.logger)
         with fits.open(outfile) as hdus:
-            self.assertEqual(hdus[0].header['FILTER'], 'r')
+            self.assertEqual(hdus[0].header['FILTER'], 'r_57')
         os.remove(outfile)
 
         # If bias level, dark_current, and read_noise are all 0, then output should be 0.
