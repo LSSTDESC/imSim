@@ -16,7 +16,7 @@ Now try to run the file with the command:
 
 *GalSim* will process the YAML file and open and read the example instance catalog file generating a fits file which corresponds to the listed sources.
 
-*imSim* has more than one way to specify sources.  Instance catalogs are simple text files best suited to making small handcrafted inputs. For compatibility purposes, They follow the format of the *PhoSim* program which is documented on `PhoSim Web Site <https://bitbucket.org/phosim/phosim_release/wiki/Instance%20Catalog>`__.  For more complex and large area simulations *imSim* utilizes an API based system known as `skyCatalogs <https://github.com/LSSTDESC/skyCatalogs>`__.  By querying the SkyCatalog via it's API it can return a list to *imSim* of all the objects at that position in the the sky at that time. *skyCatalogs* can return both static and time dependent sources and can be configured to serve objects from both synthetic sky maps and true lists of sources such as from *Gaia*.
+*imSim* has more than one way to specify sources.  Instance catalogs are simple text files best suited to making small handcrafted inputs. For compatibility purposes, They follow the format of the *PhoSim* program which is documented on `PhoSim Web Site <https://bitbucket.org/phosim/phosim_release/wiki/Instance%20Catalog>`__.  For more complex and large area simulations *imSim* utilizes an API based system known as `skyCatalogs <https://github.com/LSSTDESC/skyCatalogs>`__.  By querying the *skyCatalog* via it's API it can return a list to *imSim* of all the objects at that position in the the sky at that time. *skyCatalogs* can return both static and time dependent sources and can be configured to serve objects from both synthetic sky maps and true lists of sources such as from *Gaia*. The *skyCatalog* can also serve as a source of truth information when later analyzing simulated data.
 
 It is also important to specify *MetaData* to *imSim* which supplies necessary information such as the location, pointing, filters being used and time that the exposure was taken.  This information can be manually specified in the YAML files, given as part of a text based instance catalog, or retrieved from a Rubin Observatory *OpSim* file which is the simulated output of a Rubin Schedular execution.
 
@@ -83,4 +83,4 @@ After creating these files you can:
     galsim 1-star.yaml
 
 
-In the output directory
+In the 'output' directory (that you specified in the YAML file), you will find three files an *eimage* FITS file (which contains the true electron informationon the sensor), an *amp* FITS file which contains the full electronic readout of each amplifier on the sensor (each in its own HDU), and a text centroid file with truth information on where the source was located.  The FITS files are viewable with a program such as *ds9*.
