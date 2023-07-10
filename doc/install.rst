@@ -24,11 +24,11 @@ Load and setup the science pipelines
 
 First you need to setup the science pipelines.  This involves sourcing a setup file and then using the Rubin *eups* commands to set them up.
 
-.. note:: 
+.. note::
 
    You will need at least version  ``w_2023_21-dev`` of the science pipelines to complete these instructions.
 
-   Also note: the cvmfs distribution is a read-only distribution.  This means you cannot add packages to the included conda environment and packages you install via *pip* will be installed in the user area.  If you need a *conda*  environment you can modify while running *imSim*, then you may consider :ref:`method_2` below. 
+   Also note: the cvmfs distribution is a read-only distribution.  This means you cannot add packages to the included conda environment and packages you install via *pip* will be installed in the user area.  If you need a *conda*  environment you can modify while running *imSim*, then you may consider :ref:`method_2` below.
 
 Source the appropriate setup script (note the -ext in the name) and then setup the distribution (if you are on MacOS use darwin-x86_64 instead of linux-x86_64).
 
@@ -104,7 +104,7 @@ Now you can run *imSim* from anywhere with the command:
 Method 2: *Conda* and the *Stackvana* package
 ---------------------------------------------
 
-If using the *cvmfs* distribution is not an appropriate solution, you can install a standalone pre-built conda distribution from conda-forge  instead. With this method, you will install a version of lsst_distrib which has been compiled for conda along with extra needed dependencies. 
+If using the *cvmfs* distribution is not an appropriate solution, you can install a standalone pre-built conda distribution from conda-forge  instead. With this method, you will install a version of lsst_distrib which has been compiled for conda along with extra needed dependencies.
 
 Install *Conda*
 ~~~~~~~~~~~~~~~
@@ -117,7 +117,7 @@ First install conda from  `Miniforge <https://github.com/conda-forge/miniforge>`
    bash Mambaforge-$(uname)-$(uname -m).sh
 
 
-.. note:: 
+.. note::
 
    If you prefer you can use  `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`__  or your own conda installation but, in that case, be careful to specify that you want to use the conda-forge channel.
 
@@ -125,7 +125,7 @@ Next, create a *Conda* environment and activate it.
 
 .. code-block:: sh
 
-   conda create -n imSim 
+   conda create -n imSim
    conda activate imSim
 
 Clone *imSim* and dependencies
@@ -192,7 +192,7 @@ installed.
 
 The easiest method is to pull the latest *imSim* environment *Docker* image
 from `DockerHub <https://hub.docker.com/r/lsstdesc/imsim-env>`__. This has the
-latest LSST stack and version of *imSim* preinstalled: 
+latest LSST stack and version of *imSim* preinstalled:
 
 .. code-block:: sh
 
@@ -208,7 +208,7 @@ To then run the image do:
     docker run -it --privileged --rm lsstdesc/imsim-env:latest
 
 *imSim* is installed under ``/home/lsst``. The LSST
-stack is activated automatically on the startup of the image. 
+stack is activated automatically on the startup of the image.
 
 .. note:: If you have trouble accessing the internet within the container, you
    may have to add ``--network host`` to the ``docker run`` command.
@@ -319,3 +319,16 @@ The available images can be listed via
 .. code-block:: sh
 
     docker images
+
+Testing your installation
+--------------------------------------------------
+
+If the installation has been done correctly you should now be able to go to a working area of your choosing and run the program.
+
+imSim is run by executing the galsim executable with an imSim yaml file as input:
+
+.. code-block:: sh
+
+   galsim $IMSIM_HOME/imSim/examples/imsim-user.yaml
+
+The program should run to completion without errors.
