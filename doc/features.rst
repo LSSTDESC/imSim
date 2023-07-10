@@ -1,5 +1,5 @@
-Feature Matrix
-##############
+Features Implemented in imSim
+#############################
 
 This summary table should give a high level overview of effects. For detailed information please make/link to a subpage or appropriate reference.
 
@@ -261,8 +261,8 @@ Calibration Products
      -
      -
 
-Effects
--------
+Detailed Physical Effects Implemented in imSim
+----------------------------------------------
 
 .. toctree::
    :maxdepth: 2

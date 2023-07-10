@@ -11,6 +11,8 @@ Contents
    :maxdepth: 2
 
    install.rst
+   usage.rst
+   config.rst
    features.rst
    data-formats.rst
-   usage.rst
+   module-use.rst
