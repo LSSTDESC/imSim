@@ -247,7 +247,7 @@ def get_primary_hdu(eimage, lsst_num='LCA-11021_RTM-000', camera_name=None,
         phdu.header['RATEL'] = ratel
         phdu.header['DECTEL'] = dectel
     else:
-        phdu.header['FILTER'] = LSSTCam_filter_map[band]
+        phdu.header['FILTER'] = LSSTCam_filter_map.get(band, None)
         phdu.header['INSTRUME'] = 'LSSTCam'
         phdu.header['RAFTBAY'] = raft
         phdu.header['CCDSLOT'] = sensor
