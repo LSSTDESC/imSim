@@ -22,3 +22,4 @@ from .telescope_loader import *
 from .lsst_image import *
 from .checkpoint import *
 from .opd import *
+from .vignetting import *

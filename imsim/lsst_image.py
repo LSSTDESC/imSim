@@ -1,87 +1,10 @@
-import os
-import json
 import numpy as np
-import scipy
 import logging
 import galsim
 from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
-from lsst.afw import cameraGeom
 from .sky_model import SkyGradient
 from .camera import get_camera
-from .meta_data import data_dir
-
-
-class Vignetting:
-    """
-    Compute vignetting using a 1D spline to model the radial profile
-    of the vignetting function.
-    """
-    def __init__(self, spline_data_file):
-        """
-        Parameters
-        ----------
-        spline_data_file : str
-            File containing the 1D spline model.
-        """
-        if not os.path.isfile(spline_data_file):
-            # Check if spline data file is in data_dir.
-            data_file = os.path.join(data_dir, spline_data_file)
-            if not os.path.isfile(data_file):
-                raise OSError(f"Vignetting data file {spline_data_file} not found.")
-        else:
-            data_file = spline_data_file
-        with open(data_file) as fobj:
-            spline_data = json.load(fobj)
-
-        self.spline_model = scipy.interpolate.BSpline(*spline_data)
-
-        # Use the value at the center of the focal plane to
-        # normalize the vignetting profile.
-        self.value_at_zero = self.spline_model(0)
-
-    def __call__(self, det):
-        """
-        Return the vignetting for each pixel in a CCD.
-
-        Parameters
-        ----------
-        det : lsst.afw.cameraGeom.Detector
-            CCD in the focal plane.
-        """
-        # Compute the distance from the center of the focal plane to
-        # each pixel in the CCD, by generating the grid of pixel x-y
-        # locations in the focal plane.
-        bbox = det.getBBox()
-        nx = bbox.getWidth()
-        ny = bbox.getHeight()
-
-        # Pixel size in mm
-        pixel_size = det.getPixelSize()
-
-        # CCD center in focal plane coordinates (mm)
-        center = det.getCenter(cameraGeom.FOCAL_PLANE)
-
-        # Pixel center x-y offsets from the CCD center in mm
-        dx = pixel_size.x*(np.arange(-nx/2, nx/2, dtype=float) + 0.5)
-        dy = pixel_size.y*(np.arange(-ny/2, ny/2, dtype=float) + 0.5)
-
-        # Corner raft CCDs have integral numbers of 90 degree
-        # rotations about the CCD center, so account for these when
-        # computing the x-y pixel locations.
-        n_rot = det.getOrientation().getNQuarter() % 4
-        if n_rot == 0:
-            xarr, yarr = np.meshgrid(center.x + dx, center.y + dy)
-        elif n_rot == 1:
-            yarr, xarr = np.meshgrid(center.y + dx, center.x - dy)
-        elif n_rot == 2:
-            xarr, yarr = np.meshgrid(center.x - dx, center.y - dy)
-        else:
-            yarr, xarr = np.meshgrid(center.y - dx, center.x + dy)
-
-        r = np.sqrt(xarr**2 + yarr**2)
-
-        return self.spline_model(r)/self.value_at_zero
 
 
 class LSST_ImageBuilder(ScatteredImageBuilder):
@@ -119,18 +42,18 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         extra_ignore = [ 'image_pos', 'world_pos', 'stamp_size', 'stamp_xsize', 'stamp_ysize',
                          'nobjects' ]
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
-                'apply_vignetting': bool, 'apply_sky_gradient': bool,
-                'vignetting_data_file': str, 'camera': str, 'nbatch': int}
+                'apply_sky_gradient': bool, 'camera': str, 'nbatch': int }
         params = GetAllParams(config, base, opt=opt, ignore=ignore+extra_ignore)[0]
 
         size = params.get('size',0)
         full_xsize = params.get('xsize',size)
         full_ysize = params.get('ysize',size)
 
-        self.apply_vignetting = params.get('apply_vignetting', False)
-        if self.apply_vignetting:
-            vignetting_data_file = params.get('vignetting_data_file')
-            self.vignetting = Vignetting(vignetting_data_file)
+        try:
+            self.vignetting = galsim.config.GetInputObj('vignetting', config,
+                                                        base, 'LSST_Image')
+        except galsim.config.GalSimConfigError:
+            self.vignetting = None
 
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
 
@@ -319,7 +242,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
 
         sky = GetSky(config, base, full=True)
 
-        if ((self.apply_sky_gradient or self.apply_vignetting)
+        if ((self.apply_sky_gradient or self.vignetting is not None)
             and not isinstance(sky, galsim.Image)):
             # Handle the case where a full image isn't returned by
             # GetSky, i.e., when the sky level is constant and the wcs
@@ -336,7 +259,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             xarr, yarr = np.meshgrid(range(nx), range(ny))
             sky.array[:] *= sky_gradient(xarr, yarr)
 
-        if self.apply_vignetting:
+        if self.vignetting is not None:
             det_name = base['det_name']
             camera = get_camera(self.camera_name)
             logger.info("Applying vignetting according to radial spline model.")

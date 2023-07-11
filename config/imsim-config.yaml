@@ -122,6 +122,8 @@ input:
               - { type: OpsimData, field: observationId }
               - "$det_name"
 
+    vignetting:
+        file_name: LSSTCam_vignetting_data.json
 
 # Define how the objects are placed on the image.  This refers to a single CCD.
 image:
@@ -170,9 +172,6 @@ image:
         read_noise: 0  # The read noise is applied later.  Only sky noise here.
 
     sky_level: { type: SkyLevel }  # Computed from input.sky_model.
-
-    apply_vignetting: True
-    vignetting_data_file: LSSTCam_vignetting_data.json
 
     apply_sky_gradient: True
 
