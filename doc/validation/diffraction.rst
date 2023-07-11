@@ -291,7 +291,9 @@ of freedom (:math:`R_0`):
 
    \rho(r) = \frac{2}{R_0\pi}\frac{1}{1 + (r / R_0)^2}.
 
-The PSF for zero exposure time (no field rotation) is then defined as:
+The PSF for zero exposure time (no field rotation) is then defined as
+the sum of 2 :math:`\delta` functions along the coordinate
+axes (forming a cross) multiplied by the radial distribution:
 
 .. math::
 
