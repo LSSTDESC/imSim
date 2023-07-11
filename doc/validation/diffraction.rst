@@ -260,9 +260,10 @@ FFT Mode
 ^^^^^^^^
 
 Conceptionally, to model diffraction in FFT mode, the image is
-convoluted with the PSF of the diffraction effect. This is implemented
-by rendering the PSF to a finite square and convolve the square which each
-object individually. For each object a region of saturated pixels
+convolved with the PSF of the diffraction effect. This is implemented 
+by convolving the pattern for a single pixel with a subset of
+the pixels in the image.
+For each object a region of saturated pixels
 (``brightness >= brightness_threshold``) is identified. For
 performance reasons, the convolution is only applied to this region.
 
@@ -294,14 +295,23 @@ The PSF for zero exposure time (no field rotation) is then defined as:
 
    PSF_{\alpha=0}(x, y) = \frac{1}{4} \rho(\sqrt{x^2+y^2}) (\delta(x) + \delta(y)).
 
-Before rendered and convolved, a rotation corresponding to
+
+Before being rendered and convolved, a rotation corresponding to
 ``rotTelPos`` is applied.
 
 Diffraction PSF for non-zero exposure time
 ``````````````````````````````````````````
 
-We neglect the time dependence of the rotation rate of the field
-rotation and model the PSF according to
+The above calculation neglects the rotation of the field relative to
+the spiders. In order to account for the rotational effects for
+exposures of finite length, we integrate rotated copies of
+:math:`PSF_{\alpha=0}` over the time interval of exposure.
+Here, we neglect the time dependence of the rotation rate of the field and
+instead assume a constant rotation rate.
+
+Let :math:`\alpha` be the total field rotation angle during the
+exposure interval. The PSF for diffraction with non zero exposure time
+is then given by
 
 .. math::
 
@@ -363,7 +373,9 @@ is set to
 Wavelength dependence
 `````````````````````
 
-Here, we simply scale
+In order to approximately account for the effect of wavelength
+dependence in the diffractions we scale the above equations in each
+pass band as:
 
 .. math::
 
