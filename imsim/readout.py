@@ -18,6 +18,17 @@ from ._version import __version__
 
 _rotSkyPos_cache = {}
 
+
+# This mapping of band to LSSTCam filter names is obtained from
+# https://github.com/lsst/obs_lsst/blob/w.2023.26/python/lsst/obs/lsst/filters.py#L62-L72
+LSSTCam_filter_map = {'u': 'u_24',
+                      'g': 'g_6',
+                      'r': 'r_57',
+                      'i': 'i_39',
+                      'z': 'z_20',
+                      'y': 'y_10'}
+
+
 def make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name,
                     logger=None):
     """
@@ -229,12 +240,14 @@ def get_primary_hdu(eimage, lsst_num='LCA-11021_RTM-000', camera_name=None,
     rottelpos = eimage.header['ROTTELPOS']
     band = eimage.header['FILTER']
     if camera_name == 'LsstCamImSim':
+        phdu.header['FILTER'] = band
         phdu.header['TESTTYPE'] = 'IMSIM'
         phdu.header['RAFTNAME'] = raft
         phdu.header['SENSNAME'] = sensor
         phdu.header['RATEL'] = ratel
         phdu.header['DECTEL'] = dectel
     else:
+        phdu.header['FILTER'] = LSSTCam_filter_map.get(band, None)
         phdu.header['INSTRUME'] = 'LSSTCam'
         phdu.header['RAFTBAY'] = raft
         phdu.header['CCDSLOT'] = sensor
@@ -249,7 +262,6 @@ def get_primary_hdu(eimage, lsst_num='LCA-11021_RTM-000', camera_name=None,
         ratel, dectel, rottelpos, mjd_obs, band, camera_name=camera_name,
         logger=logger)
     phdu.header['MJD-OBS'] = mjd_obs
-    phdu.header['FILTER'] = band
     phdu.header['HASTART'] = eimage.header['HASTART']
     phdu.header['HAEND'] = eimage.header['HAEND']
     phdu.header['DATE-OBS'] = Time(mjd_obs, format='mjd', scale='tai').to_value('isot')
