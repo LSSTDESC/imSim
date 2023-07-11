@@ -1,8 +1,10 @@
 Effect: Diffraction
 ###################
 
-When enterying the pupil plane, photons will be diffracted by the
-struts of the spider. This leads to spikes in the image.
+When entering the pupil plane, photons will be diffracted by edges
+in the pupil mask, including the inner and outer edges of the
+primary mirror and by the struts of the spider. The spider in
+particular leads to spikes in the image.
 
 Contact person(s) if any:
 -------------------------
@@ -29,13 +31,13 @@ Raytracing Mode
 
 `Coffey, Mahan <thesis_>`_ describe a statistical approach of photons
 diffracted by entering a slit of thickness :math:`a`.
-The heuristics is motivated by Heisenbergs uncertency principle
+The heuristic is motivated by Heisenberg's uncertainty principle
 applied to the two variables :math:`\delta` and :math:`\Delta p_y`,
 where :math:`\delta` denotes the distance from the point of entry to
-the aperture edge and :math:`\Delta p_y` the uncertency of the photons
+the aperture edge and :math:`\Delta p_y` the uncertainty of the photon's
 momentum in the direction perpendicular to the slit.
 
-Using this heuristics, the authors derive a model, where photons are
+Using this heuristic, the authors derive a model where photons are
 diffracted by assigning to the photons new momenta :math:`\Delta p_y`
 such that the statistical distribution of the diffraction angles
 :math:`\phi_d` is given by
@@ -259,8 +261,8 @@ and :math:`\boldsymbol{e}_N = \boldsymbol{e}_r(0) \times \boldsymbol{e}_E`.
 FFT Mode
 ^^^^^^^^
 
-Conceptionally, to model diffraction in FFT mode, the image is
-convolved with the PSF of the diffraction effect. This is implemented 
+Conceptually, to model diffraction in FFT mode, the image is
+convolved with the PSF of the diffraction effect. This is implemented
 by convolving the pattern for a single pixel with a subset of
 the pixels in the image.
 For each object a region of saturated pixels
@@ -322,7 +324,7 @@ is then given by
        +\sin(\varphi)y, -\sin(\varphi)x +\cos(\varphi)y) d\varphi \\
      &= \frac{1}{\alpha}
        \int_0^{\alpha} PSF_{\Delta
-       \varphi=0}(r(x,y)\cos(\varphi - \theta(x,y)), r(x,y)\sin(\varphi - \theta(x,y))) d\varphi \\     
+       \varphi=0}(r(x,y)\cos(\varphi - \theta(x,y)), r(x,y)\sin(\varphi - \theta(x,y))) d\varphi \\
      &= \begin{cases}
        \frac{1}{4\alpha}\frac{\rho(\sqrt{x^2+y^2})}{\sqrt{x^2+y^2}},& 0 \leq \theta(x,y)
        \ \mathrm{mod}\  \frac{\pi}{2}
@@ -348,12 +350,12 @@ y^2}`, by an "angular pixel":
 
    r_{\textrm{pix}}-d/2 <= r <= r_{\textrm{pix}}+d/2,\\
    -\Delta\theta_{\textrm{pix}}(r_{\textrm{pix}})/2 <= \theta <= \Delta\theta_{\textrm{pix}}(r_{\textrm{pix}})/2,
-   
+
 where :math:`\Delta\theta_{\textrm{pix}}(r)` is chosen such that the arclength
 :math:`r \Delta\theta_{\textrm{pix}}(r)` is :math:`d`.
 Note that when :math:`\alpha < d/r_{\textrm{pix}}`, the pixel
 will not receive the full dose and
-the angular range range will be cut off:
+the angular range will be cut off:
 
 .. math::
 
