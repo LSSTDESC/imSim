@@ -12,7 +12,7 @@ from galsim.config.util import get_cls_params
 from coord import Angle
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 from .camera import get_camera
-from .utils import focal_to_pixel
+from .utils import focal_to_pixel, jac_focal_to_pixel
 from .diffraction import (
     RUBIN_SPIDER_GEOMETRY,
     apply_diffraction_delta,
@@ -471,8 +471,10 @@ def ray_vector_to_photon_array(
     w = ~ray_vector.vignetted
     assert all(np.abs(ray_vector.z[w]) < 1.0e-15)
     out.x, out.y = focal_to_pixel(ray_vector.y * 1e3, ray_vector.x * 1e3, detector)
-
-    out.dxdz = ray_vector.vx / ray_vector.vz
-    out.dydz = ray_vector.vy / ray_vector.vz
+    # Need the jacobian of (x, y) |-> focal_to_pixel(M (x,y)), where M is given below
+    M = np.array([[0.0, 1.0e3], [1.0e3, 0.0]])
+    jac = M @ jac_focal_to_pixel(0.0, 0.0, detector)  # Jac is constant
+    out.dxdz, out.dydz = jac @ np.array([ray_vector.vx, ray_vector.vy]) / ray_vector.vz
+    out.dxdz, out.dydz = (out.dxdz.ravel(), out.dydz.ravel())
     out.flux[ray_vector.vignetted] = 0.0
     return out
