@@ -16,3 +16,4 @@ Contents
    features.rst
    data-formats.rst
    module-use.rst
+   lsst-camera.rst
