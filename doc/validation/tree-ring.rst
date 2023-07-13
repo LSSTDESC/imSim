@@ -1,3 +1,5 @@
+.. _tree-ring-label:
+
 Effect: Tree rings
 ##################
 
