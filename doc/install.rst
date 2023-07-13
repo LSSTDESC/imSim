@@ -8,9 +8,9 @@ Installation Instructions
    These instructions were last updated June of 2023.
 
 
-.. note::
+.. warning::
 
-   If you are using MacOS on Apple Silicon then .... `Need to figure out what is true to say`
+   If you are using MacOS on Apple Silicon then .... ``Need to figure out what is true to say``
 
 
 The *imSim* software is *GalSim* based, and it also depends on the `LSST science pipelines <https://pipelines.lsst.io/>`_ and Rubin simulation framework.   It is easiest to work in an environment where someone else has already built the science pipelines, simulation packages and GalSim for you.  Luckily, several such options exist.
