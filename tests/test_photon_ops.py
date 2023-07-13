@@ -602,6 +602,6 @@ def test_config_rubin_optics():
 
 
 if __name__ == "__main__":
-    testfns = [v for k, v in vars().items() if k.starts_with("test_") and callable(v)]
+    testfns = [v for k, v in vars().items() if k.startswith("test_") and callable(v)]
     for testfn in testfns:
         testfn()
