@@ -49,10 +49,63 @@ Instance catalogs
 
 Instance catalogs are text files best suited to making small handcrafted inputs. For legacy and compatibility purposes, They follow the format of the *PhoSim* program inputs which are documented on `PhoSim Web Site <https://bitbucket.org/phosim/phosim_release/wiki/Instance%20Catalog>`__.  The file should contain a a header including metadata describing the observation and a list of sources.
 
-- RegisterInputType('instance_catalog',
-- RegisterValueType('InstCatWorldPos'
-- RegisterObjectType('InstCatObj'
-- RegisterSEDType('InstCatSED'
+Key Name: instance_catalog
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Required keywords to set:
+"""""""""""""""""""""""""
+
+    * ``file_name`` = *str_value* (default =  None)  The name of the text file containing the instance catalog entries.
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+    * ``sed_dir`` = *str_value* (default = None)  The directory that contains the template SED files for objects.  Typically this is set via an enviroment variable.
+    * ``edge_pix`` =  *float_value* (default = 100.0) How many pixels are objects allowed to be past the edge of the sensor to consider their light.
+    * ``sort_mag`` = *bool_value*  (default = True) Whether or not to sort the objects by magnitude and process the brightest objects first.
+    * ``flip_g2`` = *bool_value* (default = True) If True, apply a minus sign to the g2 lensing parameter used to shear the objects
+    * ``min_source`` = *int_value* (default = False) if set, skip simulating any sensor which does not have at least min_sources on it.
+    * ``skip_invalid`` = *bool_value* (default = True) Check the objects for some validity conditions and skip those which are invalid.
+
+.. _InstCat-label:
+
+Instance Catalog Object Type
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Once an instance catalog has been read in, objects from it can be used as an object type for the top level GalSim ``gal`` field like this:
+
+.. code-block:: yaml
+
+    # Define the galaxy (or delta function) to use
+    gal:
+        type: InstCatObj
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+
+    * ``index`` = *int_value* (default = number of objects in the file) be default all of the objects in the file will be processed, here you can specify an index your self of exactly which objects should be read if you would like by specifying a sequence of which items to process.
+    * ``num`` =  *int_value* (default = 1) If you have multiple Random Numbers defined in the config file.  This option will allow you specify which one you should use. The default is the first and usually only one.
+
+.. _InstCatWorld-label:
+
+Instance Catalog World position
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Once an instance catalog has been read in, the worlkd position as defined in the file can be specified to the top level GalSim ``stamp`` field like this:
+
+.. code-block:: yaml
+
+    # Define the galaxy (or delta function) to use
+    world_pos:
+        type: InstCatWorldPos
+
+
+Optional keywords to set:
+""""""""""""""""""""""""
+    These are the same as for ``InstCatObj`` above.
+
+
+``RegisterSEDType('InstCatSED`` not used?? Check..
+
 
 
 Sky Catalogs
@@ -60,44 +113,162 @@ Sky Catalogs
 
 Instance catalogs are text based and utilize a lot of disk space for the information contained in them. Also, one instance catalog is needed for each visit, even if those visits take place at the exact same position on the sky.  This causes enormous duplication of information.  Instead, large area simulations, *imSim* utilizes an API based system known as `skyCatalogs <https://github.com/LSSTDESC/skyCatalogs>`__.  The *skyCatalog* presents a unified interface to *imSim* via an API of databases that contain all of the object in the sky.  By configuring *imSim* to use the *skyCatalog* API only metadata for the visits are needed.  *imSim* will retrieve a list of all of the objects it needs to render through the interface.  *skyCatalogs* can contain static and transient information and databases exist both for synthetic skies and true sources of information such as the Gaia catalog.  The *skyCatalog* can also serve as a source of truth information when later analyzing simulated data.
 
+Key Name: sky_catalog
+^^^^^^^^^^^^^^^^^^^^^
 
-- RegisterObjectType('SkyCatObj'
-- RegisterValueType('SkyCatWorldPos'
+Required keywords to set:
+"""""""""""""""""""""""""
 
+  * ``file_name`` = *str_value* (default =  None)  The name of the yaml text file which specifies sky catalog positions.
+  *  ``band`` = *str_value* (default = None)  The name of the LSST band to use.
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+
+  * ``edge_pix`` =  *float_value* (default = 100.0) How many pixels is the buffer region were objects are allowed to be past the edge of the sensor.
+  * ``obj_types`` : *list*  List or tuple of object types to render, e.g., ('star', 'galaxy').  If None, then consider all object types.
+  * ``max_flux`` = *float_value* (default = None) If object flux exceeds max_flux, the return None for that object. if max_flux == None, then don't apply a maximum flux cut.
+  * ``apply_dc2_dilation`` = *bool_value* (default False) Flag to increase object sizes by a factor sqrt(a/b) where a, b are the semi-major and semi-minor axes, respectively. This has the net effect of using the semi-major axis as the sersic half-light radius when building the object.  This will only be applied to galaxies.
+  * ``approx_nobjects`` = *int_value* (default None) Approximate number of objects per CCD used by galsim to set up the image processing.  If None, then the actual number of objects found by skyCatalogs, via .getNObjects, will be used.
+  * ``mjd`` = *float_vaue*  MJD of the midpoint of the exposure.
+
+Sky Catalog Object Type
+^^^^^^^^^^^^^^^^^^^^^^^
+
+    The ``SkyCatObj`` is used as in the :ref:`InstCatObj <InstCat-label>` case above.
+
+Sky Catalog World Position
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    The ``SkyCatWorldPos`` is used as in the :ref:`InstCatWorldPos <InstCatWorld-label>` case above.
 
 OpSim Data
 ----------
 
 .. note::
 
-    We need to rationalize this and figure out the best approach. It's hard to explain now.
+    We need to rationalize this and figure out the best approach. It's hard to explain now. Will also need to say more about other ways too.  Do it here?
 
 Each visit requires metadata that describes the time of exposure, the filter being employed, the direction that the telescope is pointing etc. There are several ways to pass this information to *imSim*.  You can include the information in the top of an instance catalog, you can give it the output of of a Rubin Operational Simulator simulation which will give a list of visits with all of the needed information, or you can manually specify information in the YAML file itself.
 
 This input type allows you to specify file inputs which contain this information.
 
-    Will need to say more about other ways too.  Do it here?
+Key Name: opsim_data
+^^^^^^^^^^^^^^^^^^^^
+Note that several metadata keywords are required to be specified in the file.  They include: *rightascension, declination, mjd, altitude, azimuth, filter, rotskypos, rottelpos, dist2moon, moonalt, moondec, moonphase, moonra, nsnap, seqnum, obshistid, seed, seeing, sunalt, and , vistime.*
 
-- RegisterValueType('OpsimData'
-- RegisterBandpassType('OpsimBandpass'
+Required keywords to set:
+""""""""""""""""""""""""""
 
+    * ``file_name`` = *str_value* (default =  None)  The name of the text file that contains the required metadata information. Note that this data file can also contain object information.
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+
+    * ``visit`` = *int_value* (default = None) The visit number.
+    * ``snap`` = *int_value* (default = 0) How many exposures should be taken.
+    * ``image_type`` = *string_value* (default = 'SKYEXP') The type of exposure to be taken. Other options include 'FLAT' and 'BIAS'.
+    * ``reason`` = *string_value* (default='survey') The reason the exposurew was taken. Other options include 'calibration'
+
+
+
+OpSim Value Type
+^^^^^^^^^^^^^^^^^
+
+Once the opsim data has been specified you can use those values in other parts of the YAML file by specifying keys which have been set. An example is shown below:
+
+.. code-block:: yaml
+
+    atm_psf:
+        # This enables the AtmosphericPSF type for the PSF
+
+        airmass: { type: OpsimData, field: airmass }
+        rawSeeing:  { type: OpsimData, field: rawSeeing }
+        band:  { type: OpsimData, field: band }
+
+The ``field`` key is required.
+
+OpSim Bandpass
+^^^^^^^^^^^^^^
+
+Once the metadata information has been specified you can use that information to specify the bandpass in other parts of the YAML file.  Using the LSST band that you specified it will read in the appropriate throughput file amd use it for the bandpass.  An example is shown below.
+
+.. code-block:: yaml
+
+    image:
+        type: LSST_Image
+
+        bandpass: { type: OpsimBandpass }
+
+
+There are no configuration parameters for this class.
 
 Telescope Configuration
 -----------------------
 
 The optical system of the telescope can be configured including optical aberrations, the state of active optics system, variations due to temperature etc.  Individual actuators and other elements of the optics system can also be configured as an input before the simulation starts.
 
-If the photons are ray-traced through the optics with the `Batoid package  <https://github.com/jmeyers314/batoid>`__ photons will be modified by the changes as they propagate through the optics.  See :ref:`the stamp keyword <stamp-label>` below for details.
+If the photons are ray-traced through the optics with the `Batoid package  <https://github.com/jmeyers314/batoid>`__ photons will be modified by the changes as they propagate through the optics.  See :ref:`the stamp keyword <stamp-label>` below for details. For more details on the extensive control over the perturbation and FEA parameters of the optical system please refer to :ref:`the optical system section <optical-system-label>`
 
-- TelescopeLoader(DetectorTelescope))
+Key Name: telescope
+^^^^^^^^^^^^^^^^^^^^
+
+Required keywords to set:
+""""""""""""""""""""""""""
+
+    * ``file_name`` = *str_value* (default =  None)  The name of a yaml file describing the Rubin optics distributed with the batoid package.  The filename can be constructed via the config system in the YAML file as in the following example.
+
+    .. code-block:: yaml
+
+        telescope:
+            file_name:
+                type: FormattedStr
+                format : LSST_%s.yaml
+                items:
+                    - { type: OpsimData, field: band }
+
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+
+    * ``rotTelPos`` = *angle_value* (default = None) The angle of the camera rotator in degrees.
+    * ``cameraName`` = *string_value* (default = 'LSSTCam') The name of the camera to use.
+    * ``perturbations:`` = YAML dictionary (default = 'None')  See :ref:`the optical system section <optical-system-label>` for documentation.
+    * ``fea:`` = YAML dictionary (default = 'None')  See :ref:`the optical system section <optical-system-label>` for documentation
+
 
 Sky Model
 ---------
 
 Including the skyModel will load the Rubin Simulation Sky Model from the rubin-sims package.  If you have loaded this module, you will will be able top to refer the ``skyLevel`` variable in the image section to set the brightness of the sky. You can also use the ``apply_sky_gradient`` option in the image section to make the sky level vary over each sensor.
 
-- RegisterInputType('sky_model'
-- RegisterValueType('SkyLevel'
+Key Name: sky-model
+^^^^^^^^^^^^^^^^^^^^
+Required keywords to set:
+""""""""""""""""""""""""""
+
+    * ``exp_time`` = *float_value* (default =  None)  The exposure time in seconds.
+    * ``mjd`` = *float_value*  THE MJD of the observation.
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+
+    * ``eff_area`` = *float_value* (default = RUBIN_AREA) Collecting area of telescope in cm^2. Default: Rubin value from https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
+
+
+SkyLevel Value Type
+^^^^^^^^^^^^^^^^^^^
+
+Once the Rubin sky-model has been specified you can use the calculated sky level in other parts of the YAML file. An example is shown below:
+
+.. code-block:: yaml
+
+    image:
+        type: LSST_Image
+
+        sky_level: { type: SkyLevel }  # Computed from input.sky_model.
+        apply_sky_gradient: True
+
 
 Atmospheric PSF
 ----------------

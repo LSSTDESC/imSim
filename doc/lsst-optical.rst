@@ -7,7 +7,7 @@ The Rubin Optical System
 Controlling Optical Perturbations
 ---------------------------------
 
-Examples of perturbations dicts:
+Examples of perturbations dicts (for this documentation we should convert this to YAML file)
 
 .. code-block:: py
 
