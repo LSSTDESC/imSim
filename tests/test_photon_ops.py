@@ -622,8 +622,8 @@ def test_ray_vector_to_photon_array():
     photon_ops.ray_vector_to_photon_array(ray_vec, detector, photon_array)
     np.testing.assert_array_almost_equal(photon_array.x, np.array([-97952.5, 302047.5]))
     np.testing.assert_array_almost_equal(photon_array.y, np.array([102001.5, 202001.5]))
-    np.testing.assert_array_almost_equal(photon_array.dxdz, np.array([0.0, -50000.]))
-    np.testing.assert_array_almost_equal(photon_array.dydz, np.array([0.0, -25000.]))
+    np.testing.assert_array_almost_equal(photon_array.dxdz, np.array([0.0, -0.5]))
+    np.testing.assert_array_almost_equal(photon_array.dydz, np.array([0.0, -0.25]))
     np.testing.assert_array_almost_equal(photon_array.flux, np.ones(n_photons))
 
 

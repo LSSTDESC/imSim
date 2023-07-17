@@ -474,6 +474,7 @@ def ray_vector_to_photon_array(
     # Need the jacobian of (x, y) |-> focal_to_pixel(M (x,y)), where M is given below
     M = np.array([[0.0, 1.0e3], [1.0e3, 0.0]])
     jac = M @ jac_focal_to_pixel(0.0, 0.0, detector)  # Jac is constant
+    jac /= np.sqrt(np.abs(np.linalg.det(jac)))
     out.dxdz, out.dydz = jac @ np.array([ray_vector.vx, ray_vector.vy]) / ray_vector.vz
     out.dxdz, out.dydz = (out.dxdz.ravel(), out.dydz.ravel())
     out.flux[ray_vector.vignetted] = 0.0
