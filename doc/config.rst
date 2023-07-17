@@ -100,7 +100,8 @@ Once an instance catalog has been read in, the worlkd position as defined in the
 
 
 Optional keywords to set:
-""""""""""""""""""""""""
+""""""""""""""""""""""""""
+
     These are the same as for ``InstCatObj`` above.
 
 
