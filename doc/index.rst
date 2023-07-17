@@ -17,5 +17,6 @@ Contents
    config.rst
    features.rst
    data-formats.rst
-   module-use.rst
    lsst-camera.rst
+   lsst-optical.rst
+   module-use.rst
