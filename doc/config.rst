@@ -347,9 +347,38 @@ Tree Rings
 
 Tree-rings are a silicon sensor effect induced by internal electric fields in the 3D structure of the silicon CCD.  The fields are created by internal variations in dopant concentration that form while the silicon boule is being grown.  You can find more about *imSim*'s implementation of tree rings in :ref:`the Tree Ring validation section <tree-ring-label>`. This keyword tells imSim where to find the data file which describes the parameters to be used when the effect is turned on. It creates dictionaries that can be used by the LSST sensor description in :ref:`LSST Camera <LSST-Camera-label>` section below.
 
-- RegisterInputType('tree_rings',
-- RegisterValueType('TreeRingCenter'
-- RegisterValueType('TreeRingFunc'
+Key Name: tree_rings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Required keywords to set:
+""""""""""""""""""""""""""
+
+    * ``file_name`` = *str_value* (default =  None)  A file name that contains the parameters of the tree ring model for each sensor.
+
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+
+    * ``only_dets`` = *List* (default = None) Only read in the models for the listed sensors in order to save time on startup.
+
+
+
+TeeeRingCenter and TreeRingFunction Value Type
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Once the tree ring models have been read in, you can use them in other parts of the YAML file. The model is keyed on a detector name. An example is shown below:
+
+.. code-block:: yaml
+
+    image:
+        type: LSST_Image
+
+        sensor:
+            type: Silicon
+
+            treering_center: { type: TreeRingCenter, det_name: $det_name }
+            treering_func: { type: TreeRingFunc, det_name: $det_name }
+
 
 Checkpointing
 -------------
