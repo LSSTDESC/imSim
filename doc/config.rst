@@ -82,7 +82,7 @@ Once an instance catalog has been read in, objects from it can be used as an obj
 Optional keywords to set:
 """""""""""""""""""""""""
 
-    * ``index`` = *int_value* (default = number of objects in the file) be default all of the objects in the file will be processed, here you can specify an index your self of exactly which objects should be read if you would like by specifying a sequence of which items to process.
+    * ``index`` = *int_value* (default = number of objects in the file) by default all of the objects in the file will be processed, here you can specify an index your self of exactly which objects should be read if you would like by specifying a sequence of which items to process.
     * ``num`` =  *int_value* (default = 1) If you have multiple Random Numbers defined in the config file.  This option will allow you specify which one you should use. The default is the first and usually only one.
 
 .. _InstCatWorld-label:
@@ -274,14 +274,73 @@ Once the Rubin sky-model has been specified you can use the calculated sky level
 Atmospheric PSF
 ----------------
 
-The class is used to create the PSF which is induced by the atmosphere.  There are two parametric PSFs available: a double Gaussian and a Kolmogorov PSF. The ``AtmosphericPSF`` type is a fully ray-traced turbulent atmosphere with multiple atmospheric layers all of which can have their parameters specified.  Additionally, you can optionally add a parametric PSF screen which simulates the Rubin Optics.
+The class is used to create the PSF which is induced by the atmosphere.  There are two parametric PSFs available: a double Gaussian and a Kolmogorov PSF. The ``AtmosphericPSF`` type is a fully ray-traced turbulent atmosphere with multiple atmospheric layers.  Additionally, you can optionally add a parametric PSF screen which simulates the Rubin Optics.
+
+Key Name: atmosphericPSF
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+This keyword enables an atmospheric PSF with 6 randomly generated atmospheric screens.  Photons are raytraced through this atmosphere to produce a realistic atmospheric PSF.  See section (``needs to be added``) for more information on the model.
 
 .. warning::
-    You should not attempt to use the option to add parametric optics if you are using fully ray-traced optics.  Otherwise, you will simulate the optics twice.  See See :ref:`the stamp keyword <stamp-label>` below how to activate the ray-traced mode.
+    You should not attempt to use the option to add parametric optics (through the ``doOpt`` option) if you are using fully ray-traced optics.  Otherwise, you will simulate the optics twice.  See See :ref:`the stamp keyword <stamp-label>` below how to activate the ray-traced mode.
 
-- RegisterObjectType('AtmosphericPSF'
-- RegisterObjectType('DoubleGaussianPSF'
-- RegisterObjectType('KolmogorovPSF'
+
+Required keywords to set:
+""""""""""""""""""""""""""
+
+    * ``airmass`` = *float_value* (default =  None)  The aimass in the direction of the pointing.
+    * ``rawSeeing`` = *float_value*  The FWHM seeing at zenith at 500 nm in arc seconds
+    * ``band`` = *str_value* The filter band of the observation.
+    * ``boresight`` = *RaDec_value* The CelestialCoord of the boresight of the observation.
+
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+
+    * ``t0`` = *float_value* (default = 0.0) Exposure time start in seconds.
+    * ``exptime`` = *float_value*  (default = 30.0) Exposure time in seconds.
+    * ``kcrit`` = *float_value* (default = 0.2) Critical Fourier mode at which to split first and second kicks.
+    *  ``screen_size`` = *float_value* (default = 819.2) Size of the phase screens in meters.
+    *  ``screen_scale`` = *float_value* (default = 0.1) Size of phase screen "pixels" in meters.
+    *  ``doOpt`` = *bool_value* (default = True) Add in optical phase screens? *SEE WARNING ABOVE*
+    *  ``nproc`` = *int_value* (default = None)  Number of processes to use in creating screens. If None (default), then allocate one process per phase screen, of which there are 6, nominally.
+    *  ``save_file`` = *str_value* (default = None) A file name to use for saving the built atmosphere.  If the file already exists, then the atmosphere is read in from this file, rather than being rebuilt.
+
+
+Key Name: DoubleGaussianPSF
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A wavelength and position-independent Double Gaussian PSF. This specific PSF comes from equation(30) of the signal-to-noise document (LSE-40), which can be found at http://www.astro.washington.edu/users/ivezic/Astr511/LSST_SNRdoc.pdf.
+
+Required keywords to set:
+""""""""""""""""""""""""""
+
+    * ``fwhm`` = *float_value* (default =  None)  The full width at half max of the total PSF in arc seconds.
+
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+
+    * ``pixel_scale`` = *float_value* (default = 0.2) The pixel scale of the sensor in arc seconds.
+
+
+Key Name: KolmogorovPSF
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This PSF class is based on David Kirkby's presentation to the DESC Survey Simulations working group on 23 March 2017.
+
+    https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
+
+    (you will need a SLAC Confluence account to access that link)
+
+Required keywords to set:
+""""""""""""""""""""""""""
+
+    * ``airmass`` = *float_value* (default =  None)  The aimass in the direction of the pointing.
+    * ``rawSeeing`` = *float_value*  The FWHM seeing at zenith at 500 nm in arc seconds
+    * ``band`` = *str_value* The filter band of the observation.
+
+
 
 Tree Rings
 ----------
