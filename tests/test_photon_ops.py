@@ -627,6 +627,31 @@ def test_ray_vector_to_photon_array():
     np.testing.assert_array_almost_equal(photon_array.flux, np.ones(n_photons))
 
 
+def test_double_optics_warning():
+    config = {
+        **TEST_BASE_CONFIG,
+        'stamp': {
+            'photon_ops': [
+                {'type': 'RubinOptics',}
+            ]
+        },
+        'image': {
+            'type': 'LSST_Image',
+            'random_seed': 1234
+        }
+    }
+    config['input']['atm_psf'] = {
+        'airmass': 1.1,
+        'rawSeeing':  0.6,
+        'band':  'r',
+        'boresight': galsim.CelestialCoord(0*galsim.degrees, 0*galsim.degrees),
+        'screen_size': 6.4,
+        'nproc': 1
+    }
+    with np.testing.assert_warns(UserWarning):
+        galsim.config.ProcessInput(config)
+
+
 if __name__ == "__main__":
     testfns = [v for k, v in vars().items() if k.startswith("test_") and callable(v)]
     for testfn in testfns:

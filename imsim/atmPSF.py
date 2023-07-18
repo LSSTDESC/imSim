@@ -326,16 +326,17 @@ class AtmLoader(InputLoader):
         logger.debug("kwargs = %s",kwargs)
 
         # Check that we're not including the optics twice:
-        if kwargs['doOpt']:
+        if 'doOpt' not in kwargs or kwargs['doOpt']:
             if 'stamp' in base:
                 if 'photon_ops' in base['stamp']:
                     ops_types = [op['type'] for op in base['stamp']['photon_ops']]
                     for op in ops_types:
                         if op in ['RubinOptics', 'RubinDiffractionOptics']:
+                            import warnings
                             warnings.warn(
                                 f"You have included the optics twice!  Once via the "
-                                f"photon operator {op} "
-                                f"and once via AtmosphericPSF with doOpt=True."
+                                f"photon operator '{op}' "
+                                f"and once via 'atm_psf' with 'doOpt=True'. "
                                 f"This is likely a mistake!"
                             )
 
