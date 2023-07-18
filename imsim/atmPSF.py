@@ -325,6 +325,20 @@ class AtmLoader(InputLoader):
         kwargs, _ = galsim.config.GetAllParams(config, base, req=req_params, opt=opt_params)
         logger.debug("kwargs = %s",kwargs)
 
+        # Check that we're not including the optics twice:
+        if kwargs['doOpt']:
+            if 'stamp' in base:
+                if 'photon_ops' in base['stamp']:
+                    ops_types = [op['type'] for op in base['stamp']['photon_ops']]
+                    for op in ops_types:
+                        if op in ['RubinOptics', 'RubinDiffractionOptics']:
+                            warnings.warn(
+                                f"You have included the optics twice!  Once via the "
+                                f"photon operator {op} "
+                                f"and once via AtmosphericPSF with doOpt=True."
+                                f"This is likely a mistake!"
+                            )
+
         # We want this to be set up right at the beginning of the run, before the config
         # stuff has even set up the RNG yet.  So make an rng ourselves based on the
         # random seed in image.random_seed.
