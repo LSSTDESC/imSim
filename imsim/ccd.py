@@ -134,7 +134,7 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header['DET_NAME'] = base['det_name']
 
         header_vals = copy.deepcopy(params.get('header', {}))
-        opsim_data = copy.deepcopy(get_opsim_data(config, base))
+        opsim_data = get_opsim_data(config, base)
 
         # Helper function to parse a value with priority:
         # 1. from header_vals (popped from dict if present)
