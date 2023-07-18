@@ -38,9 +38,11 @@ class Vignetting:
         # normalize the vignetting profile.
         self.value_at_zero = self.spline_model(0)
 
-    def __call__(self, det):
+    @staticmethod
+    def get_pixel_radii(det):
         """
-        Return the vignetting for each pixel in a CCD.
+        Return an array of radial distance from the focal plane center for
+        each pixel in a CCD.
 
         Parameters
         ----------
@@ -77,9 +79,14 @@ class Vignetting:
         else:
             yarr, xarr = np.meshgrid(center.y - dx, center.x + dy)
 
-        r = np.sqrt(xarr**2 + yarr**2)
+        pixel_radii = np.sqrt(xarr**2 + yarr**2)
+        return pixel_radii
 
-        return self.spline_model(r)/self.value_at_zero
+    def apply_to_radii(self, radii):
+        return self.spline_model(radii)/self.value_at_zero
+
+    def __call__(self, det):
+        return self.apply_to_radii(self.get_pixel_radii(det))
 
     def at_sky_coord(self, sky_coord, wcs, det):
         """
