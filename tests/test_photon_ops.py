@@ -601,6 +601,32 @@ def test_config_rubin_optics():
     assert_photon_ops_act_equal(photon_op, reference_op)
 
 
+def test_ray_vector_to_photon_array():
+    detector = get_camera()["R22_S11"]
+    ray_vec = batoid.RayVector(
+        x=np.array([1.0, 2.0]),
+        y=np.array([-1.0, 3.0]),
+        z=np.zeros(2),
+        vx=np.array([0.0, 0.25]),
+        vy=np.array([0.0, 0.5]),
+        vz=np.array([-1.0, -1.0]),
+    )
+    n_photons = ray_vec.x.size
+    photon_array = galsim.PhotonArray(
+        n_photons,
+        x=np.zeros(n_photons),
+        y=np.zeros(n_photons),
+        wavelength=np.full(n_photons, 577.6),
+        flux=np.ones(n_photons),
+    )
+    photon_ops.ray_vector_to_photon_array(ray_vec, detector, photon_array)
+    np.testing.assert_array_almost_equal(photon_array.x, np.array([-97952.5, 302047.5]))
+    np.testing.assert_array_almost_equal(photon_array.y, np.array([102001.5, 202001.5]))
+    np.testing.assert_array_almost_equal(photon_array.dxdz, np.array([0.0, -0.5]))
+    np.testing.assert_array_almost_equal(photon_array.dydz, np.array([0.0, -0.25]))
+    np.testing.assert_array_almost_equal(photon_array.flux, np.ones(n_photons))
+
+
 if __name__ == "__main__":
     testfns = [v for k, v in vars().items() if k.startswith("test_") and callable(v)]
     for testfn in testfns:
