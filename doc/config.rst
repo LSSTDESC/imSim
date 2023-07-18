@@ -415,7 +415,6 @@ Optional keywords to set:
     * ``dir`` = *str_value* (default = None) Put the files in a directory with this name.
 
 
-
 Image types
 ===========
 
@@ -423,24 +422,66 @@ These classes define how to draw images.  The basic *GalSim* image types include
 
 .. _LSST-Camera-label:
 
-LSST Camera Images
-------------------
+Key name: LSST_Image
+--------------------
 
-The ``LSST_Image`` type is a version of the *GalSim* "Scattered Image" image class that has been modified to understand how to draw the Rubin sky background and how to apply effects such as vignetting to the sky and certain bright objects.
+The ``LSST_Image`` type is a version of the *GalSim* "Scattered Image" image class that has been modified to understand how to draw the Rubin sky background and how to apply effects such as vignetting to the sky and certain bright objects.  There are extra optional keywords you can use with the ``LSST_Image`` type.
+
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+
+    * ``size`` = *int_value* (default = None)  The size in pixels for X and Y
+    * ``xsize`` = *int_value* (default = None) X size only
+    * ``ysize`` = *int_value* (default = None) Y size only
+    * ``dytpe`` = *dytpe_value* (default = None) allows you to set numpy.dtype  for the underlying data in the image.
+    *  ``apply_sky_gradient`` = *bool_value* (default = False) If true vary the sky background level linearly across the sensors to match the expected flux at the four corners of the at each sensor.
+    *  ``camera`` = *str_value* (default = None) name of the camera such as ``LsstCam``.
+    *  ``nbatch`` = *int_value* (default = 10) The size of batches of images when checkpointing the objects to disk.
+
+
 
 *imSim* also registers a new type of WCS object. When this WCS is chosen the `Batoid ray-tracing package  <https://github.com/jmeyers314/batoid>`__ traces a set of rays through the optics and fits the result to create a WCS which accurately represents the current state of the telescope optics.
 
-- RegisterImageType('LSST_Image', LSST_ImageBuilder())
+Batoid WCS Type
+^^^^^^^^^^^^^^^
 
-- RegisterWCSType('Batoid', BatoidWCSBuilder(), input_type="telescope")
-- RegisterWCSType('Dict'
+Required keywords to set:
+""""""""""""""""""""""""""
+    * ``boresight`` = *RaDec_value* The CelestialCoord of the boresight of the observation.
+    * ``obstime`` = *str_value* (default =  None) The time of the observation either as a string or a astropy.time.Time instance
+    * ``det_name`` = *str_value*  (default = None) The name of the sensor for this WCS.
 
-Image Calibration Flats
------------------------
+Optional keywords to set:
+"""""""""""""""""""""""""
+
+    * ``camera`` = *str_value* (default = None) A camera object
+    * ``telescope`` = *str_value* (default = None) a batoid telescope optics including any needed rotations.
+    * ``temperature`` = *float_value* (default = 280K) Ambient temperature in Kelvin.
+    * ``pressure`` = *float_value* (default = calculated from Rubin height) Ambient pressure in kPa.
+    *  ``H2O_pressure`` = *float_value* (default = 1 kPa) Water vapor pressure in kPa.
+    *  ``wavelength`` = *float_value* (default = None) wavelenght of photon to use in nanometers.
+    *  ``order`` = *int_value* (default = 3) SIP polynomial order for WCS fit.
+
+Key Name: LSST_Flat
+-------------------
 
  *imSim* also supplies a ```LSST_Flat`` image type.  Calibration flats have extremely high background levels and special file, memory and SED handling are employed in this case in order to optimize computational efficiency.
 
- - RegisterImageType('LSST_Flat', LSST_FlatBuilder())
+Required keywords to set:
+""""""""""""""""""""""""""
+    * ``counts_per_pixel`` = *float_value* (default = None) Background count level per pixel
+    * ``xsize`` = *int_value* (default = None) X size only
+    * ``ysize`` = *int_value* (default = None) Y size only
+
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+
+    * ``max_count_per_iteration`` = *float_value* (default = 1000) How many photons to add per iteration.
+    * ``buffer_size`` = *int_value* (default = 5) Add a border region with this many pixels.
+    * ``nx`` = *int_value* (default = dynamically allocated)  The number of segments to split the sensor into in X in order to control memory usage.
+    * ``ny`` = *int_value* (default = dynamically allocated)  The number of segments to split the sensor into in Y in order to control memory usage.
 
 .. _stamp-label:
 
