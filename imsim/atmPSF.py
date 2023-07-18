@@ -97,7 +97,7 @@ class AtmosphericPSF(object):
                         in units of (1/r0).  default: 0.2
     @param screen_size  Size of the phase screens in meters.  default: 819.2
     @param screen_scale Size of phase screen "pixels" in meters.  default: 0.1
-    @param doOpt        Add in optical phase screens?  default: True
+    @param doOpt        Add in optical phase screens?  default: False
     @param logger       Optional logger.  default: None
     @param nproc        Number of processes to use in creating screens. If None (default),
                         then allocate one process per phase screen, of which there are 6,
@@ -108,7 +108,7 @@ class AtmosphericPSF(object):
     """
     def __init__(self, airmass, rawSeeing, band, boresight, rng,
                  t0=0.0, exptime=30.0, kcrit=0.2,
-                 screen_size=819.2, screen_scale=0.1, doOpt=True, logger=None,
+                 screen_size=819.2, screen_scale=0.1, doOpt=False, logger=None,
                  nproc=None, save_file=None):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
@@ -326,7 +326,7 @@ class AtmLoader(InputLoader):
         logger.debug("kwargs = %s",kwargs)
 
         # Check that we're not including the optics twice:
-        if 'doOpt' not in kwargs or kwargs['doOpt']:
+        if 'doOpt' in kwargs and kwargs['doOpt']:
             if 'stamp' in base:
                 if 'photon_ops' in base['stamp']:
                     ops_types = [op['type'] for op in base['stamp']['photon_ops']]

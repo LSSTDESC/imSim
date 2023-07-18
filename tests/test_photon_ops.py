@@ -646,7 +646,8 @@ def test_double_optics_warning():
         'band':  'r',
         'boresight': galsim.CelestialCoord(0*galsim.degrees, 0*galsim.degrees),
         'screen_size': 6.4,
-        'nproc': 1
+        'nproc': 1,
+        'doOpt': True
     }
     with np.testing.assert_warns(UserWarning):
         galsim.config.ProcessInput(config)
