@@ -36,10 +36,29 @@ def get_amp_data(camera, repo, collections):
     return amp_data
 
 
-def merge_defects(detector, defects_list):
+def merge_defects(detector, defects_list, threshold=0.7):
     """
     Merge defects from a list of cpPartialDefects, which are extracted
-    from individual exposures.
+    from individual exposures.  This code was lifted from
+    https://github.com/lsst/cp_pipe/blob/w.2023.28/python/lsst/cp/pipe/defects.py#L814-L837
+    and modified under the assumption that only one image type is
+    being considered.
+
+    Parameters
+    ----------
+    detector : lsst.afw.cameraGeom.Detector
+        Detector object being considered.
+    defects_list : list
+        A list of lsst.ip.isr.Defect objects.
+    threshold : float [0.7]
+        Minimum fraction of exposures in defects_list in which a
+        defective pixel must appear in order to be made part of the
+        merged Defect object.
+
+    Returns
+    -------
+    lsst.ip.isr.Defect
+        The merged Defect object.
     """
     if not defects_list:
         return None
@@ -53,7 +72,6 @@ def merge_defects(detector, defects_list):
     nDetected = len(np.where(sumImage.getImage().getArray() > 0)[0])
     print(detector.getName(), end=": ")
     print(f"Pre-merge {nDetected} pixels with non-zero detections.")
-    threshold = 0.7   # Fraction of exposures required to include a defect.
     indices = np.where(sumImage.getImage().getArray() > threshold)
     BADBIT = sumImage.getMask().getPlaneBitMask('BAD')
     sumImage.getMask().getArray()[indices] |= BADBIT
