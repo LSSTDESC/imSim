@@ -48,7 +48,8 @@ def test_vignetting():
         wcs = wcs_factory.getWCS(det)
 
         # Vignetting function evaluated over the entire CCD:
-        image_vignetting = vignetting(det)
+        radii = imsim.Vignetting.get_pixel_radii(det)
+        image_vignetting = vignetting.apply_to_radii(radii)
 
         # Compare with the values at the detector corners, using the
         # corresponding sky coordinates obtained from the WCS for this

@@ -5,6 +5,7 @@ from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
 from .sky_model import SkyGradient
 from .camera import get_camera
+from .vignetting import Vignetting
 
 
 class LSST_ImageBuilder(ScatteredImageBuilder):
@@ -263,7 +264,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             det_name = base['det_name']
             camera = get_camera(self.camera_name)
             logger.info("Applying vignetting according to radial spline model.")
-            sky.array[:] *= self.vignetting(camera[det_name])
+            radii = Vignetting.get_pixel_radii(camera[det_name])
+            sky.array[:] *= self.vignetting.apply_to_radii(radii)
 
         image += sky
 
