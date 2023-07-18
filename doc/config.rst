@@ -389,7 +389,31 @@ As imSim runs, if this option is turned on, it will periodically check-point its
 
     Be careful to manually delete any check-point files if you have made any changes to to the configuration between runs.  Currently, *imSim* only checks if a file for a individual sensor already exists.
 
-- RegisterInputType('checkpoint',
+
+Key Name: checkpoint
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Required keywords to set:
+""""""""""""""""""""""""""
+
+    * ``file_name`` = *str_value* (default =  None)  A file name to store the checkpoint for each sensor.
+
+    Be careful to give a unique name for each possible checkpoint. Here for example is a YAML code block
+
+    .. code-block:: yaml
+
+        file_name:
+          type: FormattedStr
+          format : checkpoint_%08d-%s.hdf
+          items:
+              - { type: OpsimData, field: observationId }
+              - "$det_name"
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+
+    * ``dir`` = *str_value* (default = None) Put the files in a directory with this name.
+
 
 
 Image types
