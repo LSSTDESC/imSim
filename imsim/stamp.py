@@ -515,8 +515,13 @@ class LSST_SiliconBuilder(StampBuilder):
                 #       Something like sed.make_tabulated()
                 if (not isinstance(sed._spec, galsim.LookupTable)
                     or sed._spec.interpolant != 'linear'):
-                    new_spec = galsim.LookupTable(wave_list, sed(wave_list), interpolant='linear')
-                    new_sed = galsim.SED(new_spec, 'nm', 'fphotons')
+                    f = np.broadcast_to(sed(wave_list), wave_list.shape)
+                    new_spec = galsim.LookupTable(wave_list, f, interpolant='linear')
+                    new_sed = galsim.SED(
+                        new_spec,
+                        'nm',
+                        'fphotons' if sed.spectral else '1'
+                    )
                     prof.SED = new_sed
 
                 # Also recurse onto any components.
