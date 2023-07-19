@@ -488,30 +488,105 @@ Optional keywords to set:
 StampTypes
 ==========
 
-The Stamp drawing code does the main work to actually render the image of an astronomical object.   *imSim* adds the ``LSST_Silicon`` type which understands how to draw objects in the LSSTCam sensors including accounting for absorption in the atmosphere, integrating the SEDs of the objects with the chosen filter, ray-tracing photons through the optical system, adding diffractive spikes from the telescope spider, automatically using various approximations for both very bright and very dim objects etc.  Those options are set with the parameters below.
+The Stamp drawing code does the main work to actually render the image of an astronomical object.   *imSim* adds the ``LSST_Silicon`` type which understands how to draw objects in the LSSTCam sensors including accounting for absorption in the atmosphere, integrating the SEDs of the objects with the chosen filter, ray-tracing photons through the optical system, adding diffractive spikes from the telescope spider as the camera rotates, automatically using various approximations for both very bright and very dim objects etc.  Those options are set with the parameters below.
 
-- RegisterStampType('LSST_Silicon',
+If an astronomical object is too bright, by default *imSim* will generate the objects with a FFT instead of via photon shooting in order to save computation time.  This objects are typically saturated and not usable for analysis in any case.
 
-
-There are a set of operations that can act on photons in *GalSim*.  The are put together in a list and then all of the photons have those operations act on them in turn.  This list of photon-operations are specified in the stamp section.  You can read more about them in the *GalSim* documentation covering `GalSim Photon Ops <http://galsim-developers.github.io/GalSim/_build/html/config_stamp.html#photon-operators-list>`__.  *imSim* adds a new set of Photon Operators to ray-trace the photons through the optical system using the `Batoid package  <https://github.com/jmeyers314/batoid>`__.
-
-If you do not turn these on, you should use the parameterized optics available in the atmospheric PSF instead.  You have three choices:
-
-  - RubinOptics:
-
-    Photons ray-traced though the Rubin optical system.
-
-  - RubinDiffractionOptics:
-
-    Ray-traced photons including the effects of diffraction when passing through edges like the telescope spiders.
-
-  - RubinDiffraction:
-
-    Diffractive effects only.
+Stamp Type: LSST_Silicon
+----------------------
 
 
-- RegisterPhotonOpType(identifier,
+Required keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
+    * ``fft_sb_threshold`` = *float_value* (default = 0) Over this number of counts, use a FFT instead of photon shooting for speed.
+    * ``airmass`` = *float_value* (default = 1.2) The airmass to use in FFTs
+    * ``rawseeing`` = *float_value* (default = 0.7) The FWHM seeing at zenith at 500 nm in arc seconds for FFTs.
+    *  ``band`` = *str_value* (default = None) The filter band of the observation.
+
+
+Optional keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * ``max_flux_simple`` = *float_value* (default = 100) If the flux is less than this value use a simple SED and apply other speed ups.
+    * ``method`` = *str_value* (default = 'auto') Choose between automatically deciding whether to use a FFT of photon shooting ('auto') or manually choose between 'fft' and 'phot'.
+    * ``maxN`` = *int_value* (detault = 1.0e6) Set limit on the size of photons batches when drawing the image.
+
+
+Note there is an extra required keyword you must include in the stamp section that configures how diffraction passing through the telescope spiders is handled.
+
+Key Name: diffraction_psf:
+--------------------------
+
+Required keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * ``exptime`` = *float_value* (default = None) The time of the exposure.
+    * ``azimuth`` = *float_value* (default = None) The azimuth angle in degrees.
+    * ``altitude`` = *float_value* (default = None) The altitude angle in degrees.
+    *  ``rotTelPos`` = *str_value* (default = None) The angle of the camera rotator in degrees.
+
+
+Optional keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * ``enabled`` = *bool_value* (default = True) When doing FFTs, also calcululate paramteric diffraction spikes from the spider.
+    * ``spike_length_cutoff`` = *int_value* (default = 4000) In a FFT the size of the telescope spike length
+    * ``brightness threshold`` = *float_value* (default = Set by CCD full well value) In a FFT the value of a pixel that will cause it to be replaced with a diffraction spike.
+    * ``lattitude`` = *float_value* (default = Rubin Location) Geographic latitude of the observatory.
+
+
+Finally, there are a set of operations that can act on photons in *GalSim*.  The are put together in a list and then all of the photons have those operations act on them in turn.  This list of photon-operations are specified in the stamp section.  You can read more about them in the *GalSim* documentation covering `GalSim Photon Ops <http://galsim-developers.github.io/GalSim/_build/html/config_stamp.html#photon-operators-list>`__.  *imSim* adds a new set of Photon Operators to ray-trace the photons through the optical system using the `Batoid package  <https://github.com/jmeyers314/batoid>`__.
+
+If you do not turn these on, you should use the parameterized optics available in the atmospheric PSF instead.  You have three choices: they are set with the the
+
+Photon Operation Type
+---------------------
+
+type: **RubinOptics**
+
+Photons ray-traced though the Rubin optical system.
+
+Required keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * ``boresight`` = *RaDec_value* (default = None) The CelestialCoord of the boresight of the observation.
+    * ``camera`` = *str_value* (default = None) The name of the camera to use.
+
+type: **RubinDiffractionOptics**
+
+Ray-traced photons including the effects of diffraction when passing through edges like the telescope spiders.
+
+Required keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * ``boresight`` = *RaDec_value* (default = None) The CelestialCoord of the boresight of the observation.
+    * ``camera`` = *str_value* (default = None) The name of the camera to use.
+    * ``azimuth`` = *float_value* (default = None) The azimuth angle in degrees.
+    * ``altitude`` = *float_value* (default = None) The altitude angle in degrees.
+
+
+Optional keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * ``latitude`` = *bool_value* (default = True) The latitude of the observatory.
+    * ``disable_field_rotation`` = *bool_value* (default = False) Do not consider the effect of the rotation of the camera relative to the spiders of the telescope during the exposure.
+
+type: **RubinDiffraction**
+
+Diffractive effects only during the FFT.
+
+Required keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * ``azimuth`` = *float_value* (default = None) The azimuth angle in degrees.
+    * ``altitude`` = *float_value* (default = None) The altitude angle in degrees.
+    * ``latitude`` = *bool_value* (default = True) The latitude of the observatory.
+
+Optional keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * ``disable_field_rotation`` = *bool_value* (default = False) Do not consider the effect of the rotation of the camera relative to the spiders of the telescope during the exposure.
 
 Output types
 ============
