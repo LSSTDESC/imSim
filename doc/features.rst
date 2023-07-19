@@ -1,15 +1,15 @@
 Features Implemented in imSim
 #############################
 
-This summary table should give a high level overview of effects. For detailed information please make/link to a subpage or appropriate reference.
+These summary tables should give a high level overview of effects that have been implmented in imSim. For detailed information please make/link to a subpage or appropriate reference.
 
 Go directly to:
 `Sensors <Sensor Table_>`_ - `Sky <Sky Model_>`_ - `Throughputs <System Throughputs_>`_ - `Atmospheric <Atmospheric Model_>`_ - `Optics <Optical Model_>`_  - `Calibration Products <Calibration Products_>`_
 
 Sensor Table
 ------------
-
-.. image:: img/features.svg
+..
+  .. image:: img/features.svg
 
 This table is a list of current and not yet implemented
 sensor effects in imSim along with pointers to the techniques used to
@@ -19,6 +19,7 @@ peformed.
 .. list-table::
    :widths: 10 10 10 15 15
    :header-rows: 1
+   :class: tight-table
 
    * - Effect
      - Implementation
@@ -46,42 +47,39 @@ peformed.
 
    * - CTE
      - readout.py
-     -
+     - Camera Integration and Testing
      -
      -
 
    * - Noise Rate
      - readout.py
+     - Camera Integration and Testing
      -
      -
-     - Noise rate is YYY
 
    * - Xtalk
      - readout.py
-     - Currently Unknown
+     - Camera Integration and Testing
      -
-     - Crosstalk values are read from obs_lsst.
+     - Crosstalk values are read from obs_lsst camera discription
 
    * - Hot Pixels/Rows
-     - See Note
+     - **being implemented**
+     - Camera Integration and Testing
      -
      -
-     - We will mask locations without actually simulating them.
 
    * - Fringing
-     - Not yet
+     - **being implemented**
+     - Sensor Testing and electromagnetic model
+     - Please see: https://inspirehep.net/literature/2183279
      -
-     -
-     - Some formalism and a standalone simulation
-       `here <https://confluence.slac.stanford.edu/pages/viewpage.action?pageId=215845587>`__.
-       The hooks to implement code for this in exist now in the GalSim API (more info needed)
 
    * - Cosmic Rays
-     - cosmic_rays.py: Approximately 10K cosmic rays which are randomly addd to
-       the exposures can be be found in cosmic_ray_catalog.fits.gz
-     - Template data taken from ITL test stands at UofA.
+     - cosmic_rays.py: ~10K cosmic are randomly added to the exposures.
+     - Template data taken from ITL test stands at UofA. We should remeasure on summit.
      -
-     - We should normalize to mountain level.
+     -
 
    * - Edge rolloff
      - Not yet
@@ -90,26 +88,26 @@ peformed.
      -
 
    * - Bleeding
-     - Not yet
-     - Test stand at Davis. Specialized bleed run.
+     - bleed_trails.py called from readout.py
+     - Test stand at Davis. Specialized bleed runs.
      -
-     - Current tests are exploring behavior at the midline for ITL and E2V sensors
+     -
 
    * - Spider Diffraction
-     - diffraction.py, photon_ops.py
+     - diffraction.py, diffraction_fft.py photon_ops.py
      -
-     - Statistical Diffraction during batoid ray tracing.
+     - Statistical Diffraction during batoid ray tracing or parametric model with FFT.
      - Page link :doc:`validation/diffraction`
 
 Sky Model
 ---------
 
-imSim uses the project sky model. It is located in the sims stack and called
-sims_skybrightness.
+imSim uses the Rubin project sky model. It is called sims_skybrightness and is located in the rubin-sims package which is an *imSim* dependency.
 
 .. list-table::
    :widths: 10 10 10 15 15
    :header-rows: 1
+   :class: tight-table
 
    * - Effect
      - Implementation
@@ -118,16 +116,12 @@ sims_skybrightness.
      - Validation Page and Notebooks
 
    * - Sky Background
-     - LSST eups package `git repo <https://github.com/lsst/sims_skybrightness>`_
+     - See  `here <https://rubin-sim.lsst.io/rs_skybrightness/index.html>`_
      - Based on the `ESO sky brightness model <http://www.eso.org/observing/etc/bin/gen/form?INS.MODE=swspectr+INS.NAME=SKYCALC>`_
        and all-sky camera data from LSST site for twilight sky.
-     - The model includes light from twilight (scattered sunlight), zodiacal light
-       (scattered sunlight from SS dust), scattered moonlight, airglow, and emission lines
-       from the upper and lower atmosphere. The model can return SEDs or
-       magnitude per sq arcsec in LSST filters.
+     - The model includes light from twilight (scattered sunlight), zodiacal light (scattered sunlight from SS dust), scattered moonlight, airglow, and emission lines from the upper and lower atmosphere. The model can return SEDs or  magnitude per sq arcsec in LSST filters.
      - Validation plots can be found in the `SPIE paper <https://ui.adsabs.harvard.edu/#abs/2016SPIE.9910E..1AY/abstract>`_.
-       Note the model does not include any "weather" (e.g., clouds, variable OH emission).
-       There is an option to change the solar activity, which scales the airglow component.
+       Note the model does not include any "weather" (e.g., clouds, variable OH emission). There is an option to change the solar activity, which scales the airglow component.
 
 System Throughputs
 -------------------
@@ -144,6 +138,7 @@ We need more research then we can add more information to a detailed page for ea
 .. list-table::
    :widths: 10 10 10 15 15
    :header-rows: 1
+   :class: tight-table
 
    * - Effect
      - Implementation
@@ -197,6 +192,7 @@ Atmospheric model
 .. list-table::
    :widths: 10 10 10 15 15
    :header-rows: 1
+   :class: tight-table
 
    * - Effect
      - Implementation
@@ -216,6 +212,7 @@ Optical model
 .. list-table:: Sky Model
    :widths: 10 10 10 15 15
    :header-rows: 1
+   :class: tight-table
 
    * - Effect
      - Implementation
@@ -248,6 +245,7 @@ Calibration Products
 .. list-table::
    :widths: 10 10 10 15 15
    :header-rows: 1
+   :class: tight-table
 
    * - Effect
      - Implementation
