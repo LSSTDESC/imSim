@@ -554,7 +554,7 @@ type: **RubinOptics**
 Photons ray-traced though the Rubin optical system.
 
 Required keywords to set:
-""""""""""""""""""""""""
+""""""""""""""""""""""""""
 
     * ``boresight`` = *RaDec_value* (default = None) The CelestialCoord of the boresight of the observation.
     * ``camera`` = *str_value* (default = None) The name of the camera to use.
