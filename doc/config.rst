@@ -597,9 +597,62 @@ It can also write "amp" files. These are fully readout electronics files with on
 
 There are also several extra outputs available to the user including a centroid file containing the true position of the rendered sources, a list of optical path differences in the optical system, and a map of surface figure errors.
 
-- RegisterOutputType('LSST_CCD', LSST_CCDBuilder())
-- RegisterExtraOutput('readout', CameraReadout())
-- RegisterExtraOutput('opd', OPDBuilder())
+Output Type: LSST_CCD
+---------------------
+
+For reading out LSST CCDs.
+
+Optional keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * ``cosmic_ray_rate`` = *float_value* (default = 0) The rate of cosmic rays per second in a sensor.
+    * ``cosmic_ray_catalog`` = *str_value* (default = Distributed with *imSim*) A file containing cosmic ray images to paint on the sensor.
+    * ``header`` = *dictionary* (default = None) Extra items to add to the FITS header in the output files.
 
 
+Output Type: readout
+--------------------
+
+Parameters modifying the LSSTCamera electronics readout.
+
+Optional keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * ``camera_name`` = *str_value* (default = None) The camera object to use.
+    * ``readout_time`` = *float_value* (default = 2.0) The camera readout time in seconds.
+    * ``dark_current`` = *float_value* (default = 0.02) The dark current in electrons per second.
+    * ``bias_level`` = *float_value* (default = 1000.0) Bias readout level in ADUs.
+    * ``scti`` = *float_value* (default = 1.0e-6) The serial CTI
+    * ``pcti`` = *float_value* (default = 1.0e-6) The parallel CTI
+    * ``full_well`` = *float_value* (default = 1.0e5) Thu number of electrons needed to fill the sensor well.
+    * ``read_noise`` = *float_value* (default given by camera object) The read noise in ADU.
+
+Output Type: opd
+--------------------
+
+Write out the optical path differences images to study raytracing behaviour.
+
+Notes:
+        The OPD image coordinates are always aligned with the entrance pupil,
+        regardless of the value of rotTelPos.  The OPD values are in nm, with
+        NaN values corresponding to vignetted regions.  The OPD is always
+        computed for the fiducial telescope focal plane height; i.e., it ignores any detector-by-detector offsets in focal plane height.
+
+Required keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * ``file_name`` = *str_value* (default = None) The name of the file to write OPD images to.
+    * ``fields`` = *list* (default = None) List of field angles for which to compute OPD.  Field angles are specified in the (rotated) coordinate system of the telescope's entrance pupil (usually the primary mirror).
+
+Optional keywords to set:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+     * ``rotTelPos`` = *angle_value* (default = None) The angle of the camera rotator in degrees.
+     * ``nx`` = *int_value* (default = 255) Size of the OPD image in pixels.
+     * ``wavelength`` = *float_value* (default = None) avelength of light in nanometers.  If not specified, then the wavelength will be taken from the current bandpass.
+     * ``projection`` = *str_value* (default = 'postel') Projection mapping field angles to spherical coordinates. See batoid documentation for more details.
+     * ``sphereRadius`` = *float_value* (default = None) Radius of reference sphere in meters.  If not specified, then the radius will be taken from the telescope object.
+     *  ``reference`` = *str_value* (default = 'chief') Either 'chief' or 'mean'.  See batoid documentation for more details.
+     *  ``eps`` = *float_value* (default = None) Annular Zernike obscuration fraction.  If not specified, then the value will be taken from the telescope object.
+     *  ``jmax`` = *int_value* (default = 28) Maximum Zernike Order.
 
