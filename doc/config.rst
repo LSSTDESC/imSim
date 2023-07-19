@@ -391,7 +391,7 @@ As imSim runs, if this option is turned on, it will periodically check-point its
 
 
 Key Name: checkpoint
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 Required keywords to set:
 """"""""""""""""""""""""""
@@ -422,8 +422,11 @@ These classes define how to draw images.  The basic *GalSim* image types include
 
 .. _LSST-Camera-label:
 
+LSST Images
+-----------
+
 Key name: LSST_Image
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 The ``LSST_Image`` type is a version of the *GalSim* "Scattered Image" image class that has been modified to understand how to draw the Rubin sky background and how to apply effects such as vignetting to the sky and certain bright objects.  There are extra optional keywords you can use with the ``LSST_Image`` type.
 
@@ -464,7 +467,7 @@ Optional keywords to set:
     *  ``order`` = *int_value* (default = 3) SIP polynomial order for WCS fit.
 
 Key Name: LSST_Flat
--------------------
+^^^^^^^^^^^^^^^^^^^
 
  *imSim* also supplies a ```LSST_Flat`` image type.  Calibration flats have extremely high background levels and special file, memory and SED handling are employed in this case in order to optimize computational efficiency.
 
@@ -492,12 +495,15 @@ The Stamp drawing code does the main work to actually render the image of an ast
 
 If an astronomical object is too bright, by default *imSim* will generate the objects with a FFT instead of via photon shooting in order to save computation time.  This objects are typically saturated and not usable for analysis in any case.
 
+LSST Silicon Sensor Stamps
+--------------------------
+
 Stamp Type: LSST_Silicon
-----------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
 Required keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""
 
     * ``fft_sb_threshold`` = *float_value* (default = 0) Over this number of counts, use a FFT instead of photon shooting for speed.
     * ``airmass`` = *float_value* (default = 1.2) The airmass to use in FFTs
@@ -506,7 +512,7 @@ Required keywords to set:
 
 
 Optional keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""
 
     * ``max_flux_simple`` = *float_value* (default = 100) If the flux is less than this value use a simple SED and apply other speed ups.
     * ``method`` = *str_value* (default = 'auto') Choose between automatically deciding whether to use a FFT of photon shooting ('auto') or manually choose between 'fft' and 'phot'.
@@ -516,10 +522,10 @@ Optional keywords to set:
 Note there is an extra required keyword you must include in the stamp section that configures how diffraction passing through the telescope spiders is handled.
 
 Key Name: diffraction_psf:
---------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Required keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""
 
     * ``exptime`` = *float_value* (default = None) The time of the exposure.
     * ``azimuth`` = *float_value* (default = None) The azimuth angle in degrees.
@@ -528,7 +534,7 @@ Required keywords to set:
 
 
 Optional keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""
 
     * ``enabled`` = *bool_value* (default = True) When doing FFTs, also calcululate paramteric diffraction spikes from the spider.
     * ``spike_length_cutoff`` = *int_value* (default = 4000) In a FFT the size of the telescope spike length
@@ -544,21 +550,21 @@ Photon Operation Type
 ---------------------
 
 type: **RubinOptics**
-
+^^^^^^^^^^^^^^^^^^^^^
 Photons ray-traced though the Rubin optical system.
 
 Required keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""
 
     * ``boresight`` = *RaDec_value* (default = None) The CelestialCoord of the boresight of the observation.
     * ``camera`` = *str_value* (default = None) The name of the camera to use.
 
 type: **RubinDiffractionOptics**
-
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Ray-traced photons including the effects of diffraction when passing through edges like the telescope spiders.
 
 Required keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""
 
     * ``boresight`` = *RaDec_value* (default = None) The CelestialCoord of the boresight of the observation.
     * ``camera`` = *str_value* (default = None) The name of the camera to use.
@@ -567,24 +573,25 @@ Required keywords to set:
 
 
 Optional keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""
 
     * ``latitude`` = *bool_value* (default = True) The latitude of the observatory.
     * ``disable_field_rotation`` = *bool_value* (default = False) Do not consider the effect of the rotation of the camera relative to the spiders of the telescope during the exposure.
 
 type: **RubinDiffraction**
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Diffractive effects only during the FFT.
 
 Required keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""
 
     * ``azimuth`` = *float_value* (default = None) The azimuth angle in degrees.
     * ``altitude`` = *float_value* (default = None) The altitude angle in degrees.
     * ``latitude`` = *bool_value* (default = True) The latitude of the observatory.
 
 Optional keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""
 
     * ``disable_field_rotation`` = *bool_value* (default = False) Do not consider the effect of the rotation of the camera relative to the spiders of the telescope during the exposure.
 
@@ -597,13 +604,16 @@ It can also write "amp" files. These are fully readout electronics files with on
 
 There are also several extra outputs available to the user including a centroid file containing the true position of the rendered sources, a list of optical path differences in the optical system, and a map of surface figure errors.
 
+LSST CCD Sensor output and readout
+----------------------------------
+
 Output Type: LSST_CCD
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 For reading out LSST CCDs.
 
 Optional keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""
 
     * ``cosmic_ray_rate`` = *float_value* (default = 0) The rate of cosmic rays per second in a sensor.
     * ``cosmic_ray_catalog`` = *str_value* (default = Distributed with *imSim*) A file containing cosmic ray images to paint on the sensor.
@@ -611,12 +621,12 @@ Optional keywords to set:
 
 
 Output Type: readout
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 Parameters modifying the LSSTCamera electronics readout.
 
 Optional keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""
 
     * ``camera_name`` = *str_value* (default = None) The camera object to use.
     * ``readout_time`` = *float_value* (default = 2.0) The camera readout time in seconds.
@@ -628,7 +638,7 @@ Optional keywords to set:
     * ``read_noise`` = *float_value* (default given by camera object) The read noise in ADU.
 
 Output Type: opd
---------------------
+^^^^^^^^^^^^^^^^
 
 Write out the optical path differences images to study raytracing behaviour.
 
@@ -639,13 +649,13 @@ Notes:
         computed for the fiducial telescope focal plane height; i.e., it ignores any detector-by-detector offsets in focal plane height.
 
 Required keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""
 
     * ``file_name`` = *str_value* (default = None) The name of the file to write OPD images to.
     * ``fields`` = *list* (default = None) List of field angles for which to compute OPD.  Field angles are specified in the (rotated) coordinate system of the telescope's entrance pupil (usually the primary mirror).
 
 Optional keywords to set:
-^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""
 
      * ``rotTelPos`` = *angle_value* (default = None) The angle of the camera rotator in degrees.
      * ``nx`` = *int_value* (default = 255) Size of the OPD image in pixels.
