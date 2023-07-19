@@ -9,6 +9,13 @@ import sphinx.ext.napoleon
 sys.path.insert(0, os.path.abspath(".."))
 
 
+html_static_path = ['_static']
+
+html_css_files = [
+    'custom.css',
+]
+
+
 def load_imsim_version():
     """Extract version of imsim without importing the whole imsim module"""
 
