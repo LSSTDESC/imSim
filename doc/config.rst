@@ -573,7 +573,7 @@ Required keywords to set:
 
 
 Optional keywords to set:
-""""""""""""""""""""""""
+""""""""""""""""""""""""""
 
     * ``latitude`` = *bool_value* (default = True) The latitude of the observatory.
     * ``disable_field_rotation`` = *bool_value* (default = False) Do not consider the effect of the rotation of the camera relative to the spiders of the telescope during the exposure.
@@ -613,7 +613,7 @@ Output Type: LSST_CCD
 For reading out LSST CCDs.
 
 Optional keywords to set:
-""""""""""""""""""""""""
+""""""""""""""""""""""""""
 
     * ``cosmic_ray_rate`` = *float_value* (default = 0) The rate of cosmic rays per second in a sensor.
     * ``cosmic_ray_catalog`` = *str_value* (default = Distributed with *imSim*) A file containing cosmic ray images to paint on the sensor.
@@ -626,7 +626,7 @@ Output Type: readout
 Parameters modifying the LSSTCamera electronics readout.
 
 Optional keywords to set:
-""""""""""""""""""""""""
+""""""""""""""""""""""""""
 
     * ``camera_name`` = *str_value* (default = None) The camera object to use.
     * ``readout_time`` = *float_value* (default = 2.0) The camera readout time in seconds.
