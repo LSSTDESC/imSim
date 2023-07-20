@@ -311,15 +311,15 @@ class PsfTestCase(unittest.TestCase):
                 'draw_method' : 'phot',
                 'wcs': {
                     'type' : 'Tan',
-                    'dudx' : 0.2,
+                    'dudx' : 0.05,
                     'dudy' : 0.,
                     'dvdx' : 0.,
-                    'dvdy' : 0.2,
+                    'dvdy' : 0.05,
                     'ra' : '@input.atm_psf.boresight.ra',
                     'dec' : '@input.atm_psf.boresight.dec',
                 },
                 'bandpass': bandpass,
-                'size': 31
+                'size': 127
             },
             'gal': {
                 'type': 'DeltaFunction',
@@ -344,7 +344,7 @@ class PsfTestCase(unittest.TestCase):
             np.testing.assert_allclose(
                 sigma400/sigma900,
                 (400/900)**exponent,
-                rtol=0.02  # 2% error on value of around ~1.2 to 1.3
+                rtol=0.001  # 0.1% error on value of around ~1.2 to 1.3
             )
 
 
