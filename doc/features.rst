@@ -138,8 +138,7 @@ referenced below.
    * - Camera QE and AR
      - detector.dat
      - SysEngineering 1.7
-     - Expected response (QE response + AR coatings) of the CCDs provided by each of the two
-       vendors under consideration.
+     - Expected response (QE response + AR coatings) of the CCDs.  Currently, these numbers are joint minimums of the responses of the two vendor's sensors (e2V and ITL).
      -
 
    * - Lens
