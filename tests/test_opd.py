@@ -37,8 +37,7 @@ def test_opd_zemax():
         config = yaml.safe_load(config)
         galsim.config.ProcessInput(config)
         galsim.config.SetupExtraOutput(config)
-        # Need to mock file_num for following method to be happy:
-        config['file_num'] = 0
+        galsim.config.SetupConfigFileNum(config, 0, 0, 0)
         galsim.config.extra.WriteExtraOutputs(config, None)
 
         # Check the contents of the output file against Zemax references
@@ -92,12 +91,13 @@ def test_opd_zemax():
 
     # Verify that other data made it into the header
     assert hdu.header['units'] == 'nm'
+    scale = 8.36/(255-1)
     np.testing.assert_allclose(
-        hdu.header['dx'], 8.36/(255-1),
+        hdu.header['dx'], scale,
         rtol=1e-10, atol=1e-10
     )
     np.testing.assert_allclose(
-        hdu.header['dy'], 8.36/(255-1),
+        hdu.header['dy'], scale,
         rtol=1e-10, atol=1e-10
     )
     assert hdu.header['thx'] == 1.121
@@ -110,6 +110,21 @@ def test_opd_zemax():
     assert hdu.header['eps'] == 0.612
     assert hdu.header['jmax'] == 28
     assert hdu.header['telescop'] == "LSST"
+    # Test GalSim wrote reasonable WCS keywords
+    np.testing.assert_allclose(
+        hdu.header['GS_SCALE'], scale,
+        rtol=1e-10, atol=1e-10
+    )
+    np.testing.assert_allclose(
+        hdu.header['CD1_1'], scale,
+        rtol=1e-10, atol=1e-10
+    )
+    np.testing.assert_allclose(
+        hdu.header['CD2_2'], scale,
+        rtol=1e-10, atol=1e-10
+    )
+    assert hdu.header['CD1_2'] == 0.0
+    assert hdu.header['CD2_1'] == 0.0
 
 
 def test_opd_wavelength():
@@ -135,8 +150,7 @@ def test_opd_wavelength():
         config = yaml.safe_load(config)
         galsim.config.ProcessInput(config)
         galsim.config.SetupExtraOutput(config)
-        # Need to mock file_num for following method to be happy:
-        config['file_num'] = 0
+        galsim.config.SetupConfigFileNum(config, 0, 0, 0)
         galsim.config.extra.WriteExtraOutputs(config, None)
         fn = Path(d) / "opd1.fits"
         hdu1 = fits.open(fn)[0]
@@ -160,8 +174,7 @@ def test_opd_wavelength():
         config = yaml.safe_load(config)
         galsim.config.ProcessInput(config)
         galsim.config.SetupExtraOutput(config)
-        # Need to mock file_num for following method to be happy:
-        config['file_num'] = 0
+        galsim.config.SetupConfigFileNum(config, 0, 0, 0)
         galsim.config.extra.WriteExtraOutputs(config, None)
         fn = Path(d) / "opd2.fits"
         hdu2 = fits.open(fn)[0]

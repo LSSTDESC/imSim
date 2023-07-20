@@ -153,7 +153,7 @@ class OPDBuilder(ExtraOutputBuilder):
             # FITS doesn't know about numpy masked arrays,
             # So just fill in masked values with NaN
             opd_arr.data[opd_arr.mask] = np.nan
-            opd_img = galsim.Image(np.array(opd_arr.data))
+            opd_img = galsim.Image(np.array(opd_arr.data), scale=dx)
             # Add some provenance information to header
             opd_img.header = galsim.fits.FitsHeader()
             opd_img.header['units'] = 'nm', 'OPD units'
