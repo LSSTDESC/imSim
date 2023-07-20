@@ -177,7 +177,7 @@ referenced below.
   The hardware[u,g,r,i,z,y].dat files contain everything except atmospheric effects.  Multiplying those with the atmosphere results in a total throughput curve. Atmospheric throughputs for a large set of atmospheres can be found in https://github.com/lsst/throughputs/tree/main/atmos.
 
 Atmospheric PSF model
------------------
+---------------------
 
 .. note::
 
