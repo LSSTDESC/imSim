@@ -75,3 +75,19 @@ def test_sag():
                 optic.coordSys.rot
             )
             assert hdu.header['telescop'] == "LSST"
+            # Test GalSim wrote reasonable WCS keywords
+            scale = xs[1] - xs[0]
+            np.testing.assert_allclose(
+                hdu.header['GS_SCALE'], scale,
+                rtol=1e-10, atol=1e-10
+            )
+            np.testing.assert_allclose(
+                hdu.header['CD1_1'], scale,
+                rtol=1e-10, atol=1e-10
+            )
+            np.testing.assert_allclose(
+                hdu.header['CD2_2'], scale,
+                rtol=1e-10, atol=1e-10
+            )
+            assert hdu.header['CD1_2'] == 0.0
+            assert hdu.header['CD2_1'] == 0.0
