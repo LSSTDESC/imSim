@@ -276,10 +276,12 @@ Atmospheric PSF
 
 The class is used to create the PSF which is induced by the atmosphere.  There are two parametric PSFs available: a double Gaussian and a Kolmogorov PSF. The ``AtmosphericPSF`` type is a fully ray-traced turbulent atmosphere with multiple atmospheric layers.  Additionally, you can optionally add a parametric PSF screen which simulates the Rubin Optics.
 
+.. _AtmosphericPSF-label:
+
 Key Name: atmosphericPSF
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-This keyword enables an atmospheric PSF with 6 randomly generated atmospheric screens.  Photons are raytraced through this atmosphere to produce a realistic atmospheric PSF.  See section (``needs to be added``) for more information on the model.
+This keyword enables an atmospheric PSF with 6 randomly generated atmospheric screens.  Photons are raytraced through this atmosphere to produce a realistic atmospheric PSF.
 
 .. warning::
     You should not attempt to use the option to add parametric optics (through the ``doOpt`` option) if you are using fully ray-traced optics.  Otherwise, you will simulate the optics twice.  See See :ref:`the stamp keyword <stamp-label>` below how to activate the ray-traced mode.

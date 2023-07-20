@@ -1,20 +1,17 @@
 Features Implemented in imSim
 #############################
 
-These summary tables should give a high level overview of effects that have been implmented in imSim. For detailed information please make/link to a subpage or appropriate reference.
+These summary tables should give a high level overview of effects that have been implemented in imSim. For detailed information please see the linked sub-pages, code, or appropriate reference.
 
 Go directly to:
-`Sensors <Sensor Table_>`_ - `Sky <Sky Model_>`_ - `Throughputs <System Throughputs_>`_ - `Atmospheric <Atmospheric Model_>`_ - `Optics <Optical Model_>`_  - `Calibration Products <Calibration Products_>`_
+`Sensors <Sensor Effects_>`_ - `Sky <Sky Model_>`_ - `Throughputs <System Throughputs_>`_ - `Atmospheric PSF <Atmospheric PSF Model_>`_ - `Optics <Optical Model_>`_  - `Calibration Products <Calibration Products_>`_
 
-Sensor Table
-------------
+Sensor Effects
+--------------
 ..
   .. image:: img/features.svg
 
-This table is a list of current and not yet implemented
-sensor effects in imSim along with pointers to the techniques used to
-implement them and the internal validation tests that have been
-peformed.
+This table is a list of sensor effects in imSim along with pointers to the techniques used to implement them, and the internal validation tests that have been performed.
 
 .. list-table::
    :widths: 10 10 10 15 15
@@ -93,11 +90,7 @@ peformed.
      -
      -
 
-   * - Spider Diffraction
-     - diffraction.py, diffraction_fft.py photon_ops.py
-     -
-     - Statistical Diffraction during batoid ray tracing or parametric model with FFT.
-     - Page link :doc:`validation/diffraction`
+
 
 Sky Model
 ---------
@@ -126,14 +119,10 @@ imSim uses the Rubin project sky model. It is called sims_skybrightness and is l
 System Throughputs
 -------------------
 
-All of the system throughputs are recorded in
-`baseline <https://github.com/lsst/throughputs/tree/master/baseline>`_.
-This information is copied from the System Engineering database.  More information can be
-found in the `README <https://github.com/lsst/throughputs/blob/master/baseline/README.md>`_ file.
-In that directory you can find a graphical representation of the total throughput along with datafile
-representing each component and the total throughput. The file representing each throughput curve is
-referenced below. [It looks like the README might be a bit out of date with the files..
-We need more research then we can add more information to a detailed page for each]
+All of the system throughputs are recorded in the `throughputs baseline <https://github.com/lsst/throughputs/tree/main/baseline>`_.
+This information is copied from the System Engineering database.  More information can be found in the `README <https://github.com/lsst/throughputs/blob/main/baseline/README.md>`_ file.
+In that directory you can find a graphical representation of the total throughput along with datafile representing each component and the total throughput. The file representing each throughput curve is
+referenced below.
 
 .. list-table::
    :widths: 10 10 10 15 15
@@ -148,68 +137,59 @@ We need more research then we can add more information to a detailed page for ea
 
    * - Camera QE and AR
      - detector.dat
-     - SysEngineering 1.1
+     - SysEngineering 1.7
      - Expected response (QE response + AR coatings) of the CCDs provided by each of the two
        vendors under consideration.
-     - We expect a merge from the SysEng database very soon.
+     -
 
    * - Lens
      - lens[1,2,3].dat
-     - SysEngineering 1.1
+     - SysEngineering 1.7
      - Combination of fused silicon and BroadBand AntiReflective (BBAR) coatings
      -
 
    * - Filters
      - filter[u,g,r,i,z,y].dat
-     - SysEngineering 1.1
-     - Filter throughput in each band (from manufacturer?)
-     -
+     - SysEngineering 1.7
+     - Filter throughput in each band. We expect an update with as-built numbers soon.
 
+     -
    * - Mirrors
      - m[1,2,3].dat
-     - SysEngineering 1.1
+     - SysEngineering 1.7
      - Reflectivity curve for each mirror
      -
 
    * - Atmosphere
      - atmosphere_std.dat and atmosphere_10.dat
-     - SysEngineering 1.1
+     - SysEngineering 1.7
      - MODTRAN based standard US atmosphere with Aerosols added.
      - Both typical (standard) throughput with airmass X=1.2 and optimum X=1.0 files are provided
 
    * - Total
      - total[u,g,r,i,z,y].dat
-     - SysEngineering 1.1
+     - SysEngineering 1.7
      - The total throughput by band
      -
 
-[What about darsky.dat? Do we use this, now that we have the ESO model?
-Or is this used by OpSim?  Should we include it?  What is hardware[u,g,r,i,z,y].dat?]
+.. note::
 
-Atmospheric model
+  The hardware[u,g,r,i,z,y].dat files contain everything except atmospheric effects.  Multiplying those with the atmosphere results in a total throughput curve. Atmospheric throughputs for a large set of atmospheres can be found in https://github.com/lsst/throughputs/tree/main/atmos.
+
+Atmospheric PSF model
 -----------------
 
-.. list-table::
-   :widths: 10 10 10 15 15
-   :header-rows: 1
-   :class: tight-table
+.. note::
 
-   * - Effect
-     - Implementation
-     - Data / Model Source
-     - Short description
-     - Validation Page and Notebooks
+   To be added.  See the :ref:`atmospheric psf <AtmosphericPSF-label>` config section on how to configure the atmosphere and in https://iopscience.iop.org/article/10.3847/1538-4365/abd62c for a description of the model.
 
-   * -
-     -
-     -
-     -
-     -
 
 Optical model
 -------------
 
-.. list-table:: Sky Model
+You have a choice of parametric of fully raytraced optics via *batoid*.
+
+.. list-table::
    :widths: 10 10 10 15 15
    :header-rows: 1
    :class: tight-table
@@ -221,46 +201,41 @@ Optical model
      - Validation Page and Notebooks
 
    * - Vignetting
-     - Not yet
+     - vignetting.py
      -
-     -
+     - Either emergent for raytraced objects or via a function for those produced via FFT.  The sky backround is vignetted via a function.
      -
 
    * - Ghosts
-     - Not currently possible
+     - Not currently possible.  Planned in the next version of *imSim* when the abilty to handle raytraced light across multiple sensors being processed in parallel will be updated.
      -
      -
-     - There is currently no optical ray trace
+     -
+
+   * - Spider Diffraction Spikes
+     - diffraction.py, diffraction_fft.py photon_ops.py
+     -
+     - Statistical Diffraction during batoid ray tracing or parametric model with FFT.
+     - Page link :doc:`validation/diffraction`
 
    * - Aberrated optics
-     - optical_system.py
-     - Sensitivity matrix from LSST SE LCA-XXX
-     - Difference from AO corrected mean represented as a sum of Zernikes contributing a phase screen.
-     - Page link :doc:`validation/aberrated-optics`
+     - optical_system.py telescope_loader.py
+     -
+     - Either a parametric model built around a sensitivity matrix, or a fully raytraced optical model with FEA and pertubation controls using several degrees of freedom including bending modes and physical actuators.
+     - Page link :doc:`validation/aberrated-optics` for the parametric case :doc:`lsst-optical` for the raytraced case.
 
 
 Calibration Products
 --------------------
 
-.. list-table::
-   :widths: 10 10 10 15 15
-   :header-rows: 1
-   :class: tight-table
+.. note::
 
-   * - Effect
-     - Implementation
-     - Data / Model Source
-     - Short description
-     - Validation Page and Notebooks
+   To be added.  Description of flats, darks etc need to be added.
 
-   * -
-     -
-     -
-     -
-     -
+Detailed Description of Physical Effects Implemented in imSim
+-------------------------------------------------------------
 
-Detailed Physical Effects Implemented in imSim
-----------------------------------------------
+Several of the effects listed above have detailed pages descrubing how the model was constructed and what data was used.
 
 .. toctree::
    :maxdepth: 2

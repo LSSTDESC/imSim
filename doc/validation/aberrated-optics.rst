@@ -1,6 +1,8 @@
 Effect: Abberated Optics
 ########################
 
+(Parameteric Version)
+
 The LSST active optics system (AOS) is designed to minimize optical
 aberrations by modifying the positions and surface figures of
 telescope components in real time. The LSST AOS is comprised of two
@@ -69,7 +71,7 @@ nominal value :math:`n_i` and deviations from that nominal value
 
    W(u,v,x,y) = \sum_i \left(n_i(x,y)
     + \delta n_i(x,y)\right) Z_i(u,v).
-      
+
 The nominal Zernike coefficients are estimated using the Zemax
 model. These will differ slightly from the real LSST, however an
 “as-built” Zemax model will not be available until closer to the
@@ -87,7 +89,7 @@ From these distributions, the aberrated optics model generates a
 random set of optical deviations representing an independent state of
 the LSST optics system. These deviations are then mapped to the
 corresponding Zernike coefficients using the sensitivity matrix
-:math:`A` outlined in `Angeli, Xin et. al 
+:math:`A` outlined in `Angeli, Xin et. al
 2014 <https://www.spiedigitallibrary.org/conference-proceedings-of-spie/9150/1/Real-time-wavefront-control-system-for-the-Large-Synoptic-Survey/10.1117/12.2055390.short?SSO=1>`_
 
 The sensitivity matrix, and by extension :math:`\delta_n`, has been
@@ -115,7 +117,7 @@ Completed Checks
 Uncompleted Checks
 ~~~~~~~~~~~~~~~~~~
 
-3.  The average PSF due strictly to the optical system should be 
+3.  The average PSF due strictly to the optical system should be
     physically reasonable over a large collection of random optical states.
 
 Validation Results:
