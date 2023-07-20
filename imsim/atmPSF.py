@@ -315,7 +315,7 @@ class AtmosphericPSF(object):
                 ),
                 alpha=self.exponent,
                 base_wavelength=self.wlen_eff,
-                zenith_angle=0*galsim.degrees
+                zenith_angle=0*galsim.degrees  # Turns off DCR, since we apply that later using PhotonDCR.
             )
         ]
         if self.second_kick is not None:
