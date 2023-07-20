@@ -97,7 +97,12 @@ class AtmosphericPSF(object):
                         in units of (1/r0).  default: 0.2
     @param screen_size  Size of the phase screens in meters.  default: 819.2
     @param screen_scale Size of phase screen "pixels" in meters.  default: 0.1
-    @param doOpt        Add in optical phase screens?  default: True
+    @param doOpt        Add in optical phase screens?  default: False
+    @param exponent     Chromatic seeing exponent.  The atmospheric component of
+                        the PSF will dilate as (wavelength/500 nm)**exponent.  For
+                        Kolmogorov turbulence, this should be -0.2.  For Von Karman
+                        turbulence, this is somewhere around -0.3 (depends on the
+                        outer scale).  default: -0.3
     @param logger       Optional logger.  default: None
     @param nproc        Number of processes to use in creating screens. If None (default),
                         then allocate one process per phase screen, of which there are 6,
@@ -108,8 +113,10 @@ class AtmosphericPSF(object):
     """
     def __init__(self, airmass, rawSeeing, band, boresight, rng,
                  t0=0.0, exptime=30.0, kcrit=0.2,
-                 screen_size=819.2, screen_scale=0.1, doOpt=True, logger=None,
-                 nproc=None, save_file=None):
+                 screen_size=819.2, screen_scale=0.1, doOpt=False, exponent=-0.3,
+                 logger=None, nproc=None, save_file=None,
+                 _no2k=False # for testing
+    ):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
         self.boresight = boresight
@@ -125,13 +132,16 @@ class AtmosphericPSF(object):
         self.exptime = exptime
         self.screen_size = screen_size
         self.screen_scale = screen_scale
+        self.exponent = exponent
+        self.opt = None
+        self.second_kick = None
 
         if save_file and os.path.isfile(save_file):
             self.logger.warning(f'Reading atmospheric PSF from {save_file}')
             self.load_psf(save_file)
         else:
             self.logger.warning('Building atmospheric PSF')
-            self._build_atm(kcrit, doOpt, nproc)
+            self._build_atm(kcrit, doOpt, nproc, _no2k)
             if save_file:
                 self.logger.warning(f'Saving atmospheric PSF to {save_file}')
                 self.save_psf(save_file)
@@ -142,16 +152,16 @@ class AtmosphericPSF(object):
         """
         with open(save_file, 'wb') as fd:
             with galsim.utilities.pickle_shared():
-                pickle.dump((self.atm, self.aper), fd)
+                pickle.dump((self.atm, self.aper, self.second_kick), fd)
 
     def load_psf(self, save_file):
         """
         Load a psf from a pickle file.
         """
         with open(save_file, 'rb') as fd:
-            self.atm, self.aper = pickle.load(fd)
+            self.atm, self.aper, self.second_kick = pickle.load(fd)
 
-    def _build_atm(self, kcrit, doOpt, nproc):
+    def _build_atm(self, kcrit, doOpt, nproc, _no2k):
 
         ctx = multiprocessing.get_context('fork')
         self.atm = galsim.Atmosphere(mp_context=ctx, **self._getAtmKwargs())
@@ -163,6 +173,7 @@ class AtmosphericPSF(object):
         r0_500 = self.atm.r0_500_effective
         r0 = r0_500 * (self.wlen_eff/500.0)**(6./5)
         kmax = kcrit / r0
+
         self.logger.info("Instantiating atmospheric screens")
 
         if nproc is None:
@@ -181,8 +192,17 @@ class AtmosphericPSF(object):
         self.logger.debug("GSScreenShare keys = %s",list(galsim.phase_screens._GSScreenShare.keys()))
         self.logger.debug("id(self) = %s",id(self))
 
+        if not _no2k:
+            self.second_kick = galsim.SecondKick(
+                self.wlen_eff,
+                r0,
+                self.aper.diam,
+                self.aper.obscuration,
+                kcrit=kcrit
+            )
+
         if doOpt:
-            self.atm.append(OptWF(self.rng, self.wlen_eff))
+            self.opt = galsim.PhaseScreenList(OptWF(self.rng, self.wlen_eff))
 
     def __eq__(self, rhs):
         return (isinstance(rhs, AtmosphericPSF)
@@ -196,9 +216,11 @@ class AtmosphericPSF(object):
 
     @staticmethod
     def _vkSeeing(r0_500, wavelength, L0):
-        # von Karman profile FWHM from Tokovinin fitting formula
+        # von Karman profile FWHM from fitting formula in eqn 19 of
+        # Tokovinin 2002, PASP, v114, p1156
+        # https://dx.doi.org/10.1086/342683
         kolm_seeing = galsim.Kolmogorov(r0_500=r0_500, lam=wavelength).fwhm
-        r0 = r0_500 * (wavelength/500)**1.2
+        r0 = r0_500 * (wavelength/500)**(6./5)
         arg = 1. - 2.183*(r0/L0)**0.356
         factor = np.sqrt(arg) if arg > 0.0 else 0.0
         return kolm_seeing*factor
@@ -210,7 +232,7 @@ class AtmosphericPSF(object):
     @staticmethod
     def _r0_500(wavelength, L0, targetSeeing):
         """Returns r0_500 to use to get target seeing."""
-        r0_500_max = min(1.0, L0*(1./2.183)**(-0.356)*(wavelength/500.)**1.2)
+        r0_500_max = min(1.0, L0*(1./2.183)**(-0.356)*(wavelength/500.)**(6./5))
         r0_500_min = 0.01
         return bisect(
             AtmosphericPSF._seeingResid,
@@ -279,16 +301,40 @@ class AtmosphericPSF(object):
 
         @param [in] field position of the object relative to the boresight direction.
         """
-
         theta = (field_pos.x*galsim.arcsec, field_pos.y*galsim.arcsec)
-        psf = self.atm.makePSF(
-            self.wlen_eff,
-            aper=self.aper,
-            theta=theta,
-            t0=self.t0,
-            exptime=self.exptime,
-            gsparams=gsparams)
-        return psf
+        psfs = [
+            galsim.ChromaticAtmosphere(
+                self.atm.makePSF(
+                    self.wlen_eff,
+                    aper=self.aper,
+                    theta=theta,
+                    t0=self.t0,
+                    exptime=self.exptime,
+                    gsparams=gsparams,
+                    second_kick=False
+                ),
+                alpha=self.exponent,
+                base_wavelength=self.wlen_eff,
+                zenith_angle=0*galsim.degrees  # Turns off DCR, since we apply that later using PhotonDCR.
+            )
+        ]
+        if self.second_kick is not None:
+            psfs.append(self.second_kick.withGSParams(gsparams))
+        if self.opt is not None:
+            psfs.append(
+                self.opt.makePSF(
+                    self.wlen_eff,
+                    aper=self.aper,
+                    theta=theta,
+                    t0=self.t0,
+                    exptime=self.exptime,
+                    gsparams=gsparams,
+                    second_kick=False
+                )
+            )
+        out = galsim.Convolve(psfs)
+        return out
+
 
 class AtmLoader(InputLoader):
     """Custom AtmosphericPSF loader that only loads the atmosphere once per exposure.
@@ -319,11 +365,28 @@ class AtmLoader(InputLoader):
                        'screen_size' : float,
                        'screen_scale' : float,
                        'doOpt' : bool,
+                       'exponent': float,
                        'nproc' : int,
                        'save_file' : str,
+                       '_no2k': bool
                      }
         kwargs, _ = galsim.config.GetAllParams(config, base, req=req_params, opt=opt_params)
         logger.debug("kwargs = %s",kwargs)
+
+        # Check that we're not including the optics twice:
+        if 'doOpt' in kwargs and kwargs['doOpt']:
+            if 'stamp' in base:
+                if 'photon_ops' in base['stamp']:
+                    ops_types = [op['type'] for op in base['stamp']['photon_ops']]
+                    for op in ops_types:
+                        if op in ['RubinOptics', 'RubinDiffractionOptics']:
+                            import warnings
+                            warnings.warn(
+                                f"You have included the optics twice!  Once via the "
+                                f"photon operator '{op}' "
+                                f"and once via 'atm_psf' with 'doOpt=True'. "
+                                f"This is likely a mistake!"
+                            )
 
         # We want this to be set up right at the beginning of the run, before the config
         # stuff has even set up the RNG yet.  So make an rng ourselves based on the
