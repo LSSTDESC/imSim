@@ -515,6 +515,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 #       Something like sed.make_tabulated()
                 if (not isinstance(sed._spec, galsim.LookupTable)
                     or sed._spec.interpolant != 'linear'):
+                    # Workaround for https://github.com/GalSim-developers/GalSim/issues/1228
                     f = np.broadcast_to(sed(wave_list), wave_list.shape)
                     new_spec = galsim.LookupTable(wave_list, f, interpolant='linear')
                     new_sed = galsim.SED(

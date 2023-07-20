@@ -339,7 +339,6 @@ class PsfTestCase(unittest.TestCase):
             config900['input']['atm_psf']['exponent'] = exponent
             config900['gal']['sed'] = sed900
             img900 = galsim.config.BuildImage(config900)
-            img900.wcs = galsim.PixelScale(0.05) # just lie a little bit
             sigma900 = galsim.hsm.FindAdaptiveMom(img900).moments_sigma
 
             np.testing.assert_allclose(
