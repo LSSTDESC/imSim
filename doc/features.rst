@@ -28,13 +28,13 @@ This table is a list of sensor effects in imSim along with pointers to the techn
      - GalSim Feature (Silicon.cpp)
      - Linear scaling of pixel edge vertices displacement derived with Poisson Solver. Pre-computed solutions available for both E2V and ITL sensors, with both 8 and 32 vertices per edge.
      - GalSim reads in vertex data from full electrostatic Poisson solver, scales them linearly with collected charges, and co-adds the effects from all pixels iteratively while collecting the image.
-     - Page link :doc:`validation/brighter-fatter`
+     - :doc:`validation/brighter-fatter`
 
    * - Diffusion
      - GalSim Feature (sensor.py / Silicon.cpp)
      - Diffusion Parameters estimated from first principles and validated with Fe55
      - GalSim applies random Gaussian displacement for every photon using temperature and voltage dependent amplitude,  See page link
-     - Page link :doc:`validation/diffusion`
+     - :doc:`validation/diffusion`
 
    * - Tree Rings
      - GalSim Feature (Silicon.cpp) / imSim configuration (tree_rings.py)

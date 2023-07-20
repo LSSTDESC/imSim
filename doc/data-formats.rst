@@ -1,14 +1,9 @@
 Data formats of input and output files
 ######################################
 
-::
+.. note::
 
-    show how to use
+    This section could be used to explain in more details about the various input and output files, what is in them, how to use and visualize them.
 
-    sky catalogs?
-    instance catalogs?
-
-
-    contents of files
-    viewing with ds9 etc
+    Not yet written.
 

@@ -4,6 +4,9 @@
 The Rubin Optical System
 ========================
 
+.. note::
+    This section will explain how to control the optical system through batoid along with examples for YAML file input. Basic introduction to batoid concepts would also be appropriate.
+
 Controlling Optical Perturbations
 ---------------------------------
 
