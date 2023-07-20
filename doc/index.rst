@@ -6,6 +6,8 @@ imSim is a software package that simulates the Rubin Observatory and LSST survey
 
 This documentation covers installation, configuration, and usage instructions for the imSim program.  It also includes descriptions of several of the models implemented by imSim.
 
+The source code of *imSim* is hosted at https://github.com/LSSTDESC/imSim.
+
 Contents
 ########
 
