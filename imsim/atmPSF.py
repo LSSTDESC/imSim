@@ -114,7 +114,9 @@ class AtmosphericPSF(object):
     def __init__(self, airmass, rawSeeing, band, boresight, rng,
                  t0=0.0, exptime=30.0, kcrit=0.2,
                  screen_size=819.2, screen_scale=0.1, doOpt=False, exponent=-0.3,
-                 logger=None, nproc=None, save_file=None):
+                 logger=None, nproc=None, save_file=None,
+                 _no2k=False # for testing
+    ):
         self.airmass = airmass
         self.rawSeeing = rawSeeing
         self.boresight = boresight
@@ -131,14 +133,16 @@ class AtmosphericPSF(object):
         self.screen_size = screen_size
         self.screen_scale = screen_scale
         self.exponent = exponent
-        self.doOpt = doOpt
+        self.opt = None
 
         if save_file and os.path.isfile(save_file):
             self.logger.warning(f'Reading atmospheric PSF from {save_file}')
             self.load_psf(save_file)
         else:
             self.logger.warning('Building atmospheric PSF')
-            self._build_atm(kcrit, nproc)
+            self._build_atm(kcrit, doOpt, nproc)
+            if _no2k:
+                self.second_kick = galsim.DeltaFunction()
             if save_file:
                 self.logger.warning(f'Saving atmospheric PSF to {save_file}')
                 self.save_psf(save_file)
@@ -149,16 +153,16 @@ class AtmosphericPSF(object):
         """
         with open(save_file, 'wb') as fd:
             with galsim.utilities.pickle_shared():
-                pickle.dump((self.atm, self.aper), fd)
+                pickle.dump((self.atm, self.aper, self.second_kick), fd)
 
     def load_psf(self, save_file):
         """
         Load a psf from a pickle file.
         """
         with open(save_file, 'rb') as fd:
-            self.atm, self.aper = pickle.load(fd)
+            self.atm, self.aper, self.second_kick = pickle.load(fd)
 
-    def _build_atm(self, kcrit, nproc):
+    def _build_atm(self, kcrit, doOpt, nproc):
 
         ctx = multiprocessing.get_context('fork')
         self.atm = galsim.Atmosphere(mp_context=ctx, **self._getAtmKwargs())
@@ -197,7 +201,7 @@ class AtmosphericPSF(object):
         self.logger.debug("GSScreenShare keys = %s",list(galsim.phase_screens._GSScreenShare.keys()))
         self.logger.debug("id(self) = %s",id(self))
 
-        if self.doOpt:
+        if doOpt:
             self.opt = galsim.PhaseScreenList(OptWF(self.rng, self.wlen_eff))
 
     def __eq__(self, rhs):
@@ -212,7 +216,9 @@ class AtmosphericPSF(object):
 
     @staticmethod
     def _vkSeeing(r0_500, wavelength, L0):
-        # von Karman profile FWHM from Tokovinin fitting formula
+        # von Karman profile FWHM from fitting formula in eqn 19 of
+        # Tokovinin 2002, PASP, v114, p1156
+        # https://dx.doi.org/10.1086/342683
         kolm_seeing = galsim.Kolmogorov(r0_500=r0_500, lam=wavelength).fwhm
         r0 = r0_500 * (wavelength/500)**1.2
         arg = 1. - 2.183*(r0/L0)**0.356
@@ -313,7 +319,7 @@ class AtmosphericPSF(object):
             ),
             self.second_kick.withGSParams(gsparams)
         ]
-        if self.doOpt:
+        if self.opt is not None:
             psfs.append(
                 self.opt.makePSF(
                     self.wlen_eff,
@@ -358,8 +364,10 @@ class AtmLoader(InputLoader):
                        'screen_size' : float,
                        'screen_scale' : float,
                        'doOpt' : bool,
+                       'exponent': float,
                        'nproc' : int,
                        'save_file' : str,
+                       '_no2k': bool
                      }
         kwargs, _ = galsim.config.GetAllParams(config, base, req=req_params, opt=opt_params)
         logger.debug("kwargs = %s",kwargs)

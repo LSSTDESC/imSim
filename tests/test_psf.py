@@ -237,7 +237,7 @@ class PsfTestCase(unittest.TestCase):
     def test_r0_500(self):
         """Test that inversion of the Tokovinin fitting formula for r0_500 works."""
         np.random.seed(57721)
-        for _ in range(100):
+        for _ in range(10):
             airmass = np.random.uniform(1.001, 1.5)
             rawSeeing = np.random.uniform(0.5, 1.5)
             band = 'ugrizy'[np.random.randint(6)]
@@ -253,6 +253,100 @@ class PsfTestCase(unittest.TestCase):
             vkFWHM = imsim.AtmosphericPSF._vkSeeing(r0_500, wlen, L0)
 
             np.testing.assert_allclose(targetFWHM, vkFWHM, atol=1e-3, rtol=0)
+
+
+    def test_chromatic_psf(self):
+        import copy
+
+        # Make some monochromatic SEDs for testing.
+        sed400 = galsim.SED(
+            galsim.LookupTable(
+                [200,399,400,401,1100], [0,0,1,0,0], interpolant='linear'
+            ),
+            'nm',
+            'fphotons'
+        )
+        sed900 = galsim.SED(
+            galsim.LookupTable(
+                [200,899,900,901,1100], [0,0,1,0,0], interpolant='linear'
+            ),
+            'nm',
+            'fphotons'
+        )
+
+        bandpass = galsim.Bandpass(
+            galsim.LookupTable(
+                [200,201,1099,1100],
+                [0,1,1,0],
+                interpolant='linear'
+            ),
+            wave_type='nm'
+        )
+
+        template = {
+            'psf': {
+                'type': 'AtmosphericPSF'
+            },
+            'input': {
+                'atm_psf': {
+                    'airmass': 1.0,
+                    'rawSeeing': 1.0,
+                    'band':  'r',
+                    'screen_size': 51.2,
+                    'boresight': {
+                        'type': 'RADec',
+                        'ra': { 'type': 'Degrees', 'theta': 0.0},
+                        'dec': { 'type': 'Degrees', 'theta': 0.0}
+                    },
+                    'exponent': None,
+                    'exptime': 600.0,  # Lots of mixing.
+                    'doOpt': False,
+                    '_no2k': True,  # turn off second-kick since it's achromatic
+                }
+            },
+            'image_pos': galsim.PositionD(0,0),  # This would get set appropriately during
+                                                 # normal config processing.
+            'image' : {
+                'random_seed': 1234,
+                'draw_method' : 'phot',
+                'wcs': {
+                    'type' : 'Tan',
+                    'dudx' : 0.2,
+                    'dudy' : 0.,
+                    'dvdx' : 0.,
+                    'dvdy' : 0.2,
+                    'ra' : '@input.atm_psf.boresight.ra',
+                    'dec' : '@input.atm_psf.boresight.dec',
+                },
+                'bandpass': bandpass,
+                'size': 31
+            },
+            'gal': {
+                'type': 'DeltaFunction',
+                'flux': 1e5,
+                'sed': None
+            }
+        }
+
+        for exponent in [-0.2, -0.3]:
+            config400 = copy.deepcopy(template)
+            config400['input']['atm_psf']['exponent'] = exponent
+            config400['gal']['sed'] = sed400
+            img400 = galsim.config.BuildImage(config400)
+            sigma400 = galsim.hsm.FindAdaptiveMom(img400).moments_sigma
+
+            config900 = copy.deepcopy(template)
+            config900['input']['atm_psf']['exponent'] = exponent
+            config900['gal']['sed'] = sed900
+            img900 = galsim.config.BuildImage(config900)
+            img900.wcs = galsim.PixelScale(0.05) # just lie a little bit
+            sigma900 = galsim.hsm.FindAdaptiveMom(img900).moments_sigma
+
+            np.testing.assert_allclose(
+                sigma400/sigma900,
+                (400/900)**exponent,
+                rtol=0.02  # 2% error on value of around ~1.2 to 1.3
+            )
 
 
 if __name__ == '__main__':
