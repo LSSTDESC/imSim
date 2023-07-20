@@ -134,15 +134,14 @@ class AtmosphericPSF(object):
         self.screen_scale = screen_scale
         self.exponent = exponent
         self.opt = None
+        self.second_kick = None
 
         if save_file and os.path.isfile(save_file):
             self.logger.warning(f'Reading atmospheric PSF from {save_file}')
             self.load_psf(save_file)
         else:
             self.logger.warning('Building atmospheric PSF')
-            self._build_atm(kcrit, doOpt, nproc)
-            if _no2k:
-                self.second_kick = galsim.DeltaFunction()
+            self._build_atm(kcrit, doOpt, nproc, _no2k)
             if save_file:
                 self.logger.warning(f'Saving atmospheric PSF to {save_file}')
                 self.save_psf(save_file)
@@ -162,7 +161,7 @@ class AtmosphericPSF(object):
         with open(save_file, 'rb') as fd:
             self.atm, self.aper, self.second_kick = pickle.load(fd)
 
-    def _build_atm(self, kcrit, doOpt, nproc):
+    def _build_atm(self, kcrit, doOpt, nproc, _no2k):
 
         ctx = multiprocessing.get_context('fork')
         self.atm = galsim.Atmosphere(mp_context=ctx, **self._getAtmKwargs())
@@ -174,14 +173,6 @@ class AtmosphericPSF(object):
         r0_500 = self.atm.r0_500_effective
         r0 = r0_500 * (self.wlen_eff/500.0)**(6./5)
         kmax = kcrit / r0
-
-        self.second_kick = galsim.SecondKick(
-            self.wlen_eff,
-            r0,
-            self.aper.diam,
-            self.aper.obscuration,
-            kcrit=kcrit
-        )
 
         self.logger.info("Instantiating atmospheric screens")
 
@@ -200,6 +191,15 @@ class AtmosphericPSF(object):
         self.logger.info("Finished building atmosphere")
         self.logger.debug("GSScreenShare keys = %s",list(galsim.phase_screens._GSScreenShare.keys()))
         self.logger.debug("id(self) = %s",id(self))
+
+        if not _no2k:
+            self.second_kick = galsim.SecondKick(
+                self.wlen_eff,
+                r0,
+                self.aper.diam,
+                self.aper.obscuration,
+                kcrit=kcrit
+            )
 
         if doOpt:
             self.opt = galsim.PhaseScreenList(OptWF(self.rng, self.wlen_eff))
@@ -316,9 +316,10 @@ class AtmosphericPSF(object):
                 alpha=self.exponent,
                 base_wavelength=self.wlen_eff,
                 zenith_angle=0*galsim.degrees
-            ),
-            self.second_kick.withGSParams(gsparams)
+            )
         ]
+        if self.second_kick is not None:
+            psfs.append(self.second_kick.withGSParams(gsparams))
         if self.opt is not None:
             psfs.append(
                 self.opt.makePSF(
