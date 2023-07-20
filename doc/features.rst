@@ -1,24 +1,22 @@
-Feature Matrix
-##############
+Features Implemented in imSim
+#############################
 
-This summary table should give a high level overview of effects. For detailed information please make/link to a subpage or appropriate reference.
+These summary tables should give a high level overview of effects that have been implemented in imSim. For detailed information please see the linked sub-pages, code, or appropriate reference.
 
 Go directly to:
-`Sensors <Sensor Table_>`_ - `Sky <Sky Model_>`_ - `Throughputs <System Throughputs_>`_ - `Atmospheric <Atmospheric Model_>`_ - `Optics <Optical Model_>`_  - `Calibration Products <Calibration Products_>`_
+`Sensors <Sensor Effects_>`_ - `Sky <Sky Model_>`_ - `Throughputs <System Throughputs_>`_ - `Atmospheric PSF <Atmospheric PSF Model_>`_ - `Optics <Optical Model_>`_  - `Calibration Products <Calibration Products_>`_
 
-Sensor Table
-------------
+Sensor Effects
+--------------
+..
+  .. image:: img/features.svg
 
-.. image:: img/features.svg
-
-This table is a list of current and not yet implemented
-sensor effects in imSim along with pointers to the techniques used to
-implement them and the internal validation tests that have been
-peformed.
+This table is a list of sensor effects in imSim along with pointers to the techniques used to implement them, and the internal validation tests that have been performed.
 
 .. list-table::
    :widths: 10 10 10 15 15
    :header-rows: 1
+   :class: tight-table
 
    * - Effect
      - Implementation
@@ -30,13 +28,13 @@ peformed.
      - GalSim Feature (Silicon.cpp)
      - Linear scaling of pixel edge vertices displacement derived with Poisson Solver. Pre-computed solutions available for both E2V and ITL sensors, with both 8 and 32 vertices per edge.
      - GalSim reads in vertex data from full electrostatic Poisson solver, scales them linearly with collected charges, and co-adds the effects from all pixels iteratively while collecting the image.
-     - Page link :doc:`validation/brighter-fatter`
+     - :doc:`validation/brighter-fatter`
 
    * - Diffusion
      - GalSim Feature (sensor.py / Silicon.cpp)
      - Diffusion Parameters estimated from first principles and validated with Fe55
      - GalSim applies random Gaussian displacement for every photon using temperature and voltage dependent amplitude,  See page link
-     - Page link :doc:`validation/diffusion`
+     - :doc:`validation/diffusion`
 
    * - Tree Rings
      - GalSim Feature (Silicon.cpp) / imSim configuration (tree_rings.py)
@@ -46,42 +44,39 @@ peformed.
 
    * - CTE
      - readout.py
-     -
+     - Camera Integration and Testing
      -
      -
 
    * - Noise Rate
      - readout.py
+     - Camera Integration and Testing
      -
      -
-     - Noise rate is YYY
 
    * - Xtalk
      - readout.py
-     - Currently Unknown
+     - Camera Integration and Testing
      -
-     - Crosstalk values are read from obs_lsst.
+     - Crosstalk values are read from obs_lsst camera discription
 
    * - Hot Pixels/Rows
-     - See Note
+     - **being implemented**
+     - Camera Integration and Testing
      -
      -
-     - We will mask locations without actually simulating them.
 
    * - Fringing
-     - Not yet
+     - **being implemented**
+     - Sensor Testing and electromagnetic model
+     - Please see: https://inspirehep.net/literature/2183279
      -
-     -
-     - Some formalism and a standalone simulation
-       `here <https://confluence.slac.stanford.edu/pages/viewpage.action?pageId=215845587>`__.
-       The hooks to implement code for this in exist now in the GalSim API (more info needed)
 
    * - Cosmic Rays
-     - cosmic_rays.py: Approximately 10K cosmic rays which are randomly addd to
-       the exposures can be be found in cosmic_ray_catalog.fits.gz
-     - Template data taken from ITL test stands at UofA.
+     - cosmic_rays.py: ~10K cosmic are randomly added to the exposures.
+     - Template data taken from ITL test stands at UofA. We should remeasure on summit.
      -
-     - We should normalize to mountain level.
+     -
 
    * - Edge rolloff
      - Not yet
@@ -90,26 +85,22 @@ peformed.
      -
 
    * - Bleeding
-     - Not yet
-     - Test stand at Davis. Specialized bleed run.
+     - bleed_trails.py called from readout.py
+     - Test stand at Davis. Specialized bleed runs.
      -
-     - Current tests are exploring behavior at the midline for ITL and E2V sensors
+     -
 
-   * - Spider Diffraction
-     - diffraction.py, photon_ops.py
-     -
-     - Statistical Diffraction during batoid ray tracing.
-     - Page link :doc:`validation/diffraction`
+
 
 Sky Model
 ---------
 
-imSim uses the project sky model. It is located in the sims stack and called
-sims_skybrightness.
+imSim uses the Rubin project sky model. It is called sims_skybrightness and is located in the rubin-sims package which is an *imSim* dependency.
 
 .. list-table::
    :widths: 10 10 10 15 15
    :header-rows: 1
+   :class: tight-table
 
    * - Effect
      - Implementation
@@ -118,32 +109,25 @@ sims_skybrightness.
      - Validation Page and Notebooks
 
    * - Sky Background
-     - LSST eups package `git repo <https://github.com/lsst/sims_skybrightness>`_
+     - See  `here <https://rubin-sim.lsst.io/rs_skybrightness/index.html>`_
      - Based on the `ESO sky brightness model <http://www.eso.org/observing/etc/bin/gen/form?INS.MODE=swspectr+INS.NAME=SKYCALC>`_
        and all-sky camera data from LSST site for twilight sky.
-     - The model includes light from twilight (scattered sunlight), zodiacal light
-       (scattered sunlight from SS dust), scattered moonlight, airglow, and emission lines
-       from the upper and lower atmosphere. The model can return SEDs or
-       magnitude per sq arcsec in LSST filters.
+     - The model includes light from twilight (scattered sunlight), zodiacal light (scattered sunlight from SS dust), scattered moonlight, airglow, and emission lines from the upper and lower atmosphere. The model can return SEDs or  magnitude per sq arcsec in LSST filters.
      - Validation plots can be found in the `SPIE paper <https://ui.adsabs.harvard.edu/#abs/2016SPIE.9910E..1AY/abstract>`_.
-       Note the model does not include any "weather" (e.g., clouds, variable OH emission).
-       There is an option to change the solar activity, which scales the airglow component.
+       Note the model does not include any "weather" (e.g., clouds, variable OH emission). There is an option to change the solar activity, which scales the airglow component.
 
 System Throughputs
 -------------------
 
-All of the system throughputs are recorded in
-`baseline <https://github.com/lsst/throughputs/tree/master/baseline>`_.
-This information is copied from the System Engineering database.  More information can be
-found in the `README <https://github.com/lsst/throughputs/blob/master/baseline/README.md>`_ file.
-In that directory you can find a graphical representation of the total throughput along with datafile
-representing each component and the total throughput. The file representing each throughput curve is
-referenced below. [It looks like the README might be a bit out of date with the files..
-We need more research then we can add more information to a detailed page for each]
+All of the system throughputs are recorded in the `throughputs baseline <https://github.com/lsst/throughputs/tree/main/baseline>`_.
+This information is copied from the System Engineering database.  More information can be found in the `README <https://github.com/lsst/throughputs/blob/main/baseline/README.md>`_ file.
+In that directory you can find a graphical representation of the total throughput along with datafile representing each component and the total throughput. The file representing each throughput curve is
+referenced below.
 
 .. list-table::
    :widths: 10 10 10 15 15
    :header-rows: 1
+   :class: tight-table
 
    * - Effect
      - Implementation
@@ -153,69 +137,61 @@ We need more research then we can add more information to a detailed page for ea
 
    * - Camera QE and AR
      - detector.dat
-     - SysEngineering 1.1
-     - Expected response (QE response + AR coatings) of the CCDs provided by each of the two
-       vendors under consideration.
-     - We expect a merge from the SysEng database very soon.
+     - SysEngineering 1.7
+     - Expected response (QE response + AR coatings) of the CCDs.  Currently, these numbers are joint minimums of the responses of the two vendor's sensors (e2V and ITL).
+     -
 
    * - Lens
      - lens[1,2,3].dat
-     - SysEngineering 1.1
+     - SysEngineering 1.7
      - Combination of fused silicon and BroadBand AntiReflective (BBAR) coatings
      -
 
    * - Filters
      - filter[u,g,r,i,z,y].dat
-     - SysEngineering 1.1
-     - Filter throughput in each band (from manufacturer?)
-     -
+     - SysEngineering 1.7
+     - Filter throughput in each band. We expect an update with as-built numbers soon.
 
+     -
    * - Mirrors
      - m[1,2,3].dat
-     - SysEngineering 1.1
+     - SysEngineering 1.7
      - Reflectivity curve for each mirror
      -
 
    * - Atmosphere
      - atmosphere_std.dat and atmosphere_10.dat
-     - SysEngineering 1.1
+     - SysEngineering 1.7
      - MODTRAN based standard US atmosphere with Aerosols added.
      - Both typical (standard) throughput with airmass X=1.2 and optimum X=1.0 files are provided
 
    * - Total
      - total[u,g,r,i,z,y].dat
-     - SysEngineering 1.1
+     - SysEngineering 1.7
      - The total throughput by band
      -
 
-[What about darsky.dat? Do we use this, now that we have the ESO model?
-Or is this used by OpSim?  Should we include it?  What is hardware[u,g,r,i,z,y].dat?]
+.. note::
 
-Atmospheric model
------------------
+  The hardware[u,g,r,i,z,y].dat files contain everything except atmospheric effects.  Multiplying those with the atmosphere results in a total throughput curve. Atmospheric throughputs for a large set of atmospheres can be found in https://github.com/lsst/throughputs/tree/main/atmos.
 
-.. list-table::
-   :widths: 10 10 10 15 15
-   :header-rows: 1
+Atmospheric PSF model
+---------------------
 
-   * - Effect
-     - Implementation
-     - Data / Model Source
-     - Short description
-     - Validation Page and Notebooks
+.. note::
 
-   * -
-     -
-     -
-     -
-     -
+   To be added.  See the :ref:`atmospheric psf <AtmosphericPSF-label>` config section on how to configure the atmosphere and in https://iopscience.iop.org/article/10.3847/1538-4365/abd62c for a description of the model.
+
 
 Optical model
 -------------
 
-.. list-table:: Sky Model
+You have a choice of parametric of fully raytraced optics via *batoid*.
+
+.. list-table::
    :widths: 10 10 10 15 15
    :header-rows: 1
+   :class: tight-table
 
    * - Effect
      - Implementation
@@ -224,45 +200,41 @@ Optical model
      - Validation Page and Notebooks
 
    * - Vignetting
-     - Not yet
+     - vignetting.py
      -
-     -
+     - Either emergent for raytraced objects or via a function for those produced via FFT.  The sky backround is vignetted via a function.
      -
 
    * - Ghosts
-     - Not currently possible
+     - Not currently possible.  Planned in the next version of *imSim* when the abilty to handle raytraced light across multiple sensors being processed in parallel will be updated.
      -
      -
-     - There is currently no optical ray trace
+     -
+
+   * - Spider Diffraction Spikes
+     - diffraction.py, diffraction_fft.py photon_ops.py
+     -
+     - Statistical Diffraction during batoid ray tracing or parametric model with FFT.
+     - Page link :doc:`validation/diffraction`
 
    * - Aberrated optics
-     - optical_system.py
-     - Sensitivity matrix from LSST SE LCA-XXX
-     - Difference from AO corrected mean represented as a sum of Zernikes contributing a phase screen.
-     - Page link :doc:`validation/aberrated-optics`
+     - optical_system.py telescope_loader.py
+     -
+     - Either a parametric model built around a sensitivity matrix, or a fully raytraced optical model with FEA and pertubation controls using several degrees of freedom including bending modes and physical actuators.
+     - Page link :doc:`validation/aberrated-optics` for the parametric case :doc:`lsst-optical` for the raytraced case.
 
 
 Calibration Products
 --------------------
 
-.. list-table::
-   :widths: 10 10 10 15 15
-   :header-rows: 1
+.. note::
 
-   * - Effect
-     - Implementation
-     - Data / Model Source
-     - Short description
-     - Validation Page and Notebooks
+   To be added.  Description of flats, darks etc need to be added.
 
-   * -
-     -
-     -
-     -
-     -
+Detailed Description of Physical Effects Implemented in imSim
+-------------------------------------------------------------
 
-Effects
--------
+Several of the effects listed above have detailed pages descrubing how the model was constructed and what data was used.
 
 .. toctree::
    :maxdepth: 2
