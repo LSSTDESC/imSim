@@ -220,7 +220,7 @@ class AtmosphericPSF(object):
         # Tokovinin 2002, PASP, v114, p1156
         # https://dx.doi.org/10.1086/342683
         kolm_seeing = galsim.Kolmogorov(r0_500=r0_500, lam=wavelength).fwhm
-        r0 = r0_500 * (wavelength/500)**1.2
+        r0 = r0_500 * (wavelength/500)**(6./5)
         arg = 1. - 2.183*(r0/L0)**0.356
         factor = np.sqrt(arg) if arg > 0.0 else 0.0
         return kolm_seeing*factor
@@ -232,7 +232,7 @@ class AtmosphericPSF(object):
     @staticmethod
     def _r0_500(wavelength, L0, targetSeeing):
         """Returns r0_500 to use to get target seeing."""
-        r0_500_max = min(1.0, L0*(1./2.183)**(-0.356)*(wavelength/500.)**1.2)
+        r0_500_max = min(1.0, L0*(1./2.183)**(-0.356)*(wavelength/500.)**(6./5))
         r0_500_min = 0.01
         return bisect(
             AtmosphericPSF._seeingResid,
