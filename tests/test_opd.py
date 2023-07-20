@@ -37,8 +37,7 @@ def test_opd_zemax():
         config = yaml.safe_load(config)
         galsim.config.ProcessInput(config)
         galsim.config.SetupExtraOutput(config)
-        # Need to mock file_num for following method to be happy:
-        config['file_num'] = 0
+        galsim.config.SetupConfigFileNum(config, 0, 0, 0)
         galsim.config.extra.WriteExtraOutputs(config, None)
 
         # Check the contents of the output file against Zemax references
@@ -135,8 +134,7 @@ def test_opd_wavelength():
         config = yaml.safe_load(config)
         galsim.config.ProcessInput(config)
         galsim.config.SetupExtraOutput(config)
-        # Need to mock file_num for following method to be happy:
-        config['file_num'] = 0
+        galsim.config.SetupConfigFileNum(config, 0, 0, 0)
         galsim.config.extra.WriteExtraOutputs(config, None)
         fn = Path(d) / "opd1.fits"
         hdu1 = fits.open(fn)[0]
@@ -160,8 +158,7 @@ def test_opd_wavelength():
         config = yaml.safe_load(config)
         galsim.config.ProcessInput(config)
         galsim.config.SetupExtraOutput(config)
-        # Need to mock file_num for following method to be happy:
-        config['file_num'] = 0
+        galsim.config.SetupConfigFileNum(config, 0, 0, 0)
         galsim.config.extra.WriteExtraOutputs(config, None)
         fn = Path(d) / "opd2.fits"
         hdu2 = fits.open(fn)[0]
