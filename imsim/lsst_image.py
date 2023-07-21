@@ -269,6 +269,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             logger.info("Applying vignetting according to radial spline model.")
             sky.array[:] *= self.vignetting(camera[det_name])
             
+        print(self.apply_fringe)
         if self.apply_fringe:
             logger.info("Apply fringing")
             
