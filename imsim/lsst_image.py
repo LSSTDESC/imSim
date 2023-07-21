@@ -5,7 +5,6 @@ from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
 from lsst.afw import cameraGeom
 import lsst.geom
-from astropy.io import fits
 from .sky_model import SkyGradient, CCD_Fringe
 from .camera import get_camera
 from .vignetting import Vignetting
@@ -270,17 +269,23 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             logger.info("Applying vignetting according to radial spline model.")
             sky.array[:] *= self.vignetting(camera[det_name])
             
+        print(self.apply_fringe)
         if self.apply_fringe:
-            '''
-            As of now, the fringing map is made for y-band only
-            '''
-            
             logger.info("Apply fringing")
+            
+            # get center ra/dec
+            cra = config['wcs']['boresight']['cboresight']['_kd'][1]\
+                ['cboresight']['ra']['theta']['current'][0]
+            cdec = config['wcs']['boresight']['cboresight']['_kd'][1]\
+                ['cboresight']['dec']['theta']['current'][0]
+            
             ny, nx = sky.array.shape
-            ccd_fringing = CCD_Fringe()
             xarr, yarr = np.meshgrid(range(nx), range(ny))
             
-            sky.array[:] *= ccd_fringing(xarr,yarr)
+            ccd_fringing = CCD_Fringe(img_wcs = image.wcs,c_wcs=[cra, cdec],spatial_vary= True)
+            
+            sky.array[:] *= ccd_fringing.cal_fringe_amplitude(xarr,yarr)
+            
         image += sky
 
         AddNoise(base,image,current_var,logger)

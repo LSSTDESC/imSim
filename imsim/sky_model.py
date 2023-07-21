@@ -3,8 +3,9 @@ import copy
 import warnings
 import numpy as np
 import galsim
+import random
+import pickle
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
-from astropy.io import fits
 from scipy.interpolate import RegularGridInterpolator
 import os
 from .meta_data import data_dir
@@ -79,9 +80,6 @@ class SkyModel:
         # Return photons/arcsec^2
         value = flux * self.eff_area * self.exptime
         return value
-    
-    def print(self):
-        print('This is a test')
 
 
 class SkyGradient:
@@ -124,42 +122,93 @@ class CCD_Fringe:
     as a function of pixel coordinates relative to the value at the 
     CCD center.
     """
-    def __init__(self):
+    def __init__(self,img_wcs,c_wcs,spatial_vary):
+        self.img_wcs = img_wcs
+        self.c_wcs = c_wcs
+        self.spatial_vary = spatial_vary
         
-        # Load the 4k x 4k normalized map
-        fringing_filename = os.path.join(data_dir, 'fringing_data',
-                                    'e2v-321-fringe-sim-norm-center.fits.gz')
-        
-        fringe_im = fits.open(fringing_filename)[0].data
-        
-        # Interpolate
-        x = np.linspace(0,fringe_im.shape[-1]-1,fringe_im.shape[-1],dtype= int)
-        y = np.linspace(0, fringe_im.shape[0]-1,fringe_im.shape[0],dtype = int )
-        self.interp_func = RegularGridInterpolator((x, y), fringe_im.T)
-        
-    def fringe_variation_level(self):
+    def generate_heightfield(self,fractal_dimension=2.5, n=4096):
         '''
-        This is a place holder for the function that will be used to 
-        characterize temporal and spatial variation of fringing. 
+        # Use the spectral sythesis method to generate a heightfield
+        '''
+        H = 1 - (fractal_dimension - 2)
+        kpow = -(H + 1.0) / 1.2
+        
+        A = np.zeros((n, n), complex)
+
+        kvec = np.fft.fftfreq(n)
+        k0 = kvec[n // 64]
+        kx, ky = np.meshgrid(kvec, kvec, sparse=True, copy=False)
+        ksq = kx ** 2 + ky ** 2
+        m = ksq > 0
+        random_seed = random.randint(1, 1000000)
+        gen = np.random.RandomState(random_seed)
+        phase = 2 * np.pi * gen.uniform(size=(n, n))
+        A[m] = ksq[m] ** kpow * gen.normal(size=(n, n))[m] * np.exp(1.j * phase[m]) * np.exp(-ksq[m] / k0 ** 2)
+
+        return np.fft.ifft2(A)
+
+
+    def simulate_fringes(self,n = 1.2,n1=1.5, amp=0.002, nwaves_rms=10.):
+        '''
+        # Generate random fringing pattern from a heightfield
+        '''
+        X = self.generate_heightfield(n, 4096)
+        X *= nwaves_rms / np.std(X.real)
+        Z =  amp * np.cos(2 * n1 * (X.real))
+        # Scale up to unity
+        Z  += 1
+        return(Z)
+
+        
+    def fringe_variation_level(self,spatial = True):
+        '''
+        Function implementing temporal and spatial variation of fringing. 
         
         The function will return a multiplicative factor that modifies
-        the fringing amplitude from sensor to sensor based on the time
-        and its location on the focal plane.
-        Right now just return 1 since we are still waiting for the data.
+        the fringing amplitude from sensor to sensor based on the 
+        time (not implemented yet) and its location on the focal plane.
+        
+        Set spatial = True to turn on spatial variation implementation.
+        Otherwise, this function will return a unity value.
         '''
         
-        level = 1.
+        if spatial:
+            # Load 2d interpolator for OH spatial variation
+            filename = os.path.join(data_dir, 'fringing_data',
+                                        'OH_spatial.pkl')
+            with open(filename, 'rb') as f:
+                interp = pickle.load(f)
+                
+            dx = self.c_wcs[0] - self.img_wcs.center.ra.deg 
+            dy = self.c_wcs[1] - self.img_wcs.center.dec.deg
+            
+            # calculated OH flux level wrst the center of focal plane.
+            level = interp(dx,dy)/interp(0,0)
+            
+            # Check if the angluar offset of the current sensor is outside 
+            # the coverage field of the OH data we currently have. 
+            # Set variation level to unity if True, interpolated value if False.
+            if np.isnan(level):
+                return 1
+            else:
+                return level
+        else:
+            return 1
         
-        return(level)
 
-    def __call__(self, x, y):
+    def cal_fringe_amplitude(self,x,y):
         """
         Return the normalized fringing amplitude at the desired pixel 
         wrt the value at the CCD center.
         """
-        level = self.fringe_variation_level()
-        return (self.interp_func((x,y))*level)
-
+        level = self.fringe_variation_level(self.spatial_vary)
+        fringe_im = self.simulate_fringes(n = 1.2,n1= 1.5,amp=0.002*level)
+        xx = np.linspace(0,fringe_im.shape[-1]-1,fringe_im.shape[-1],dtype= int)
+        yy = np.linspace(0, fringe_im.shape[0]-1,fringe_im.shape[0],dtype = int )
+        interp_func = RegularGridInterpolator((xx, yy), fringe_im.T)
+        
+        return (interp_func((x,y)))
 
 class SkyModelLoader(InputLoader):
     """

@@ -1,0 +1,14 @@
+# For testing purpose
+modules: [imsim]
+template: imsim-config
+
+input.instance_catalog.file_name: tests/data/1-star.txt
+input.opsim_meta_dict.file_name: tests/data/1-star.txt
+input.tree_rings.only_dets: [R22_S11]
+
+output.dir: output
+output.det_num:
+  type: List
+  items: [80]
+output.nfiles: 1
+output.truth: ""
