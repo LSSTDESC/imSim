@@ -84,6 +84,23 @@ class LSST_SiliconBuilder(StampBuilder):
         Returns:
             xsize, ysize, image_pos, world_pos
         """
+
+        # First do a parsing check to make sure that all the options passed to
+        # the config are valid and no required options are missing.
+
+        req = {'fft_sb_threshold': float,
+               'airmass': float,
+               'rawseeing': float,
+               'band': str
+               }
+
+        opt = {'max_flux_simple': float,
+               'method': str,
+               'maxN': int
+               }
+
+        galsim.config.CheckAllParams(config, req, opt)
+
         gal = galsim.config.BuildGSObject(base, 'gal', logger=logger)[0]
         if gal is None:
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
