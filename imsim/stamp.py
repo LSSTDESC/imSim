@@ -89,14 +89,14 @@ class LSST_SiliconBuilder(StampBuilder):
         # the config are valid, and no required options are missing.
 
         req = {'fft_sb_thresh': float,
-               'airmass': float,
-               'rawSeeing': float,
                'band': str,
                'world_pos': galsim.CelestialCoord,
                'diffraction_psf': dict
                }
 
-        opt = {'max_flux_simple': float,
+        opt = {'airmass': dict,
+               'rawSeeing': float,
+               'max_flux_simple': float,
                'draw_method': str,
                'maxN': int,
                'size': int,
