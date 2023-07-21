@@ -86,7 +86,7 @@ class LSST_SiliconBuilder(StampBuilder):
         """
 
         # First do a parsing check to make sure that all the options passed to
-        # the config are valid and no required options are missing.
+        # the config are valid, and no required options are missing.
 
         req = {'fft_sb_thresh': float,
                'airmass': float,
