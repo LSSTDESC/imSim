@@ -85,6 +85,7 @@ jobs:
 
             - name: Check example config files
               run: |
+                export IMSIM_HOME=`pwd`
                 export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
                 export SIMS_SED_LIBRARY_DIR=`pwd`/rubin_sim_data/sims_sed_library
                 # Just check that they haven't gotten stale and produce errors.
