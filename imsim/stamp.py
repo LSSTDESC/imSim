@@ -88,15 +88,19 @@ class LSST_SiliconBuilder(StampBuilder):
         # First do a parsing check to make sure that all the options passed to
         # the config are valid and no required options are missing.
 
-        req = {'fft_sb_threshold': float,
+        req = {'fft_sb_thresh': float,
                'airmass': float,
-               'rawseeing': float,
-               'band': str
+               'rawSeeing': float,
+               'band': str,
+               'world_pos': galsim.CelestialCoord,
+               'diffraction_psf': dict
                }
 
         opt = {'max_flux_simple': float,
-               'method': str,
-               'maxN': int
+               'draw_method': str,
+               'maxN': int,
+               'size': int,
+               'photon_ops': dict
                }
 
         galsim.config.CheckAllParams(config, req, opt)
