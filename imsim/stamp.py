@@ -2,7 +2,7 @@ from functools import lru_cache
 from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
-from galsim.config import StampBuilder, RegisterStampType, GetAllParams, GetInputObj
+from galsim.config import StampBuilder, RegisterStampType, CheckAllParams, GetAllParams, GetInputObj
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 from .diffraction_fft import apply_diffraction_psf
