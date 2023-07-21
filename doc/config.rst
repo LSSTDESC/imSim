@@ -104,9 +104,19 @@ Optional keywords to set:
 
     These are the same as for ``InstCatObj`` above.
 
+Instance Catalog SED type
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``RegisterSEDType('InstCatSED`` not used?? Check..
+An instance catalog contains lines with SED files listed. This allows you to load one of those SEDs from the file.
 
+Required keywords to set:
+"""""""""""""""""""""""""
+
+    * ``index`` = *int_value*  The index entry of the instance catalog object to use.
+
+Optional keywords to set:
+"""""""""""""""""""""""""
+    * ``num`` = *int_value* (default = 0) If you have multiple instance_catalog input items defined in the config file, this option will allow you specify which one you should use. The default is the first and usually only one.
 
 
 Sky Catalogs
