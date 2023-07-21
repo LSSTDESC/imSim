@@ -37,12 +37,12 @@ The *GalSim* config system is described in the `GalSim documentation <http://gal
 
     What is happening here is that the ``tree_rings`` command in the ``input`` section is reading a text file included with *imSim*. Upon read in it creates two types of Python dictionaries which are keyed off of the detector name. One dictionary returns the center of the tree rings, one the form of the function.  In the ``sensor`` description, it expects a center and function, and we pass the two dictionaries created earlier with a detector key to them as input. The ``$det_name`` is a variable you can use that was added by the ``LSST_CCD`` keyword in the output section.  It knows what detector is currently being written out.   You will see variations on this pattern repeated many times in the config files.
 
-Each feature in the *imSim* module is implemented as a class which can be configured.  In this section, we list list the *imSim* classes along with the config options that you can set.
+Each feature in the *imSim* module is implemented as a class which can be configured.  In this section, we list the *imSim* classes along with the config options that you can set.
 
 Input types
 ===========
 
-These classes define the user configurable parts of the ``input`` section of the configuration YAML files.  They define how you should read the both the metadata and object lists that will be simulated, how the telescope optics should be configured, how the brightness of the night sky is modeled, how the atmospheric PSF is produced, how you should read in data files that describe silicon sensor effects, and how you can read in interim check-pointed files that were written in previous *imSim* runs.  Here we list the input types which are added my the *imSim* module.
+These classes define the user configurable parts of the ``input`` section of the configuration YAML files.  Input items are either files that need to be read or opened once at the start (e.g. the sky catalog or tree-ring data file or a checkpoint file), or built once at the start to be used repeatedly (e.g. the telescope configuration or the atmospheric PSF).  Here we list the input types which are added my the *imSim* module.
 
 Instance catalogs
 -----------------
@@ -62,8 +62,8 @@ Optional keywords to set:
     * ``sed_dir`` = *str_value* (default = None)  The directory that contains the template SED files for objects.  Typically this is set via an enviroment variable.
     * ``edge_pix`` =  *float_value* (default = 100.0) How many pixels are objects allowed to be past the edge of the sensor to consider their light.
     * ``sort_mag`` = *bool_value*  (default = True) Whether or not to sort the objects by magnitude and process the brightest objects first.
-    * ``flip_g2`` = *bool_value* (default = True) If True, apply a minus sign to the g2 lensing parameter used to shear the objects
-    * ``min_source`` = *int_value* (default = False) if set, skip simulating any sensor which does not have at least min_sources on it.
+    * ``flip_g2`` = *bool_value* (default = True) If True, apply a minus sign to the g2 lensing parameter used to shear the objects. *PhoSim* uses a different shear convention, so this default converts the shear values to the convention used by *imSim*, *GalSim*, *TreeCorr*, etc.
+    * ``min_source`` = *int_value* (optional) if set, skip simulating any sensor which does not have at least min_sources on it.
     * ``skip_invalid`` = *bool_value* (default = True) Check the objects for some validity conditions and skip those which are invalid.
 
 .. _InstCat-label:
@@ -82,19 +82,19 @@ Once an instance catalog has been read in, objects from it can be used as an obj
 Optional keywords to set:
 """""""""""""""""""""""""
 
-    * ``index`` = *int_value* (default = number of objects in the file) by default all of the objects in the file will be processed, here you can specify an index your self of exactly which objects should be read if you would like by specifying a sequence of which items to process.
-    * ``num`` =  *int_value* (default = 1) If you have multiple Random Numbers defined in the config file.  This option will allow you specify which one you should use. The default is the first and usually only one.
+    * ``index`` = *int_value* (optional) by default all of the objects in the file will be processed, but here you can specify some subset of of index numbers yourself of exactly which objects should be read.  E.g. this could be a single integer or a list of integers or a galsim Sequence type, etc.
+    * ``num`` =  *int_value* (default = 0) If you have multiple instance_catalog input items defined in the config file, this option will allow you specify which one you should use. The default is the first and usually only one.
 
 .. _InstCatWorld-label:
 
 Instance Catalog World position
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Once an instance catalog has been read in, the worlkd position as defined in the file can be specified to the top level GalSim ``stamp`` field like this:
+Once an instance catalog has been read in, the  world position (i.e. the celestial coordinate on the sky) as defined in the file can be specified to the top level GalSim ``stamp`` field like this:
 
 .. code-block:: yaml
 
-    # Define the galaxy (or delta function) to use
+    # Get the world position for the current catalog object
     world_pos:
         type: InstCatWorldPos
 
@@ -112,7 +112,7 @@ Optional keywords to set:
 Sky Catalogs
 ------------
 
-Instance catalogs are text based and utilize a lot of disk space for the information contained in them. Also, one instance catalog is needed for each visit, even if those visits take place at the exact same position on the sky.  This causes enormous duplication of information.  Instead, large area simulations, *imSim* utilizes an API based system known as `skyCatalogs <https://github.com/LSSTDESC/skyCatalogs>`__.  The *skyCatalog* presents a unified interface to *imSim* via an API of databases that contain all of the object in the sky.  By configuring *imSim* to use the *skyCatalog* API only metadata for the visits are needed.  *imSim* will retrieve a list of all of the objects it needs to render through the interface.  *skyCatalogs* can contain static and transient information and databases exist both for synthetic skies and true sources of information such as the Gaia catalog.  The *skyCatalog* can also serve as a source of truth information when later analyzing simulated data.
+Instance catalogs are text based and utilize a lot of disk space for the information contained in them. Also, one instance catalog is needed for each visit, even if those visits take place at the exact same position on the sky.  This causes enormous duplication of information.  Instead, for large area simulations, *imSim* utilizes an API based system known as `skyCatalogs <https://github.com/LSSTDESC/skyCatalogs>`__.  The *skyCatalog* presents a unified interface to *imSim* via an API of databases that contain all of the object in the sky.  By configuring *imSim* to use the *skyCatalog* API only metadata for the visits are needed.  *imSim* will retrieve a list of all of the objects it needs to render through the interface.  *skyCatalogs* can contain static and transient information and databases exist both for synthetic skies and true sources of information such as the Gaia catalog.  The *skyCatalog* can also serve as a source of truth information when later analyzing simulated data.
 
 Key Name: sky_catalog
 ^^^^^^^^^^^^^^^^^^^^^
@@ -127,10 +127,10 @@ Optional keywords to set:
 """""""""""""""""""""""""
 
   * ``edge_pix`` =  *float_value* (default = 100.0) How many pixels is the buffer region were objects are allowed to be past the edge of the sensor.
-  * ``obj_types`` : *list*  List or tuple of object types to render, e.g., ('star', 'galaxy').  If None, then consider all object types.
+  * ``obj_types`` : *list*  (optional) List or tuple of object types to render, e.g., ('star', 'galaxy').  If None, then consider all object types.
   * ``max_flux`` = *float_value* (default = None) If object flux exceeds max_flux, the return None for that object. if max_flux == None, then don't apply a maximum flux cut.
-  * ``apply_dc2_dilation`` = *bool_value* (default False) Flag to increase object sizes by a factor sqrt(a/b) where a, b are the semi-major and semi-minor axes, respectively. This has the net effect of using the semi-major axis as the sersic half-light radius when building the object.  This will only be applied to galaxies.
-  * ``approx_nobjects`` = *int_value* (default None) Approximate number of objects per CCD used by galsim to set up the image processing.  If None, then the actual number of objects found by skyCatalogs, via .getNObjects, will be used.
+  * ``apply_dc2_dilation`` = *bool_value* (default False) Flag to increase object sizes by a factor sqrt(a/b) where a, b are the semi-major and semi-minor axes, respectively. This has the net effect of using the semi-major axis as the sersic half-light radius when building the object, which is how the DESC DC2 simulations defined the half-light radius.  This will only be applied to galaxies.
+  * ``approx_nobjects`` = *int_value* (default None) Approximate number of objects per CCD used by galsim to set up the image processing.  If None, then the actual number of objects found by skyCatalogs, via .getNObjects, will be used. If given, this should generally be greater than or equal to the actual number of objects.  It's even ok to be much higher (10x or more is fine) than the actual number of objects.
   * ``mjd`` = *float_vaue*  MJD of the midpoint of the exposure.
 
 Sky Catalog Object Type
@@ -146,11 +146,7 @@ Sky Catalog World Position
 OpSim Data
 ----------
 
-.. note::
-
-    We need to rationalize this and figure out the best approach. It's hard to explain now. Will also need to say more about other ways too.  Do it here?
-
-Each visit requires metadata that describes the time of exposure, the filter being employed, the direction that the telescope is pointing etc. There are several ways to pass this information to *imSim*.  You can include the information in the top of an instance catalog, you can give it the output of of a Rubin Operational Simulator simulation which will give a list of visits with all of the needed information, or you can manually specify information in the YAML file itself.
+Many configuration items require knowledge of various specific details of the observation.  E.g. the time of exposure, the filter being employed, the direction that the telescope is pointing etc.  These can each be specified individually each time they are required, but that can be tedious and prone to consistency errors.  We recommend keeping all of this information in a single place and have everything use value types that read the values from that.  The two most common sources of this information are the top of an instance catalog and the output of a Rubin Operational Simulator simulation, either of which can be read in using the OpSim_data input type.
 
 This input type allows you to specify file inputs which contain this information.
 
@@ -161,13 +157,13 @@ Note that several metadata keywords are required to be specified in the file.  T
 Required keywords to set:
 """"""""""""""""""""""""""
 
-    * ``file_name`` = *str_value* (default =  None)  The name of the text file that contains the required metadata information. Note that this data file can also contain object information.
+    * ``file_name`` = *str_value* (default =  None)  Either the name of an instance catalog, the top of which contains the required metadata information, or the name of an OpSim database file. (Note that in the former case, any object information is ignored by this input item.)
+    *  ``visit`` = *int_value* (default = None) The visit number. This is only relevant if you are reading an *OpSim* database file.
 
 Optional keywords to set:
 """""""""""""""""""""""""
 
-    * ``visit`` = *int_value* (default = None) The visit number.
-    * ``snap`` = *int_value* (default = 0) How many exposures should be taken.
+    * ``snap`` = *int_value* (default = 0) Which snap to use if multiple snaps are being simulated.
     * ``image_type`` = *string_value* (default = 'SKYEXP') The type of exposure to be taken. Other options include 'FLAT' and 'BIAS'.
     * ``reason`` = *string_value* (default='survey') The reason the exposurew was taken. Other options include 'calibration'
 
@@ -234,8 +230,8 @@ Optional keywords to set:
 
     * ``rotTelPos`` = *angle_value* (default = None) The angle of the camera rotator in degrees.
     * ``cameraName`` = *string_value* (default = 'LSSTCam') The name of the camera to use.
-    * ``perturbations:`` = YAML dictionary (default = 'None')  See :ref:`the optical system section <optical-system-label>` for documentation.
-    * ``fea:`` = YAML dictionary (default = 'None')  See :ref:`the optical system section <optical-system-label>` for documentation
+    * ``perturbations:`` = YAML dictionary (default = None)  See :ref:`the optical system section <optical-system-label>` for documentation.
+    * ``fea:`` = YAML dictionary (default = None)  See :ref:`the optical system section <optical-system-label>` for documentation
 
 
 Sky Model
@@ -290,10 +286,10 @@ This keyword enables an atmospheric PSF with 6 randomly generated atmospheric sc
 Required keywords to set:
 """"""""""""""""""""""""""
 
-    * ``airmass`` = *float_value* (default =  None)  The aimass in the direction of the pointing.
+    * ``airmass`` = *float_value* The aimass in the direction of the pointing.
     * ``rawSeeing`` = *float_value*  The FWHM seeing at zenith at 500 nm in arc seconds
     * ``band`` = *str_value* The filter band of the observation.
-    * ``boresight`` = *RaDec_value* The CelestialCoord of the boresight of the observation.
+    * ``boresight`` = *sky_value* The CelestialCoord of the boresight of the observation.
 
 
 Optional keywords to set:
@@ -304,7 +300,7 @@ Optional keywords to set:
     * ``kcrit`` = *float_value* (default = 0.2) Critical Fourier mode at which to split first and second kicks.
     *  ``screen_size`` = *float_value* (default = 819.2) Size of the phase screens in meters.
     *  ``screen_scale`` = *float_value* (default = 0.1) Size of phase screen "pixels" in meters.
-    *  ``doOpt`` = *bool_value* (default = True) Add in optical phase screens? *SEE WARNING ABOVE*
+    *  ``doOpt`` = *bool_value* (default = False) Add in optical phase screens? *SEE WARNING ABOVE*
     *  ``nproc`` = *int_value* (default = None)  Number of processes to use in creating screens. If None (default), then allocate one process per phase screen, of which there are 6, nominally.
     *  ``save_file`` = *str_value* (default = None) A file name to use for saving the built atmosphere.  If the file already exists, then the atmosphere is read in from this file, rather than being rebuilt.
 
@@ -317,7 +313,7 @@ A wavelength and position-independent Double Gaussian PSF. This specific PSF com
 Required keywords to set:
 """"""""""""""""""""""""""
 
-    * ``fwhm`` = *float_value* (default =  None)  The full width at half max of the total PSF in arc seconds.
+    * ``fwhm`` = *float_value*  The full width at half max of the total PSF in arc seconds.
 
 
 Optional keywords to set:
@@ -338,7 +334,7 @@ This PSF class is based on David Kirkby's presentation to the DESC Survey Simula
 Required keywords to set:
 """"""""""""""""""""""""""
 
-    * ``airmass`` = *float_value* (default =  None)  The aimass in the direction of the pointing.
+    * ``airmass`` = *float_value* The aimass in the direction of the pointing.
     * ``rawSeeing`` = *float_value*  The FWHM seeing at zenith at 500 nm in arc seconds
     * ``band`` = *str_value* The filter band of the observation.
 
@@ -355,13 +351,13 @@ Key Name: tree_rings
 Required keywords to set:
 """"""""""""""""""""""""""
 
-    * ``file_name`` = *str_value* (default =  None)  A file name that contains the parameters of the tree ring model for each sensor.
+    * ``file_name`` = *str_value*  A file name that contains the parameters of the tree ring model for each sensor.
 
 
 Optional keywords to set:
 """""""""""""""""""""""""
 
-    * ``only_dets`` = *List* (default = None) Only read in the models for the listed sensors in order to save time on startup.
+    * ``only_dets`` = *List* (optional) Only read in the models for the listed sensors in order to save time on startup.
 
 
 
@@ -385,7 +381,7 @@ Once the tree ring models have been read in, you can use them in other parts of 
 Checkpointing
 -------------
 
-As imSim runs, if this option is turned on, it will periodically check-point its progress, writing out its interim output as it runs.  Then, on re-running, it will use this output so as to not redo previous calculations.  This has two main use-cases.  The first is the case where you are rerunning several times. This will avoid recreating sensors that have already been simulated. The 2nd main use case is for if a job is stopped before it completes.  This is particularly common when using a batch system with time-limits.  This option allows you to restart your job and pick where you left off.  These keywords tell *imSim* where to find the checkpoint files and how they are named.
+As imSim runs, if this option is turned on, it will periodically check-point its progress, writing out its interim output as it runs.  Then, on re-running, it will use this output so as to not redo previous calculations.  This has two main use cases.  The first is the case where you are rerunning several times. This will avoid recreating sensors that have already been simulated. The 2nd main use case is for if a job is stopped before it completes.  This is particularly common when using a batch system with time-limits.  This option allows you to restart your job and pick where you left off.  These keywords tell *imSim* where to find the checkpoint files and how they are named.
 
 .. warning::
 
@@ -398,7 +394,7 @@ Key Name: checkpoint
 Required keywords to set:
 """"""""""""""""""""""""""
 
-    * ``file_name`` = *str_value* (default =  None)  A file name to store the checkpoint for each sensor.
+    * ``file_name`` = *str_value* A file name to store the checkpoint for each sensor.
 
     Be careful to give a unique name for each possible checkpoint. Here for example is a YAML code block
 
@@ -432,21 +428,26 @@ Key name: LSST_Image
 
 The ``LSST_Image`` type is a version of the *GalSim* "Scattered Image" image class that has been modified to understand how to draw the Rubin sky background and how to apply effects such as vignetting to the sky and certain bright objects.  There are extra optional keywords you can use with the ``LSST_Image`` type.
 
+Required keywords to set:
+"""""""""""""""""""""""""
+
+    * ``xsize`` = *int_value* X size only
+    * ``ysize`` = *int_value* Y size only
+
 
 Optional keywords to set:
 """""""""""""""""""""""""
 
-    * ``size`` = *int_value* (default = None)  The size in pixels for X and Y
-    * ``xsize`` = *int_value* (default = None) X size only
-    * ``ysize`` = *int_value* (default = None) Y size only
-    * ``dytpe`` = *dytpe_value* (default = None) allows you to set numpy.dtype  for the underlying data in the image.
+    * ``dytpe`` = *str_value* (default = None) allows you to set numpy.dtype  for the underlying data in the image.
     *  ``apply_sky_gradient`` = *bool_value* (default = False) If true vary the sky background level linearly across the sensors to match the expected flux at the four corners of the at each sensor.
-    *  ``camera`` = *str_value* (default = None) name of the camera such as ``LsstCam``.
-    *  ``nbatch`` = *int_value* (default = 10) The size of batches of images when checkpointing the objects to disk.
-
-
+    *  ``camera`` = *str_value* (default = 'LsstCam') name of the camera such as ``LsstCam``. Other options include 'LsstComCam' and 'LsstCamImSim'.
+    *  ``nbatch`` = *int_value* (default = 10) if checkpointing, otherwise the value is 1. How many batches of objects to run.  If checkpointing, the checkpoint will be written after finishing each batch.
 
 *imSim* also registers a new type of WCS object. When this WCS is chosen the `Batoid ray-tracing package  <https://github.com/jmeyers314/batoid>`__ traces a set of rays through the optics and fits the result to create a WCS which accurately represents the current state of the telescope optics.
+
+.. note::
+
+    In order to use the Batoid WCS you need to have declared a telescope object in the ``input`` section.
 
 Batoid WCS Type
 ^^^^^^^^^^^^^^^
@@ -454,18 +455,17 @@ Batoid WCS Type
 Required keywords to set:
 """"""""""""""""""""""""""
     * ``boresight`` = *RaDec_value* The CelestialCoord of the boresight of the observation.
-    * ``obstime`` = *str_value* (default =  None) The time of the observation either as a string or a astropy.time.Time instance
-    * ``det_name`` = *str_value*  (default = None) The name of the sensor for this WCS.
+    * ``obstime`` = *str_value*  The time of the observation either as a string or a astropy.time.Time instance
+    * ``det_name`` = *str_value* The name of the sensor for this WCS.
 
 Optional keywords to set:
 """""""""""""""""""""""""
 
-    * ``camera`` = *str_value* (default = None) A camera object
-    * ``telescope`` = *str_value* (default = None) a batoid telescope optics including any needed rotations.
+    * ``camera`` = *str_value* (default = None) A camera object.
     * ``temperature`` = *float_value* (default = 280K) Ambient temperature in Kelvin.
     * ``pressure`` = *float_value* (default = calculated from Rubin height) Ambient pressure in kPa.
     *  ``H2O_pressure`` = *float_value* (default = 1 kPa) Water vapor pressure in kPa.
-    *  ``wavelength`` = *float_value* (default = None) wavelenght of photon to use in nanometers.
+    *  ``wavelength`` = *float_value* (default = effective wavelength of the bandpass of the observation) wavelength of photon to use in nanometers.
     *  ``order`` = *int_value* (default = 3) SIP polynomial order for WCS fit.
 
 Key Name: LSST_Flat
@@ -475,18 +475,18 @@ Key Name: LSST_Flat
 
 Required keywords to set:
 """"""""""""""""""""""""""
-    * ``counts_per_pixel`` = *float_value* (default = None) Background count level per pixel
-    * ``xsize`` = *int_value* (default = None) X size only
-    * ``ysize`` = *int_value* (default = None) Y size only
+    * ``counts_per_pixel`` = *float_value* Background count level per pixel
+    * ``xsize`` = *int_value* X size only
+    * ``ysize`` = *int_value* Y size only
 
 
 Optional keywords to set:
 """""""""""""""""""""""""
 
-    * ``max_count_per_iteration`` = *float_value* (default = 1000) How many photons to add per iteration.
-    * ``buffer_size`` = *int_value* (default = 5) Add a border region with this many pixels.
-    * ``nx`` = *int_value* (default = dynamically allocated)  The number of segments to split the sensor into in X in order to control memory usage.
-    * ``ny`` = *int_value* (default = dynamically allocated)  The number of segments to split the sensor into in Y in order to control memory usage.
+    * ``max_count_per_iteration`` = *float_value* (default = 1000) How many photons per pixel to add per iteration.
+    * ``buffer_size`` = *int_value* (default = 5) Add a border region with this many pixels in each section being worked on.  A buffer of 5 was found to not introduce noticeable artifacts at the section boundaries.
+    * ``nx`` = *int_value* (default = 8)  The number of sections to split the sensor into in X in order to control memory usage.
+    * ``ny`` = *int_value* (default = 2)  The number of sections to split the sensor into in Y in order to control memory usage.
 
 .. _stamp-label:
 
@@ -507,7 +507,6 @@ Stamp Type: LSST_Silicon
 Required keywords to set:
 """""""""""""""""""""""""
 
-    * ``fft_sb_threshold`` = *float_value* (default = 0) Over this number of counts, use a FFT instead of photon shooting for speed.
     * ``airmass`` = *float_value* (default = 1.2) The airmass to use in FFTs
     * ``rawseeing`` = *float_value* (default = 0.7) The FWHM seeing at zenith at 500 nm in arc seconds for FFTs.
     *  ``band`` = *str_value* (default = None) The filter band of the observation.
@@ -515,13 +514,13 @@ Required keywords to set:
 
 Optional keywords to set:
 """""""""""""""""""""""""
-
+    * ``fft_sb_threshold`` = *float_value* (default = 0) Over this number of counts, use a FFT instead of photon shooting for speed.  If set to 0 don't ever switch to FFT.
     * ``max_flux_simple`` = *float_value* (default = 100) If the flux is less than this value use a simple SED and apply other speed ups.
     * ``method`` = *str_value* (default = 'auto') Choose between automatically deciding whether to use a FFT of photon shooting ('auto') or manually choose between 'fft' and 'phot'.
     * ``maxN`` = *int_value* (detault = 1.0e6) Set limit on the size of photons batches when drawing the image.
 
 
-Note there is an extra required keyword you must include in the stamp section that configures how diffraction passing through the telescope spiders is handled.
+Note there is an extra required diffraction_psf keyword you must include in the stamp section above that configures how diffraction passing through the telescope spiders is handled.  Here is how to configure it.
 
 Key Name: diffraction_psf:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -529,82 +528,90 @@ Key Name: diffraction_psf:
 Required keywords to set:
 """""""""""""""""""""""""
 
-    * ``exptime`` = *float_value* (default = None) The time of the exposure.
-    * ``azimuth`` = *float_value* (default = None) The azimuth angle in degrees.
-    * ``altitude`` = *float_value* (default = None) The altitude angle in degrees.
-    *  ``rotTelPos`` = *str_value* (default = None) The angle of the camera rotator in degrees.
+    * ``exptime`` = *float_value*  The time of the exposure.
+    * ``azimuth`` = *float_value*  The azimuth angle in degrees.
+    * ``altitude`` = *float_value*  The altitude angle in degrees.
+    *  ``rotTelPos`` = *str_value*  The angle of the camera rotator in degrees.
 
 
 Optional keywords to set:
 """""""""""""""""""""""""
 
-    * ``enabled`` = *bool_value* (default = True) When doing FFTs, also calcululate paramteric diffraction spikes from the spider.
+    * ``enabled`` = *bool_value* (default = True) When doing FFTs, also calculate parametric diffraction spikes from the spider.
     * ``spike_length_cutoff`` = *int_value* (default = 4000) In a FFT the size of the telescope spike length
     * ``brightness threshold`` = *float_value* (default = Set by CCD full well value) In a FFT the value of a pixel that will cause it to be replaced with a diffraction spike.
     * ``lattitude`` = *float_value* (default = Rubin Location) Geographic latitude of the observatory.
 
 
-Finally, there are a set of operations that can act on photons in *GalSim*.  The are put together in a list and then all of the photons have those operations act on them in turn.  This list of photon-operations are specified in the stamp section.  You can read more about them in the *GalSim* documentation covering `GalSim Photon Ops <http://galsim-developers.github.io/GalSim/_build/html/config_stamp.html#photon-operators-list>`__.  *imSim* adds a new set of Photon Operators to ray-trace the photons through the optical system using the `Batoid package  <https://github.com/jmeyers314/batoid>`__.
+Finally, there are a set of operations that can act on photons in *GalSim*.  These are put together in a list and then all of the photons have those operations act on them in turn.  This list of photon-operations are specified in the stamp section.  You can read more about them in the *GalSim* documentation covering `GalSim Photon Ops <http://galsim-developers.github.io/GalSim/_build/html/config_stamp.html#photon-operators-list>`__.  *imSim* adds a new set of Photon Operators to ray-trace the photons through the optical system using the `Batoid package  <https://github.com/jmeyers314/batoid>`__.
 
-If you do not turn these on, you should use the parameterized optics available in the atmospheric PSF instead.  You have three choices: they are set with the the
+If you do not turn these on, you should use the parameterized optics available in the atmospheric PSF instead.  You have three choices for the implementation of the Rubin optics:
 
 Photon Operation Type
 ---------------------
 
 type: **RubinOptics**
 ^^^^^^^^^^^^^^^^^^^^^
-Photons ray-traced though the Rubin optical system.
+Ray-trace photons though the Rubin optical system using *batoid*.
 
 Required keywords to set:
 """"""""""""""""""""""""""
 
-    * ``boresight`` = *RaDec_value* (default = None) The CelestialCoord of the boresight of the observation.
-    * ``camera`` = *str_value* (default = None) The name of the camera to use.
-
-type: **RubinDiffractionOptics**
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Ray-traced photons including the effects of diffraction when passing through edges like the telescope spiders.
-
-Required keywords to set:
-"""""""""""""""""""""""""
-
-    * ``boresight`` = *RaDec_value* (default = None) The CelestialCoord of the boresight of the observation.
-    * ``camera`` = *str_value* (default = None) The name of the camera to use.
-    * ``azimuth`` = *float_value* (default = None) The azimuth angle in degrees.
-    * ``altitude`` = *float_value* (default = None) The altitude angle in degrees.
-
+    * ``boresight`` = *RaDec_value*  The CelestialCoord of the boresight of the observation.
 
 Optional keywords to set:
 """"""""""""""""""""""""""
 
-    * ``latitude`` = *bool_value* (default = True) The latitude of the observatory.
-    * ``disable_field_rotation`` = *bool_value* (default = False) Do not consider the effect of the rotation of the camera relative to the spiders of the telescope during the exposure.
+    * ``camera`` = *str_value* (default = 'LsstCam') The name of the camera to use.
 
 type: **RubinDiffraction**
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Diffractive effects only during the FFT.
+Apply diffractive Effects.
 
 Required keywords to set:
 """""""""""""""""""""""""
 
-    * ``azimuth`` = *float_value* (default = None) The azimuth angle in degrees.
-    * ``altitude`` = *float_value* (default = None) The altitude angle in degrees.
-    * ``latitude`` = *bool_value* (default = True) The latitude of the observatory.
+    * ``azimuth`` = *float_value* The azimuth angle of the observation.
+    * ``altitude`` = *float_value*  The altitude angle of the observation.
+    * ``latitude`` = *bool_value*  The latitude of the observatory.
 
 Optional keywords to set:
 """"""""""""""""""""""""""
 
     * ``disable_field_rotation`` = *bool_value* (default = False) Do not consider the effect of the rotation of the camera relative to the spiders of the telescope during the exposure.
 
+
+type: **RubinDiffractionOptics**
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+An optimized combination of **RubinOptics** and **RubinDiffraction** that combines shared calculations to for computational efficiency.
+
+Required keywords to set:
+"""""""""""""""""""""""""
+
+    * ``boresight`` = *RaDec_value*  The CelestialCoord of the boresight of the observation.
+    * ``azimuth`` = *float_value*  The azimuth angle of the observation.
+    * ``altitude`` = *float_value* The altitude angle of the observation.
+
+
+Optional keywords to set:
+""""""""""""""""""""""""""
+
+    * ``camera`` = *str_value* (default = 'LsstCam') The name of the camera to use.
+    * ``latitude`` = *bool_value* (default = latitude of Rubin) The latitude of the observatory.
+    * ``disable_field_rotation`` = *bool_value* (default = False) Do not consider the effect of the rotation of the camera relative to the spiders of the telescope during the exposure.
+
+
 Output types
 ============
 
-The output field is used to specify where to write output files and what format they should be.  There are several possibilities, including FITS files before and after electronics readout, and various types of truth information.  *imSim* adds the ``LSST_CCD`` type. It  understands how to write "eimage" files which are true representations of the electrons in the CCD including signals from the objects and cosmic rays with important physics effects such as the brighter-fatter effect and tree-rings applied.
+The output field is used to specify where to write output files and what format they should be.  There are several possibilities, including FITS files before and after electronics readout, and various types of truth information.  *imSim* adds the ``LSST_CCD`` type, an extra electronics ``readout`` type, and an ``opd`` type for writing out optical path difference images.
+
+*imSim*  understands how to write "eimage" files which are true representations of the electrons in the CCD including signals from the objects and cosmic rays with important physics effects such as the brighter-fatter effect and tree-rings applied.
 
 It can also write "amp" files. These are fully readout electronics files with one amplifier per FITS HDU with all of the proper headers needed to be processed by the Rubin Science Pipelines.  Both of these output formats can be examined with standard tools such as *ds9*.
 
-There are also several extra outputs available to the user including a centroid file containing the true position of the rendered sources, a list of optical path differences in the optical system, and a map of surface figure errors.
+There are also several extra outputs available to the user including a centroid file containing the true position of the rendered sources generated with the standard *GalSim* "truth" extra output type, a list of optical path differences in the optical system, and a map of surface figure errors.
 
 LSST CCD Sensor output and readout
 ----------------------------------
@@ -612,25 +619,26 @@ LSST CCD Sensor output and readout
 Output Type: LSST_CCD
 ^^^^^^^^^^^^^^^^^^^^^
 
-For reading out LSST CCDs.
+For modifying the ``LSST_Image`` by adding cosmic rays and relevant headers and optionally writing out the "eimage" FITS files via the standard *GalSim* output.
 
 Optional keywords to set:
 """"""""""""""""""""""""""
 
     * ``cosmic_ray_rate`` = *float_value* (default = 0) The rate of cosmic rays per second in a sensor.
     * ``cosmic_ray_catalog`` = *str_value* (default = Distributed with *imSim*) A file containing cosmic ray images to paint on the sensor.
-    * ``header`` = *dictionary* (default = None) Extra items to add to the FITS header in the output files.
+    * ``header`` = *dict* (optional) Extra items to add to the FITS header in the output files.
 
 
-Output Type: readout
-^^^^^^^^^^^^^^^^^^^^
+Extra Output Type: readout
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Parameters modifying the LSSTCamera electronics readout.
+Parameters modifying the LSSTCamera electronics readout and writing the amplifier files.
 
 Optional keywords to set:
 """"""""""""""""""""""""""
 
-    * ``camera_name`` = *str_value* (default = None) The camera object to use.
+    * ``file_name`` = *str_value* (default = None) The file name for amplifier file output(s).
+    * ``camera_name`` = *str_value* (default = 'LsstCam') The name of tthe camera to use.
     * ``readout_time`` = *float_value* (default = 2.0) The camera readout time in seconds.
     * ``dark_current`` = *float_value* (default = 0.02) The dark current in electrons per second.
     * ``bias_level`` = *float_value* (default = 1000.0) Bias readout level in ADUs.
@@ -639,12 +647,13 @@ Optional keywords to set:
     * ``full_well`` = *float_value* (default = 1.0e5) Thu number of electrons needed to fill the sensor well.
     * ``read_noise`` = *float_value* (default given by camera object) The read noise in ADU.
 
-Output Type: opd
-^^^^^^^^^^^^^^^^
+Extra Output Type: opd
+^^^^^^^^^^^^^^^^^^^^^^
 
 Write out the optical path differences images to study raytracing behaviour.
 
-Notes:
+.. note::
+
         The OPD image coordinates are always aligned with the entrance pupil,
         regardless of the value of rotTelPos.  The OPD values are in nm, with
         NaN values corresponding to vignetted regions.  The OPD is always
@@ -653,8 +662,8 @@ Notes:
 Required keywords to set:
 """"""""""""""""""""""""""
 
-    * ``file_name`` = *str_value* (default = None) The name of the file to write OPD images to.
-    * ``fields`` = *list* (default = None) List of field angles for which to compute OPD.  Field angles are specified in the (rotated) coordinate system of the telescope's entrance pupil (usually the primary mirror).
+    * ``file_name`` = *str_value* The name of the file to write OPD images to.
+    * ``fields`` = *list*  List of field angles for which to compute OPD.  Field angles are specified in the (rotated) coordinate system of the telescope's entrance pupil (usually the primary mirror).
 
 Optional keywords to set:
 """"""""""""""""""""""""""
