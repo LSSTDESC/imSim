@@ -2,7 +2,7 @@ from functools import lru_cache
 from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
-from galsim.config import StampBuilder, RegisterStampType, GetAllParams, GetInputObj
+from galsim.config import StampBuilder, RegisterStampType, CheckAllParams, GetAllParams, GetInputObj
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 from .diffraction_fft import apply_diffraction_psf
@@ -84,6 +84,15 @@ class LSST_SiliconBuilder(StampBuilder):
         Returns:
             xsize, ysize, image_pos, world_pos
         """
+
+        # First do a parsing check to make sure that all the options passed to
+        # the config are valid, and no required options are missing.
+
+        req = {'diffraction_psf': dict}
+        opt = {}
+        ignore = ['fft_sb_thresh', 'band', 'airmass', 'rawSeeing', 'max_flux_simple'] + ignore
+        galsim.config.CheckAllParams(config, req, opt, ignore=ignore)
+
         gal = galsim.config.BuildGSObject(base, 'gal', logger=logger)[0]
         if gal is None:
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
