@@ -40,7 +40,8 @@ class RawFileOutputTestCase(unittest.TestCase):
         added_keywords = {'GAUSFWHM': 0.4,
                           'FOOBAR': 'hello, world'}
 
-        hdu = imsim.get_primary_hdu(eimage, added_keywords=added_keywords)
+        hdu = imsim.get_primary_hdu(eimage, "E2V-CCD250-382",
+                                    added_keywords=added_keywords)
         hdr = hdu.header
 
         # Test some keywords.
