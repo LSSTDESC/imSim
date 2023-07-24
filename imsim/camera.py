@@ -92,7 +92,7 @@ class CCD(dict):
         super().__init__()
         self.bounds = None
         self.xtalk = None
-        self.lsst_detector = None
+        self.lsst_ccd = None
         self.full_well = None
 
     def update(self, other):
