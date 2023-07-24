@@ -52,18 +52,29 @@ eval_variables:
 # updated for each output file.
 # Also includes things that need some set up at the start of an exposure, like the atmospheric PSF.
 input:
-    instance_catalog:
-        # This enables InstCat types
-        file_name: default_catalog_file.txt # This should be overridden in either the user config file or
-                                            # on the command line.  See imsim-user.yaml for instructions.
-        sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
+    sky_catalog:
+        # This points to the configuration file used to manage the object catalogs.
+        file_name: ../tests/data/sky_cat_9683.yaml
+
+        # The following two lines define the band and mjd of the mid-point of the exposure
+        # using information from the opsim db.
+        band: { type: OpsimData, field: band }
+        mjd: { type: OpsimData, field: mjd }
+
+        # Optional parameters:
+        # Uncomment the following line to restrict the objects simulated to the ones
+        # listed.  Otherwise, all available objects will be simulated.
+        #obj_types: [galaxy, star, sncosmo, gaia_star]
+        # Set this to limit the maximum flux that will be rendered. Objects with
+        # fluxes greater than this value will be skipped.
+        #max_flux: 1e6
 
     opsim_data:
         # Read the visit meta data from the opsim db file.  Note: We
         # want some OpsimData items at file scope, in particular to
         # define the WCS, which is needed by the InstCat items.
-        file_name: small_opsim.db
-        visit: 19500
+        file_name: ../tests/data/small_opsim_9683.db
+        visit: 449053
         snap: 1
 
     telescope:
@@ -213,7 +224,7 @@ psf:
 
 # Define the galaxy (or delta function) to use
 gal:
-    type: InstCatObj
+    type: SkyCatObj
 
 # This has most of the code from GalsimSiliconInterpreter.
 stamp:
@@ -238,7 +249,7 @@ stamp:
         theta: { type: OpsimData, field: rotTelPos }
 
     world_pos:
-        type: InstCatWorldPos
+        type: SkyCatWorldPos
 
     photon_ops:
         -
