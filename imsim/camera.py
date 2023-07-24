@@ -62,15 +62,17 @@ class Amp:
         """
         my_amp = Amp()
         my_amp.lsst_amp = lsst_amp
+        my_amp.bias_level = bias_level
         my_amp.bounds = get_gs_bounds(lsst_amp.getBBox())
         my_amp.raw_flip_x = lsst_amp.getRawFlipX()
         my_amp.raw_flip_y = lsst_amp.getRawFlipY()
         my_amp.gain = lsst_amp.getGain()
-        my_amp.full_well = lsst_amp.getSaturation()*my_amp.gain  # convert to e-
+        # Saturation values in obs_lsst are in ADU and include bias levels,
+        # so subtract bias level and convert to electrons.
+        my_amp.full_well = (lsst_amp.getSaturation() - bias_level)*my_amp.gain
         my_amp.raw_bounds = get_gs_bounds(lsst_amp.getRawBBox())
         my_amp.raw_data_bounds = get_gs_bounds(lsst_amp.getRawDataBBox())
         my_amp.read_noise = lsst_amp.getReadNoise()
-        my_amp.bias_level = bias_level
         return my_amp
 
     def __getattr__(self, attr):
