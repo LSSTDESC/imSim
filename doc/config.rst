@@ -510,7 +510,8 @@ Required keywords to set:
     * ``fft_sb_threshold`` = *float_value* (default = 0) Over this number of counts, use a FFT instead of photon shooting for speed.
     * ``airmass`` = *float_value* (default = 1.2) The airmass to use in FFTs
     * ``rawseeing`` = *float_value* (default = 0.7) The FWHM seeing at zenith at 500 nm in arc seconds for FFTs.
-    *  ``band`` = *str_value* (default = None) The filter band of the observation.
+    * ``band`` = *str_value* (default = None) The filter band of the observation.
+    * ``det_name`` = *str_value* The name of the detector.
 
 
 Optional keywords to set:
@@ -519,6 +520,7 @@ Optional keywords to set:
     * ``max_flux_simple`` = *float_value* (default = 100) If the flux is less than this value use a simple SED and apply other speed ups.
     * ``method`` = *str_value* (default = 'auto') Choose between automatically deciding whether to use a FFT of photon shooting ('auto') or manually choose between 'fft' and 'phot'.
     * ``maxN`` = *int_value* (detault = 1.0e6) Set limit on the size of photons batches when drawing the image.
+    * ``camera`` = *str_value* (default = 'LsstCam') The name of the camera to use.
 
 
 Note there is an extra required keyword you must include in the stamp section that configures how diffraction passing through the telescope spiders is handled.

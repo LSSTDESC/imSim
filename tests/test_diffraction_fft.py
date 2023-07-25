@@ -134,6 +134,7 @@ def create_test_config(
                 "enabled": enable_diffraction,
                 "brightness_threshold": 1.0e5,
             },
+            "det_name": "R22_S11",
             **stamp_args,
         },
     }

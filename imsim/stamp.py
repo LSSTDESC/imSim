@@ -88,10 +88,12 @@ class LSST_SiliconBuilder(StampBuilder):
         # First do a parsing check to make sure that all the options passed to
         # the config are valid, and no required options are missing.
 
-        req = {'diffraction_psf': dict}
-        opt = {}
+        req = {'diffraction_psf': dict, 'det_name': str}
+        opt = {'camera': str}
+        # For the optional ones we don't need here, can put in ignore, and they will still
+        # be allowed, but not required.
         ignore = ['fft_sb_thresh', 'band', 'airmass', 'rawSeeing', 'max_flux_simple'] + ignore
-        galsim.config.CheckAllParams(config, req, opt, ignore=ignore)
+        params = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)[0]
 
         gal = galsim.config.BuildGSObject(base, 'gal', logger=logger)[0]
         if gal is None:
@@ -110,8 +112,8 @@ class LSST_SiliconBuilder(StampBuilder):
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
         bandpass = base['bandpass']
         self.image = base['current_image']
-        camera = get_camera(base['output']['camera'])
-        self.det = camera[base['det_name']]
+        camera = get_camera(params.get('camera', 'LsstCam'))
+        self.det = camera[params['det_name']]
         if not hasattr(gal, 'flux'):
             # In this case, the object flux has not been precomputed
             # or cached by the skyCatalogs code.
