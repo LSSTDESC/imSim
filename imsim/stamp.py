@@ -444,17 +444,26 @@ class LSST_SiliconBuilder(StampBuilder):
         elif isinstance(psf, galsim.Convolution):
             obj_list = [self.make_fft_psf(p, logger) for p in psf.obj_list]
             return galsim.Convolution(obj_list, gsparams=psf.gsparams)
+        elif isinstance(psf, galsim.SecondKick):
+            # The Kolmogorov version of the phase screen gets most of the second kick.
+            # The only bit that it missing is the Airy part, so convert the SecondKick to that.
+            return galsim.Airy(lam=psf.lam, diam=psf.diam, obscuration=psf.obscuration)
         elif isinstance(psf, galsim.PhaseScreenPSF):
             # If psf is a PhaseScreenPSF, then make a simpler one the just convolves
             # a Kolmogorov profile with an OpticalPSF.
             r0_500 = psf.screen_list.r0_500_effective
-            atm_psf = galsim.Kolmogorov(lam=psf.lam, r0_500=r0_500,
-                                        gsparams=psf.gsparams)
+            L0 = psf.screen_list[0].L0
+            atm_psf = galsim.VonKarman(lam=psf.lam, r0_500=r0_500, L0=L0, gsparams=psf.gsparams)
 
             opt_screens = [s for s in psf.screen_list if isinstance(s, galsim.OpticalScreen)]
             logger.info('opt_screens = %r',opt_screens)
             if len(opt_screens) >= 1:
                 # Should never be more than 1, but if there weirdly is, just use the first.
+                # Note: Technically, if you have both a SecondKick and an optical screen, this
+                # will add the Airy part twice, since it's also part of the OpticalPSF.
+                # It doesn't usually matter, since we usually set doOpt=False, so we don't usually
+                # do this branch. If it is found to matter for someone, it will require a bit
+                # of extra logic to do it right.
                 opt_screen = opt_screens[0]
                 optical_psf = galsim.OpticalPSF(
                         lam=psf.lam,

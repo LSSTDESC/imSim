@@ -12,6 +12,8 @@ import galsim
 
 DATA_DIR = Path(__file__).parent / 'data'
 
+from imsim_test_helpers import CaptureLog
+
 
 class PsfTestCase(unittest.TestCase):
     """
@@ -346,6 +348,117 @@ class PsfTestCase(unittest.TestCase):
                 (400/900)**exponent,
                 rtol=0.001  # 0.1% error on value of around ~1.2 to 1.3
             )
+
+    def test_atm_psf_fft(self):
+        """
+        Test using an atmospheric PSF with a star bright enough to switch over to FFT.
+        """
+        config = {
+            'psf': {
+                'type': 'AtmosphericPSF'
+            },
+            'gal': {
+                'type': 'DeltaFunction',
+                'flux': 1e5,
+                'sed': {
+                    'file_name': 'vega.txt',
+                    'wave_type': 'nm',
+                    'flux_type': 'fnu',
+                },
+            },
+            'input': {
+                'atm_psf': {
+                    'airmass': self.opsim_data['airmass'],
+                    'rawSeeing': self.opsim_data['rawSeeing'],
+                    'band':  self.opsim_data['band'],
+                    'screen_size': 409.6,
+                    'boresight': {
+                        'type': 'RADec',
+                        'ra': { 'type': 'Degrees', 'theta': self.opsim_data['rightascension'], },
+                        'dec': { 'type': 'Degrees', 'theta': self.opsim_data['declination'], }
+                    }
+                }
+            },
+            'stamp': {
+                'type': 'LSST_Silicon',
+
+                'fft_sb_thresh': 2.e5,   # When to switch to fft and a simpler PSF and skip silicon
+                'max_flux_simple': 100,  # When to switch to simple SED
+
+                'airmass': self.opsim_data['airmass'],
+                'rawSeeing': self.opsim_data['rawSeeing'],
+                'band':  self.opsim_data['band'],
+
+                'diffraction_psf': {
+                    'enabled': False,
+                    'exptime': 30,
+                    'azimuth': "0 deg",
+                    'altitude': "60 deg",
+                    'rotTelPos': "0 deg",
+                },
+                'det_name': 'R22_S11',
+                'world_pos':  {
+                    'type': 'RADec',
+                    'ra' : '@input.atm_psf.boresight.ra',
+                    'dec' : '@input.atm_psf.boresight.dec',
+                },
+            },
+            'image' : {
+                'size': 64,
+                'random_seed': 1234,
+                'wcs': {
+                    'type' : 'Tan',
+                    'dudx' : 0.2,
+                    'dudy' : 0.,
+                    'dvdx' : 0.,
+                    'dvdy' : 0.2,
+                    'ra' : '@input.atm_psf.boresight.ra',
+                    'dec' : '@input.atm_psf.boresight.dec',
+                },
+                'bandpass': {
+                    'file_name': 'LSST_r.dat',
+                    'wave_type': 'nm',
+                    'thin': 1.e-4,
+                },
+                'noise': {'type': 'Poisson'},
+            }
+        }
+
+        # First make a reference image, using photon shooting
+        config1 = galsim.config.CopyConfig(config)
+        ref_img = galsim.config.BuildImage(config1)
+
+        # Repeat with an object bright enough to switch to FFT
+        config['gal']['flux'] = 1.e8
+        with CaptureLog() as cl:
+            img = galsim.config.BuildImage(config, logger=cl.logger)
+        #print(cl.output)
+        assert 'Check if we should switch to FFT' in cl.output
+        assert 'Yes. Use FFT for this object.' in cl.output
+
+        print('Peak of reference PSF (flux=1.e5): ',ref_img.array.max())
+        print('Peak of FFT PSF (flux=1.e8): ',img.array.max())
+        print('FWHM of reference PSF: ',ref_img.view(scale=0.2).calculateFWHM())
+        print('FWHM of FFT PSF: ',img.view(scale=0.2).calculateFWHM())
+        print('Rmom of reference PSF: ',ref_img.view(scale=0.2).calculateMomentRadius())
+        print('Rmom of FFT PSF: ',img.view(scale=0.2).calculateMomentRadius())
+
+        # The FFT image is about 10^3 x brighter than the reference image.
+        # Scale it down to make it easier to compare to the reference image.
+        img /= 1.e3
+
+        # Peaks should now be similar
+        np.testing.assert_allclose(ref_img.array.max(), img.array.max(), rtol=0.05)
+
+        # The sizes should also be pretty close
+        np.testing.assert_allclose(ref_img.view(scale=0.2).calculateFWHM(),
+                                   img.view(scale=0.2).calculateFWHM(), rtol=0.05)
+        np.testing.assert_allclose(ref_img.view(scale=0.2).calculateMomentRadius(),
+                                   img.view(scale=0.2).calculateMomentRadius(), rtol=0.1)
+
+        # Inded the whole image should be similar, but this is pretty noisy,
+        # so we need some loose tolerances for this one.
+        np.testing.assert_allclose(ref_img.array, img.array, rtol=0.15, atol=50)
 
 
 if __name__ == '__main__':
