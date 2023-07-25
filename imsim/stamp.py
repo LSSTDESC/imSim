@@ -399,7 +399,8 @@ class LSST_SiliconBuilder(StampBuilder):
 
         # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
         psf = galsim.config.BuildGSObject(base, 'psf', logger=logger)[0]
-        fft_psf = self.make_fft_psf(psf, logger)
+        bandpass = base['bandpass']
+        fft_psf = self.make_fft_psf(psf.evaluateAtWavelength(bandpass.effective_wavelength), logger)
         logger.warning('Object %d has flux = %s.  Check if we should switch to FFT',
                        base['obj_num'], self.realized_flux)
 
@@ -410,7 +411,6 @@ class LSST_SiliconBuilder(StampBuilder):
         # of giving us an underestimate of the max surface brightness.
         # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
         # to get photons/pixel, which we compare to fft_sb_thresh.
-        bandpass = base['bandpass']
         gal_achrom = self.gal.evaluateAtWavelength(bandpass.effective_wavelength)
         fft_obj = galsim.Convolve(gal_achrom, fft_psf).withFlux(self.realized_flux)
         max_sb = fft_obj.max_sb/2. * self._pixel_scale**2
