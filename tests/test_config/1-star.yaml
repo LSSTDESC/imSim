@@ -14,6 +14,6 @@ input.tree_rings.only_dets: [R22_S11]
 output.dir: output
 output.det_num:
   type: List
-  items: [80]
+  items: [94]
 output.nfiles: 1
 output.truth: ""

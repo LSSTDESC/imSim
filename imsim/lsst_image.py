@@ -269,21 +269,18 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             logger.info("Applying vignetting according to radial spline model.")
             sky.array[:] *= self.vignetting(camera[det_name])
             
-        print(self.apply_fringe)
         if self.apply_fringe:
-            logger.info("Apply fringing")
-            
             # get center ra/dec
             cra = config['wcs']['boresight']['cboresight']['_kd'][1]\
                 ['cboresight']['ra']['theta']['current'][0]
             cdec = config['wcs']['boresight']['cboresight']['_kd'][1]\
                 ['cboresight']['dec']['theta']['current'][0]
+                
+            ccd_fringing = CCD_Fringe(img_wcs = image.wcs,c_wcs=[cra, cdec],spatial_vary= True)
             
             ny, nx = sky.array.shape
             xarr, yarr = np.meshgrid(range(nx), range(ny))
-            
-            ccd_fringing = CCD_Fringe(img_wcs = image.wcs,c_wcs=[cra, cdec],spatial_vary= False)
-            
+            logger.info("Apply fringing")
             sky.array[:] *= ccd_fringing.calculate_fringe_amplitude(xarr,yarr)
             
         image += sky

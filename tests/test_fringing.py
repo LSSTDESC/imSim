@@ -26,7 +26,7 @@ def test_fringing():
 
     fringe_map = ccd_fringing.calculate_fringe_amplitude(xarr,yarr)
 
-    # Check the fringing varaition
+    # Check the with the pre-calculated fringing varaition for the current offset.
     np.testing.assert_approx_equal(fringe_map.max(),1.002586,significant=4)
     np.testing.assert_approx_equal(fringe_map.min(),0.99741,significant=4)
     
