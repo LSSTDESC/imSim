@@ -205,10 +205,17 @@ class LSST_SiliconBuilder(StampBuilder):
 
         logger.info('Object %d will use stamp size = %s',base.get('obj_num',0),image_size)
 
-        # Also the position
-        world_pos = galsim.config.ParseWorldPos(config, 'world_pos', base, logger)
-        self.sky_coord = world_pos
-        image_pos = None  # GalSim will figure this out from the wcs.
+        # Determine where this object is going to go:
+        # This is the same as what the base StampBuilder does:
+        if 'image_pos' in config:
+            image_pos = galsim.config.ParseValue(config, 'image_pos', base, galsim.PositionD)[0]
+        else:
+            image_pos = None
+
+        if 'world_pos' in config:
+            world_pos = galsim.config.ParseWorldPos(config, 'world_pos', base, logger)
+        else:
+            world_pos = None
 
         return image_size, image_size, image_pos, world_pos
 
@@ -423,7 +430,7 @@ class LSST_SiliconBuilder(StampBuilder):
             # recompute the realized flux.
             if self.vignetting is not None:
                 flux = self.gal.flux*self.vignetting.at_sky_coord(
-                    self.sky_coord, self.image.wcs, self.det)
+                    base['sky_pos'], self.image.wcs, self.det)
                 self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
 
             logger.warning('Yes. Use FFT for this object.  max_sb = %.0f > %.0f',

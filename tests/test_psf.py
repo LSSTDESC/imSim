@@ -397,11 +397,11 @@ class PsfTestCase(unittest.TestCase):
                     'rotTelPos': "0 deg",
                 },
                 'det_name': 'R22_S11',
-                'world_pos':  {
-                    'type': 'RADec',
-                    'ra' : '@input.atm_psf.boresight.ra',
-                    'dec' : '@input.atm_psf.boresight.dec',
-                },
+                'image_pos': {
+                    'type': 'XY',
+                    'x': 0,
+                    'y': 0,
+                }
             },
             'image' : {
                 'size': 64,
