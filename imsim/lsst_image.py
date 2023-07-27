@@ -246,7 +246,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
 
         sky = GetSky(config, base, full=True)
 
-        if ((self.apply_sky_gradient or self.vignetting is not None)
+        if ((self.apply_sky_gradient or self.apply_fringe or self.vignetting is not None)
             and not isinstance(sky, galsim.Image)):
             # Handle the case where a full image isn't returned by
             # GetSky, i.e., when the sky level is constant and the wcs
@@ -282,12 +282,11 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             ny, nx = sky.array.shape
             xarr, yarr = np.meshgrid(range(nx), range(ny))
             
-            ccd_fringing = CCD_Fringe(img_wcs = image.wcs,c_wcs=[cra, cdec],spatial_vary= True)
+            ccd_fringing = CCD_Fringe(img_wcs = image.wcs,c_wcs=[cra, cdec],spatial_vary= False)
             
-            sky.array[:] *= ccd_fringing.cal_fringe_amplitude(xarr,yarr)
+            sky.array[:] *= ccd_fringing.calculate_fringe_amplitude(xarr,yarr)
             
         image += sky
-
         AddNoise(base,image,current_var,logger)
 
 

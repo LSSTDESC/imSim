@@ -197,7 +197,7 @@ class CCD_Fringe:
             return 1
         
 
-    def cal_fringe_amplitude(self,x,y):
+    def calculate_fringe_amplitude(self,x,y):
         """
         Return the normalized fringing amplitude at the desired pixel 
         wrt the value at the CCD center.
