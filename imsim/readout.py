@@ -284,7 +284,7 @@ class CcdReadout:
     """
     full_well: float = 1.0e5
     
-    def __init__(self, eimage, logger, camera_name=None,
+    def __init__(self, eimage, logger, camera=None,
                  readout_time=2.0, dark_current=0.02, bias_level=1000.0,
                  scti=1.0e-6, pcti=1.0e-6, full_well=full_well, read_noise=None):
         """
@@ -294,7 +294,7 @@ class CcdReadout:
             The eimage with the rendered scene, wcs, and header information.
         logger : logging.Logger
             Logger object
-        camera_name : str, Camera class to use, e.g., 'LsstCam', 'LsstCamImSim'.
+        camera : str, Camera class to use, e.g., 'LsstCam', 'LsstCamImSim'.
             [default: use the camera from the eimage header]
         readout_time: float (seconds) [default: 2.0]
         dark_current: float (e-/s) [default: 0.02]
@@ -306,10 +306,10 @@ class CcdReadout:
         """
         self.eimage = eimage
         self.det_name = eimage.header['DET_NAME']
-        if camera_name is None:
+        if camera is None:
             self.camera_name = eimage.header['CAMERA']
         else:
-            self.camera_name = camera_name
+            self.camera_name = camera
         self.logger = logger
         camera = Camera(self.camera_name)
         self.ccd = camera[self.det_name]
@@ -495,7 +495,7 @@ class CameraReadout(ExtraOutputBuilder):
 
         # Parse parameters from the config dict.
         opt = {
-            'camera_name': str,
+            'camera': str,
             'readout_time': float,
             'dark_current': float,
             'bias_level': float,
