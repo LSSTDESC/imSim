@@ -112,10 +112,9 @@ An instance catalog contains lines with SED files listed. This allows you to loa
 Required keywords to set:
 """""""""""""""""""""""""
 
-    * ``index`` = *int_value*  The index entry of the instance catalog object to use.
-
 Optional keywords to set:
 """""""""""""""""""""""""
+    * ``index`` = *int_value* (optional) by default all of the objects in the file will be processed, but here you can specify some subset of of index numbers yourself of exactly which objects should be read.  E.g. this could be a single integer or a list of integers or a galsim Sequence type, etc.
     * ``num`` = *int_value* (default = 0) If you have multiple instance_catalog input items defined in the config file, this option will allow you specify which one you should use. The default is the first and usually only one.
 
 
@@ -238,8 +237,8 @@ Required keywords to set:
 Optional keywords to set:
 """""""""""""""""""""""""
 
-    * ``rotTelPos`` = *angle_value* (default = None) The angle of the camera rotator in degrees.
-    * ``cameraName`` = *string_value* (default = 'LSSTCam') The name of the camera to use.
+    * ``rotTelPos`` = *angle_value* (default = None) The angle of the camera rotator.
+    * ``camera`` = *str_value* (default = 'LSSTCam') The name of the camera to use.
     * ``perturbations:`` = YAML dictionary (default = None)  See :ref:`the optical system section <optical-system-label>` for documentation.
     * ``fea:`` = YAML dictionary (default = None)  See :ref:`the optical system section <optical-system-label>` for documentation
 
@@ -441,8 +440,8 @@ The ``LSST_Image`` type is a version of the *GalSim* "Scattered Image" image cla
 Required keywords to set:
 """""""""""""""""""""""""
 
-    * ``xsize`` = *int_value* X size only
-    * ``ysize`` = *int_value* Y size only
+    * ``xsize`` = *int_value* The size of the image in the X direction (i.e. the number of columns)
+    * ``ysize`` = *int_value* The size of the image in the Y direction (i.e. the number of rows)
 
 
 Optional keywords to set:
@@ -464,14 +463,14 @@ Batoid WCS Type
 
 Required keywords to set:
 """"""""""""""""""""""""""
-    * ``boresight`` = *RaDec_value* The CelestialCoord of the boresight of the observation.
+    * ``boresight`` = *sky_value* The CelestialCoord of the boresight of the observation.
     * ``obstime`` = *str_value*  The time of the observation either as a string or a astropy.time.Time instance
     * ``det_name`` = *str_value* The name of the sensor for this WCS.
 
 Optional keywords to set:
 """""""""""""""""""""""""
 
-    * ``camera`` = *str_value* (default = None) A camera object.
+    * ``camera`` = *str_value* (default = 'LsstCam') The name of the camera to use.
     * ``temperature`` = *float_value* (default = 280K) Ambient temperature in Kelvin.
     * ``pressure`` = *float_value* (default = calculated from Rubin height) Ambient pressure in kPa.
     *  ``H2O_pressure`` = *float_value* (default = 1 kPa) Water vapor pressure in kPa.
@@ -486,8 +485,8 @@ Key Name: LSST_Flat
 Required keywords to set:
 """"""""""""""""""""""""""
     * ``counts_per_pixel`` = *float_value* Background count level per pixel
-    * ``xsize`` = *int_value* X size only
-    * ``ysize`` = *int_value* Y size only
+    * ``xsize`` = *int_value* The size of the image in the X direction (i.e. the number of columns)
+    * ``ysize`` = *int_value* The size of the image in the Y direction (i.e. the number of rows)
 
 
 Optional keywords to set:
@@ -541,9 +540,9 @@ Required keywords to set:
 """""""""""""""""""""""""
 
     * ``exptime`` = *float_value*  The time of the exposure.
-    * ``azimuth`` = *float_value*  The azimuth angle in degrees.
-    * ``altitude`` = *float_value*  The altitude angle in degrees.
-    *  ``rotTelPos`` = *str_value*  The angle of the camera rotator in degrees.
+    * ``azimuth`` = *angle_value*  The azimuth angle of the observation.
+    * ``altitude`` = *angle_value*  The altitude angle of the observation.
+    * ``rotTelPos`` = *angle_value* (default = None) The angle of the camera rotator.
 
 
 Optional keywords to set:
@@ -552,7 +551,7 @@ Optional keywords to set:
     * ``enabled`` = *bool_value* (default = True) When doing FFTs, also calculate parametric diffraction spikes from the spider.
     * ``spike_length_cutoff`` = *int_value* (default = 4000) In a FFT the size of the telescope spike length
     * ``brightness threshold`` = *float_value* (default = Set by CCD full well value) In a FFT the value of a pixel that will cause it to be replaced with a diffraction spike.
-    * ``lattitude`` = *float_value* (default = Rubin Location) Geographic latitude of the observatory.
+    * ``latitude`` = *angle_value* (default = Rubin Location) Geographic latitude of the observatory.
 
 
 Finally, there are a set of operations that can act on photons in *GalSim*.  These are put together in a list and then all of the photons have those operations act on them in turn.  This list of photon-operations are specified in the stamp section.  You can read more about them in the *GalSim* documentation covering `GalSim Photon Ops <http://galsim-developers.github.io/GalSim/_build/html/config_stamp.html#photon-operators-list>`__.  *imSim* adds a new set of Photon Operators to ray-trace the photons through the optical system using the `Batoid package  <https://github.com/jmeyers314/batoid>`__.
@@ -569,7 +568,7 @@ Ray-trace photons though the Rubin optical system using *batoid*.
 Required keywords to set:
 """"""""""""""""""""""""""
 
-    * ``boresight`` = *RaDec_value*  The CelestialCoord of the boresight of the observation.
+    * ``boresight`` = *sky_value*  The CelestialCoord of the boresight of the observation.
 
 Optional keywords to set:
 """"""""""""""""""""""""""
@@ -584,9 +583,9 @@ Apply diffractive Effects.
 Required keywords to set:
 """""""""""""""""""""""""
 
-    * ``azimuth`` = *float_value* The azimuth angle of the observation.
-    * ``altitude`` = *float_value*  The altitude angle of the observation.
-    * ``latitude`` = *bool_value*  The latitude of the observatory.
+    * ``azimuth`` = *angle_value*  The azimuth angle of the observation.
+    * ``altitude`` = *angle_value*  The altitude angle of the observation.
+    * ``latitude`` = *angle_value*  The latitude of the observatory.
 
 Optional keywords to set:
 """"""""""""""""""""""""""
@@ -601,7 +600,7 @@ An optimized combination of **RubinOptics** and **RubinDiffraction** that combin
 Required keywords to set:
 """""""""""""""""""""""""
 
-    * ``boresight`` = *RaDec_value*  The CelestialCoord of the boresight of the observation.
+    * ``boresight`` = *sky_value*  The CelestialCoord of the boresight of the observation.
     * ``azimuth`` = *float_value*  The azimuth angle of the observation.
     * ``altitude`` = *float_value* The altitude angle of the observation.
 
@@ -610,7 +609,7 @@ Optional keywords to set:
 """"""""""""""""""""""""""
 
     * ``camera`` = *str_value* (default = 'LsstCam') The name of the camera to use.
-    * ``latitude`` = *bool_value* (default = latitude of Rubin) The latitude of the observatory.
+    * ``latitude`` = *angle_value* (default = latitude of Rubin) The latitude of the observatory.
     * ``disable_field_rotation`` = *bool_value* (default = False) Do not consider the effect of the rotation of the camera relative to the spiders of the telescope during the exposure.
 
 
@@ -639,6 +638,13 @@ Optional keywords to set:
     * ``cosmic_ray_rate`` = *float_value* (default = 0) The rate of cosmic rays per second in a sensor.
     * ``cosmic_ray_catalog`` = *str_value* (default = Distributed with *imSim*) A file containing cosmic ray images to paint on the sensor.
     * ``header`` = *dict* (optional) Extra items to add to the FITS header in the output files.
+    * ``nproc`` = *int_value* (default=1) How many processes to use for working on multiple CCDs at a time.
+    * ``nfiles`` = *int_value* (default=189) How many CCDs to build. ("files" here refers to the eimage files that are produced by the standard processing)  The default is to do the full focal plane.
+    * ``file_name`` = *str_value* (optional) The name of the eimage file to write out.  If not present, the eimage will not be written to disk.  (In which case, you probably want to include some other output object, such as readout; see below.)
+    * ``dir`` = *str_value* (optional) The directory to write the output files to (default is the current directory)
+    * ``camera`` = *str_value* (default = 'LsstCam') The name of the camera to use.
+    * ``exptime`` = *float_value* (default=30) The exposure time.
+    * ``det_num`` = *int_value* (default = sequence from 1 to 189) The detector numbers to use for each output image.
 
 
 Extra Output Type: readout
@@ -650,7 +656,7 @@ Optional keywords to set:
 """"""""""""""""""""""""""
 
     * ``file_name`` = *str_value* (default = None) The file name for amplifier file output(s).
-    * ``camera_name`` = *str_value* (default = 'LsstCam') The name of tthe camera to use.
+    * ``camera`` = *str_value* (default = 'LsstCam') The name of the camera to use.
     * ``readout_time`` = *float_value* (default = 2.0) The camera readout time in seconds.
     * ``dark_current`` = *float_value* (default = 0.02) The dark current in electrons per second.
     * ``bias_level`` = *float_value* (default = 1000.0) Bias readout level in ADUs.
@@ -680,12 +686,12 @@ Required keywords to set:
 Optional keywords to set:
 """"""""""""""""""""""""""
 
-     * ``rotTelPos`` = *angle_value* (default = None) The angle of the camera rotator in degrees.
-     * ``nx`` = *int_value* (default = 255) Size of the OPD image in pixels.
-     * ``wavelength`` = *float_value* (default = None) avelength of light in nanometers.  If not specified, then the wavelength will be taken from the current bandpass.
-     * ``projection`` = *str_value* (default = 'postel') Projection mapping field angles to spherical coordinates. See batoid documentation for more details.
-     * ``sphereRadius`` = *float_value* (default = None) Radius of reference sphere in meters.  If not specified, then the radius will be taken from the telescope object.
-     *  ``reference`` = *str_value* (default = 'chief') Either 'chief' or 'mean'.  See batoid documentation for more details.
-     *  ``eps`` = *float_value* (default = None) Annular Zernike obscuration fraction.  If not specified, then the value will be taken from the telescope object.
-     *  ``jmax`` = *int_value* (default = 28) Maximum Zernike Order.
+    * ``rotTelPos`` = *angle_value* (default = None) The angle of the camera rotator.
+    * ``nx`` = *int_value* (default = 255) Size of the OPD image in pixels.
+    * ``wavelength`` = *float_value* (default = None) avelength of light in nanometers.  If not specified, then the wavelength will be taken from the current bandpass.
+    * ``projection`` = *str_value* (default = 'postel') Projection mapping field angles to spherical coordinates. See batoid documentation for more details.
+    * ``sphereRadius`` = *float_value* (default = None) Radius of reference sphere in meters.  If not specified, then the radius will be taken from the telescope object.
+    *  ``reference`` = *str_value* (default = 'chief') Either 'chief' or 'mean'.  See batoid documentation for more details.
+    *  ``eps`` = *float_value* (default = None) Annular Zernike obscuration fraction.  If not specified, then the value will be taken from the telescope object.
+    *  ``jmax`` = *int_value* (default = 28) Maximum Zernike Order.
 
