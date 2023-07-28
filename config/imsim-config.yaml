@@ -224,6 +224,8 @@ stamp:
     airmass: { type: OpsimData, field: airmass }
     rawSeeing:  { type: OpsimData, field: rawSeeing }
     band:  { type: OpsimData, field: band }
+    camera: "@output.camera"
+    det_name: "$det_name"  # This is automatically defined by the LSST_CCD output type.
 
     diffraction_psf:
       exptime: { type: OpsimData, field: exptime }
