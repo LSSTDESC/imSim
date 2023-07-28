@@ -2,7 +2,7 @@
 The Config System
 #################
 
-*imSim* utilizes the *imSim* config system to configure itself.  This choice was made for several reasons.  As *GalSim* is used to render the actual images, using *GalSim* itself is a natural choice for configuration. Perhaps most importantly, by implementing the *imSim* code as a *GalSim* module it becomes possible to use it freely with other *GalSim* based modules.  So, other programs in the *GalSim* ecosystem can also call and configure the *imSim* module and could (for example) utilize the *imSim* electronics readout algorithms as part of their functionality.
+*imSim* utilizes the *GalSim* config system to configure itself.  This choice was made for several reasons.  As *GalSim* is used to render the actual images, using *GalSim* itself is a natural choice for configuration. Perhaps most importantly, by implementing the *imSim* code as a *GalSim* module it becomes possible to use it freely with other *GalSim* based modules.  So, other programs in the *GalSim* ecosystem can also call and configure the *imSim* module and could (for example) utilize the *imSim* electronics readout algorithms as part of their functionality.
 
 The *GalSim* config system is described in the `GalSim documentation <http://galsim-developers.github.io/GalSim/_build/html/config.html>`__. You should start there to understand the basic functionality of the config system.  If you look at the ``config/imsim-config.yaml`` distributed with *imSim* you can see the *imSim's* default configuration.  When you read in a YAML file you will be adding to and modifying these results.
 
@@ -47,7 +47,7 @@ These classes define the user configurable parts of the ``input`` section of the
 Instance catalogs
 -----------------
 
-Instance catalogs are text files best suited to making small handcrafted inputs. For legacy and compatibility purposes, They follow the format of the *PhoSim* program inputs which are documented on `PhoSim Web Site <https://bitbucket.org/phosim/phosim_release/wiki/Instance%20Catalog>`__.  The file should contain a a header including metadata describing the observation and a list of sources.
+Instance catalogs are text files best suited to making small handcrafted inputs. For legacy and compatibility purposes, they follow the format of the *PhoSim* program inputs which are documented on `PhoSim Web Site <https://bitbucket.org/phosim/phosim_release/wiki/Instance%20Catalog>`__.  The file should contain a a header including metadata describing the observation and a list of sources.
 
 Key Name: instance_catalog
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -519,7 +519,8 @@ Required keywords to set:
 
     * ``airmass`` = *float_value* (default = 1.2) The airmass to use in FFTs
     * ``rawseeing`` = *float_value* (default = 0.7) The FWHM seeing at zenith at 500 nm in arc seconds for FFTs.
-    *  ``band`` = *str_value* (default = None) The filter band of the observation.
+    * ``band`` = *str_value* (default = None) The filter band of the observation.
+    * ``det_name`` = *str_value* The name of the detector.
 
 
 Optional keywords to set:
@@ -528,6 +529,7 @@ Optional keywords to set:
     * ``max_flux_simple`` = *float_value* (default = 100) If the flux is less than this value use a simple SED and apply other speed ups.
     * ``method`` = *str_value* (default = 'auto') Choose between automatically deciding whether to use a FFT of photon shooting ('auto') or manually choose between 'fft' and 'phot'.
     * ``maxN`` = *int_value* (detault = 1.0e6) Set limit on the size of photons batches when drawing the image.
+    * ``camera`` = *str_value* (default = 'LsstCam') The name of the camera to use.
 
 
 Note there is an extra required diffraction_psf keyword you must include in the stamp section above that configures how diffraction passing through the telescope spiders is handled.  Here is how to configure it.

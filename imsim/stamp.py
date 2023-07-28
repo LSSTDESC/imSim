@@ -2,7 +2,7 @@ from functools import lru_cache
 from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
-from galsim.config import StampBuilder, RegisterStampType, GetAllParams, GetInputObj
+from galsim.config import StampBuilder, RegisterStampType, CheckAllParams, GetAllParams, GetInputObj
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 from .diffraction_fft import apply_diffraction_psf
@@ -84,6 +84,17 @@ class LSST_SiliconBuilder(StampBuilder):
         Returns:
             xsize, ysize, image_pos, world_pos
         """
+
+        # First do a parsing check to make sure that all the options passed to
+        # the config are valid, and no required options are missing.
+
+        req = {'diffraction_psf': dict, 'det_name': str}
+        opt = {'camera': str}
+        # For the optional ones we don't need here, can put in ignore, and they will still
+        # be allowed, but not required.
+        ignore = ['fft_sb_thresh', 'band', 'airmass', 'rawSeeing', 'max_flux_simple'] + ignore
+        params = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)[0]
+
         gal = galsim.config.BuildGSObject(base, 'gal', logger=logger)[0]
         if gal is None:
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
@@ -101,8 +112,8 @@ class LSST_SiliconBuilder(StampBuilder):
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
         bandpass = base['bandpass']
         self.image = base['current_image']
-        camera = get_camera(base['output']['camera'])
-        self.det = camera[base['det_name']]
+        camera = get_camera(params.get('camera', 'LsstCam'))
+        self.det = camera[params['det_name']]
         if not hasattr(gal, 'flux'):
             # In this case, the object flux has not been precomputed
             # or cached by the skyCatalogs code.
@@ -194,10 +205,17 @@ class LSST_SiliconBuilder(StampBuilder):
 
         logger.info('Object %d will use stamp size = %s',base.get('obj_num',0),image_size)
 
-        # Also the position
-        world_pos = galsim.config.ParseWorldPos(config, 'world_pos', base, logger)
-        self.sky_coord = world_pos
-        image_pos = None  # GalSim will figure this out from the wcs.
+        # Determine where this object is going to go:
+        # This is the same as what the base StampBuilder does:
+        if 'image_pos' in config:
+            image_pos = galsim.config.ParseValue(config, 'image_pos', base, galsim.PositionD)[0]
+        else:
+            image_pos = None
+
+        if 'world_pos' in config:
+            world_pos = galsim.config.ParseWorldPos(config, 'world_pos', base, logger)
+        else:
+            world_pos = None
 
         return image_size, image_size, image_pos, world_pos
 
@@ -388,7 +406,8 @@ class LSST_SiliconBuilder(StampBuilder):
 
         # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
         psf = galsim.config.BuildGSObject(base, 'psf', logger=logger)[0]
-        fft_psf = self.make_fft_psf(psf, logger)
+        bandpass = base['bandpass']
+        fft_psf = self.make_fft_psf(psf.evaluateAtWavelength(bandpass.effective_wavelength), logger)
         logger.warning('Object %d has flux = %s.  Check if we should switch to FFT',
                        base['obj_num'], self.realized_flux)
 
@@ -399,7 +418,6 @@ class LSST_SiliconBuilder(StampBuilder):
         # of giving us an underestimate of the max surface brightness.
         # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
         # to get photons/pixel, which we compare to fft_sb_thresh.
-        bandpass = base['bandpass']
         gal_achrom = self.gal.evaluateAtWavelength(bandpass.effective_wavelength)
         fft_obj = galsim.Convolve(gal_achrom, fft_psf).withFlux(self.realized_flux)
         max_sb = fft_obj.max_sb/2. * self._pixel_scale**2
@@ -412,7 +430,7 @@ class LSST_SiliconBuilder(StampBuilder):
             # recompute the realized flux.
             if self.vignetting is not None:
                 flux = self.gal.flux*self.vignetting.at_sky_coord(
-                    self.sky_coord, self.image.wcs, self.det)
+                    base['sky_pos'], self.image.wcs, self.det)
                 self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
 
             logger.warning('Yes. Use FFT for this object.  max_sb = %.0f > %.0f',
@@ -433,17 +451,26 @@ class LSST_SiliconBuilder(StampBuilder):
         elif isinstance(psf, galsim.Convolution):
             obj_list = [self.make_fft_psf(p, logger) for p in psf.obj_list]
             return galsim.Convolution(obj_list, gsparams=psf.gsparams)
+        elif isinstance(psf, galsim.SecondKick):
+            # The Kolmogorov version of the phase screen gets most of the second kick.
+            # The only bit that it missing is the Airy part, so convert the SecondKick to that.
+            return galsim.Airy(lam=psf.lam, diam=psf.diam, obscuration=psf.obscuration)
         elif isinstance(psf, galsim.PhaseScreenPSF):
             # If psf is a PhaseScreenPSF, then make a simpler one the just convolves
             # a Kolmogorov profile with an OpticalPSF.
             r0_500 = psf.screen_list.r0_500_effective
-            atm_psf = galsim.Kolmogorov(lam=psf.lam, r0_500=r0_500,
-                                        gsparams=psf.gsparams)
+            L0 = psf.screen_list[0].L0
+            atm_psf = galsim.VonKarman(lam=psf.lam, r0_500=r0_500, L0=L0, gsparams=psf.gsparams)
 
             opt_screens = [s for s in psf.screen_list if isinstance(s, galsim.OpticalScreen)]
             logger.info('opt_screens = %r',opt_screens)
             if len(opt_screens) >= 1:
                 # Should never be more than 1, but if there weirdly is, just use the first.
+                # Note: Technically, if you have both a SecondKick and an optical screen, this
+                # will add the Airy part twice, since it's also part of the OpticalPSF.
+                # It doesn't usually matter, since we usually set doOpt=False, so we don't usually
+                # do this branch. If it is found to matter for someone, it will require a bit
+                # of extra logic to do it right.
                 opt_screen = opt_screens[0]
                 optical_psf = galsim.OpticalPSF(
                         lam=psf.lam,
