@@ -34,6 +34,9 @@ class LSST_CCDBuilder(OutputBuilder):
         seed = galsim.config.SetupConfigRNG(base, logger=logger)
         logger.debug('file %d: seed = %d',file_num,seed)
 
+        if 'det_num' not in config:
+            config['det_num'] = { 'type': 'Sequence', 'nitems': 189 }
+
         # Figure out the detector name for the file name.
         detnum = galsim.config.ParseValue(config, 'det_num', base, int)[0]
         camera = get_camera(config['camera'])
