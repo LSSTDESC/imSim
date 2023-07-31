@@ -5,7 +5,7 @@ modules:
 # Get most of the configuration from the imSim named template
 template: imsim-config
 
-input.instance_catalog.file_name: example_instance_catalog.txt
+input.instance_catalog.file_name: $os.environ.get('IMSIM_HOME')+'/imSim/examples/example_instance_catalog.txt'
 input.instance_catalog.sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
 input.instance_catalog.sort_mag: False
@@ -13,7 +13,7 @@ input.instance_catalog.sort_mag: False
 input.tree_rings.only_dets: [R22_S11]
 
 input.opsim_data:
-    file_name: example_instance_catalog.txt
+    file_name: $os.environ.get('IMSIM_HOME')+'/imSim/examples/example_instance_catalog.txt'
 
 #image.nobjects: 5
 

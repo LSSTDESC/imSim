@@ -304,7 +304,7 @@ class DetectorTelescope:
     _req_params = { 'file_name' : str }
     _opt_params = {
         'rotTelPos': Angle,
-        'cameraName': str,
+        'camera': str,
         'fea': None,
     }
 
@@ -313,13 +313,13 @@ class DetectorTelescope:
         file_name,
         perturbations=(),
         rotTelPos=None,
-        cameraName='LSSTCamera',
+        camera='LSSTCamera',
         fea=None,
         logger=None
     ):
         self.fiducial = load_telescope(
             file_name, perturbations=perturbations,
-            rotTelPos=rotTelPos, cameraName=cameraName,
+            rotTelPos=rotTelPos, cameraName=camera,
             fea=fea
         )
         self.logger = logger

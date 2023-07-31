@@ -1,7 +1,7 @@
 Using imSim
 ===========
 
-imSim is implemented as a set of modules that are executed by the *GalSim* program.  In order to run *imSim* you create a YAML file which imports and configures the modules.  *imSim* builds on basic *GalSim* functionality so when using *imSim* you will configure both *GalSim* and *imSim* functionality.  In this section a simple config file is demonstrated.  You can find a more complete description of the config system option in the :doc:`Config System <config>`.
+imSim is implemented as a set of modules that are executed by the ``galsim`` program.  In order to run *imSim* you create a YAML file which imports and configures the modules.  *imSim* builds on basic *GalSim* functionality so when using *imSim* you will configure both *GalSim* and *imSim* functionality.  In this section a simple config file is demonstrated.  You can find a more complete description of the config system option in the :doc:`Config System <config>`.
 
 *imSim* is packaged with some YAML config files for it's own use which you can look at if you would like to see some examples.  You can see some in the "*config*" and also the "*examples*" directory.
 

@@ -85,10 +85,13 @@ jobs:
 
             - name: Check example config files
               run: |
+                echo $PWD
+                ls /home/runner/work/imSim
+                export IMSIM_HOME=/home/runner/work/imSim
                 export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
                 export SIMS_SED_LIBRARY_DIR=`pwd`/rubin_sim_data/sims_sed_library
-                cd config
                 # Just check that they haven't gotten stale and produce errors.
+                cd config
                 galsim flat.yaml image.counts_per_pixel=500
                 galsim flat_with_sed.yaml image.counts_per_pixel=5
                 galsim imsim-skycat.yaml image.nobjects=10
