@@ -52,19 +52,6 @@ eval_variables:
 # updated for each output file.
 # Also includes things that need some set up at the start of an exposure, like the atmospheric PSF.
 input:
-    instance_catalog:
-        # This enables InstCat types
-        file_name: default_catalog_file.txt # This should be overridden in either the user config file or
-                                            # on the command line.  See imsim-user.yaml for instructions.
-        sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
-
-    opsim_data:
-        # Read the visit meta data from the opsim db file.  Note: We
-        # want some OpsimData items at file scope, in particular to
-        # define the WCS, which is needed by the InstCat items.
-        file_name: small_opsim.db
-        visit: 19500
-        snap: 1
 
     telescope:
         file_name:

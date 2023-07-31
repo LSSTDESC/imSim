@@ -1,0 +1,26 @@
+# This template can be used for reading the instance catalog format.
+
+# Use imSim custom modules
+modules:
+    - imsim
+
+# Get most of the configuration from the imSim config-template
+template: imsim-config
+
+# Set up the input keywords needed for instance catalogs.  By default use the
+# same file for the metadata information.
+
+input.instance_catalog:
+    # This should be overridden in either the user config file or
+    # on the command line.  See imsim-user.yaml for instructions.
+
+    file_name: default_catalog_file.txt
+    sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
+
+input.opsim_data:
+    # Read the visit meta data by default we use the same file as the input.
+    # However you could specify a opsim file or a another instance catalog
+    # instead.
+
+    file_name: "@instance_catalog.file_name"
+
