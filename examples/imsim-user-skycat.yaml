@@ -10,7 +10,8 @@ input.sky_catalog:
     band: { type: OpsimData, field: band }
     mjd: { type: OpsimData, field: mjd }
 
-input.opsim_data.file_name: default_opsim.db
+input.opsim_data:
+    file_name: default_opsim.db
 
 # Define the galaxy type and positions to use
 gal:
