@@ -17,8 +17,11 @@ input.opsim_data:
     file_name: '@input.instance_catalog.file_name'
 
 # Define the galaxy type and positions to use
-gal.type: InstCatObj
-stamp.world_pos.type: InstCatWorldPos
+gal:
+    type: InstCatObj
+
+stamp.world_pos:
+    type: InstCatWorldPos
 
 ################################################################
 #  Above is template material.

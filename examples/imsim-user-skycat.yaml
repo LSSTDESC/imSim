@@ -13,8 +13,11 @@ input.sky_catalog:
 input.opsim_data.file_name: default_opsim.db
 
 # Define the galaxy type and positions to use
-gal.type: SkyCatObj
-stamp.world_pos.type: SkyCatWorldPos
+gal:
+    type: SkyCatObj
+
+stamp.world_pos:
+    type: SkyCatWorldPos
 
 ################################################################
 #  Above is template material.
