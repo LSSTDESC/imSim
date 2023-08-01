@@ -14,7 +14,6 @@ input.opsim_data:
     # Read the visit meta data by default we use the same file as the input.
     # However you could specify a opsim file or a another instance catalog
     # instead.
-
     file_name: '@input.instance_catalog.file_name'
 
 ################################################################
