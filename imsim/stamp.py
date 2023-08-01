@@ -181,11 +181,11 @@ class LSST_SiliconBuilder(StampBuilder):
             # Start with GalSim's estimate of a good box size.
             image_size = obj.getGoodImageSize(self._pixel_scale)
 
-            # Find a postage stamp region to draw onto.  Use (sky noise)/3. as the nominal
+            # Find a postage stamp region to draw onto.  Use (sky noise)/8. as the nominal
             # minimum surface brightness for rendering an extended object.
             base['current_noise_image'] = base['current_image']
             noise_var = galsim.config.CalculateNoiseVariance(base)
-            keep_sb_level = np.sqrt(noise_var)/3.
+            keep_sb_level = np.sqrt(noise_var)/8.
             self._large_object_sb_level = 3*keep_sb_level
 
             gal_at_eff_wl = gal.evaluateAtWavelength(bandpass.effective_wavelength)
