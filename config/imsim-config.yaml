@@ -198,11 +198,6 @@ psf:
             type: Gaussian
             fwhm: 0.3
 
-# Define the galaxy (or delta function) to use
-gal:
-    type: InstCatObj
-
-# This has most of the code from GalsimSiliconInterpreter.
 stamp:
     type: LSST_Silicon
 
@@ -225,9 +220,6 @@ stamp:
       rotTelPos:
         type: Degrees
         theta: { type: OpsimData, field: rotTelPos }
-
-    world_pos:
-        type: InstCatWorldPos
 
     photon_ops:
         -
