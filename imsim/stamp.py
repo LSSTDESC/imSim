@@ -190,9 +190,11 @@ class LSST_SiliconBuilder(StampBuilder):
 
             gal_at_eff_wl = gal.evaluateAtWavelength(bandpass.effective_wavelength)
             # For bright things, defined as having an average of at least 10 photons per
-            # pixel on average, try to be careful about not truncating the surface brightness
+            # pixel on average, or objects for which GalSim's estimate of the image_size is larger
+            # than self._Nmax, compute the image_size using the surface brightness limit, trying
+            # to be careful about not truncating the surface brightness
             # at the edge of the box.
-            if self.realized_flux > 10 * image_size**2:
+            if (self.realized_flux > 10 * image_size**2) or (image_size > self._Nmax):
                 image_size = self._getGoodPhotImageSize([gal_at_eff_wl, psf], keep_sb_level,
                                                         pixel_scale=self._pixel_scale)
 
