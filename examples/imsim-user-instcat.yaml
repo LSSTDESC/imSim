@@ -2,19 +2,34 @@
 modules:
     - imsim
 
-# Get most of the configuration from the imSim named template
+# Get most of the configuration from the imSim config-template
 template: imsim-config
 
-input.instance_catalog.file_name: $os.environ.get('IMSIM_HOME')+'/imSim/examples/example_instance_catalog.txt'
-input.instance_catalog.sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
-
-input.instance_catalog.sort_mag: False
-
-input.tree_rings.only_dets: [R22_S11]
+input.instance_catalog:
+    # This should be overridden below or on the command line.
+    file_name: default_catalog_file.txt
+    sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
 input.opsim_data:
-    file_name: $os.environ.get('IMSIM_HOME')+'/imSim/examples/example_instance_catalog.txt'
+    # Read the visit meta data by default we use the same file as the input.
+    # However you could specify a opsim file or a another instance catalog
+    # instead.
 
-#image.nobjects: 5
+    file_name: '@input.instance_catalog.file_name'
+
+################################################################
+#  Above is template material.
+#
+#  Make changes below.  Soon you will be able to include the above
+#  information via a single template command instead.
+################################################################
+################################################################
+
+
+input.instance_catalog.file_name: $os.environ.get('IMSIM_HOME')+'/imSim/examples/example_instance_catalog.txt'
+
+input.instance_catalog.sort_mag: False
+input.tree_rings.only_dets: [R22_S11]
+image.nobjects: 10
 
 output.dir: output
