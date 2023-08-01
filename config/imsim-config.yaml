@@ -1,7 +1,6 @@
-# This config file is intended to approximately reproduce what imSim does for e.g. DC2.
-# It won't match in detail, since our random number treatment is different.
-# And not all features are implemented yet, but the main functionality should be pretty close.
-
+# This config file is configures the imSim modules with default behavior.
+# This file is designed to be used as a template and the values can be
+# overridden.
 
 # This tells GalSim which things to import to register extra config types
 # Mostly we need the imsim repo.  But could add others here as well.
@@ -47,10 +46,9 @@ eval_variables:
     fexptime: { type: OpsimData, field: exptime }
 
 
-
-# Any input data is set here.  These are read in at the start of the program and potentially
-# updated for each output file.
-# Also includes things that need some set up at the start of an exposure, like the atmospheric PSF.
+# Any input data is set here.  These are read in at the start of the program and
+# potentially updated for each output file. Also includes things that need some
+# set up at the start of an exposure, like the atmospheric PSF.
 input:
 
     telescope:
