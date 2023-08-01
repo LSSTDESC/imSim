@@ -1,4 +1,5 @@
-# This template can be used for reading the instance catalog format.
+# This template file can be used for reading the instance catalog format. Make
+# a copy and modify the area below the double ### line.
 
 # Use imSim custom modules
 modules:
@@ -7,13 +8,8 @@ modules:
 # Get most of the configuration from the imSim config-template
 template: imsim-config
 
-# Set up the input keywords needed for instance catalogs.  By default use the
-# same file for the metadata information.
-
 input.instance_catalog:
-    # This should be overridden in either the user config file or
-    # on the command line.  See imsim-user.yaml for instructions.
-
+    # This should be overridden below or on the command line.
     file_name: default_catalog_file.txt
     sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
@@ -22,5 +18,18 @@ input.opsim_data:
     # However you could specify a opsim file or a another instance catalog
     # instead.
 
-    file_name: "@instance_catalog.file_name"
+    file_name: '@input.instance_catalog.file_name'
 
+################################################################
+#  Above is template material.
+#
+#  Make changes below.  Soon you will be able to include the above
+#  information via a single template command instead.
+################################################################
+################################################################
+
+# Put your own commands below here.  For example
+# input.instance_catalog.file_name: ./imsim_cat_197356.txt
+# input.instance_catalog.sort_mag: False
+# input.tree_rings.only_dets: [R22_S11]
+# image.nobjects: 5
