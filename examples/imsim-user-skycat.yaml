@@ -4,7 +4,7 @@ modules:
 
 # Get most of the configuration from the imSim config-template
 # for skyCatalogs
-template: imsim-skycat-config
+template: imsim-config-skycat
 
 ################################################################
 #  Above is template material.

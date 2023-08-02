@@ -4,7 +4,7 @@ modules:
 
 # Get most of the configuration from the imSim config-template
 # for instance catalogs.
-template: imsim-instcat-config
+template: imsim-config-instcat
 
 ################################################################
 #  Above is template material.
