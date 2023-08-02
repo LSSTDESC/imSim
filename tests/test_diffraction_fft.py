@@ -468,6 +468,8 @@ def test_apply_diffraction_psf_for_no_saturated_pixels():
                                           altitude, brightness_threshold,
                                           spike_length_cutoff)
 
+    np.testing.assert_allclose(image, 0.)
+
 
 @contextmanager
 def assert_no_error_logs():
