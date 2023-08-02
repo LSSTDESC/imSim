@@ -10,3 +10,5 @@ import galsim
 from .meta_data import config_dir
 
 galsim.config.RegisterTemplate('imsim-config', os.path.join(config_dir, 'imsim-config.yaml'))
+galsim.config.RegisterTemplate('imsim-config-instcat', os.path.join(config_dir, 'imsim-config-instcat.yaml'))
+galsim.config.RegisterTemplate('imsim-config-skycat', os.path.join(config_dir, 'imsim-config-skycat.yaml'))
