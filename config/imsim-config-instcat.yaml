@@ -52,6 +52,18 @@ eval_variables:
 # set up at the start of an exposure, like the atmospheric PSF.
 input:
 
+    instance_catalog:
+        # This should be overridden below or on the command line.
+        file_name: default_catalog_file.txt
+        sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
+
+    opsim_data:
+        # Read the visit meta data by default we use the same file as the input.
+        # However you could specify a opsim file or a another instance catalog
+        # instead.
+        file_name: '@input.instance_catalog.file_name'
+
+
     telescope:
         file_name:
             type: FormattedStr
@@ -261,6 +273,8 @@ stamp:
                               # I assume it's wavelength dependent...
                               # Probably need to use the same kind of pattern as above for depth.
 
+    world_pos:
+        type: InstCatWorldPos
 
 # This defines both the output files and some basic things about the overall exposure/fov.
 output:
@@ -327,6 +341,13 @@ output:
             y: "$image_pos.y"
             # TODO: ... more probably
 
+gal:
+    type: InstCatObj
+
+# Including the material below doesn't work.  I am going to manually inject the
+# entries above.  :(
+#
+# Hopefully this will be replaced soon.
 
 ################################################################
 #  Above is template material.
@@ -336,20 +357,20 @@ output:
 #  template call
 ################################################################
 
-input.instance_catalog:
-    # This should be overridden below or on the command line.
-    file_name: default_catalog_file.txt
-    sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
+# input.instance_catalog:
+#     # This should be overridden below or on the command line.
+#     file_name: default_catalog_file.txt
+#     sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
-input.opsim_data:
-    # Read the visit meta data by default we use the same file as the input.
-    # However you could specify a opsim file or a another instance catalog
-    # instead.
-    file_name: '@input.instance_catalog.file_name'
+# input.opsim_data:
+#     # Read the visit meta data by default we use the same file as the input.
+#     # However you could specify a opsim file or a another instance catalog
+#     # instead.
+#     file_name: '@input.instance_catalog.file_name'
 
 # Define the galaxy type and positions to use
-gal:
-    type: InstCatObj
+# gal:
+#     type: InstCatObj
 
-stamp.world_pos:
-    type: InstCatWorldPos
+# stamp.world_pos:
+#     type: InstCatWorldPos

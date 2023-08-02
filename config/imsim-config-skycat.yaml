@@ -52,6 +52,14 @@ eval_variables:
 # set up at the start of an exposure, like the atmospheric PSF.
 input:
 
+    sky_catalog:
+        file_name: default_sky_cat.yaml
+        band: { type: OpsimData, field: band }
+        mjd: { type: OpsimData, field: mjd }
+
+    opsim_data:
+        file_name: default_opsim.db
+
     telescope:
         file_name:
             type: FormattedStr
@@ -261,6 +269,9 @@ stamp:
                               # I assume it's wavelength dependent...
                               # Probably need to use the same kind of pattern as above for depth.
 
+    world_pos:
+        type: SkyCatWorldPos
+
 
 # This defines both the output files and some basic things about the overall exposure/fov.
 output:
@@ -327,6 +338,13 @@ output:
             y: "$image_pos.y"
             # TODO: ... more probably
 
+gal:
+    type: SkyCatObj
+
+# Including the material below doesn't work.  I am going to manually inject the
+# entries above.  :(
+#
+# Hopefully this will be replaced soon.
 
 ################################################################
 #  Above is template material.
@@ -338,17 +356,17 @@ output:
 
 # Use skyCatalogs for obtaining the objects to render.
 
-input.sky_catalog:
-    file_name: default_sky_cat.yaml
-    band: { type: OpsimData, field: band }
-    mjd: { type: OpsimData, field: mjd }
+# input.sky_catalog:
+#     file_name: default_sky_cat.yaml
+#     band: { type: OpsimData, field: band }
+#     mjd: { type: OpsimData, field: mjd }
 
-input.opsim_data:
-    file_name: default_opsim.db
+# input.opsim_data:
+#     file_name: default_opsim.db
 
-# Define the galaxy type and positions to use
-gal:
-    type: SkyCatObj
+# # Define the galaxy type and positions to use
+# gal:
+#     type: SkyCatObj
 
-stamp.world_pos:
-    type: SkyCatWorldPos
+# stamp.world_pos:
+#     type: SkyCatWorldPos
