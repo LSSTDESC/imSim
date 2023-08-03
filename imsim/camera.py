@@ -1,10 +1,11 @@
 import os
-import pickle
-import copy
-import numpy as np
+import json
+from collections import defaultdict
 import galsim
-from galsim.config import RegisterInputType, InputLoader
+from galsim.config import (RegisterInputType, InputLoader, RegisterValueType,
+                           GetInputObj, GetAllParams)
 import lsst.utils
+from .meta_data import data_dir
 
 
 __all__ = ['get_camera', 'Camera']
@@ -106,7 +107,8 @@ class CCD(dict):
             self[key].update(value)
 
     @staticmethod
-    def make_ccd_from_lsst(lsst_ccd, use_single_full_well=True):
+    def make_ccd_from_lsst(lsst_ccd, bias_levels_dict=None,
+                           use_single_full_well=True, bias_level=1000.0):
         """
         Static function to create a CCD object, extracting its properties
         from an lsst.afw.cameraGeom.Detector object, including CCD and
@@ -117,10 +119,14 @@ class CCD(dict):
         ----------
         lsst_ccd : lsst.afw.cameraGeom.Detector
            The LSST Science Pipelines class representing a CCD.
+        bias_levels_dict : dict [None]
+           Python dictonary of bias levels in ADU, keyed by amp name.
         use_single_full_well : bool [True]
            Set the CCD full_well value to the maximum full well among
            all amps.  We do this since our current image bleeding code
            cannot handle per-amp values directly.
+        bias_level : float [1000.0]
+           Default bias level for all amps if bias_levels_dict is None.
 
         Returns
         -------
@@ -130,7 +136,11 @@ class CCD(dict):
         my_ccd.bounds = get_gs_bounds(lsst_ccd.getBBox())
         my_ccd.lsst_ccd = lsst_ccd
         for lsst_amp in lsst_ccd:
-            my_ccd[lsst_amp.getName()] = Amp.make_amp_from_lsst(lsst_amp)
+            amp_name = lsst_amp.getName()
+            if bias_levels_dict is not None:
+                bias_level = bias_levels_dict[amp_name]
+            my_ccd[amp_name] = Amp.make_amp_from_lsst(lsst_amp,
+                                                      bias_level=bias_level)
         if use_single_full_well:
             my_ccd.full_well = max(_.full_well for _ in my_ccd.values())
         if lsst_ccd.hasCrosstalk():
@@ -161,7 +171,8 @@ def get_camera(camera='LsstCam'):
     if camera not in valid_cameras:
         raise ValueError('Invalid camera: %s', camera)
     if camera not in _camera_cache:
-        _camera_cache[camera] = lsst.utils.doImport('lsst.obs.lsst.' + camera)().getCamera()
+        _camera_cache[camera] \
+            = lsst.utils.doImport('lsst.obs.lsst.' + camera)().getCamera()
     return _camera_cache[camera]
 
 
@@ -170,14 +181,31 @@ class Camera(dict):
     Class to represent the LSST Camera as a dictionary of CCD objects,
     keyed by the CCD name in the focal plane, e.g., 'R01_S00'.
     """
-    def __init__(self, camera_class='LsstCam'):
+    _req_params = {'camera': str}
+    _opt_params = {'bias_levels_file': str}
+
+    def __init__(self, camera='LsstCam', bias_levels_file=None):
         """
         Initialize a Camera object from the lsst instrument class.
         """
         super().__init__()
-        self.lsst_camera = get_camera(camera_class)
+        self.lsst_camera = get_camera(camera)
+        if bias_levels_file is not None:
+            if not os.path.isfile(bias_levels_file):
+                bias_levels_file = os.path.join(data_dir, bias_levels_file)
+                if not os.path.isfile(bias_levels_file):
+                    raise FileNotFoundError(
+                        f"{bias_levels_file} not found.")
+            with open(bias_levels_file) as fobj:
+                bias_levels = json.load(fobj)
+        else:
+            # Set the input dict of per-amp bias levels to None.
+            bias_levels = defaultdict(lambda : None)
+
         for lsst_ccd in self.lsst_camera:
-            self[lsst_ccd.getName()] = CCD.make_ccd_from_lsst(lsst_ccd)
+            det_name = lsst_ccd.getName()
+            self[det_name] = CCD.make_ccd_from_lsst(
+                lsst_ccd, bias_levels_dict=bias_levels[det_name])
 
     def update(self, other):
         """
@@ -193,3 +221,21 @@ class Camera(dict):
     def __getattr__(self, attr):
         """Provide access to the attributes of the underlying lsst_camera."""
         return getattr(self.lsst_camera, attr)
+
+
+def CcdSaturation(config, base, value_type):
+    """Retrieve detector data from the Camera object."""
+    camera_object = GetInputObj('camera_data', config, base, 'CcdSaturation')
+
+    req = {'det_name': str}
+
+    kwargs, safe = GetAllParams(config, base, req=req)
+    det_name = kwargs['det_name']
+
+    value = camera_object[det_name].full_well
+    return value, False
+
+
+RegisterInputType('camera_data', InputLoader(Camera, takes_logger=False))
+RegisterValueType('CcdSaturation', CcdSaturation, [float],
+                  input_type='camera_data')

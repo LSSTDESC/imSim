@@ -66,6 +66,10 @@ input:
         visit: 19500
         snap: 1
 
+    camera_data:
+       camera: "@output.camera"
+       bias_levels_file: "@output.readout.bias_levels_file"
+
     telescope:
         file_name:
             type: FormattedStr
@@ -238,6 +242,8 @@ stamp:
       rotTelPos:
         type: Degrees
         theta: { type: OpsimData, field: rotTelPos }
+      brightness_threshold:
+        { type: CcdSaturation, det_name: $det_name }  # From input.camera_data
 
     world_pos:
         type: InstCatWorldPos
@@ -317,8 +323,10 @@ output:
         readout_time: 3.
         dark_current: 0.02
         bias_level: 1000.
+        full_well: 1.0e5
         pcti: 1.e-6
         scti: 1.e-6
+        bias_levels_file: LSSTCam_bias_levels_run_13421.json
 
         file_name:
             type: FormattedStr

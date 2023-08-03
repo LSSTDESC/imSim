@@ -281,11 +281,10 @@ class CcdReadout:
     Class to convert eimage to a "raw" FITS file with 1 amplifier segment
     per image HDU, simulating the electronics readout effects for each amp.
     """
-    full_well: float = 1.0e5
-
     def __init__(self, eimage, logger, camera_name=None,
                  readout_time=2.0, dark_current=0.02, bias_level=1000.0,
-                 scti=1.0e-6, pcti=1.0e-6, full_well=full_well, read_noise=None):
+                 scti=1.0e-6, pcti=1.0e-6, full_well=None, read_noise=None,
+                 bias_levels_file=None):
         """
         Parameters
         ----------
@@ -298,10 +297,17 @@ class CcdReadout:
         readout_time: float (seconds) [default: 2.0]
         dark_current: float (e-/s) [default: 0.02]
         bias_level: float (ADU) [default: 1000.0]
+            Superseded if a bias_level_file is provided.
         scti: float, the serial CTI [default: 1.e-6]
         pcti: float, the parallel CTI [default: 1.e-6]
-        full_well: float (e-) [default: 1.e5]
-        read_noise: float (ADU) [default: get from Camera object]
+        full_well: float (e-) [default: None]
+            If None, then use full well from the camera object.
+        read_noise: float (ADU) [default: None]
+            If None, then use read noise from the camera object.
+        bias_levels_file: str [default: None]
+            A json-formatted file with the per-amp bias levels.  If
+            provided, these values will supersede the single-valued
+            bias_level parameter.
         """
         self.eimage = eimage
         self.det_name = eimage.header['DET_NAME']
@@ -310,14 +316,20 @@ class CcdReadout:
         else:
             self.camera_name = camera
         self.logger = logger
-        camera = Camera(self.camera_name)
+        camera = Camera(self.camera_name, bias_levels_file=bias_levels_file)
         self.ccd = camera[self.det_name]
         self.exptime = self.eimage.header['EXPTIME']
 
         self.readout_time = readout_time
         self.dark_current = dark_current
+        if bias_levels_file is not None:
+            # This indicates that the per-amp values are to be used below.
+            bias_level = None
         self.bias_level = bias_level
-        self.full_well = full_well
+        if full_well is None:
+            self.full_well = self.ccd.full_well
+        else:
+            self.full_well = full_well
         self.read_noise = read_noise
 
         amp_bounds = list(self.ccd.values())[0].raw_bounds
@@ -402,7 +414,10 @@ class CcdReadout:
 
         # Add bias levels and read noise.
         for full_segment, amp in zip(self.amp_images, self.ccd.values()):
-            full_segment += self.bias_level
+            if self.bias_level is None:
+                full_segment += amp.bias_level
+            else:
+                full_segment += self.bias_level
             # Setting gain=0 turns off the addition of Poisson noise,
             # which is already in the e-image, so that only the read
             # noise is added.
@@ -507,6 +522,7 @@ class CameraReadout(ExtraOutputBuilder):
             'pcti': float,
             'full_well': float,
             'read_noise': float,
+            'bias_levels_file': str,
             }
         ignore = ['file_name', 'dir', 'hdu', 'filter']
         kwargs = GetAllParams(config, base, opt=opt, ignore=ignore)[0]
