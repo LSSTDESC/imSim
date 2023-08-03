@@ -49,7 +49,7 @@ jobs:
 
             - name: Install pip deps
               run: |
-                pip install skyCatalogs==1.5.0-rc1
+                pip install skyCatalogs==1.5.0-rc2
                 conda info
                 conda list
 
