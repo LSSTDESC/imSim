@@ -5,7 +5,7 @@ from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
 from lsst.afw import cameraGeom
 import lsst.geom
-from .sky_model import SkyGradient, CCD_Fringe
+from .sky_model import SkyGradient, CCD_Fringing
 from .camera import get_camera
 from .vignetting import Vignetting
 
@@ -45,7 +45,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         extra_ignore = [ 'image_pos', 'world_pos', 'stamp_size', 'stamp_xsize', 'stamp_ysize',
                          'nobjects' ]
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
-                'apply_vignetting': bool, 'apply_sky_gradient': bool, 'apply_fringe': bool,
+                 'apply_sky_gradient': bool, 'apply_fringing': bool,
                 'vignetting_data_file': str, 'camera': str, 'nbatch': int}
         params = GetAllParams(config, base, opt=opt, ignore=ignore+extra_ignore)[0]
 
@@ -60,7 +60,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             self.vignetting = None
 
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
-        self.apply_fringe = params.get('apply_fringe',False)
+        self.apply_fringing = params.get('apply_fringing',False)
         self.camera_name = params.get('camera')
 
         try:
@@ -246,7 +246,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
 
         sky = GetSky(config, base, full=True)
 
-        if ((self.apply_sky_gradient or self.apply_fringe or self.vignetting is not None)
+        if ((self.apply_sky_gradient or self.apply_fringing or self.vignetting is not None)
             and not isinstance(sky, galsim.Image)):
             # Handle the case where a full image isn't returned by
             # GetSky, i.e., when the sky level is constant and the wcs
@@ -267,16 +267,22 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             det_name = base['det_name']
             camera = get_camera(self.camera_name)
             logger.info("Applying vignetting according to radial spline model.")
-            sky.array[:] *= self.vignetting(camera[det_name])
+            radii = Vignetting.get_pixel_radii(camera[det_name])
+            sky.array[:] *= self.vignetting.apply_to_radii(radii)
             
-        if self.apply_fringe:
+        if self.apply_fringing:
+            # get det number
+            det_num = base['output']['det_num']['current'][0]
             # get center ra/dec
             cra = config['wcs']['boresight']['cboresight']['_kd'][1]\
                 ['cboresight']['ra']['theta']['current'][0]
             cdec = config['wcs']['boresight']['cboresight']['_kd'][1]\
                 ['cboresight']['dec']['theta']['current'][0]
                 
-            ccd_fringing = CCD_Fringe(img_wcs = image.wcs,c_wcs=[cra, cdec],spatial_vary= True)
+            # Use det_num as random seed number to make sure the height map 
+            # for the same sensor is the same for different exposures.
+            ccd_fringing = CCD_Fringing(img_wcs = image.wcs,c_wcs=[cra, cdec],
+                                      seed = det_num, spatial_vary= True)
             
             ny, nx = sky.array.shape
             xarr, yarr = np.meshgrid(range(nx), range(ny))

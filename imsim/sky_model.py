@@ -114,7 +114,7 @@ class SkyGradient:
         """
         return (self.a*x + self.b*y + self.c)/self.sky_level_center
     
-class CCD_Fringe:
+class CCD_Fringing:
     """
     Class generates normalized fringing map. 
     
@@ -122,10 +122,11 @@ class CCD_Fringe:
     as a function of pixel coordinates relative to the value at the 
     CCD center.
     """
-    def __init__(self,img_wcs,c_wcs,spatial_vary):
+    def __init__(self,img_wcs,c_wcs,seed,spatial_vary):
         self.img_wcs = img_wcs
         self.c_wcs = c_wcs
         self.spatial_vary = spatial_vary
+        self.seed = seed
         
     def generate_heightfield(self,fractal_dimension=2.5, n=4096):
         '''
@@ -141,7 +142,7 @@ class CCD_Fringe:
         kx, ky = np.meshgrid(kvec, kvec, sparse=True, copy=False)
         ksq = kx ** 2 + ky ** 2
         m = ksq > 0
-        random_seed = random.randint(1, 1000000)
+        random_seed = self.seed
         gen = np.random.RandomState(random_seed)
         phase = 2 * np.pi * gen.uniform(size=(n, n))
         A[m] = ksq[m] ** kpow * gen.normal(size=(n, n))[m] * np.exp(1.j * phase[m]) * np.exp(-ksq[m] / k0 ** 2)
@@ -176,7 +177,7 @@ class CCD_Fringe:
         if spatial:
             # Load 2d interpolator for OH spatial variation
             filename = os.path.join(data_dir, 'fringing_data',
-                                        'OH_spatial.pkl')
+                                        'skyline_var.pkl')
             with open(filename, 'rb') as f:
                 interp = pickle.load(f)
                 
