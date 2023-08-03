@@ -395,6 +395,7 @@ class PsfTestCase(unittest.TestCase):
                     'azimuth': "0 deg",
                     'altitude': "60 deg",
                     'rotTelPos': "0 deg",
+                    'brightness_threshold': 1.0e5
                 },
                 'det_name': 'R22_S11',
                 'image_pos': {

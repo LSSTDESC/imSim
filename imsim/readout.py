@@ -292,7 +292,7 @@ class CcdReadout:
             The eimage with the rendered scene, wcs, and header information.
         logger : logging.Logger
             Logger object
-        camera : str, Camera class to use, e.g., 'LsstCam', 'LsstCamImSim'.
+        camera_name : str, Camera class to use, e.g., 'LsstCam', 'LsstCamImSim'.
             [default: use the camera from the eimage header]
         readout_time: float (seconds) [default: 2.0]
         dark_current: float (e-/s) [default: 0.02]
@@ -311,10 +311,10 @@ class CcdReadout:
         """
         self.eimage = eimage
         self.det_name = eimage.header['DET_NAME']
-        if camera is None:
+        if camera_name is None:
             self.camera_name = eimage.header['CAMERA']
         else:
-            self.camera_name = camera
+            self.camera_name = camera_name
         self.logger = logger
         camera = Camera(self.camera_name, bias_levels_file=bias_levels_file)
         self.ccd = camera[self.det_name]
