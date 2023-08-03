@@ -12,7 +12,8 @@ def test_fringing():
     mjd = 60232.3635999295
     rottelpos = 350.946271812373
     band = 'y'
-
+    det_num = 94
+    
     xarr, yarr = np.meshgrid(range(4096), range(4004))
 
     
@@ -21,7 +22,7 @@ def test_fringing():
     dec = -35.76
     wcs = make_batoid_wcs(ra, dec, rottelpos, mjd, band, 'LsstCam')
     
-    ccd_fringing = CCD_Fringing(img_wcs = wcs,c_wcs=[cra, cdec],spatial_vary= True)
+    ccd_fringing = CCD_Fringing(img_wcs = wcs,c_wcs=[cra, cdec],seed = det_num, spatial_vary= True)
 
     fringe_map = ccd_fringing.calculate_fringe_amplitude(xarr,yarr)
     
