@@ -47,11 +47,13 @@ jobs:
                 conda info
                 conda list
 
-            - name: Install pip deps
+            - name: Install skyCatalogs from source
               run: |
-                pip install -e skyCatalogs==1.5.0-rc2
-                conda info
-                conda list
+                git clone https://github.com/LSSTDESC/skyCatalogs.git
+                cd skyCatalogs
+                git checkout v1.5.0rc2
+                pip install -e .
+                cd ..
 
             - name: Install rubin_sim and rubin_sim_data
               run: |
