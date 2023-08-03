@@ -445,6 +445,32 @@ def test_fft_diffraction_is_similar_to_raytracing_for_field_rotation():
     np.testing.assert_array_less(raytrace_data["intercept_stderr"], 0.9)
 
 
+def test_apply_diffraction_psf_for_no_saturated_pixels():
+    """Large, bright objects, such as nearby galaxies, can have
+    sufficiently high fluxes that they trigger FFT rendering, but they
+    may still have zero saturated pixels, so check that
+    apply_diffraction_psf does not raise a TypeError when
+    saturated_region(...) returns None.
+    """
+    wavelength = 870.
+    rottelpos = -4.53
+    exptime = 15.
+    latitude = -0.528
+    azimuth = 2.08
+    altitude = 0.947
+    brightness_threshold = 100000.0
+    spike_length_cutoff = 4000
+
+    image = np.zeros((100, 100))
+
+    diffraction_fft.apply_diffraction_psf(image, wavelength, rottelpos,
+                                          exptime, latitude, azimuth,
+                                          altitude, brightness_threshold,
+                                          spike_length_cutoff)
+
+    np.testing.assert_allclose(image, 0.)
+
+
 @contextmanager
 def assert_no_error_logs():
     """Context manager, which provides a InMemoryLogger instance and checks,

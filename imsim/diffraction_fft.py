@@ -160,7 +160,10 @@ def apply_diffraction_psf(
         alpha=rottelpos,
         d_alpha=d_alpha,
     )
-    region_row, region_col = saturated_region(image, brightness_threshold)
+    region_info = saturated_region(image, brightness_threshold)
+    if region_info is None:
+        return
+    region_row, region_col = region_info
     img_region = image[region_row, region_col]
     diffracted = scipy.signal.convolve2d(spike_per_pixel, img_region, mode="same")
     # Set saturated pixels to 0 before adding the convoluted region.
