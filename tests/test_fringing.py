@@ -30,7 +30,10 @@ def test_fringing():
     if (np.all(fringe_map) != True) or (True in np.isnan(fringe_map)):
         raise ValueError(" 0 or nan value in the fringe map!")
     
-    # Check the with the pre-calculated fringing varaition for the current offset.
+    # Check std of the diagnoal of fringe map.
+    np.testing.assert_approx_equal(np.std(np.diag(fringe_map)),0.0014,significant=4)
+    
+    # Check the min/max of fringing varaition for the current offset.
     np.testing.assert_approx_equal(fringe_map.max(),1.00205,significant=4)
     np.testing.assert_approx_equal(fringe_map.min(),0.99794,significant=4)
     
