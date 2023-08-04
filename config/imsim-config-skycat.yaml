@@ -1,7 +1,15 @@
 
-# This config file is configures the imSim modules with default behavior.
-# This file is designed to be used as a template and the values can be
+# This config file configures the imSim modules with default behavior. This file
+# is designed to be used as a template and some values can or should be
 # overridden.
+#
+# At least the following value(s) should generally be overridden in order to use
+# this file:
+#
+# input.sky_catalog.file_name
+# input.opsim_data.file_name
+#
+
 
 # This tells GalSim which things to import to register extra config types
 # Mostly we need the imsim repo.  But could add others here as well.
@@ -341,17 +349,10 @@ output:
 gal:
     type: SkyCatObj
 
-# Including the material below doesn't work.  I am going to manually inject the
-# entries above.  :(
-#
-# Hopefully this will be replaced soon.
-
 ################################################################
 #  Above is template material.
 #
-#  Make changes specific to this input method below.
-#  When GalSim allows nested templates we will replace this with a
-#  template call
+#  The following entires are added  to the base configuration above.
 ################################################################
 
 # Use skyCatalogs for obtaining the objects to render.
