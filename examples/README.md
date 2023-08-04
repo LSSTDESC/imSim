@@ -14,6 +14,4 @@ galsim $IMSIM_HOME/imSim/examples/imsim-user.yaml
 and the program should run to completion without errors.
 
 This directory also contains an example of running using skyCatalogs.  A small
-skyCatalog is distributed for testing in the distribution.  To make your own
-YAML files:  Copy one of the templates from the "config" directory and add
-your commands to the bottom of the file like in these examples.
+skyCatalog is distributed for testing in the distribution.
