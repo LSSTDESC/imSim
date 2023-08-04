@@ -7,21 +7,8 @@ modules:
 template: imsim-config-skycat
 
 ################################################################
-#  Above is template material.
-#
 #  Make your changes below.
 ################################################################
-
-# Put your own commands below here.  For example
-
-# input.sky_catalog.file_name: ../tests/data/sky_cat_9683.yaml
-# input.opsim_data.file_name: ../tests/data/small_opsim_9683.db
-# input.opsim_data.visit: 449053
-# input.tree_rings.only_dets: [R22_S11, R22_S12]
-# output.det_num.first: 94
-# output.nproc: 2
-# output.nfiles: 2
-# image.nobjects: 1000
 
 # Restrict to galaxies to avoid bright stars
 input.sky_catalog.obj_types: [galaxy]
