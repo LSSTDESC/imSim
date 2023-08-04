@@ -32,7 +32,7 @@ The rest of the file configures the input and output options.  You should make a
    modules:
     - imsim
 
-   template: imsim-config
+   template: imsim-config-instcat
 
    input.instance_catalog.sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
