@@ -1,6 +1,14 @@
-# This config file is configures the imSim modules with default behavior.
-# This file is designed to be used as a template and the values can be
+
+# This config file configures the imSim modules with default behavior. This file
+# is designed to be used as a template and some values can or should be
 # overridden.
+#
+# At least the following value(s) should generally be overridden in order to use
+# this file:
+#
+# input.instance_catalog.filename
+#
+
 
 # This tells GalSim which things to import to register extra config types
 # Mostly we need the imsim repo.  But could add others here as well.
@@ -50,6 +58,18 @@ eval_variables:
 # potentially updated for each output file. Also includes things that need some
 # set up at the start of an exposure, like the atmospheric PSF.
 input:
+
+    instance_catalog:
+        # This should be overridden below or on the command line.
+        file_name: default_catalog_file.txt
+        sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
+
+    opsim_data:
+        # Read the visit meta data by default we use the same file as the input.
+        # However you could specify a opsim file or a another instance catalog
+        # instead.
+        file_name: '@input.instance_catalog.file_name'
+
 
     telescope:
         file_name:
@@ -260,6 +280,8 @@ stamp:
                               # I assume it's wavelength dependent...
                               # Probably need to use the same kind of pattern as above for depth.
 
+    world_pos:
+        type: InstCatWorldPos
 
 # This defines both the output files and some basic things about the overall exposure/fov.
 output:
@@ -325,3 +347,30 @@ output:
             x: "$image_pos.x"
             y: "$image_pos.y"
             # TODO: ... more probably
+
+gal:
+    type: InstCatObj
+
+################################################################
+#  Above is template material.
+#
+#  The following entires are added  to the base configuration above.
+################################################################
+
+# input.instance_catalog:
+#     # This should be overridden below or on the command line.
+#     file_name: default_catalog_file.txt
+#     sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
+
+# input.opsim_data:
+#     # Read the visit meta data by default we use the same file as the input.
+#     # However you could specify a opsim file or a another instance catalog
+#     # instead.
+#     file_name: '@input.instance_catalog.file_name'
+
+# Define the galaxy type and positions to use
+# gal:
+#     type: InstCatObj
+
+# stamp.world_pos:
+#     type: InstCatWorldPos

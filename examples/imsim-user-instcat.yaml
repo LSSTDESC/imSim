@@ -1,0 +1,25 @@
+# Use imSim custom modules
+modules:
+    - imsim
+
+# Get most of the configuration from the imSim config-template
+# for instance catalogs.
+template: imsim-config-instcat
+
+################################################################
+#  Make your changes below.
+################################################################
+
+# Put your own commands that override the defaults below here.  For example
+# input.instance_catalog.file_name: ./imsim_cat_197356.txt
+# input.instance_catalog.sort_mag: False
+# input.tree_rings.only_dets: [R22_S11]
+# image.nobjects: 5
+
+input.instance_catalog.file_name: $os.environ.get('IMSIM_HOME')+'/imSim/examples/example_instance_catalog.txt'
+
+input.instance_catalog.sort_mag: False
+input.tree_rings.only_dets: [R22_S11]
+image.nobjects: 10
+
+output.dir: output

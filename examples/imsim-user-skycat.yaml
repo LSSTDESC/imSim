@@ -1,0 +1,41 @@
+# Use imSim custom modules
+modules:
+    - imsim
+
+# Get most of the configuration from the imSim config-template
+# for skyCatalogs
+template: imsim-config-skycat
+
+################################################################
+#  Make your changes below.
+################################################################
+
+# Restrict to galaxies to avoid bright stars
+input.sky_catalog.obj_types: [galaxy]
+
+# Disable the atmospheric PSF to run faster for testing.
+input.atm_psf: ""
+psf:
+    type: Convolve
+    items:
+        -
+           type: Gaussian
+           fwhm: 0.8
+        -  type: Gaussian
+           fwhm: 0.3
+
+# Turn off check pointing for this example.
+input.checkpoint: ""
+
+input.sky_catalog.file_name: ../tests/data/sky_cat_9683.yaml
+input.opsim_data.file_name: ../tests/data/small_opsim_9683.db
+input.opsim_data.visit: 449053
+input.tree_rings.only_dets: [R22_S11, R22_S12]
+image.nobjects: 1000
+
+output.dir: output # default `fits`
+output.det_num.first: 94
+output.nproc: 2
+output.nfiles: 2
+
+image.random_seed: 42

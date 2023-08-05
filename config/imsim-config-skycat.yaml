@@ -1,6 +1,15 @@
-# This config file is configures the imSim modules with default behavior.
-# This file is designed to be used as a template and the values can be
+
+# This config file configures the imSim modules with default behavior. This file
+# is designed to be used as a template and some values can or should be
 # overridden.
+#
+# At least the following value(s) should generally be overridden in order to use
+# this file:
+#
+# input.sky_catalog.file_name
+# input.opsim_data.file_name
+#
+
 
 # This tells GalSim which things to import to register extra config types
 # Mostly we need the imsim repo.  But could add others here as well.
@@ -50,6 +59,14 @@ eval_variables:
 # potentially updated for each output file. Also includes things that need some
 # set up at the start of an exposure, like the atmospheric PSF.
 input:
+
+    sky_catalog:
+        file_name: default_sky_cat.yaml
+        band: { type: OpsimData, field: band }
+        mjd: { type: OpsimData, field: mjd }
+
+    opsim_data:
+        file_name: default_opsim.db
 
     telescope:
         file_name:
@@ -260,6 +277,9 @@ stamp:
                               # I assume it's wavelength dependent...
                               # Probably need to use the same kind of pattern as above for depth.
 
+    world_pos:
+        type: SkyCatWorldPos
+
 
 # This defines both the output files and some basic things about the overall exposure/fov.
 output:
@@ -325,3 +345,29 @@ output:
             x: "$image_pos.x"
             y: "$image_pos.y"
             # TODO: ... more probably
+
+gal:
+    type: SkyCatObj
+
+################################################################
+#  Above is template material.
+#
+#  The following entires are added  to the base configuration above.
+################################################################
+
+# Use skyCatalogs for obtaining the objects to render.
+
+# input.sky_catalog:
+#     file_name: default_sky_cat.yaml
+#     band: { type: OpsimData, field: band }
+#     mjd: { type: OpsimData, field: mjd }
+
+# input.opsim_data:
+#     file_name: default_opsim.db
+
+# # Define the galaxy type and positions to use
+# gal:
+#     type: SkyCatObj
+
+# stamp.world_pos:
+#     type: SkyCatWorldPos
