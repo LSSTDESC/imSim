@@ -322,7 +322,10 @@ class CcdReadout:
 
         self.readout_time = readout_time
         self.dark_current = dark_current
-        self.bias_level = bias_level
+        if bias_levels_file is None:
+            self.bias_level = bias_level
+        else:
+            self.bias_level = None
         if full_well is None:
             # Use the CCD-specific value obtained from obs_lsst.
             self.full_well = self.ccd.full_well

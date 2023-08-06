@@ -64,6 +64,15 @@ class ImageSourceTestCase(unittest.TestCase):
         for i in range(1,16):
             self.assertTupleEqual(hdus[i].data.shape, (2048, 576))
 
+    def test_bias_level_override(self):
+        """Test that the .bias_level attribute is None when bias_levels_file
+        is provided"""
+        bias_levels_file = 'LSSTCam_bias_levels_run_13421.json'
+        ccd_readout = imsim.CcdReadout(self.image, self.logger,
+                                       bias_level=1234.,
+                                       bias_levels_file=bias_levels_file)
+        self.assertIsNone(ccd_readout.bias_level)
+
     def test_get_amplifier_hdu(self):
         "Test the .get_amplifier_hdu method."
         hdus = self.readout.final_data
