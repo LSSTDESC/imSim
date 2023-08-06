@@ -213,7 +213,7 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
     needed to process with the LSST Stack.
     """
     phdu = fits.PrimaryHDU()
-    phdu.header['RUNNUM'] = eimage.header['OBSID']
+    phdu.header['RUNNUM'] = eimage.header['RUNNUM']
     phdu.header['OBSID'] = eimage.header['OBSID']
     phdu.header['MJD'] = eimage.header['MJD']
     date = Time(eimage.header['MJD'], format='mjd')
