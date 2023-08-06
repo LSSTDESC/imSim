@@ -206,8 +206,7 @@ def cte_matrix(npix, cti, ntransfers=20):
     return my_matrix
 
 
-# TODO: get lsst_num from camera object.
-def get_primary_hdu(eimage, lsst_num='LCA-11021_RTM-000', camera_name=None,
+def get_primary_hdu(eimage, lsst_num, camera_name=None,
                     added_keywords={}, logger=None):
     """
     Create a primary HDU for the output raw file with the keywords
@@ -429,7 +428,8 @@ class CcdReadout:
         wcs = self.eimage.wcs
         crpix1, crpix2 = wcs.crpix
 
-        phdu = get_primary_hdu(self.eimage, camera_name=self.camera_name,
+        phdu = get_primary_hdu(self.eimage, self.ccd.getSerial(),
+                               camera_name=self.camera_name,
                                logger=self.logger)
         hdus = fits.HDUList(phdu)
         for amp_num, amp in enumerate(self.amp_images):
