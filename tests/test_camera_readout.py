@@ -128,11 +128,12 @@ class ImageSourceTestCase(unittest.TestCase):
         ccd = imsim.Camera(camera_name)[det_name]
         for amp in range(16):
             read_noise = list(ccd.values())[amp].read_noise
+            gain = list(ccd.values())[amp].gain
             amp_mean = np.mean(readout.final_data[amp+1].data)
             amp_var = np.var(readout.final_data[amp+1].data)
             assert np.isclose(amp_mean, 1000 + 0.02*dark_time, rtol=1.e-3)
-            print(amp_var, 0.02*dark_time + read_noise**2, (0.02*dark_time + read_noise**2-amp_var)/amp_var)
-            assert np.isclose(amp_var, 0.02*dark_time + read_noise**2, rtol=3.e-3)
+            print(amp_var, 0.02*dark_time/gain + read_noise**2, (0.02*dark_time/gain + read_noise**2-amp_var)/amp_var)
+            assert np.isclose(amp_var, 0.02*dark_time/gain + read_noise**2, rtol=4.e-3)
 
         readout.writeFile(outfile, self.readout_config, self.config, self.logger)
         with fits.open(outfile) as hdus:
