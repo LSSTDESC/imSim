@@ -371,9 +371,12 @@ class CcdReadout:
         * apply charge transfer efficiency effects
         * add bias levels and read noise
         """
-        # Bleed trail processing. TODO: Get full_well from the camera.
-        self.eimage.array[:] = bleed_eimage(self.eimage.array, full_well=self.full_well)
-
+        # Bleed trail processing.
+        # Only e2V CCDs have the midline bleed stop.
+        midline_stop = self.ccd.getSerial().startswith('E2V')
+        self.eimage.array[:] = bleed_eimage(self.eimage.array,
+                                            full_well=self.full_well,
+                                            midline_stop=midline_stop)
         # Add dark current.
         dark_time = self.exptime + self.readout_time
         dark_current = self.dark_current
