@@ -44,7 +44,6 @@ def run_imsim(camera):
               'output.only_dets': only_dets,
               'output.det_num.first': 0,
               'output.nfiles': 1,
-              'output.readout': '',
               'output.dir': 'fits_header_test',
               'output.truth': '',
               'output.header': {
@@ -74,8 +73,14 @@ def test_header_keywords():
         assert hdus[0].header['TEST1'] == 3.3
         assert hdus[0].header['TEST2'] == 0
         assert hdus[0].header['TEST3'] == 'banana'
-    os.remove(os.path.join(eimage_file))
-    os.removedirs(os.path.dirname(eimage_file))
+    raw_file = glob.glob(os.path.join(fits_dir, 'amp*.fits.fz'))[0]
+    with fits.open(raw_file) as hdus:
+        assert hdus[0].header['RUNNUM'] == 182850
+        assert hdus[0].header['LSST_NUM'] == 'E2V-CCD250-382'
+        assert hdus[0].header['FILTER'] == 'i_39'
+    for item in glob.glob(os.path.join(fits_dir, '*')):
+        os.remove(item)
+    os.removedirs(fits_dir)
 
 
 if __name__ == "__main__":
