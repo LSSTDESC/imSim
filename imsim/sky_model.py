@@ -147,8 +147,21 @@ class RubinBandpass(galsim.Bandpass):
             The name of the bandpass.  One of u,g,r,i,z,Y.
         """
         # TODO: Should switch this to use lsst.sims versions.  GalSim files are pretty old.
-        super().__init__('LSST_%s.dat'%band, wave_type='nm')
+        if False:
+            # I (MJ) believe this is roughlty the code we would want to use here.
+            # But we aren't currently equipped to depend on lsst.sims, so this doesn't work.
+            from lsst.sims.photUtils import BandpassDict
+            bandpassDict = BandpassDict.loadBandpassesFromFiles()[0]
+            bandpass = bandpassDict[bandPassName]
+            index = np.where(bandpass.sb != 0)
+            func = galsim.LookupTable(x=bandpass.wavelen[index], f=bandpass.sb[index])
+            super().__init__(func, wave_type='nm')
+        else:
+            # For now we use the probably mostly close-enough GalSim files.
+            super().__init__('LSST_%s.dat'%band, wave_type='nm')
+
         self.zeropoint = self.withZeropoint('AB').zeropoint
+
 
 class RubinBandpassBuilder(galsim.config.BandpassBuilder):
     """A class for building a RubinBandpass in the config file
