@@ -4,7 +4,7 @@ import numpy as np
 import json
 import logging
 import galsim
-from imsim import SkyModel, SkyGradient, make_batoid_wcs
+from imsim import SkyModel, SkyGradient, make_batoid_wcs, RubinBandpass
 
 
 DATA_DIR = Path(__file__).parent / 'data'
@@ -31,7 +31,7 @@ def test_sky_model():
         expected_sky_levels = json.load(fobj)
 
     for band in 'ugrizy':
-        bandpass = galsim.Bandpass(f'LSST_{band}.dat', wave_type='nm')
+        bandpass = RubinBandpass(band)
         sky_model = SkyModel(exptime, mjd, bandpass)
         sky_level = sky_model.get_sky_level(skyCoord)
         np.testing.assert_approx_equal(sky_level, expected_sky_levels[band],
@@ -50,7 +50,7 @@ def test_sky_gradient():
     exptime = 30.
 
     band = 'i'
-    bandpass = galsim.Bandpass(f'LSST_{band}.dat', wave_type='nm')
+    bandpass = RubinBandpass(band)
     sky_model = SkyModel(exptime, mjd, bandpass)
 
     wcs = make_batoid_wcs(ra, dec, rottelpos, mjd, band, 'LsstCam')
@@ -99,7 +99,7 @@ def test_sky_gradient():
             'xsize': image_xsize,
             'ysize': image_xsize,
             'wcs': wcs,
-            'bandpass': bandpass,
+            'bandpass': { "type": "RubinBandpass", "band": band },
             'apply_sky_gradient': True,
             'sky_level': {'type': 'SkyLevel'},
             'nobjects': 0,

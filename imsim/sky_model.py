@@ -3,13 +3,12 @@ import copy
 import warnings
 import numpy as np
 import galsim
-from galsim.config import InputLoader, RegisterInputType, RegisterValueType
-
+from galsim.config import InputLoader, RegisterInputType, RegisterValueType, RegisterBandpassType
 
 RUBIN_AREA = 0.25 * np.pi * 649**2  # cm^2
 
 
-__all__ = ['SkyModel', 'SkyGradient']
+__all__ = ['SkyModel', 'SkyGradient', 'RubinBandpass']
 
 
 class SkyModel:
@@ -134,6 +133,43 @@ def SkyLevel(config, base, value_type):
     value = sky_model.get_sky_level(base['world_center'])
     return value, False
 
+class RubinBandpass(galsim.Bandpass):
+    """One of the Rubin bandpasses, specified by the single-letter name.
+
+    The zeropoint is automatically set to the AB zeropoint normalization.
+    """
+
+    def __init__(self, band):
+        """
+        Parameters
+        ----------
+        band : `str`
+            The name of the bandpass.  One of u,g,r,i,z,Y.
+        """
+        # TODO: Should switch this to use lsst.sims versions.  GalSim files are pretty old.
+        super().__init__('LSST_%s.dat'%band, wave_type='nm')
+        self.zeropoint = self.withZeropoint('AB').zeropoint
+
+class RubinBandpassBuilder(galsim.config.BandpassBuilder):
+    """A class for building a RubinBandpass in the config file
+    """
+    def buildBandpass(self, config, base, logger):
+        """Build the Bandpass object based on the LSST filter name.
+
+        Parameters:
+            config:     The configuration dict for the bandpass type.
+            base:       The base configuration dict.
+            logger:     If provided, a logger for logging debug statements.
+
+        Returns:
+            the constructed Bandpass object.
+        """
+        req = { 'band' : str }
+        kwargs, safe = galsim.config.GetAllParams(config, base, req=req)
+        bp = RubinBandpass(**kwargs)
+        logger.debug('bandpass = %s', bp)
+        return bp, safe
 
 RegisterInputType('sky_model', SkyModelLoader(SkyModel))
 RegisterValueType('SkyLevel', SkyLevel, [float], input_type='sky_model')
+RegisterBandpassType('RubinBandpass', RubinBandpassBuilder())

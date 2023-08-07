@@ -23,7 +23,7 @@ with warnings.catch_warnings():
 
 sky_levels = {}
 for band in 'ugrizy':
-    bandpass = galsim.Bandpass(f'LSST_{band}.dat', wave_type='nm')
+    bandpass = galsim.RubinBandpass(band)
     wave, spec = sky_model.returnWaveSpec()
     lut = galsim.LookupTable(wave, spec[0])
     sed = galsim.SED(lut, wave_type='nm', flux_type='flambda')

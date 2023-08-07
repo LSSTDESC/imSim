@@ -4,7 +4,7 @@ import numpy as np
 import astropy
 import astropy.coordinates
 import pandas as pd
-from galsim.config import InputLoader, RegisterInputType, RegisterValueType, RegisterBandpassType
+from galsim.config import InputLoader, RegisterInputType, RegisterValueType
 import galsim
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
@@ -373,29 +373,5 @@ def OpsimData(config, base, value_type):
     val = value_type(meta.get(field))
     return val, safe
 
-class RubinBandpass(galsim.config.BandpassBuilder):
-    """A class for loading a Bandpass for a given instcat
-    """
-    def buildBandpass(self, config, base, logger):
-        """Build the Bandpass object based on the LSST filter name.
-
-        Parameters:
-            config:     The configuration dict for the bandpass type.
-            base:       The base configuration dict.
-            logger:     If provided, a logger for logging debug statements.
-
-        Returns:
-            the constructed Bandpass object.
-        """
-        req = { 'band' : str }
-        kwargs, safe = galsim.config.GetAllParams(config, base, req=req)
-        band = kwargs['band']
-        # TODO: Should switch this to use lsst.sims versions.  GalSim files are pretty old.
-        bandpass = galsim.Bandpass('LSST_%s.dat'%band, wave_type='nm')
-        bandpass = bandpass.withZeropoint('AB')
-        logger.debug('bandpass = %s',bandpass)
-        return bandpass, False
-
 RegisterInputType('opsim_data', InputLoader(OpsimDataLoader, file_scope=True, takes_logger=True))
 RegisterValueType('OpsimData', OpsimData, [float, int, str], input_type='opsim_data')
-RegisterBandpassType('RubinBandpass', RubinBandpass())

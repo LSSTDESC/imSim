@@ -23,9 +23,7 @@ def load_test_skycat(apply_dc2_dilation=False):
     rottelpos = opsim_data["rotTelPos"] * galsim.degrees
     obstime = astropy.time.Time(opsim_data["mjd"], format="mjd", scale="tai")
     band = opsim_data["band"]
-    bandpass = galsim.Bandpass(
-        f"LSST_{band}.dat", wave_type="nm"
-    ).withZeropoint("AB")
+    bandpass = imsim.RubinBandpass(band)
     wcs_builder = imsim.BatoidWCSBuilder()
     telescope = imsim.load_telescope(f"LSST_{band}.yaml", rotTelPos=rottelpos)
     factory = wcs_builder.makeWCSFactory(boresight, obstime, telescope, bandpass=band)
