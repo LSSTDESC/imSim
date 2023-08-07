@@ -164,6 +164,8 @@ class LSST_SiliconBuilder(StampBuilder):
 
             opt = { 'airmass': float, 'rawSeeing': float, 'band': str }
             kwargs = galsim.config.GetAllParams(config, base, opt=opt)[0]
+            # This ends up with all the keys we made earlier.  Select just these three.
+            kwargs = { k:v for k,v in kwargs.items() if k in opt }
             psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams, **kwargs)
             image_size = psf.getGoodImageSize(self._pixel_scale)
             # No point in this being larger than a CCD.  Cut back to Nmax if larger than this.
