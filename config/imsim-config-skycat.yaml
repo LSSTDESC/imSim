@@ -316,6 +316,7 @@ output:
         bias_level: 1000.
         pcti: 1.e-6
         scti: 1.e-6
+        bias_levels_file: LSSTCam_bias_levels_run_13421.json
 
         file_name:
             type: FormattedStr

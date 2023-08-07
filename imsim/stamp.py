@@ -17,7 +17,7 @@ class DiffractionPSF:
     altitude: galsim.Angle
     rotTelPos: galsim.Angle
     spike_length_cutoff: float = 4000
-    brightness_threshold: float = CcdReadout.full_well
+    brightness_threshold: float = 1.0e5
     latitude: galsim.Angle = RUBIN_LOC.lat
     enabled: bool = True
 
