@@ -11,7 +11,7 @@ from .camera import get_camera
 
 
 @dataclass
-class DiffractionPSF:
+class DiffractionFFT:
     exptime: float
     azimuth: galsim.Angle
     altitude: galsim.Angle
@@ -36,14 +36,11 @@ class DiffractionPSF:
             )
 
     @classmethod
-    def from_config(cls, config: dict, base: dict) -> "DiffractionPSF":
-        """Create a DiffractionPSF from config values."""
-        req_fields = {f.name: f.type for f in fields(cls) if f.default is MISSING}
-        opt_fields = {f.name: f.type for f in fields(cls) if f.default is not MISSING}
-        diffraction_psf_config = config.get("diffraction_psf", {})
-        kwargs, _safe = GetAllParams(
-            diffraction_psf_config, base, req=req_fields, opt=opt_fields
-        )
+    def from_config(cls, config: dict, base: dict) -> "DiffractionFFT":
+        """Create a DiffractionFFT from config values."""
+        req = {f.name: f.type for f in fields(cls) if f.default is MISSING}
+        opt = {f.name: f.type for f in fields(cls) if f.default is not MISSING}
+        kwargs, _safe = GetAllParams(config.get('diffraction_fft', {}), base, req=req, opt=opt)
         return cls(**kwargs)
 
 
@@ -59,7 +56,7 @@ class LSST_SiliconBuilder(StampBuilder):
                               wave_type='nm', flux_type='fphotons')
     _Nmax = 4096  # (Don't go bigger than 4096)
 
-    diffraction_psf: DiffractionPSF
+    diffraction_fft: DiffractionFFT
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
         """
@@ -88,7 +85,7 @@ class LSST_SiliconBuilder(StampBuilder):
         # First do a parsing check to make sure that all the options passed to
         # the config are valid, and no required options are missing.
 
-        req = {'diffraction_psf': dict, 'det_name': str}
+        req = {'diffraction_fft': dict, 'det_name': str}
         opt = {'camera': str}
         # For the optional ones we don't need here, can put in ignore, and they will still
         # be allowed, but not required.
@@ -100,7 +97,7 @@ class LSST_SiliconBuilder(StampBuilder):
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
         self.gal = gal
 
-        self.diffraction_psf = DiffractionPSF.from_config(config, base)
+        self.diffraction_fft = DiffractionFFT.from_config(config, base)
 
         try:
             self.vignetting = GetInputObj('vignetting', config, base,
@@ -615,7 +612,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 raise
             # Some pixels can end up negative from FFT numerics.  Just set them to 0.
             fft_image.array[fft_image.array < 0] = 0.
-            self.diffraction_psf.apply(fft_image, bandpass.effective_wavelength)
+            self.diffraction_fft.apply(fft_image, bandpass.effective_wavelength)
             fft_image.addNoise(galsim.PoissonNoise(rng=self.rng))
             # In case we had to make a bigger image, just copy the part we need.
             image += fft_image[image.bounds]

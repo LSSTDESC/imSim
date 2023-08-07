@@ -289,7 +289,8 @@ Key Name: atmosphericPSF
 This keyword enables an atmospheric PSF with 6 randomly generated atmospheric screens.  Photons are raytraced through this atmosphere to produce a realistic atmospheric PSF.
 
 .. warning::
-    You should not attempt to use the option to add parametric optics (through the ``doOpt`` option) if you are using fully ray-traced optics.  Otherwise, you will simulate the optics twice.  See See :ref:`the stamp keyword <stamp-label>` below how to activate the ray-traced mode.
+
+    You should not attempt to use the option to add parametric optics (through the ``doOpt`` option) if you are using fully ray-traced optics.  Otherwise, you will simulate the optics twice.  See :ref:`the stamp keyword <stamp-label>` below how to activate the ray-traced mode.
 
 
 Required keywords to set:
@@ -531,9 +532,8 @@ Optional keywords to set:
     * ``camera`` = *str_value* (default = 'LsstCam') The name of the camera to use.
 
 
-Note there is an extra required diffraction_psf keyword you must include in the stamp section above that configures how diffraction passing through the telescope spiders is handled.  Here is how to configure it.
-
-Key Name: diffraction_psf:
+Note there is an extra required diffraction_fft keyword you must include in the stamp section above that configures how diffraction passing through the telescope spiders is handled.  Here is how to configure it.
+Key Name: diffraction_fft:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Required keywords to set:
@@ -578,7 +578,11 @@ Optional keywords to set:
 type: **RubinDiffraction**
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Apply diffractive Effects.
+Apply diffractive effects.
+
+.. warning::
+
+    This only applies to objects rendering using photon shooting.  To be consistent, if you use this, you should also set diffraction_fft as described above.)
 
 Required keywords to set:
 """""""""""""""""""""""""

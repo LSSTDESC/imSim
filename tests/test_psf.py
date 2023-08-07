@@ -389,7 +389,7 @@ class PsfTestCase(unittest.TestCase):
                 'rawSeeing': self.opsim_data['rawSeeing'],
                 'band':  self.opsim_data['band'],
 
-                'diffraction_psf': {
+                'diffraction_fft': {
                     'enabled': False,
                     'exptime': 30,
                     'azimuth': "0 deg",

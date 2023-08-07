@@ -205,7 +205,7 @@ stamp:
     camera: "@output.camera"
     det_name: "$det_name"  # This is automatically defined by the LSST_CCD output type.
 
-    diffraction_psf:
+    diffraction_fft:
       exptime: { type: OpsimData, field: exptime }
       azimuth:
         type: Degrees
