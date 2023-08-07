@@ -194,21 +194,6 @@ Once the opsim data has been specified you can use those values in other parts o
 
 The ``field`` key is required.
 
-OpSim Bandpass
-^^^^^^^^^^^^^^
-
-Once the metadata information has been specified you can use that information to specify the bandpass in other parts of the YAML file.  Using the LSST band that you specified it will read in the appropriate throughput file amd use it for the bandpass.  An example is shown below.
-
-.. code-block:: yaml
-
-    image:
-        type: LSST_Image
-
-        bandpass: { type: OpsimBandpass }
-
-
-There are no configuration parameters for this class.
-
 Telescope Configuration
 -----------------------
 
@@ -476,6 +461,23 @@ Optional keywords to set:
     *  ``H2O_pressure`` = *float_value* (default = 1 kPa) Water vapor pressure in kPa.
     *  ``wavelength`` = *float_value* (default = effective wavelength of the bandpass of the observation) wavelength of photon to use in nanometers.
     *  ``order`` = *int_value* (default = 3) SIP polynomial order for WCS fit.
+
+Rubin Bandpass
+^^^^^^^^^^^^^^
+
+*imSim* also registers a new Bandpass type, representing the Rubin filter throughputs for each band pass: u, g, r, i, z, or Y.  An example is shown below.
+
+.. code-block:: yaml
+
+    image:
+        type: LSST_Image
+
+        bandpass: { type: RubinBandpass, band: r }
+
+Required keywords to set:
+""""""""""""""""""""""""""
+    * ``band`` = *str_value* The name of the band.  Must be one of {u, g, r, i, z, Y}.
+
 
 Key Name: LSST_Flat
 ^^^^^^^^^^^^^^^^^^^
