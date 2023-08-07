@@ -373,7 +373,7 @@ def OpsimData(config, base, value_type):
     val = value_type(meta.get(field))
     return val, safe
 
-class OpsimBandpass(galsim.config.BandpassBuilder):
+class RubinBandpass(galsim.config.BandpassBuilder):
     """A class for loading a Bandpass for a given instcat
     """
     def buildBandpass(self, config, base, logger):
@@ -387,12 +387,10 @@ class OpsimBandpass(galsim.config.BandpassBuilder):
         Returns:
             the constructed Bandpass object.
         """
-        meta = galsim.config.GetInputObj('opsim_data', config, base, 'InstCatWorldPos')
-
-        # Note: Previous code used the lsst.sims versions of these.  Here we just use the ones in
-        #       the GalSim share directory.  Not sure whether those are current, but probably
-        #       good enough for now.
-        band = meta.get('band')
+        req = { 'band' : str }
+        kwargs, safe = galsim.config.GetAllParams(config, base, req=req)
+        band = kwargs['band']
+        # TODO: Should switch this to use lsst.sims versions.  GalSim files are pretty old.
         bandpass = galsim.Bandpass('LSST_%s.dat'%band, wave_type='nm')
         bandpass = bandpass.withZeropoint('AB')
         logger.debug('bandpass = %s',bandpass)
@@ -400,4 +398,4 @@ class OpsimBandpass(galsim.config.BandpassBuilder):
 
 RegisterInputType('opsim_data', InputLoader(OpsimDataLoader, file_scope=True, takes_logger=True))
 RegisterValueType('OpsimData', OpsimData, [float, int, str], input_type='opsim_data')
-RegisterBandpassType('OpsimBandpass', OpsimBandpass(), input_type='opsim_data')
+RegisterBandpassType('RubinBandpass', RubinBandpass())
