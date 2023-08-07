@@ -87,11 +87,21 @@ class LSST_SiliconBuilder(StampBuilder):
         # First do a parsing check to make sure that all the options passed to
         # the config are valid, and no required options are missing.
 
-        req = {'det_name': str}
-        opt = {'camera': str, 'diffraction_fft': dict}
-        # For the optional ones we don't need here, can put in ignore, and they will still
-        # be allowed, but not required.
-        ignore = ['fft_sb_thresh', 'band', 'airmass', 'rawSeeing', 'max_flux_simple'] + ignore
+        try:
+            self.vignetting = GetInputObj('vignetting', config, base, 'LSST_SiliconBuilder')
+        except galsim.config.GalSimConfigError:
+            self.vignetting = None
+
+        req = {}
+        opt = {'camera': str, 'diffraction_fft': dict,
+               'airmass': float, 'rawSeeing': float, 'band': str}
+        if self.vignetting:
+            req['det_name'] = str
+        else:
+            opt['det_name'] = str
+        # For the optional ones we parse manually, we can put in ignore, and they will
+        # still be allowed, but not required.
+        ignore = ['fft_sb_thresh', 'max_flux_simple'] + ignore
         params = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)[0]
 
         gal = galsim.config.BuildGSObject(base, 'gal', logger=logger)[0]
@@ -101,18 +111,13 @@ class LSST_SiliconBuilder(StampBuilder):
 
         self.diffraction_fft = DiffractionFFT.from_config(config, base)
 
-        try:
-            self.vignetting = GetInputObj('vignetting', config, base,
-                                          'LSST_SiliconBuilder')
-        except galsim.config.GalSimConfigError:
-            self.vignetting = None
-
         # Compute or retrieve the realized flux.
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
         bandpass = base['bandpass']
         self.image = base['current_image']
         camera = get_camera(params.get('camera', 'LsstCam'))
-        self.det = camera[params['det_name']]
+        if self.vignetting:
+            self.det = camera[params['det_name']]
         if not hasattr(gal, 'flux'):
             # In this case, the object flux has not been precomputed
             # or cached by the skyCatalogs code.
@@ -157,13 +162,9 @@ class LSST_SiliconBuilder(StampBuilder):
                 logger.debug('From: noise_var = %s, flux = %s',noise_var,self.realized_flux)
                 gsparams = galsim.GSParams(folding_threshold=folding_threshold)
 
-            airmass = galsim.config.ParseValue(config, 'airmass', base, float)[0]
-            rawSeeing = galsim.config.ParseValue(config, 'rawSeeing', base, float)[0]
-            band = galsim.config.ParseValue(config, 'band', base, str)[0]
-            psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams,
-                                                   airmass=airmass,
-                                                   rawSeeing=rawSeeing,
-                                                   band=band)
+            opt = { 'airmass': float, 'rawSeeing': float, 'band': str }
+            kwargs = galsim.config.GetAllParams(config, base, opt=opt)[0]
+            psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams, **kwargs)
             image_size = psf.getGoodImageSize(self._pixel_scale)
             # No point in this being larger than a CCD.  Cut back to Nmax if larger than this.
             image_size = min(image_size, self._Nmax)

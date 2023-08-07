@@ -517,11 +517,7 @@ Stamp Type: LSST_Silicon
 Required keywords to set:
 """""""""""""""""""""""""
 
-    * ``airmass`` = *float_value* (default = 1.2) The airmass to use in FFTs
-    * ``rawseeing`` = *float_value* (default = 0.7) The FWHM seeing at zenith at 500 nm in arc seconds for FFTs.
-    * ``band`` = *str_value* (default = None) The filter band of the observation.
-    * ``det_name`` = *str_value* The name of the detector.
-
+    * ``det_name`` = *str_value* (only required if doing vignetting) The name of the detector.
 
 Optional keywords to set:
 """""""""""""""""""""""""
@@ -531,6 +527,9 @@ Optional keywords to set:
     * ``maxN`` = *int_value* (detault = 1.0e6) Set limit on the size of photons batches when drawing the image.
     * ``camera`` = *str_value* (default = 'LsstCam') The name of the camera to use.
     * ``diffraction_fft`` = *dict* (optional) Parameters for implementing the diffraction spikes of FFT-rendered objects. See below.
+    * ``airmass`` = *float_value* (default = 1.2) The airmass to use when estimating the stamp size to use for FFTs
+    * ``rawSeeing`` = *float_value* (default = 0.7) The FWHM seeing at zenith at 500 nm in arc seconds to use when calculating the stamp size to use for FFTs.
+    * ``band`` = *str_value* (default = 'r') The filter band of the observation to use when estimating the stamp size to use for FFTs.
 
 Key Name: diffraction_fft:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

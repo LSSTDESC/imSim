@@ -385,11 +385,10 @@ class PsfTestCase(unittest.TestCase):
                 'fft_sb_thresh': 2.e5,   # When to switch to fft and a simpler PSF and skip silicon
                 'max_flux_simple': 100,  # When to switch to simple SED
 
-                'airmass': self.opsim_data['airmass'],
+                # rawSeeing is a bit big, so need this one to get the right size stamp.
+                # But others (airmass, band) may be omitted in this case.
+                # Also, don't need det_num since not doing vignetting.
                 'rawSeeing': self.opsim_data['rawSeeing'],
-                'band':  self.opsim_data['band'],
-
-                'det_name': 'R22_S11',
                 'image_pos': {
                     'type': 'XY',
                     'x': 0,
