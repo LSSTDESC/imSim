@@ -38,9 +38,11 @@ class DiffractionFFT:
     @classmethod
     def from_config(cls, config: dict, base: dict) -> "DiffractionFFT":
         """Create a DiffractionFFT from config values."""
+        if 'diffraction_fft' not in config:
+            return None
         req = {f.name: f.type for f in fields(cls) if f.default is MISSING}
         opt = {f.name: f.type for f in fields(cls) if f.default is not MISSING}
-        kwargs, _safe = GetAllParams(config.get('diffraction_fft', {}), base, req=req, opt=opt)
+        kwargs, _safe = GetAllParams(config['diffraction_fft'], base, req=req, opt=opt)
         return cls(**kwargs)
 
 
@@ -85,8 +87,8 @@ class LSST_SiliconBuilder(StampBuilder):
         # First do a parsing check to make sure that all the options passed to
         # the config are valid, and no required options are missing.
 
-        req = {'diffraction_fft': dict, 'det_name': str}
-        opt = {'camera': str}
+        req = {'det_name': str}
+        opt = {'camera': str, 'diffraction_fft': dict}
         # For the optional ones we don't need here, can put in ignore, and they will still
         # be allowed, but not required.
         ignore = ['fft_sb_thresh', 'band', 'airmass', 'rawSeeing', 'max_flux_simple'] + ignore
@@ -612,7 +614,8 @@ class LSST_SiliconBuilder(StampBuilder):
                 raise
             # Some pixels can end up negative from FFT numerics.  Just set them to 0.
             fft_image.array[fft_image.array < 0] = 0.
-            self.diffraction_fft.apply(fft_image, bandpass.effective_wavelength)
+            if self.diffraction_fft:
+                self.diffraction_fft.apply(fft_image, bandpass.effective_wavelength)
             fft_image.addNoise(galsim.PoissonNoise(rng=self.rng))
             # In case we had to make a bigger image, just copy the part we need.
             image += fft_image[image.bounds]

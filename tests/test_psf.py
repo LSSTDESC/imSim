@@ -389,13 +389,6 @@ class PsfTestCase(unittest.TestCase):
                 'rawSeeing': self.opsim_data['rawSeeing'],
                 'band':  self.opsim_data['band'],
 
-                'diffraction_fft': {
-                    'enabled': False,
-                    'exptime': 30,
-                    'azimuth': "0 deg",
-                    'altitude': "60 deg",
-                    'rotTelPos': "0 deg",
-                },
                 'det_name': 'R22_S11',
                 'image_pos': {
                     'type': 'XY',

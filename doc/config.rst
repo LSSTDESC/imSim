@@ -530,9 +530,8 @@ Optional keywords to set:
     * ``method`` = *str_value* (default = 'auto') Choose between automatically deciding whether to use a FFT of photon shooting ('auto') or manually choose between 'fft' and 'phot'.
     * ``maxN`` = *int_value* (detault = 1.0e6) Set limit on the size of photons batches when drawing the image.
     * ``camera`` = *str_value* (default = 'LsstCam') The name of the camera to use.
+    * ``diffraction_fft`` = *dict* (optional) Parameters for implementing the diffraction spikes of FFT-rendered objects. See below.
 
-
-Note there is an extra required diffraction_fft keyword you must include in the stamp section above that configures how diffraction passing through the telescope spiders is handled.  Here is how to configure it.
 Key Name: diffraction_fft:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
