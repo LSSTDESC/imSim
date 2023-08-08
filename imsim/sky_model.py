@@ -126,9 +126,9 @@ class CCD_Fringing:
         Parameters
         ----------
         img_wcs : 
-            WCS for the current image.
-        boresight : `float`
-            MJD of observation.
+            WCS of the current image.
+        boresight : `array`
+            Array stores the center RA/DEC of boresight.
         seed : `int`
             Random seed number for each CCD. 
             This number should be the det_num for the current sensor
