@@ -44,7 +44,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                          'nobjects' ]
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
                  'apply_sky_gradient': bool, 'apply_fringing': bool, 
-                 'boresight':galsim.CelestialCoord,'camera': str, 'nbatch': int}
+                 'boresight':galsim.CelestialCoord, 'camera': str, 'nbatch': int}
         params = GetAllParams(config, base, opt=opt, ignore=ignore+extra_ignore)[0]
 
         size = params.get('size',0)
@@ -58,7 +58,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             self.vignetting = None
 
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
-        self.apply_fringing = params.get('apply_fringing',False)
+        self.apply_fringing = params.get('apply_fringing', False)
         self.camera_name = params.get('camera')
         self.boresight = params.get('boresight')
 
