@@ -3,7 +3,6 @@ import logging
 import galsim
 from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
-from lsst.afw import cameraGeom
 from .sky_model import SkyGradient, CCD_Fringing
 from .camera import get_camera
 from .vignetting import Vignetting
@@ -44,8 +43,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         extra_ignore = [ 'image_pos', 'world_pos', 'stamp_size', 'stamp_xsize', 'stamp_ysize',
                          'nobjects' ]
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
-                 'apply_sky_gradient': bool, 'apply_fringing': bool,
-                'vignetting_data_file': str, 'camera': str, 'nbatch': int}
+                 'apply_sky_gradient': bool, 'apply_fringing': bool, 
+                 'boresight':galsim.CelestialCoord,'camera': str, 'nbatch': int}
         params = GetAllParams(config, base, opt=opt, ignore=ignore+extra_ignore)[0]
 
         size = params.get('size',0)
@@ -61,6 +60,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
         self.apply_fringing = params.get('apply_fringing',False)
         self.camera_name = params.get('camera')
+        self.boresight = params.get('boresight')
 
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
@@ -272,15 +272,12 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         if self.apply_fringing:
             # get det number
             det_num = base['output']['det_num']['current'][0]
-            # get center ra/dec
-            cra = config['wcs']['boresight']['cboresight']['_kd'][1]\
-                ['cboresight']['ra']['theta']['current'][0]
-            cdec = config['wcs']['boresight']['cboresight']['_kd'][1]\
-                ['cboresight']['dec']['theta']['current'][0]
-                
+            # get boresight ra/dec
+            boresight = [self.boresight.ra.deg,self.boresight.dec.deg]
+
             # Use det_num as random seed number to make sure the height map 
             # for the same sensor is the same for different exposures.
-            ccd_fringing = CCD_Fringing(img_wcs = image.wcs,c_wcs=[cra, cdec],
+            ccd_fringing = CCD_Fringing(img_wcs = image.wcs,boresight = boresight,
                                       seed = det_num, spatial_vary= True)
             
             ny, nx = sky.array.shape

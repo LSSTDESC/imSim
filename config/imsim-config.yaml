@@ -177,6 +177,8 @@ image:
     
     apply_fringing: "$band == 'y'" # Only set to True if simulating y-bands images!
 
+    boresight: "$boresight"
+
     use_flux_sky_areas: False   # This means don't bother with the BFE from sky flux when computing
                                 # the pixel areas for drawing the sky.
                                 # This is the default.  But set to true to get BF in sky.

@@ -3,7 +3,6 @@ import copy
 import warnings
 import numpy as np
 import galsim
-import random
 import pickle
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
 from scipy.interpolate import RegularGridInterpolator
@@ -122,9 +121,23 @@ class CCD_Fringing:
     as a function of pixel coordinates relative to the value at the 
     CCD center.
     """
-    def __init__(self,img_wcs,c_wcs,seed,spatial_vary):
+    def __init__(self,img_wcs,boresight,seed,spatial_vary):
+        """
+        Parameters
+        ----------
+        img_wcs : 
+            WCS for the current image.
+        boresight : `float`
+            MJD of observation.
+        seed : `int`
+            Random seed number for each CCD. 
+            This number should be the det_num for the current sensor
+        spatial_vary : `bool`
+            Parameter controls whether to account for Sky line variation
+            in the fringing model or not. Default is set to True.
+        """
         self.img_wcs = img_wcs
-        self.c_wcs = c_wcs
+        self.boresight = boresight
         self.spatial_vary = spatial_vary
         self.seed = seed
         
@@ -143,17 +156,24 @@ class CCD_Fringing:
         ksq = kx ** 2 + ky ** 2
         m = ksq > 0
         random_seed = self.seed
-        gen = np.random.RandomState(random_seed)
+        gen = galsim.BaseDeviate(random_seed).np
         phase = 2 * np.pi * gen.uniform(size=(n, n))
         A[m] = ksq[m] ** kpow * gen.normal(size=(n, n))[m] * np.exp(1.j * phase[m]) * np.exp(-ksq[m] / k0 ** 2)
 
         return np.fft.ifft2(A)
 
 
-    def simulate_fringes(self,n = 1.2,n1=1.5, amp=0.002, nwaves_rms=10.):
+    def simulate_fringes(self, amp=0.002):
         '''
         # Generate random fringing pattern from a heightfield
+        Parameters
+        ------------------------
+        amp: `float`
+            Fringing amplitude. Default is set to 0.002 (0.02%)
         '''
+        n = 1.2
+        n1 = 1.5
+        nwaves_rms=10.
         X = self.generate_heightfield(n, 4096)
         X *= nwaves_rms / np.std(X.real)
         Z =  amp * np.cos(2 * n1 * (X.real))
@@ -162,7 +182,7 @@ class CCD_Fringing:
         return(Z)
 
         
-    def fringe_variation_level(self,spatial = True):
+    def fringe_variation_level(self):
         '''
         Function implementing temporal and spatial variation of fringing. 
         
@@ -174,15 +194,15 @@ class CCD_Fringing:
         Otherwise, this function will return a unity value.
         '''
         
-        if spatial:
+        if self.spatial_vary:
             # Load 2d interpolator for OH spatial variation
             filename = os.path.join(data_dir, 'fringing_data',
                                         'skyline_var.pkl')
             with open(filename, 'rb') as f:
                 interp = pickle.load(f)
                 
-            dx = self.c_wcs[0] - self.img_wcs.center.ra.deg 
-            dy = self.c_wcs[1] - self.img_wcs.center.dec.deg
+            dx = self.boresight[0] - self.img_wcs.center.ra.deg 
+            dy = self.boresight[1] - self.img_wcs.center.dec.deg
             
             # calculated OH flux level wrst the center of focal plane.
             level = interp(dx,dy)/interp(0,0)
@@ -198,13 +218,18 @@ class CCD_Fringing:
             return 1
         
 
-    def calculate_fringe_amplitude(self,x,y):
+    def calculate_fringe_amplitude(self,x,y,amplitude = 0.002):
         """
         Return the normalized fringing amplitude at the desired pixel 
         wrt the value at the CCD center.
+        
+        Parameters
+        ------------------------
+        amplitude: `float`
+            Fringing amplitude. Default is set to 0.002 (0.02%)
         """
-        level = self.fringe_variation_level(self.spatial_vary)
-        fringe_im = self.simulate_fringes(n = 1.2,n1= 1.5,amp=0.002*level)
+        level = self.fringe_variation_level()
+        fringe_im = self.simulate_fringes(amp=amplitude*level)
         xx = np.linspace(0,fringe_im.shape[-1]-1,fringe_im.shape[-1],dtype= int)
         yy = np.linspace(0, fringe_im.shape[0]-1,fringe_im.shape[0],dtype = int )
         interp_func = RegularGridInterpolator((xx, yy), fringe_im.T)
