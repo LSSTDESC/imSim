@@ -465,7 +465,7 @@ Optional keywords to set:
 Rubin Bandpass
 ^^^^^^^^^^^^^^
 
-*imSim* also registers a new Bandpass type, representing the Rubin filter throughputs for each band pass: u, g, r, i, z, or Y.  An example is shown below.
+*imSim* also registers a new Bandpass type, representing the Rubin filter throughputs for each band pass: u, g, r, i, z, or y.  An example is shown below.
 
 .. code-block:: yaml
 
@@ -476,7 +476,7 @@ Rubin Bandpass
 
 Required keywords to set:
 """"""""""""""""""""""""""
-    * ``band`` = *str_value* The name of the band.  Must be one of {u, g, r, i, z, Y}.
+    * ``band`` = *str_value* The name of the band.  Must be one of {u, g, r, i, z, y}.
 
 
 Key Name: LSST_Flat

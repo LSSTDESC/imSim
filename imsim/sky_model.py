@@ -142,7 +142,7 @@ def RubinBandpass(band, logger=None):
     Parameters
     ----------
     band : `str`
-        The name of the bandpass.  One of u,g,r,i,z,Y.
+        The name of the bandpass.  One of u,g,r,i,z,y.
     logger : logging.Logger
         If provided, a logger for logging debug statements.
     """
