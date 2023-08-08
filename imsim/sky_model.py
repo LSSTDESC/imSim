@@ -1,4 +1,5 @@
 
+import os
 import copy
 import warnings
 import numpy as np
@@ -133,35 +134,31 @@ def SkyLevel(config, base, value_type):
     value = sky_model.get_sky_level(base['world_center'])
     return value, False
 
-class RubinBandpass(galsim.Bandpass):
-    """One of the Rubin bandpasses, specified by the single-letter name.
+def RubinBandpass(band, logger=None):
+    """Return one of the Rubin bandpasses, specified by the single-letter name.
 
     The zeropoint is automatically set to the AB zeropoint normalization.
+
+    Parameters
+    ----------
+    band : `str`
+        The name of the bandpass.  One of u,g,r,i,z,Y.
+    logger : logging.Logger
+        If provided, a logger for logging debug statements.
     """
-
-    def __init__(self, band):
-        """
-        Parameters
-        ----------
-        band : `str`
-            The name of the bandpass.  One of u,g,r,i,z,Y.
-        """
-        # TODO: Should switch this to use lsst.sims versions.  GalSim files are pretty old.
-        if False:
-            # I (MJ) believe this is roughlty the code we would want to use here.
-            # But we aren't currently equipped to depend on lsst.sims, so this doesn't work.
-            from lsst.sims.photUtils import BandpassDict
-            bandpassDict = BandpassDict.loadBandpassesFromFiles()[0]
-            bandpass = bandpassDict[bandPassName]
-            index = np.where(bandpass.sb != 0)
-            func = galsim.LookupTable(x=bandpass.wavelen[index], f=bandpass.sb[index])
-            super().__init__(func, wave_type='nm')
-        else:
-            # For now we use the probably mostly close-enough GalSim files.
-            super().__init__('LSST_%s.dat'%band, wave_type='nm')
-
-        self.zeropoint = self.withZeropoint('AB').zeropoint
-
+    # This uses the baseline throughput files from lsst.sims
+    sims_dir = os.getenv("RUBIN_SIM_DATA_DIR")
+    file_name = os.path.join(sims_dir, "throughputs", "baseline", f"total_{band}.dat")
+    if not os.path.isfile(file_name):
+        # If the user doesn't have the RUBIN_SIM_DATA_DIR defined, or if they don't have
+        # the correct files installed, revert to the GalSim files.
+        logger = galsim.config.LoggerWrapper(logger)
+        logger.warning("Warning: Using the old bandpass files from GalSim, not lsst.sims")
+        file_name = f"LSST_{band}.dat"
+    bp = galsim.Bandpass(file_name, wave_type='nm')
+    bp = bp.thin()
+    bp = bp.withZeropoint('AB')
+    return bp
 
 class RubinBandpassBuilder(galsim.config.BandpassBuilder):
     """A class for building a RubinBandpass in the config file
@@ -179,6 +176,7 @@ class RubinBandpassBuilder(galsim.config.BandpassBuilder):
         """
         req = { 'band' : str }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req)
+        kwargs['logger'] = logger
         bp = RubinBandpass(**kwargs)
         logger.debug('bandpass = %s', bp)
         return bp, safe

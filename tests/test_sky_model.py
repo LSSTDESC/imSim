@@ -5,7 +5,8 @@ import json
 import logging
 import galsim
 from imsim import SkyModel, SkyGradient, make_batoid_wcs, RubinBandpass
-
+from unittest import mock
+from imsim_test_helpers import CaptureLog
 
 DATA_DIR = Path(__file__).parent / 'data'
 
@@ -31,7 +32,12 @@ def test_sky_model():
         expected_sky_levels = json.load(fobj)
 
     for band in 'ugrizy':
-        bandpass = RubinBandpass(band)
+        # This regression test used the GalSim bandpasses.
+        # So use them here by mocking that RUBIN_DATA_DIR is not defined.
+        with mock.patch('os.getenv', return_value=''):
+            with CaptureLog() as cl:
+                bandpass = RubinBandpass(band, logger=cl.logger)
+        assert "Using the old bandpass files" in cl.output
         sky_model = SkyModel(exptime, mjd, bandpass)
         sky_level = sky_model.get_sky_level(skyCoord)
         np.testing.assert_approx_equal(sky_level, expected_sky_levels[band],
