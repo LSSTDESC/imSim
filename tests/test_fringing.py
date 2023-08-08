@@ -22,7 +22,7 @@ def test_fringing():
     dec = -35.76
     wcs = make_batoid_wcs(ra, dec, rottelpos, mjd, band, 'LsstCam')
     
-    ccd_fringing = CCD_Fringing(img_wcs = wcs,c_wcs=[cra, cdec],seed = det_num, spatial_vary= True)
+    ccd_fringing = CCD_Fringing(img_wcs = wcs,boresight=[cra, cdec],seed = det_num, spatial_vary= True)
 
     fringe_map = ccd_fringing.calculate_fringe_amplitude(xarr,yarr)
     
