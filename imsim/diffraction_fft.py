@@ -164,16 +164,35 @@ def apply_diffraction_psf(
     if region_info is None:
         return
     region_row, region_col = region_info
-    img_region = image[region_row, region_col]
-    diffracted = scipy.signal.convolve2d(spike_per_pixel, img_region, mode="same")
-    # Set saturated pixels to 0 before adding the convoluted region.
-    # Otherwise, the saturated pixels would get brighter than before:
-    image[image > brightness_threshold] = 0.0
+    convolve_region(image, region_row, region_col, spike_per_pixel)
+
+
+def convolve_region(
+    image: np.ndarray, row_range: slice, col_range: slice, stencil: np.ndarray
+) -> None:
+    """Decomposes the image into image = image_saturated + image_rest,
+    and returns image_saturated * stencil + image_rest ("*" denotes convolution here).
+
+    Stencil is expected to have an odd number of rows / columns.
+
+    Details:
+    - image_saturated, image_rest have the same shape as image and image_saturated is 0
+      where image < brightness_threshold and is equal to image where
+      image >= brightness_threshold
+    - The convolution mentioned above preserves shape
+    - The above description is only conceptional, the implementation differs slightly
+    """
+    stencil_rows, stencil_cols = stencil.shape
+    img_region = image[row_range, col_range]
+    diffracted = scipy.signal.convolve2d(stencil, img_region, mode="full")
+    # Set original pixels of region to 0 before adding the convoluted region.
+    # Otherwise, saturated pixels would get brighter than before:
+    img_region[()] = 0.0
     add_image(
         image,
         diffracted,
-        row=region_row.start - psf_w,
-        col=region_col.start - psf_h,
+        row=row_range.start - (stencil_rows - 1) // 2,
+        col=col_range.start - (stencil_cols - 1) // 2,
     )
 
 

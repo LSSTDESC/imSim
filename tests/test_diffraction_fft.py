@@ -142,8 +142,34 @@ def create_test_config(
     return config
 
 
-XSIZE = YSIZE = 3500
-STAMP_SIZE = 1000
+def test_convolve_region_works():
+    image = np.array(
+        [
+            [0, 0, 0, 0, 0, -1],
+            [0, 0, 1, 1, 0, 0],
+            [0, 0, 1, 1, 0, 0],
+            [0, 0, 1, 1, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+        ]
+    )
+    row_range = slice(1, 4)
+    col_range = slice(2, 4)
+    stencil = np.array([
+        [0, 0, 1, 0, 0],
+        [1, 1, 2, 1, 1],
+        [0, 0, 1, 0, 0]
+    ])
+    diffraction_fft.convolve_region(image, row_range, col_range, stencil)
+    expected_image = np.array(
+        [
+            [0, 0, 1, 1, 0, -1],
+            [1, 2, 4, 4, 2, 1],
+            [1, 2, 5, 5, 2, 1],
+            [1, 2, 4, 4, 2, 1],
+            [0, 0, 1, 1, 0, 0],
+        ]
+    )
+    np.testing.assert_array_equal(image, expected_image)
 
 
 def test_add_image_works_for_overlay_contained_in_img():
@@ -204,9 +230,18 @@ def test_add_image_works_for_overlay_overlapping_img_rb():
 
 def test_add_image_works_for_covering_overlay():
     img_a = np.zeros((5, 6), dtype=int)
-    img_b = np.ones((7, 7), dtype=int)
-    diffraction_fft.add_image(img_a, img_b, -1, 0)
-    expected_img = np.ones((5, 6), dtype=int)
+    img_b = np.full((9, 9), 1)
+    img_b[4, 4] = 2
+    diffraction_fft.add_image(img_a, img_b, -2, -3)
+    expected_img = np.array(
+        [
+            [1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1],
+            [1, 2, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1],
+        ]
+    )
     np.testing.assert_array_equal(img_a, expected_img)
 
 
@@ -256,6 +291,10 @@ def generate_reference_data_from_raytracing(parameters):
         "slope_stderr": slope_stderr,
         "intercept_stderr": intercept_stderr,
     }
+
+
+XSIZE = YSIZE = 3500
+STAMP_SIZE = 1000
 
 
 def test_photon_and_pixel_distributions_match():
