@@ -121,7 +121,7 @@ class CCD_Fringing:
     as a function of pixel coordinates relative to the value at the 
     CCD center.
     """
-    def __init__(self,true_center,boresight,seed,spatial_vary):
+    def __init__(self, true_center, boresight, seed, spatial_vary):
         """
         Parameters
         ----------
@@ -141,7 +141,7 @@ class CCD_Fringing:
         self.spatial_vary = spatial_vary
         self.seed = seed
         
-    def generate_heightfield(self,fractal_dimension=2.5, n=4096):
+    def generate_heightfield(self, fractal_dimension=2.5, n=4096):
         '''
         # Use the spectral sythesis method to generate a heightfield
         '''
@@ -224,8 +224,8 @@ class CCD_Fringing:
         if (np.all(fringe_im) != True) or (True in np.isnan(fringe_im)):
             raise ValueError(" 0 or nan value in the fringe map!")
         fringe_im += 1
-        xx = np.linspace(0,fringe_im.shape[-1]-1,fringe_im.shape[-1],dtype= int)
-        yy = np.linspace(0, fringe_im.shape[0]-1,fringe_im.shape[0],dtype = int )
+        xx = np.linspace(0, fringe_im.shape[-1]-1, fringe_im.shape[-1], dtype= int)
+        yy = np.linspace(0, fringe_im.shape[0]-1, fringe_im.shape[0], dtype=int )
         interp_func = RegularGridInterpolator((xx, yy), fringe_im.T)
         
         return (interp_func((x,y)))

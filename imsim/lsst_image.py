@@ -58,6 +58,13 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
 
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
         self.apply_fringing = params.get('apply_fringing', False)
+        if self.apply_fringing:
+            try:
+                self.boresight = params.get('boresight')
+            except:
+                raise galsim.config.GalSimConfigError(
+                    "Boresight is missing in image config dict. This is required for fringing.")
+            
         self.camera_name = params.get('camera')
         
         try:
