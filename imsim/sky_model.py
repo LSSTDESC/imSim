@@ -121,7 +121,7 @@ class CCD_Fringing:
     as a function of pixel coordinates relative to the value at the 
     CCD center.
     """
-    def __init__(self,img_wcs,boresight,seed,spatial_vary):
+    def __init__(self,true_center,boresight,seed,spatial_vary):
         """
         Parameters
         ----------
@@ -136,7 +136,7 @@ class CCD_Fringing:
             Parameter controls whether to account for Sky line variation
             in the fringing model or not. Default is set to True.
         """
-        self.img_wcs = img_wcs
+        self.true_center = true_center
         self.boresight = boresight
         self.spatial_vary = spatial_vary
         self.seed = seed
@@ -178,7 +178,7 @@ class CCD_Fringing:
         X *= nwaves_rms / np.std(X.real)
         Z =  amp * np.cos(2 * n1 * (X.real))
         # Scale up to unity
-        Z  += 1
+        #Z  += 1
         return(Z)
 
         
@@ -201,19 +201,10 @@ class CCD_Fringing:
             with open(filename, 'rb') as f:
                 interp = pickle.load(f)
                 
-            dx = self.boresight[0] - self.img_wcs.center.ra.deg 
-            dy = self.boresight[1] - self.img_wcs.center.dec.deg
-            
+            dx, dy = self.boresight.project(self.true_center)
             # calculated OH flux level wrst the center of focal plane.
-            level = interp(dx,dy)/interp(0,0)
-            
-            # Check if the angluar offset of the current sensor is outside 
-            # the coverage field of the OH data we currently have. 
-            # Set variation level to unity if True, interpolated value if False.
-            if np.isnan(level):
-                return 1
-            else:
-                return level
+            level = interp(dx.deg,dy.deg)/interp(0,0)
+            return(level)
         else:
             return 1
         
@@ -230,6 +221,9 @@ class CCD_Fringing:
         """
         level = self.fringe_variation_level()
         fringe_im = self.simulate_fringes(amp=amplitude*level)
+        if (np.all(fringe_im) != True) or (True in np.isnan(fringe_im)):
+            raise ValueError(" 0 or nan value in the fringe map!")
+        fringe_im += 1
         xx = np.linspace(0,fringe_im.shape[-1]-1,fringe_im.shape[-1],dtype= int)
         yy = np.linspace(0, fringe_im.shape[0]-1,fringe_im.shape[0],dtype = int )
         interp_func = RegularGridInterpolator((xx, yy), fringe_im.T)

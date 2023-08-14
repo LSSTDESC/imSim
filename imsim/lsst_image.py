@@ -44,9 +44,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                          'nobjects' ]
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
                  'apply_sky_gradient': bool, 'apply_fringing': bool, 
-                 'boresight':galsim.CelestialCoord, 'camera': str, 'nbatch': int}
+                 'boresight': galsim.CelestialCoord, 'camera': str, 'nbatch': int}
         params = GetAllParams(config, base, opt=opt, ignore=ignore+extra_ignore)[0]
-
         size = params.get('size',0)
         full_xsize = params.get('xsize',size)
         full_ysize = params.get('ysize',size)
@@ -60,8 +59,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         self.apply_sky_gradient = params.get('apply_sky_gradient', False)
         self.apply_fringing = params.get('apply_fringing', False)
         self.camera_name = params.get('camera')
-        self.boresight = params.get('boresight')
-
+        
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
             self.nbatch = params.get('nbatch', 10)
@@ -270,21 +268,22 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             sky.array[:] *= self.vignetting.apply_to_radii(radii)
             
         if self.apply_fringing:
-            # get det number
-            det_num = base['output']['det_num']['current'][0]
-            # get boresight ra/dec
-            boresight = [self.boresight.ra.deg,self.boresight.dec.deg]
-
-            # Use det_num as random seed number to make sure the height map 
+            # Use serial number as random seed number to make sure the height map 
             # for the same sensor is the same for different exposures.
-            ccd_fringing = CCD_Fringing(img_wcs = image.wcs,boresight = boresight,
-                                      seed = det_num, spatial_vary= True)
-            
-            ny, nx = sky.array.shape
-            xarr, yarr = np.meshgrid(range(nx), range(ny))
-            logger.info("Apply fringing")
-            sky.array[:] *= ccd_fringing.calculate_fringe_amplitude(xarr,yarr)
-            
+            camera = get_camera(self.camera_name)
+            det_name = base['det_name']
+            serial_number = camera[det_name].getSerial()
+            # Only apply fringing to e2v sensors.
+            if serial_number[:3] == 'E2V':
+                ccd_fringing = CCD_Fringing(true_center=image.wcs.toWorld(image.true_center),
+                                            boresight=self.boresight,
+                                            seed=serial_number, spatial_vary=True)
+                ny, nx = sky.array.shape
+                xarr, yarr = np.meshgrid(range(nx), range(ny))
+                logger.info("Apply fringing")
+                fringnig_map = ccd_fringing.calculate_fringe_amplitude(xarr,yarr)
+                sky.array[:] *= fringnig_map
+                
         image += sky
         AddNoise(base,image,current_var,logger)
 
