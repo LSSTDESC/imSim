@@ -5,7 +5,7 @@ Installation Instructions
 
    If you find that parts of this document are out of date or are incorrect, please submit a bug report `here <https://github.com/LSSTDESC/imSim/issues>`_.
 
-   These instructions were last updated June of 2023.
+   These instructions were last updated August of 2023.
 
 
 .. warning::
@@ -31,7 +31,7 @@ First you need to setup the science pipelines.  This involves sourcing a setup f
 
 .. note::
 
-   You will need at least version  ``w_2023_27`` of the science pipelines to complete these instructions.
+   You will need at least version  ``w_2023_32`` of the science pipelines to complete these instructions.
 
    Also note: the cvmfs distribution is a read-only distribution.  This means you cannot add packages to the included conda environment and packages you install via *pip* will be installed in the user area.  If you need a *conda*  environment you can modify while running *imSim*, then you may consider :ref:`method_2` below.
 
