@@ -44,7 +44,7 @@ def test_fringing():
                                 seed=serial_num, spatial_vary=True)
     # Test zero value error
     with pytest.raises(ValueError):
-        ccd_fringing.calculate_fringe_amplitude(xarr, yarr, amplitude = 0)
+        ccd_fringing.calculate_fringe_amplitude(xarr, yarr, amplitude=0)
 
     fringe_map = ccd_fringing.calculate_fringe_amplitude(xarr,yarr)
     
