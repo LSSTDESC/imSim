@@ -9,15 +9,14 @@
 # input.instance_catalog.filename
 #
 
-# Get most of the configuration from the imSim config-template
-# for instance catalogs.
+# Get most of the configuration from the base imSim config template.
 template: imsim-config
 
-################################################################
-#  Above is template material.
+####################################################################
+#  The following entries are added to the base configuration above.
 #
-#  The following entires are added  to the base configuration above.
-################################################################
+#  Add entries for reading instance catalogs.
+####################################################################
 
 input.instance_catalog:
     # This should be overridden below or on the command line.
@@ -25,9 +24,9 @@ input.instance_catalog:
     sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
 
 input.opsim_data:
-    # Read the visit meta data by default we use the same file as the input.
-    # However you could specify a opsim file or a another instance catalog
-    # instead.
+    # Read the visit meta data. By default, we use the same file as the above
+    # instance catalog with the object information. However, you could specify
+    # an opsim file or another instance catalog instead.
     file_name: '@input.instance_catalog.file_name'
 
 # Define the galaxy type and positions to use
