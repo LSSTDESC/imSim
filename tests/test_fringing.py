@@ -46,6 +46,7 @@ def test_fringing():
     with pytest.raises(ValueError):
         ccd_fringing.calculate_fringe_amplitude(xarr, yarr, amplitude=0)
 
+    # Test when spatial vary is True.
     fringe_map = ccd_fringing.calculate_fringe_amplitude(xarr,yarr)
     
     # Check std of the diagnoal of fringe map.
@@ -55,6 +56,26 @@ def test_fringing():
     np.testing.assert_approx_equal(fringe_map.max(), 1.00205, significant=4)
     np.testing.assert_approx_equal(fringe_map.min(), 0.99794, significant=4)
     
+    # Test when spatial vary is False. The fringe amplitude should be the same for 
+    # sensors at different locations
+
+    ccd_fringing_1 = CCD_Fringing(true_center=image.wcs.toWorld(image.true_center),
+                                boresight=world_center,
+                                seed=serial_num, spatial_vary=False)
+    fringe_map1 = ccd_fringing_1.calculate_fringe_amplitude(xarr,yarr)
+    
+    # Try another random location on the focal plane.
+    ra = 58.86
+    dec = -38.76
+    wcs = make_batoid_wcs(ra, dec, rottelpos, mjd, band, 'LsstCam')
+    
+    ccd_fringing_2 = CCD_Fringing(true_center=image.wcs.toWorld(image.true_center),
+                                boresight=world_center,
+                                seed=serial_num, spatial_vary=False)
+    fringe_map2 = ccd_fringing_2.calculate_fringe_amplitude(xarr,yarr)
+    # Check if the two fringing maps are indentical.
+    if np.array_equal(fringe_map1,fringe_map2) != True:
+        raise ValueError("Fringe amplitude should be the same for sensors when spatial vary is False.")
     
 if __name__ == '__main__':
     test_fringing()
