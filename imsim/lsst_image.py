@@ -275,8 +275,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             sky.array[:] *= self.vignetting.apply_to_radii(radii)
             
         if self.apply_fringing:
-            # Use serial number as random seed number to make sure the height map 
-            # for the same sensor is the same for different exposures.
+            # Use the hash value of the serial number as random seed number to 
+            # make sure the height map of the same sensor remains unchanged for different exposures.
             camera = get_camera(self.camera_name)
             det_name = base['det_name']
             serial_number = camera[det_name].getSerial()
@@ -284,7 +284,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             if serial_number[:3] == 'E2V':
                 ccd_fringing = CCD_Fringing(true_center=image.wcs.toWorld(image.true_center),
                                             boresight=self.boresight,
-                                            seed=int(serial_number[-3:]), spatial_vary=True)
+                                            seed=hash(serial_number), spatial_vary=True)
                 ny, nx = sky.array.shape
                 xarr, yarr = np.meshgrid(range(nx), range(ny))
                 logger.info("Apply fringing")
