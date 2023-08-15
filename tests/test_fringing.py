@@ -1,7 +1,5 @@
 import numpy as np
-import sys
 import pytest
-sys.path.append('/hpc/home/zg64/IMSIM/imSim')
 from imsim import make_batoid_wcs, CCD_Fringing
 import galsim
 
