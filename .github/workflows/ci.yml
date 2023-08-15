@@ -17,7 +17,6 @@ jobs:
 
         strategy:
             matrix:
-                # For now, just ubuntu, 3.10.  Can add more later.
                 os: [ ubuntu-latest ]
                 py: [ "3.11" ]
                 CC: [ gcc ]
