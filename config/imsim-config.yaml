@@ -7,8 +7,6 @@
 # E.g. galsim_extra has some useful routines we might want to use.  (But I don't here.)
 modules:
     - imsim
-    - astropy  # I don't really understand why this is required.  But if only have astropy.time
-               # then I get a NameError when trying to parse astropy.time.Time.
     - astropy.time  # Need this for an Eval.  Tell GalSim to have it loaded.
 
 # Anything set here can be used in any Eval (usually a string that starts with $) as a variable.

@@ -3,9 +3,15 @@ Installation Instructions
 
 .. note::
 
-   If you find that parts of this document are out of date or are incorrect, please submit a bug report `here <https://github.com/LSSTDESC/imSim/issues>`_.
+   **Pre-requisites**:
 
-   These instructions were last updated June of 2023.
+   To use **imSim 2.0** at least versions
+
+   **GalSim 2.4.11** and **skyCatalogs v1.5.0rc2**
+
+   are required. The instructions below for the cvmfs and stackvana installations should automatically fulfill these requirements for you.  If you are using a different installation method, please ensure that you have met these requirements.
+
+   These instructions were last updated August of 2023. If you find that parts of this document are out of date or are incorrect, please submit a bug report `here <https://github.com/LSSTDESC/imSim/issues>`_.
 
 
 .. warning::
@@ -31,7 +37,7 @@ First you need to setup the science pipelines.  This involves sourcing a setup f
 
 .. note::
 
-   You will need at least version  ``w_2023_27`` of the science pipelines to complete these instructions.
+   You will need at least version  ``w_2023_32`` of the science pipelines to complete these instructions.
 
    Also note: the cvmfs distribution is a read-only distribution.  This means you cannot add packages to the included conda environment and packages you install via *pip* will be installed in the user area.  If you need a *conda*  environment you can modify while running *imSim*, then you may consider :ref:`method_2` below.
 

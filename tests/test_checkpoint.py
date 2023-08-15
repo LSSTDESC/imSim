@@ -169,7 +169,12 @@ def test_checkpoint_image():
     os.remove('output/checkpoint_0.hdf')
     os.remove('output/test_checkpoint_image_0.fits.fz')
     os.remove('output/test_checkpoint_centroid_0.fits')
-    del galsim.config.valid_extra_outputs['truth'].cat
+    del galsim.config.valid_extra_outputs['truth'].final_data
+    try:
+        del galsim.config.valid_extra_outputs['truth'].cat
+    except AttributeError:
+        # This is only on GalSim 2.4 series.
+        pass
 
     logger = logging.getLogger('test_checkpoint')
     logger.setLevel(logging.INFO)

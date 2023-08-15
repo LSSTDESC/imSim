@@ -359,4 +359,4 @@ class TelescopeLoader(InputLoader):
         det_telescope = input_obj.get_telescope(z_offset)
         base['det_telescope'] = det_telescope
 
-RegisterInputType('telescope', TelescopeLoader(DetectorTelescope))
+RegisterInputType('telescope', TelescopeLoader(DetectorTelescope, file_scope=True))
