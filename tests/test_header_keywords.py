@@ -6,6 +6,7 @@ import logging
 from astropy.io import fits
 import numpy as np
 import galsim
+import imsim
 
 
 def run_imsim(camera):
