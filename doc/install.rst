@@ -3,9 +3,15 @@ Installation Instructions
 
 .. note::
 
-   If you find that parts of this document are out of date or are incorrect, please submit a bug report `here <https://github.com/LSSTDESC/imSim/issues>`_.
+   **Pre-requisites**:
 
-   These instructions were last updated August of 2023.
+   To use **imSim 2.0** at least versions
+
+   **GalSim 2.4.11** and **skyCatalogs v1.5.0rc2**
+
+   are required. The instructions below for the cvmfs and stackvana installations should automatically fulfill these requirements for you.  If you are using a different installation method, please ensure that you have met these requirements.
+
+   These instructions were last updated August of 2023. If you find that parts of this document are out of date or are incorrect, please submit a bug report `here <https://github.com/LSSTDESC/imSim/issues>`_.
 
 
 .. warning::
