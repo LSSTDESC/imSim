@@ -6,7 +6,6 @@ import logging
 from astropy.io import fits
 import numpy as np
 import galsim
-import imsim
 
 
 def run_imsim(camera):
@@ -24,7 +23,8 @@ def run_imsim(camera):
 
     only_dets = ['R22_S11', 'R01_S00', 'R42_S21', 'R34_S22', 'R03_S02']
 
-    config = {'template': template,
+    config = {'modules': ['imsim'],
+              'template': template,
               'input.instance_catalog.file_name': instcat_file,
               'input.opsim_data.file_name': instcat_file,
               'input.tree_rings.only_dets': only_dets,
