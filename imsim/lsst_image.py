@@ -284,7 +284,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             if serial_number[:3] == 'E2V':
                 ccd_fringing = CCD_Fringing(true_center=image.wcs.toWorld(image.true_center),
                                             boresight=self.boresight,
-                                            seed=serial_number, spatial_vary=True)
+                                            seed=int(serial_number[-3:]), spatial_vary=True)
                 ny, nx = sky.array.shape
                 xarr, yarr = np.meshgrid(range(nx), range(ny))
                 logger.info("Apply fringing")
