@@ -125,13 +125,16 @@ class CCD_Fringing:
         """
         Parameters
         ----------
-        img_wcs : 
-            WCS of the current image.
-        boresight : `array`
-            Array stores the center RA/DEC of boresight.
+        true_center : 
+            Center of the current image.
+        boresight : `CelestialCoord`
+            Boresight of the current pointing. 
+            This is projected to the true_center to get the angular offset 
+            from FoV center for each CCD.
         seed : `int`
             Random seed number for each CCD. 
-            This number should be the det_num for the current sensor
+            This is the hash value computed for the current sensor based on
+            its serial number.
         spatial_vary : `bool`
             Parameter controls whether to account for Sky line variation
             in the fringing model or not. Default is set to True.
