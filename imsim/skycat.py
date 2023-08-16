@@ -6,7 +6,7 @@ import numpy as np
 import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
     RegisterObjectType
-from desc.skycatalogs import skyCatalogs
+from skycatalogs import skyCatalogs
 
 
 class SkyCatalogInterface:
