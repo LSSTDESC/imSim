@@ -38,11 +38,9 @@ class DiffractionFFT:
     @classmethod
     def from_config(cls, config: dict, base: dict) -> "DiffractionFFT":
         """Create a DiffractionFFT from config values."""
-        if 'diffraction_fft' not in config:
-            return None
         req = {f.name: f.type for f in fields(cls) if f.default is MISSING}
         opt = {f.name: f.type for f in fields(cls) if f.default is not MISSING}
-        kwargs, _safe = GetAllParams(config['diffraction_fft'], base, req=req, opt=opt)
+        kwargs, _safe = GetAllParams(config, base, req=req, opt=opt)
         return cls(**kwargs)
 
 
@@ -109,7 +107,10 @@ class LSST_SiliconBuilder(StampBuilder):
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
         self.gal = gal
 
-        self.diffraction_fft = DiffractionFFT.from_config(config, base)
+        if 'diffraction_fft' in config:
+            self.diffraction_fft = DiffractionFFT.from_config(config['diffraction_fft'], base)
+        else:
+            self.diffraction_fft = None
 
         # Compute or retrieve the realized flux.
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
@@ -162,10 +163,9 @@ class LSST_SiliconBuilder(StampBuilder):
                 logger.debug('From: noise_var = %s, flux = %s',noise_var,self.realized_flux)
                 gsparams = galsim.GSParams(folding_threshold=folding_threshold)
 
-            opt = { 'airmass': float, 'rawSeeing': float, 'band': str }
-            kwargs = galsim.config.GetAllParams(config, base, opt=opt)[0]
-            # This ends up with all the keys we made earlier.  Select just these three.
-            kwargs = { k:v for k,v in kwargs.items() if k in opt }
+            # Grab the three parameters we need for Kolmogorov_and_Gaussian_PSF.
+            keys = ('airmass', 'rawSeeing', 'band')
+            kwargs = { k:v for k,v in params.items() if k in keys }
             psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams, **kwargs)
             image_size = psf.getGoodImageSize(self._pixel_scale)
             # No point in this being larger than a CCD.  Cut back to Nmax if larger than this.
