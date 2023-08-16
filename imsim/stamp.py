@@ -56,8 +56,6 @@ class LSST_SiliconBuilder(StampBuilder):
                               wave_type='nm', flux_type='fphotons')
     _Nmax = 4096  # (Don't go bigger than 4096)
 
-    diffraction_fft: DiffractionFFT
-
     def setup(self, config, base, xsize, ysize, ignore, logger):
         """
         Do the initialization and setup for building a postage stamp.
