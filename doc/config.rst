@@ -519,6 +519,12 @@ Required keywords to set:
 
     * ``det_name`` = *str_value* (only required if doing vignetting) The name of the detector.
 
+      .. note::
+            If using the output type LSST_CCD, then ``det_name`` will automatically be added
+            to the ``eval_variables`` section for you.  In this case, you can simply use
+            ``det_name: '$det_name'``.  If not using LSST_CCD, then the value should be of a
+            form such as R22_S11.  (This is the central CCD in the focal plane.)
+
 Optional keywords to set:
 """""""""""""""""""""""""
     * ``fft_sb_threshold`` = *float_value* (default = 0) Over this number of counts, use a FFT instead of photon shooting for speed.  If set to 0 don't ever switch to FFT.
