@@ -65,7 +65,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             else:
                 self.boresight = params.get('boresight')
 
-        self.camera_name = params.get('camera')
+        self.camera_name = params.get('camera', 'LsstCam')
 
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')

@@ -39,7 +39,11 @@ class LSST_CCDBuilder(OutputBuilder):
 
         # Figure out the detector name for the file name.
         detnum = galsim.config.ParseValue(config, 'det_num', base, int)[0]
-        camera = get_camera(config['camera'])
+        if 'camera' in config:
+            camera_name = galsim.config.ParseValue(config, 'camera', base, str)[0]
+        else:
+            camera_name = 'LsstCam'
+        camera = get_camera(camera_name)
         if 'only_dets' in config:
             only_dets = config['only_dets']
             det_name = only_dets[detnum]
