@@ -78,6 +78,12 @@ def test_fringing():
 
     np.testing.assert_allclose(config_sky_image.array, sky_image.array)
 
+    # If boresight is missing, it raises an exception
+    config = galsim.config.CleanConfig(config)
+    del config['image']['boresight']
+    with np.testing.assert_raises(galsim.GalSimConfigError):
+        galsim.config.BuildImage(config)
+
     # Test when spatial vary is False. The fringe amplitude should be the same for
     # sensors at different locations
 
