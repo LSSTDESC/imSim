@@ -216,7 +216,85 @@ def test_opd_wavelength():
             galsim.config.SetupExtraOutput(config)
 
 
+def test_opd_phase():
+    """Test that we can add a phase that zeros out the OPD"""
+    with TemporaryDirectory() as d:
+        # Write out an OPD at the bandpass effective wavelength
+        config = textwrap.dedent(
+            f"""
+            input:
+                telescope:
+                    file_name: LSST_r.yaml
+            image:
+                bandpass:
+                    file_name: LSST_r.dat
+                    wave_type: nm
+            output:
+                dir: {d}
+                opd:
+                    file_name: opd1.fits
+                    fields:
+                        - {{thx: 1.121 deg, thy: 1.231 deg}}
+                    eps: 0.612
+            """
+        )
+        config = yaml.safe_load(config)
+        galsim.config.ProcessInput(config)
+        galsim.config.SetupExtraOutput(config)
+        galsim.config.SetupConfigFileNum(config, 0, 0, 0)
+        galsim.config.extra.WriteExtraOutputs(config, None)
+        fn = Path(d) / "opd1.fits"
+        hdr = fits.getheader(fn)
+
+        zk = np.zeros(29)
+        for i in range(1, 29):
+            zk[i] = hdr[f'AZ_{i:03d}']
+
+        # Write a new config with phases to zero out the OPD
+        config = textwrap.dedent(
+            f"""
+            input:
+                telescope:
+                    file_name: LSST_r.yaml
+                    fea:
+                        extra_zk:
+                            zk: {(zk*1e-9).tolist()}
+                            eps: 0.612
+            image:
+                bandpass:
+                    file_name: LSST_r.dat
+                    wave_type: nm
+            output:
+                dir: {d}
+                opd:
+                    file_name: opd2.fits
+                    fields:
+                        - {{thx: 1.121 deg, thy: 1.231 deg}}
+            """
+        )
+        config = yaml.safe_load(config)
+        galsim.config.ProcessInput(config)
+        galsim.config.SetupExtraOutput(config)
+        galsim.config.SetupConfigFileNum(config, 0, 0, 0)
+        galsim.config.extra.WriteExtraOutputs(config, None)
+        fn2 = Path(d) / "opd2.fits"
+        hdr2 = fits.getheader(fn2)
+
+        zk2 = np.zeros(29)
+        for i in range(1, 29):
+            zk2[i] = hdr2[f'AZ_{i:03d}']
+
+        # Tricky to zero-out tip and tilt since these also depend strongly on
+        # the position of the chief ray.  But other zks should be close to zero
+        # now.  Test to 0.03 nm, which is much smaller than the initial zks
+        # which were in the ~10-100 nm range.
+        np.testing.assert_allclose(
+            zk2[4:], 0.0,
+            atol=0.03, rtol=0.0
+        )
+
 
 if __name__ == '__main__':
     test_opd_zemax()
     test_opd_wavelength()
+    test_opd_phase()
