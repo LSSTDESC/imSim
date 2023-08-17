@@ -11,7 +11,7 @@ from .camera import get_camera
 
 
 @dataclass
-class DiffractionPSF:
+class DiffractionFFT:
     exptime: float
     azimuth: galsim.Angle
     altitude: galsim.Angle
@@ -36,14 +36,11 @@ class DiffractionPSF:
             )
 
     @classmethod
-    def from_config(cls, config: dict, base: dict) -> "DiffractionPSF":
-        """Create a DiffractionPSF from config values."""
-        req_fields = {f.name: f.type for f in fields(cls) if f.default is MISSING}
-        opt_fields = {f.name: f.type for f in fields(cls) if f.default is not MISSING}
-        diffraction_psf_config = config.get("diffraction_psf", {})
-        kwargs, _safe = GetAllParams(
-            diffraction_psf_config, base, req=req_fields, opt=opt_fields
-        )
+    def from_config(cls, config: dict, base: dict) -> "DiffractionFFT":
+        """Create a DiffractionFFT from config values."""
+        req = {f.name: f.type for f in fields(cls) if f.default is MISSING}
+        opt = {f.name: f.type for f in fields(cls) if f.default is not MISSING}
+        kwargs, _safe = GetAllParams(config, base, req=req, opt=opt)
         return cls(**kwargs)
 
 
@@ -58,8 +55,6 @@ class LSST_SiliconBuilder(StampBuilder):
     _trivial_sed = galsim.SED(galsim.LookupTable([100, 2000], [1,1], interpolant='linear'),
                               wave_type='nm', flux_type='fphotons')
     _Nmax = 4096  # (Don't go bigger than 4096)
-
-    diffraction_psf: DiffractionPSF
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
         """
@@ -88,11 +83,21 @@ class LSST_SiliconBuilder(StampBuilder):
         # First do a parsing check to make sure that all the options passed to
         # the config are valid, and no required options are missing.
 
-        req = {'diffraction_psf': dict, 'det_name': str}
-        opt = {'camera': str}
-        # For the optional ones we don't need here, can put in ignore, and they will still
-        # be allowed, but not required.
-        ignore = ['fft_sb_thresh', 'band', 'airmass', 'rawSeeing', 'max_flux_simple'] + ignore
+        try:
+            self.vignetting = GetInputObj('vignetting', config, base, 'LSST_SiliconBuilder')
+        except galsim.config.GalSimConfigError:
+            self.vignetting = None
+
+        req = {}
+        opt = {'camera': str, 'diffraction_fft': dict,
+               'airmass': float, 'rawSeeing': float, 'band': str}
+        if self.vignetting:
+            req['det_name'] = str
+        else:
+            opt['det_name'] = str
+        # For the optional ones we parse manually, we can put in ignore, and they will
+        # still be allowed, but not required.
+        ignore = ['fft_sb_thresh', 'max_flux_simple'] + ignore
         params = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)[0]
 
         gal = galsim.config.BuildGSObject(base, 'gal', logger=logger)[0]
@@ -100,20 +105,18 @@ class LSST_SiliconBuilder(StampBuilder):
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
         self.gal = gal
 
-        self.diffraction_psf = DiffractionPSF.from_config(config, base)
-
-        try:
-            self.vignetting = GetInputObj('vignetting', config, base,
-                                          'LSST_SiliconBuilder')
-        except galsim.config.GalSimConfigError:
-            self.vignetting = None
+        if 'diffraction_fft' in config:
+            self.diffraction_fft = DiffractionFFT.from_config(config['diffraction_fft'], base)
+        else:
+            self.diffraction_fft = None
 
         # Compute or retrieve the realized flux.
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
         bandpass = base['bandpass']
         self.image = base['current_image']
         camera = get_camera(params.get('camera', 'LsstCam'))
-        self.det = camera[params['det_name']]
+        if self.vignetting:
+            self.det = camera[params['det_name']]
         if not hasattr(gal, 'flux'):
             # In this case, the object flux has not been precomputed
             # or cached by the skyCatalogs code.
@@ -158,13 +161,10 @@ class LSST_SiliconBuilder(StampBuilder):
                 logger.debug('From: noise_var = %s, flux = %s',noise_var,self.realized_flux)
                 gsparams = galsim.GSParams(folding_threshold=folding_threshold)
 
-            airmass = galsim.config.ParseValue(config, 'airmass', base, float)[0]
-            rawSeeing = galsim.config.ParseValue(config, 'rawSeeing', base, float)[0]
-            band = galsim.config.ParseValue(config, 'band', base, str)[0]
-            psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams,
-                                                   airmass=airmass,
-                                                   rawSeeing=rawSeeing,
-                                                   band=band)
+            # Grab the three parameters we need for Kolmogorov_and_Gaussian_PSF.
+            keys = ('airmass', 'rawSeeing', 'band')
+            kwargs = { k:v for k,v in params.items() if k in keys }
+            psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams, **kwargs)
             image_size = psf.getGoodImageSize(self._pixel_scale)
             # No point in this being larger than a CCD.  Cut back to Nmax if larger than this.
             image_size = min(image_size, self._Nmax)
@@ -615,7 +615,8 @@ class LSST_SiliconBuilder(StampBuilder):
                 raise
             # Some pixels can end up negative from FFT numerics.  Just set them to 0.
             fft_image.array[fft_image.array < 0] = 0.
-            self.diffraction_psf.apply(fft_image, bandpass.effective_wavelength)
+            if self.diffraction_fft:
+                self.diffraction_fft.apply(fft_image, bandpass.effective_wavelength)
             fft_image.addNoise(galsim.PoissonNoise(rng=self.rng))
             # In case we had to make a bigger image, just copy the part we need.
             image += fft_image[image.bounds]

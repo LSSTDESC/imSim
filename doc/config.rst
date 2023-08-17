@@ -274,7 +274,8 @@ Key Name: atmosphericPSF
 This keyword enables an atmospheric PSF with 6 randomly generated atmospheric screens.  Photons are raytraced through this atmosphere to produce a realistic atmospheric PSF.
 
 .. warning::
-    You should not attempt to use the option to add parametric optics (through the ``doOpt`` option) if you are using fully ray-traced optics.  Otherwise, you will simulate the optics twice.  See See :ref:`the stamp keyword <stamp-label>` below how to activate the ray-traced mode.
+
+    You should not attempt to use the option to add parametric optics (through the ``doOpt`` option) if you are using fully ray-traced optics.  Otherwise, you will simulate the optics twice.  See :ref:`the stamp keyword <stamp-label>` below how to activate the ray-traced mode.
 
 
 Required keywords to set:
@@ -518,11 +519,13 @@ Stamp Type: LSST_Silicon
 Required keywords to set:
 """""""""""""""""""""""""
 
-    * ``airmass`` = *float_value* (default = 1.2) The airmass to use in FFTs
-    * ``rawseeing`` = *float_value* (default = 0.7) The FWHM seeing at zenith at 500 nm in arc seconds for FFTs.
-    * ``band`` = *str_value* (default = None) The filter band of the observation.
-    * ``det_name`` = *str_value* The name of the detector.
+    * ``det_name`` = *str_value* (only required if doing vignetting) The name of the detector.
 
+      .. note::
+            If using the output type LSST_CCD, then ``det_name`` will automatically be added
+            to the ``eval_variables`` section for you.  In this case, you can simply use
+            ``det_name: '$det_name'``.  If not using LSST_CCD, then the value should be of a
+            form such as R22_S11.  (This is the central CCD in the focal plane.)
 
 Optional keywords to set:
 """""""""""""""""""""""""
@@ -531,11 +534,12 @@ Optional keywords to set:
     * ``method`` = *str_value* (default = 'auto') Choose between automatically deciding whether to use a FFT of photon shooting ('auto') or manually choose between 'fft' and 'phot'.
     * ``maxN`` = *int_value* (detault = 1.0e6) Set limit on the size of photons batches when drawing the image.
     * ``camera`` = *str_value* (default = 'LsstCam') The name of the camera to use.
+    * ``diffraction_fft`` = *dict* (optional) Parameters for implementing the diffraction spikes of FFT-rendered objects. See below.
+    * ``airmass`` = *float_value* (default = 1.2) The airmass to use when estimating the stamp size to use for FFTs
+    * ``rawSeeing`` = *float_value* (default = 0.7) The FWHM seeing at zenith at 500 nm in arc seconds to use when calculating the stamp size to use for FFTs.
+    * ``band`` = *str_value* (default = 'r') The filter band of the observation to use when estimating the stamp size to use for FFTs.
 
-
-Note there is an extra required diffraction_psf keyword you must include in the stamp section above that configures how diffraction passing through the telescope spiders is handled.  Here is how to configure it.
-
-Key Name: diffraction_psf:
+Key Name: diffraction_fft:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Required keywords to set:
@@ -580,7 +584,11 @@ Optional keywords to set:
 type: **RubinDiffraction**
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Apply diffractive Effects.
+Apply diffractive effects.
+
+.. warning::
+
+    This only applies to objects rendering using photon shooting.  To be consistent, if you use this, you should also set diffraction_fft as described above.)
 
 Required keywords to set:
 """""""""""""""""""""""""
