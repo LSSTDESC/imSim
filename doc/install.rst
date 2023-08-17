@@ -7,7 +7,7 @@ Installation Instructions
 
    To use **imSim 2.0** at least versions
 
-   **GalSim 2.4.11** and **skyCatalogs v1.5.0rc2**
+   **GalSim 2.4.11** and **skyCatalogs v1.6.0rc2**
 
    are required. The instructions below for the cvmfs and stackvana installations should automatically fulfill these requirements for you.  If you are using a different installation method, please ensure that you have met these requirements.
 
