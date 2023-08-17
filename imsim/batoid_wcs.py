@@ -15,7 +15,7 @@ from galsim.config import WCSBuilder, RegisterWCSType, GetInputObj
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 from .camera import get_camera
 from .utils import pixel_to_focal, focal_to_pixel
-
+from .bandpass import RubinBandpass
 
 # There are 5 coordinate systems to handle.  In order:
 #   ICRF (rc, dc)
@@ -566,7 +566,7 @@ class BatoidWCSBuilder(WCSBuilder):
 
         if wavelength is None:
             if isinstance(bandpass, str):
-                bandpass = galsim.Bandpass('LSST_%s.dat'%bandpass, wave_type='nm')
+                bandpass = RubinBandpass(bandpass)
             wavelength = bandpass.effective_wavelength
 
         if temperature is None:

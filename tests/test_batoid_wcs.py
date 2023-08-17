@@ -564,7 +564,7 @@ def test_config():
 
     # Default wavelength from bandpass
     del config['image']['wcs']['wavelength']
-    config['bandpass'] = galsim.Bandpass('LSST_r.dat', 'nm')
+    config['bandpass'] = imsim.RubinBandpass('r')
     galsim.config.RemoveCurrent(config['image']['wcs'])
     config = galsim.config.CleanConfig(config)
     galsim.config.ProcessInput(config)
@@ -581,8 +581,8 @@ def test_config():
 
     del config['bandpass']
     config['image']['bandpass'] = {
-        'file_name' : 'LSST_r.dat',
-        'wave_type' : 'nm',
+        'type': 'RubinBandpass',
+        'band' : 'r',
     }
     galsim.config.RemoveCurrent(config['image']['wcs'])
     config = galsim.config.CleanConfig(config)

@@ -25,7 +25,7 @@ class TreeRingsTestCase(unittest.TestCase):
         """Check reading of tree_ring_parameters file"""
         opsim_data = imsim.OpsimDataLoader(self.instcat_file)
         band = opsim_data['band']
-        bp = galsim.Bandpass('LSST_%s.dat'%band, wave_type='nm')
+        bp = imsim.RubinBandpass(band)
 
         tr_filename = os.path.join(imsim.data_dir, 'tree_ring_data',
                                    'tree_ring_parameters_19mar18.txt')

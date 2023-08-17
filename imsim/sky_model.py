@@ -5,7 +5,6 @@ import numpy as np
 import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
 
-
 RUBIN_AREA = 0.25 * np.pi * 649**2  # cm^2
 
 
@@ -133,7 +132,6 @@ def SkyLevel(config, base, value_type):
     sky_model = galsim.config.GetInputObj('sky_model', config, base, 'SkyLevel')
     value = sky_model.get_sky_level(base['world_center'])
     return value, False
-
 
 RegisterInputType('sky_model', SkyModelLoader(SkyModel))
 RegisterValueType('SkyLevel', SkyLevel, [float], input_type='sky_model')

@@ -246,7 +246,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         ######## test that fluxes are correctly calculated
 
-        bp = galsim.Bandpass('LSST_%s.dat'%md['band'], wave_type='nm').withZeropoint('AB')
+        bp = imsim.RubinBandpass(md['band'])
 
         for det_name in all_wcs:
             wcs = all_wcs[det_name]
@@ -413,7 +413,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
         ######## test that fluxes are correctly calculated
 
-        bp = galsim.Bandpass('LSST_%s.dat'%md['band'], wave_type='nm').withZeropoint('AB')
+        bp = imsim.RubinBandpass(md['band'])
 
         for det_name in all_wcs:
             wcs = all_wcs[det_name]

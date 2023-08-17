@@ -54,7 +54,7 @@ input:
             type: FormattedStr
             format : LSST_%s.yaml
             items:
-                - { type: OpsimData, field: band }
+                - "$band"
         rotTelPos: $rotTelPos
 
     sky_model:
@@ -69,7 +69,7 @@ input:
         # The first 4 items are required.
         airmass: { type: OpsimData, field: airmass }
         rawSeeing:  { type: OpsimData, field: rawSeeing }
-        band:  { type: OpsimData, field: band }
+        band: "$band"
         boresight: "$boresight"
 
         # Optional parameters:  (Unless otherwise stated, these are the default values.)
@@ -123,7 +123,7 @@ image:
     xsize: "$xsize"
     ysize: "$ysize"
 
-    bandpass: { type: OpsimBandpass }
+    bandpass: { type: RubinBandpass, band: "$band" }
 
     wcs:
         type: Batoid
@@ -201,7 +201,7 @@ stamp:
     max_flux_simple: 100  # When to switch to simple SED
     airmass: { type: OpsimData, field: airmass }
     rawSeeing:  { type: OpsimData, field: rawSeeing }
-    band:  { type: OpsimData, field: band }
+    band: "$band"
     camera: "@output.camera"
     det_name: "$det_name"  # This is automatically defined by the LSST_CCD output type.
 
@@ -251,7 +251,6 @@ stamp:
                 # TODO: Figure out the depth to use for other bands.  Josh found -0.6 for y.
                 # These numbers are in units of pixels.
                 ddepth_dict: {'u':0, 'g':0, 'r':0, 'i':0, 'z':0, 'y':-0.6}
-                sband: { type: OpsimData, field: band }
         -
             type: Refraction
             index_ratio: 3.9  # TODO: This is what Josh used for y band.
@@ -283,7 +282,7 @@ output:
         items:
             - { type: OpsimData, field: observationId }
             - { type: OpsimData, field: snap }
-            - { type: OpsimData, field: band }
+            - "$band"
             - "$det_name"   # A value stored in the dict by LSST_CCD
             - "@output.det_num"
 
@@ -302,7 +301,7 @@ output:
             items:
                 - { type: OpsimData, field: observationId }
                 - { type: OpsimData, field: snap }
-                - { type: OpsimData, field: band }
+                - "$band"
                 - "$det_name"
                 - "@output.det_num"
 
@@ -314,7 +313,7 @@ output:
             items:
                 - { type: OpsimData, field: observationId }
                 - { type: OpsimData, field: snap }
-                - { type: OpsimData, field: band }
+                - "$band"
                 - "$det_name"
                 - "@output.det_num"
         columns:
