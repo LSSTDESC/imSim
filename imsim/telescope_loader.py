@@ -9,35 +9,6 @@ from collections.abc import Sequence
 from .camera import get_camera
 
 
-def infer_optic_radii(optic):
-    """Infer the inner/outer radii of an optic from its obscuration.
-
-    Parameters
-    ----------
-    optic : batoid.Optic
-        The optic from which to infer radii.
-
-    Returns
-    -------
-    R_outer : float
-        The outer radius of the optic.
-    R_inner : float
-        The inner radius of the optic.
-    """
-    obsc = optic.obscuration
-    if obsc is not None:
-        if isinstance(obsc, batoid.obscuration.ObscNegation):
-            obsc = obsc.original
-        if isinstance(obsc, batoid.obscuration.ObscAnnulus):
-            return obsc.outer, obsc.inner
-        if isinstance(obsc, batoid.obscuration.ObscCircle):
-            return obsc.radius, 0.0
-
-    raise ValueError(
-        f"Cannot infer radii for optic {optic.name}"
-    )
-
-
 def parse_xyz(xyz, base):
     if not isinstance(xyz, list) or len(xyz) != 3:
         raise ValueError("Expecting a list of 3 elements")
@@ -263,7 +234,8 @@ def load_telescope(
                             "Must specify both or neither of R_outer and R_inner"
                         )
                     if not R_outer or not R_inner:
-                        R_outer, R_inner = infer_optic_radii(telescope[optic])
+                        R_outer = telescope[optic].R_outer
+                        R_inner = telescope[optic].R_inner
 
                     if 'coef' in pval and 'idx' in pval:
                         raise ValueError(
