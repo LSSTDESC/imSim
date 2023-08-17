@@ -5,13 +5,13 @@ import galsim
 
 def test_fringing():
     """
-    Test the fringing model. 
+    Test the fringing model.
     """
     # Set a random center ra/dec
     cra = 54.9348753510528
     cdec = -35.8385705255579
     world_center = galsim.CelestialCoord(cra*galsim.degrees, cdec*galsim.degrees)
-    
+
     mjd = 60232.3635999295
     rottelpos = 350.946271812373
     band = 'y'
@@ -23,7 +23,7 @@ def test_fringing():
     ra = 54.86
     dec = -35.76
     wcs = make_batoid_wcs(ra, dec, rottelpos, mjd, band, 'LsstCam')
-    
+
     config = {
         'image': {
             'type': 'LSST_Image',
@@ -46,10 +46,10 @@ def test_fringing():
 
     # Test when spatial vary is True.
     fringe_map = ccd_fringing.calculate_fringe_amplitude(xarr,yarr)
-    
+
     # Check std of the diagnoal of fringe map.
     np.testing.assert_approx_equal(np.std(np.diag(fringe_map)), 0.0014, significant=2)
-    
+
     # Check the min/max of fringing varaition for the current offset.
     np.testing.assert_approx_equal(fringe_map.max(), 1.00205, significant=4)
     np.testing.assert_approx_equal(fringe_map.min(), 0.99794, significant=4)
@@ -61,12 +61,12 @@ def test_fringing():
                                 boresight=world_center,
                                 seed=serial_num, spatial_vary=False)
     fringe_map1 = ccd_fringing_1.calculate_fringe_amplitude(xarr,yarr)
-    
+
     # Try another random location on the focal plane.
     ra = 58.86
     dec = -38.76
     wcs = make_batoid_wcs(ra, dec, rottelpos, mjd, band, 'LsstCam')
-    
+
     ccd_fringing_2 = CCD_Fringing(true_center=image.wcs.toWorld(image.true_center),
                                 boresight=world_center,
                                 seed=serial_num, spatial_vary=False)
@@ -74,6 +74,7 @@ def test_fringing():
     # Check if the two fringing maps are indentical.
     if np.array_equal(fringe_map1,fringe_map2) != True:
         raise ValueError("Fringe amplitude should be the same for sensors when spatial vary is False.")
-    
+
+
 if __name__ == '__main__':
     test_fringing()

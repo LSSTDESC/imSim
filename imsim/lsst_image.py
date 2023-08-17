@@ -43,7 +43,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         extra_ignore = [ 'image_pos', 'world_pos', 'stamp_size', 'stamp_xsize', 'stamp_ysize',
                          'nobjects' ]
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
-                 'apply_sky_gradient': bool, 'apply_fringing': bool, 
+                 'apply_sky_gradient': bool, 'apply_fringing': bool,
                  'boresight': galsim.CelestialCoord, 'camera': str, 'nbatch': int}
         params = GetAllParams(config, base, opt=opt, ignore=ignore+extra_ignore)[0]
         size = params.get('size',0)
@@ -64,9 +64,9 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                     "Boresight is missing in image config dict. This is required for fringing.")
             else:
                 self.boresight = params.get('boresight')
-            
+
         self.camera_name = params.get('camera')
-        
+
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
             self.nbatch = params.get('nbatch', 10)
@@ -273,9 +273,9 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             logger.info("Applying vignetting according to radial spline model.")
             radii = Vignetting.get_pixel_radii(camera[det_name])
             sky.array[:] *= self.vignetting.apply_to_radii(radii)
-            
+
         if self.apply_fringing:
-            # Use the hash value of the serial number as random seed number to 
+            # Use the hash value of the serial number as random seed number to
             # make sure the height map of the same sensor remains unchanged for different exposures.
             camera = get_camera(self.camera_name)
             det_name = base['det_name']
@@ -288,9 +288,9 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                 ny, nx = sky.array.shape
                 xarr, yarr = np.meshgrid(range(nx), range(ny))
                 logger.info("Apply fringing")
-                fringnig_map = ccd_fringing.calculate_fringe_amplitude(xarr,yarr)
-                sky.array[:] *= fringnig_map
-                
+                fringing_map = ccd_fringing.calculate_fringe_amplitude(xarr,yarr)
+                sky.array[:] *= fringing_map
+
         image += sky
         AddNoise(base,image,current_var,logger)
 
