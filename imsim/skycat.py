@@ -99,7 +99,7 @@ class SkyCatalogInterface:
             sky_cat = skyCatalogs.open_catalog(
                 self.file_name, skycatalog_root=self.skycatalog_root)
             self._objects = sky_cat.get_objects_by_region(
-                region, obj_type_set=self.obj_types)
+                region, obj_type_set=self.obj_types, mjd=self.mjd)
             if not self._objects:
                 self.logger.warning("No objects found on image.")
         return self._objects

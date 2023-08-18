@@ -88,7 +88,7 @@ class Vignetting:
     def __call__(self, det):
         return self.apply_to_radii(self.get_pixel_radii(det))
 
-    def at_sky_coord(self, sky_coord, wcs, det):
+    def at_sky_coord(self, sky_coord, wcs, pix_to_fp):
         """
         Vignetting function value at the specified sky coordinates
         for a particular CCD.
@@ -101,8 +101,9 @@ class Vignetting:
             The WCS for the CCD being considered.  This is used to find
             the location on the focal plane of focused light from the
             sky position.
-        det : lsst.afw.cameraGeom.Detector
-            The Detector object for the CCD being simulated.
+        pix_to_fp : lsst.afw.geom.TransformPoint2ToPoint2
+            Pixel to focal plane transform object obtained from the
+            relevant lsst.afw.cameraGeom.Detector object.
 
         Returns
         -------
@@ -115,8 +116,6 @@ class Vignetting:
         # used with the spline model to obtain the vignetting scale
         # factor.
         pos = wcs.toImage(sky_coord)
-        pix_to_fp = det.getTransform(cameraGeom.PIXELS,
-                                     cameraGeom.FOCAL_PLANE)
         fp_pos = pix_to_fp.applyForward(lsst.geom.Point2D(pos.x, pos.y))
         r = np.sqrt(fp_pos.x**2 + fp_pos.y**2)
 
