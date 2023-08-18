@@ -11,6 +11,8 @@
 #
 
 # Get most of the configuration from the base imSim config template.
+modules:
+    - imsim
 template: imsim-config
 
 ####################################################################
