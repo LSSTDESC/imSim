@@ -370,7 +370,18 @@ class AtmLoader(InputLoader):
                        'save_file' : str,
                        '_no2k': bool
                      }
-        kwargs, _ = galsim.config.GetAllParams(config, base, req=req_params, opt=opt_params)
+
+        # Temporary fix until GalSim 2.5 to make sure atm_psf can be built once and shared,
+        # even if the opsim_data that it often needs is later in the list of inputs.
+        try:
+            kwargs, _ = galsim.config.GetAllParams(config, base, req=req_params, opt=opt_params)
+        except galsim.GalSimError as e:
+            if str(e).startswith("No input opsim_data"):
+                galsim.config.LoadInputObj(base, 'opsim_data', 0, True, logger)
+                kwargs, _ = galsim.config.GetAllParams(config, base, req=req_params, opt=opt_params)
+            else:
+                raise
+
         logger.debug("kwargs = %s",kwargs)
 
         # Check that we're not including the optics twice:
