@@ -3,6 +3,7 @@ from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
 from galsim.config import StampBuilder, RegisterStampType, CheckAllParams, GetAllParams, GetInputObj
+from lsst.afw import cameraGeom
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 from .diffraction_fft import apply_diffraction_psf
@@ -431,8 +432,10 @@ class LSST_SiliconBuilder(StampBuilder):
             # empirical vignetting function, if it's available, to
             # recompute the realized flux.
             if self.vignetting is not None:
+                pix_to_fp = self.det.getTransform(cameraGeom.PIXELS,
+                                                  cameraGeom.FOCAL_PLANE)
                 flux = self.gal.flux*self.vignetting.at_sky_coord(
-                    base['sky_pos'], self.image.wcs, self.det)
+                    base['sky_pos'], self.image.wcs, pix_to_fp)
                 self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
 
             logger.warning('Yes. Use FFT for this object.  max_sb = %.0f > %.0f',
