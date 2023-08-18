@@ -347,7 +347,7 @@ class AtmLoader(InputLoader):
     def __init__(self):
         # Override some defaults in the base init.
         super().__init__(init_func=AtmosphericPSF,
-                         takes_logger=True, use_proxy=False,
+                         takes_logger=True, use_proxy=False, file_scope=True,
                          worker_init=galsim.phase_screens.initWorker,
                          worker_initargs=galsim.phase_screens.initWorkerArgs)
 
