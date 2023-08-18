@@ -45,6 +45,7 @@ def test_vignetting():
     det_names = ["R00_SG0", "R40_SW0", "R30_S11", "R22_S11"]
     for det_name in det_names:
         det = camera[det_name]
+        pix_to_fp = det.getTransform(cameraGeom.PIXELS, cameraGeom.FOCAL_PLANE)
         wcs = wcs_factory.getWCS(det)
 
         # Vignetting function evaluated over the entire CCD:
@@ -59,7 +60,7 @@ def test_vignetting():
         for corner in corners:
             image_pos = galsim.PositionD(*corner)
             sky_coord = wcs.toWorld(image_pos)
-            sky_value = vignetting.at_sky_coord(sky_coord, wcs, det)
+            sky_value = vignetting.at_sky_coord(sky_coord, wcs, pix_to_fp)
             test_values = sky_value, image_vignetting[corner[1], corner[0]]
             np.testing.assert_almost_equal(*test_values)
 
