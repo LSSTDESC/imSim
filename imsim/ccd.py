@@ -10,11 +10,6 @@ from .camera import get_camera
 from .opsim_data import get_opsim_data
 
 
-# Add `xsize` and `ysize` to the list of preset variables. These are
-# evaluated below in LSST_CCDBuilder.setup.
-galsim.config.eval_base_variables.extend(('xsize', 'ysize'))
-
-
 class LSST_CCDBuilder(OutputBuilder):
     """This runs the overall generation of an LSST CCD file.
 
@@ -53,11 +48,6 @@ class LSST_CCDBuilder(OutputBuilder):
         if 'eval_variables' not in base:
             base['eval_variables'] = {}
         base['eval_variables']['sdet_name'] = det_name
-
-        # Get detector size in pixels.
-        det_bbox = camera[det_name].getBBox()
-        base['xsize'] = det_bbox.width
-        base['ysize'] = det_bbox.height
 
         if 'exptime' in config:
             base['exptime'] = galsim.config.ParseValue(

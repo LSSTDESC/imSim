@@ -98,6 +98,7 @@ def test_checkpoint_image():
         },
         'image': {
             'type': 'LSST_Image',
+            'det_name': 'R22_S11',
             'xsize': 2048,
             'ysize': 2048,
             'wcs': wcs,
@@ -234,6 +235,7 @@ def test_checkpoint_flatten():
         },
         'image': {
             'type': 'LSST_Image',
+            'det_name': 'R22_S11',
             'xsize': 2048,
             'ysize': 2048,
             'pixel_scale': 0.2,

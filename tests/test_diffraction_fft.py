@@ -109,8 +109,7 @@ def create_test_config(
         "wcs": wcs,
         "image": {
             "type": "LSST_Image",
-            "xsize": xsize,
-            "ysize": ysize,
+            "det_name": "R22_S11",
             "wcs": wcs,
             "random_seed": 12345,
             "nobjects": 1,

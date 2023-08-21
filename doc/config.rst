@@ -23,6 +23,7 @@ The *GalSim* config system is described in the `GalSim documentation <http://gal
 
         image:
             type: LSST_Image
+            det_name: $det_name
 
             sensor:
                 type: Silicon
@@ -256,6 +257,7 @@ Once the Rubin sky-model has been specified you can use the calculated sky level
 
     image:
         type: LSST_Image
+        det_name: $det_name
 
         sky_level: { type: SkyLevel }  # Computed from input.sky_model.
         apply_sky_gradient: True
@@ -365,6 +367,7 @@ Once the tree ring models have been read in, you can use them in other parts of 
 
     image:
         type: LSST_Image
+        det_name: $det_name
 
         sensor:
             type: Silicon
@@ -426,13 +429,13 @@ The ``LSST_Image`` type is a version of the *GalSim* "Scattered Image" image cla
 Required keywords to set:
 """""""""""""""""""""""""
 
-    * ``xsize`` = *int_value* The size of the image in the X direction (i.e. the number of columns)
-    * ``ysize`` = *int_value* The size of the image in the Y direction (i.e. the number of rows)
-
+    * ``det_name`` = *str_value* The name of the detector
 
 Optional keywords to set:
 """""""""""""""""""""""""
 
+    * ``xsize`` = *int_value* (default = the real xsize of the given detector) The size of the image in the X direction (i.e. the number of columns)
+    * ``ysize`` = *int_value* (default = the real ysize of the given detector) The size of the image in the Y direction (i.e. the number of rows)
     * ``dytpe`` = *str_value* (default = None) allows you to set numpy.dtype  for the underlying data in the image.
     *  ``apply_sky_gradient`` = *bool_value* (default = False) If True vary the sky background level linearly across the sensors to match the expected flux at the four corners of the at each sensor.
     * ``apply_fringing`` = *bool_value* (default = False) If True, apply a fringing pattern to the sky background level.  This is only currently possible for y band observations, so a recommended value for this parameters is ``$band == 'y'``.
