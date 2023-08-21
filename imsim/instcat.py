@@ -462,7 +462,7 @@ def InstCatObj(config, base, ignore, gsparams, logger):
     index = kwargs['index']
 
     rng = galsim.config.GetRNG(config, base, logger, 'InstCatObj')
-    exptime = base.get('exptime',None)
+    exptime = base.get('exptime', 30)
 
     obj = inst.getObj(index, gsparams=gsparams, rng=rng, exptime=exptime)
     base['object_id'] = inst.getID(index)
