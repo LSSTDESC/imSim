@@ -156,7 +156,7 @@ class LSST_FlatBuilder(ImageBuilder):
 
         completed_sections = set()
         if self.checkpoint is not None:
-            chk_name = 'addNoise_%s' % (base.get('det_name', ''))
+            chk_name = 'addNoise_%s'%image_num
             # Read in any checkpoint data
             saved = self.checkpoint.load(chk_name)
             if saved is not None:

@@ -44,10 +44,10 @@ class LSST_CCDBuilder(OutputBuilder):
             det_name = only_dets[detnum]
         else:
             det_name = camera[detnum].getName()
-        base['det_name'] = det_name
         if 'eval_variables' not in base:
             base['eval_variables'] = {}
         base['eval_variables']['sdet_name'] = det_name
+        self.det_name = det_name
 
         if 'exptime' in config:
             base['exptime'] = galsim.config.ParseValue(
@@ -117,7 +117,6 @@ class LSST_CCDBuilder(OutputBuilder):
             logger.info('Adding cosmic rays with rate %f using %s.',
                         cosmic_ray_rate, cosmic_ray_catalog)
             exptime = base['exptime']
-            det_name = base['det_name']
             cosmic_rays = CosmicRays(cosmic_ray_rate, cosmic_ray_catalog)
             rng = galsim.config.GetRNG(config, base)
             cosmic_rays.paint(image.array, rng, exptime=exptime)
@@ -128,7 +127,7 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header = galsim.FitsHeader()
         exptime = base['exptime']
         image.header['EXPTIME'] = exptime
-        image.header['DET_NAME'] = base['det_name']
+        image.header['DET_NAME'] = self.det_name
 
         header_vals = copy.deepcopy(params.get('header', {}))
         opsim_data = get_opsim_data(config, base)

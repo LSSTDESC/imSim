@@ -42,6 +42,7 @@ class RubinOptics(PhotonOp):
     _req_params = {
         "boresight": CelestialCoord,
         "camera": str,
+        "det_name": str,
     }
 
     def __init__(
@@ -155,6 +156,7 @@ class RubinDiffractionOptics(RubinOptics):
     _req_params = {
         "boresight": CelestialCoord,
         "camera": str,
+        "det_name": str,
         "altitude": Angle,
         "azimuth": Angle,
     }
@@ -359,7 +361,7 @@ def config_kwargs(config, base, cls, base_args=()):
     return kwargs
 
 
-_rubin_optics_base_args = ("sky_pos", "image_pos", "det_name")
+_rubin_optics_base_args = ("sky_pos", "image_pos")
 
 
 @photon_op_type("RubinOptics", input_type="telescope")

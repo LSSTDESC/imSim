@@ -242,6 +242,7 @@ stamp:
                 theta: { type: OpsimData, field: HA }
         -
             type: RubinDiffractionOptics
+            det_name: "$det_name"
             boresight: "$boresight"
             camera: "@output.camera"
             altitude: $altitude

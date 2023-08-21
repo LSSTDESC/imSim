@@ -1,6 +1,6 @@
 from galsim.config import (
     InputLoader, RegisterInputType, GetAllParams, get_cls_params, ParseValue,
-    LoggerWrapper
+    LoggerWrapper, GetCurrentValue
 )
 from galsim import Angle
 import batoid
@@ -348,7 +348,9 @@ class DetectorTelescope:
     Produce a batoid telescope instance appropriate for a particular detector,
     optionally with a shifted detector position.
     """
-    _req_params = { 'file_name' : str }
+    _req_params = {
+        'file_name' : str,
+    }
     _opt_params = {
         'rotTelPos': Angle,
         'camera': str,
@@ -359,20 +361,23 @@ class DetectorTelescope:
         file_name,
         perturbations=(),
         rotTelPos=None,
-        camera='LSSTCamera',
+        camera='LsstCam',
         fea_dir=None,
         bend_dir=None,
         fea_perturbations=None,
         logger=None
     ):
+        # Batoid has a different name for LsstCam than DM code.  So we need to switch it here.
+        cameraName = 'LSSTCamera' if camera == 'LsstCam' else camera
         self.fiducial = load_telescope(
             telescope=file_name,
             perturbations=perturbations,
             fea_dir=fea_dir, bend_dir=bend_dir,
             fea_perturbations=fea_perturbations,
             rotTelPos=rotTelPos,
-            cameraName=camera
+            cameraName=cameraName,
         )
+        self.camera = camera
         self.logger = logger
 
     def get_telescope(self, z_offset):
@@ -383,6 +388,15 @@ class DetectorTelescope:
             [0, 0, -z_offset]  # batoid convention is opposite of DM
         )
 
+    def calculate_z_offset(self, det_name):
+        camera = get_camera(self.camera)
+
+        ccd_orientation = camera[det_name].getOrientation()
+        if hasattr(ccd_orientation, 'getHeight'):
+            z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
+        else:
+            z_offset = 0
+        return z_offset
 
 class TelescopeLoader(InputLoader):
     """Load a telescope from a yaml file.
@@ -425,15 +439,13 @@ class TelescopeLoader(InputLoader):
     def setupImage(self, input_obj, config, base, logger=None):
         """Set up the telescope for the current image."""
         logger = LoggerWrapper(logger)
-        camera = get_camera(base['output']['camera'])
-        det_name = base['det_name']
-
-        ccd_orientation = camera[det_name].getOrientation()
-        if hasattr(ccd_orientation, 'getHeight'):
-            z_offset = ccd_orientation.getHeight()*1.0e-3  # Convert to meters.
+        if 'det_name' in base.get('image',{}):
+            det_name = GetCurrentValue('image.det_name', base)
+            logger.info('Setting up det_telescope for detector %s', det_name)
+            z_offset = input_obj.calculate_z_offset(det_name)
+            det_telescope = input_obj.get_telescope(z_offset)
         else:
-            z_offset = 0
-        det_telescope = input_obj.get_telescope(z_offset)
+            det_telescope = input_obj.get_telescope(0)
         base['det_telescope'] = det_telescope
 
 

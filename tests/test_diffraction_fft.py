@@ -73,6 +73,7 @@ def create_test_config(
     if enable_diffraction:
         optics_args = {
             "type": "RubinDiffractionOptics",
+            "det_name": "R22_S11",
             "disable_field_rotation": exptime == 0.0,
             **alt_az,
         }
