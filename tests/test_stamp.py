@@ -88,7 +88,7 @@ def test_lsst_silicon_builder_passes_correct_photon_ops_to_drawImage() -> None:
     }
     for method, expected_specific_args, prof_type, op_type in (
         ("phot", expected_phot_args, 'galsim.ChromaticTransformation', imsim.RubinDiffractionOptics),
-        ("fft", expected_fft_args, 'galsim.ChromaticTransformation', imsim.RubinDiffraction),
+        ("fft", expected_fft_args, 'galsim.ChromaticConvolution', imsim.RubinDiffraction),
     ):
         # mock.patch basically wraps these functions so we can access how they were called
         # and what their return values were.
@@ -140,7 +140,7 @@ def test_stamp_builder_works_without_photon_ops_or_faint() -> None:
     }
     for method, expected_specific_args, photon_ops_key, prof_type in (
         ("phot", expected_phot_args, 'photon_ops', 'galsim.ChromaticTransformation'),
-        ("fft", expected_fft_args, 'fft_photon_ops', 'galsim.ChromaticTransformation'),
+        ("fft", expected_fft_args, 'fft_photon_ops', 'galsim.ChromaticConvolution'),
     ):
         for faint in [True, False]:
             use_config = galsim.config.CopyConfig(config)

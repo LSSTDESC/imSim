@@ -407,7 +407,6 @@ class LSST_SiliconBuilder(StampBuilder):
             return psf
 
         # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
-        psf = galsim.config.BuildGSObject(base, 'psf', logger=logger)[0]
         bandpass = base['bandpass']
         fft_psf = self.make_fft_psf(psf.evaluateAtWavelength(bandpass.effective_wavelength), logger)
         logger.warning('Object %d has flux = %s.  Check if we should switch to FFT',
@@ -535,6 +534,10 @@ class LSST_SiliconBuilder(StampBuilder):
             # don't draw anything.
             return image
 
+        # Prof is normally a convolution here with obj_list being [gal, psf1, psf2,...]
+        # for some number of component PSFs.
+        gal, *psfs = prof.obj_list if hasattr(prof,'obj_list') else [prof]
+
         def fix_seds(prof):
             # If any SEDs are not currently using a LookupTable for the function or if they are
             # using spline interpolation, then the codepath is quite slow.
@@ -568,11 +571,11 @@ class LSST_SiliconBuilder(StampBuilder):
         bandpass = base['bandpass']
         if faint:
             logger.info("Flux = %.0f  Using trivial sed", self.realized_flux)
-            prof = prof.evaluateAtWavelength(bandpass.effective_wavelength)
-            prof = prof * self._trivial_sed
+            gal = gal.evaluateAtWavelength(bandpass.effective_wavelength)
+            gal = gal * self._trivial_sed
         else:
-            fix_seds(prof)
-        prof = prof.withFlux(self.realized_flux, bandpass)
+            fix_seds(gal)
+        gal = gal.withFlux(self.realized_flux, bandpass)
 
         wcs = base['wcs']
 
@@ -599,6 +602,8 @@ class LSST_SiliconBuilder(StampBuilder):
                     "n_subsample": 1,
                 })
 
+            # Go back to a combined convolution for fft drawing.
+            prof = galsim.Convolve([gal] + psfs)
             try:
                 prof.drawImage(bandpass, **kwargs)
             except galsim.errors.GalSimFFTSizeError as e:
@@ -628,6 +633,10 @@ class LSST_SiliconBuilder(StampBuilder):
                 photon_ops = galsim.config.BuildPhotonOps(config, 'photon_ops', base, logger)
             else:
                 photon_ops = []
+            # Put the psfs at the start of the photon_ops.
+            # Probably a little better to put them a bit later than the start in some cases
+            # (e.g. after TimeSampler, PupilAnnulusSampler), but leave that as a todo for now.
+            photon_ops = psfs + photon_ops
 
             if faint:
                 sensor = None
@@ -636,18 +645,18 @@ class LSST_SiliconBuilder(StampBuilder):
                 if sensor is not None:
                     sensor.updateRNG(self.rng)
 
-            prof.drawImage(bandpass,
-                           method='phot',
-                           offset=offset,
-                           rng=self.rng,
-                           maxN=maxN,
-                           n_photons=self.realized_flux,
-                           image=image,
-                           wcs=wcs,
-                           sensor=sensor,
-                           photon_ops=photon_ops,
-                           add_to_image=True,
-                           poisson_flux=False)
+            gal.drawImage(bandpass,
+                          method='phot',
+                          offset=offset,
+                          rng=self.rng,
+                          maxN=maxN,
+                          n_photons=self.realized_flux,
+                          image=image,
+                          wcs=wcs,
+                          sensor=sensor,
+                          photon_ops=photon_ops,
+                          add_to_image=True,
+                          poisson_flux=False)
 
         return image
 
