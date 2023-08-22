@@ -528,8 +528,8 @@ class InstCatalogLoader(InputLoader):
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
         kwargs['wcs'] = wcs
-        kwargs['xsize'] = base.get('image_xsize', 4096)
-        kwargs['ysize'] = base.get('image_ysize', 4096)
+        kwargs['xsize'] = base.get('det_xsize', 4096)
+        kwargs['ysize'] = base.get('det_ysize', 4096)
         kwargs['logger'] = logger
         return kwargs, False
 

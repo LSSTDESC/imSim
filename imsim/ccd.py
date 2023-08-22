@@ -56,6 +56,12 @@ class LSST_CCDBuilder(OutputBuilder):
         else:
             base['exptime'] = 30.0
 
+        # Save the detector size, so the input catalogs can use it to figure out which
+        # objects will be visible.
+        det_bbox = camera[self.det_name].getBBox()
+        base['det_xsize'] = det_bbox.width
+        base['det_ysize'] = det_bbox.height
+
     def getNFiles(self, config, base, logger=None):
         """Returns the number of files to be built.
 
