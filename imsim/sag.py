@@ -3,7 +3,6 @@ from galsim.config import ExtraOutputBuilder, RegisterExtraOutput, GetInputObj
 from galsim.config.input import ParseValue, GetAllParams
 import numpy as np
 import batoid
-from .telescope_loader import infer_optic_radii
 
 
 class SagBuilder(ExtraOutputBuilder):
@@ -40,13 +39,17 @@ class SagBuilder(ExtraOutputBuilder):
         for name, optic in telescope.itemDict.items():
             if not isinstance(optic, batoid.Interface):
                 continue
-            outer, inner = infer_optic_radii(optic)
+            outer = optic.R_outer
+            inner = optic.R_inner
             xx = xs * outer
             xx, yy = np.meshgrid(xx, xx)
             rr = np.hypot(xx, yy)
+            # Only bother evaluating sag where it is potentially defined.
             ww = np.where((rr <= outer) & (rr >= inner))
-            out = np.nan * np.ones((self.nx, self.nx))
+            out = np.full((self.nx, self.nx), np.nan)
             out[ww] = optic.surface.sag(xx[ww], yy[ww])
+            # And now mask out any other non-trivial obscurations.
+            out[optic.obscuration.contains(xx, yy)] = np.nan
 
             dx = (xs[1] - xs[0])*outer
             dy = dx
@@ -54,7 +57,18 @@ class SagBuilder(ExtraOutputBuilder):
             x0, y0, z0 = optic.coordSys.origin
             R = optic.coordSys.rot
 
-            sag_img = galsim.Image(np.array(out.data), scale=dx)
+            sag_img = galsim.Image(np.array(out.data))
+            sag_img.setCenter(0, 0)
+            if self.nx//2 == self.nx/2:  # if even
+                world_origin = galsim.PositionD(dx/2, dx/2)
+            else:
+                world_origin = galsim.PositionD(0, 0)
+
+            sag_img.wcs = galsim.OffsetWCS(
+                scale=dx,
+                origin=galsim.PositionI(0, 0),
+                world_origin=world_origin
+            )
             # Add some provenance information to header
             sag_img.header = galsim.fits.FitsHeader()
             sag_img.header['units'] = 'm', 'sag units'

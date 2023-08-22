@@ -611,3 +611,10 @@ def test_config_fea():
         config,
         'telescope'
     ).fiducial
+
+
+if __name__ == "__main__":
+    test_config_shift()
+    test_config_rot()
+    test_config_zernike_perturbation()
+    test_config_fea()

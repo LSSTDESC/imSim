@@ -4,6 +4,7 @@ import batoid
 from astropy.time import Time
 from astropy import units
 from coord import degrees
+from copy import deepcopy
 
 from imsim import photon_ops, BatoidWCSFactory, get_camera, diffraction
 from imsim.telescope_loader import load_telescope
@@ -441,13 +442,13 @@ def test_config_rubin_diffraction():
     """Check the config interface to RubinDiffraction."""
 
     config = {
-        **TEST_BASE_CONFIG,
+        **deepcopy(TEST_BASE_CONFIG),
         "stamp": {
             "photon_ops": [
                 {
                     "type": "RubinDiffraction",
                     "latitude": "-30.24463 degrees",
-                    **TEST_ALT_AZ_CONFIG
+                    **deepcopy(TEST_ALT_AZ_CONFIG)
                 }
             ]
         },
@@ -468,14 +469,14 @@ def test_config_rubin_diffraction_without_field_rotation():
     """Check the config interface to RubinDiffraction."""
 
     config = {
-        **TEST_BASE_CONFIG,
+        **deepcopy(TEST_BASE_CONFIG),
         "stamp": {
             "photon_ops": [
                 {
                     "type": "RubinDiffraction",
                     "latitude": "-30.24463 degrees",
                     "disable_field_rotation": True,
-                    **TEST_ALT_AZ_CONFIG
+                    **deepcopy(TEST_ALT_AZ_CONFIG)
                 }
             ]
         },
@@ -498,7 +499,7 @@ def test_config_rubin_diffraction_optics():
 
     image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
     config = {
-        **TEST_BASE_CONFIG,
+        **deepcopy(TEST_BASE_CONFIG),
         "image_pos": image_pos,  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
@@ -511,7 +512,7 @@ def test_config_rubin_diffraction_optics():
                         "dec": "-0.5261230452954583 radians",
                     },
                     "latitude": "-30.24463 degrees",
-                    **TEST_ALT_AZ_CONFIG
+                    **deepcopy(TEST_ALT_AZ_CONFIG)
                 }
             ]
         },
@@ -535,7 +536,7 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
 
     image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
     config = {
-        **TEST_BASE_CONFIG,
+        **deepcopy(TEST_BASE_CONFIG),
         "image_pos": image_pos,  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
@@ -548,7 +549,7 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
                         "dec": "-0.5261230452954583 radians",
                     },
                     "disable_field_rotation": True,
-                    **TEST_ALT_AZ_CONFIG
+                    **deepcopy(TEST_ALT_AZ_CONFIG)
                 }
             ]
         },
@@ -573,7 +574,7 @@ def test_config_rubin_optics():
 
     image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
     config = {
-        **TEST_BASE_CONFIG,
+        **deepcopy(TEST_BASE_CONFIG),
         "image_pos": image_pos,  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
@@ -629,7 +630,7 @@ def test_ray_vector_to_photon_array():
 
 def test_double_optics_warning():
     config = {
-        **TEST_BASE_CONFIG,
+        **deepcopy(TEST_BASE_CONFIG),
         'stamp': {
             'photon_ops': [
                 {'type': 'RubinOptics',}
@@ -651,6 +652,52 @@ def test_double_optics_warning():
     }
     with np.testing.assert_warns(UserWarning):
         galsim.config.ProcessInput(config)
+
+
+def test_phase_affects_image():
+    # Process without adding additional phase
+    image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    config = {
+        **deepcopy(TEST_BASE_CONFIG),
+        "image_pos": image_pos,  # This would get set appropriately during normal config processing.
+        "stamp": {
+            "photon_ops": [
+                {
+                    "type": "RubinOptics",
+                    "camera": "LsstCam",
+                    "boresight": {
+                        "type": "RADec",
+                        "ra": "1.1047934165124105 radians",
+                        "dec": "-0.5261230452954583 radians",
+                    },
+                }
+            ]
+        },
+    }
+    galsim.config.ProcessInput(config)
+    galsim.config.input.SetupInputsForImage(config, None)
+    [photon_op] = galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    pa = create_test_photon_array(n_photons=10000)
+    rng = galsim.BaseDeviate(123)
+    photon_op.applyTo(pa, local_wcs=create_test_wcs(), rng=rng)
+
+    # Now add some phase and process again
+    config = galsim.config.CleanConfig(config)
+    config.update(**deepcopy(TEST_BASE_CONFIG)) # restore _icrf_to_field
+    config['input']['telescope']['fea'] = {
+        'extra_zk': {
+            'zk': [0.0]*4+[10.0*620e-9],  # Add a bunch of defocus
+            'eps': 0.612
+        }
+    }
+    galsim.config.ProcessInput(config)
+    galsim.config.input.SetupInputsForImage(config, None)
+    [photon_op] = galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    pa2 = create_test_photon_array(n_photons=10000)
+    rng = galsim.BaseDeviate(123)
+    photon_op.applyTo(pa2, local_wcs=create_test_wcs(), rng=rng)
+
+    assert pa2 != pa
 
 
 if __name__ == "__main__":

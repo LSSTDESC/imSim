@@ -147,13 +147,25 @@ class OPDBuilder(ExtraOutputBuilder):
                 projection=self.projection,
                 reference=self.reference
             )
+            xx, yy = opd.coords.T
             dx = opd.primitiveVectors[0, 0]
             dy = opd.primitiveVectors[1, 1]
             opd_arr = opd.array*wavelength  # convert from waves to nm
             # FITS doesn't know about numpy masked arrays,
             # So just fill in masked values with NaN
             opd_arr.data[opd_arr.mask] = np.nan
-            opd_img = galsim.Image(np.array(opd_arr.data), scale=dx)
+            opd_img = galsim.Image(np.array(opd_arr.data))
+            opd_img.setCenter(0, 0)
+            world_origin = galsim.PositionD(
+                xx[self.nx//2, self.nx//2],
+                yy[self.nx//2, self.nx//2]
+            )
+
+            opd_img.wcs = galsim.OffsetWCS(
+                scale=dx,
+                origin=galsim.PositionI(0, 0),
+                world_origin=world_origin
+            )
             # Add some provenance information to header
             opd_img.header = galsim.fits.FitsHeader()
             opd_img.header['units'] = 'nm', 'OPD units'
