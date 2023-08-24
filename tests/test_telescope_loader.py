@@ -613,8 +613,60 @@ def test_config_fea():
     ).fiducial
 
 
+def test_config_fea_file_num():
+    """Test that we can set perturbations using the file number"""
+
+    fiducial = batoid.Optic.fromYaml("LSST_r.yaml")
+    for file_num in [1, 2]:
+        config = textwrap.dedent(
+            f"""
+            eval_variables:
+                izk: $file_num+4
+            input:
+                telescope:
+                    file_name: LSST_r.yaml
+                    fea:
+                        extra_zk:
+                            zk: $[0]*zk+[1e-6]
+                            eps: 0.61
+            """
+        )
+        image_num = file_num
+        obj_num = 1
+        logger = None
+        config = yaml.safe_load(config)
+        galsim.config.SetupConfigFileNum(config, file_num, image_num, obj_num, logger)
+        galsim.config.ProcessInput(config)
+
+        reference = fiducial.withInsertedOptic(
+            before='M1',
+            item=batoid.OPDScreen(
+                name='Screen',
+                surface=batoid.Plane(),
+                screen=batoid.Zernike(
+                    [0]*(4+file_num)+[1e-6],
+                    R_outer=fiducial['M1'].R_outer,
+                    R_inner=fiducial['M1'].R_outer*0.61
+                ),
+                coordSys=fiducial.stopSurface.coordSys,
+                obscuration=fiducial['M1'].obscuration,
+            )
+        )
+
+        configd = galsim.config.GetInputObj(
+            'telescope',
+            config['input']['telescope'],
+            config,
+            'telescope'
+        ).fiducial
+
+        assert configd == reference
+
+
+
 if __name__ == "__main__":
     test_config_shift()
     test_config_rot()
     test_config_zernike_perturbation()
     test_config_fea()
+    test_config_fea_file_num()
