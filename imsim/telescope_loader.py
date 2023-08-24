@@ -1,4 +1,3 @@
-import os
 from galsim.config import (
     InputLoader, RegisterInputType, GetAllParams, get_cls_params, ParseValue,
     LoggerWrapper
@@ -16,7 +15,9 @@ def parse_xyz(xyz, base):
     return parsed_xyz, all(safe)
 
 
-def parse_fea(config, base, telescope):
+def apply_fea(
+    fea_perturbations, telescope, fea_dir=None, bend_dir=None
+):
     """ Parse a finite element analysis config dict.  Used to add detailed
     effects like mirror print through or temperature originating figure
     perturbations.  Also facilitates direct manipulation of standard active
@@ -24,12 +25,14 @@ def parse_fea(config, base, telescope):
 
     Parameters
     ----------
-    config : dict
-        The configuration dictionary to parse.
-    base : dict
-        Base configuration dictionary.
+    fea_perturbations : dict
+        The perturbations dictionary to parse.
     telescope : batoid.Optic
         Telescope to perturb
+    fea_dir : str, optional
+        Directory containing batoid_rubin FEA data.
+    bend_dir : str, optional
+        Directory containing batoid_rubin bending mode data.
 
     Examples of fea config dicts
     ----------------------------
@@ -104,38 +107,34 @@ def parse_fea(config, base, telescope):
     changed APIs to the examples above.
     """
     from batoid_rubin import LSSTBuilder
-    base = {} if base is None else base
-    fea_dir = config.pop("fea_dir", "fea_legacy")
-    bend_dir = config.pop("bend_dir", "bend_legacy")
+
+    if fea_dir is None:
+        fea_dir = "fea_legacy"
+    if bend_dir is None:
+        bend_dir = "bend_legacy"
     builder = LSSTBuilder(telescope, fea_dir=fea_dir, bend_dir=bend_dir)
-    for k, v in config.items():
+    for k, v in fea_perturbations.items():
         method = getattr(builder, "with_"+k)
-        req = getattr(method, "_req_params", {})
-        opt = getattr(method, "_opt_params", {})
-        single = getattr(method, "_single_params", {})
-        ignore = getattr(method, "_ignore_params", {})
-        kwargs, safe = GetAllParams(
-            v, base,
-            req=req, opt=opt, single=single, ignore=ignore
-        )
-        builder = method(**kwargs)
+        builder = method(**v)
     return builder.build()
 
 
 def load_telescope(
-    file_name,
+    telescope,
     perturbations=(),
-    fea=None,
+    fea_dir=None,
+    bend_dir=None,
+    fea_perturbations=None,
     rotTelPos=None,
-    cameraName="LSSTCamera",
-    base=None
+    cameraName="LSSTCamera"
 ):
     """ Load a telescope.
 
     Parameters
     ----------
-    file_name : str
-        File name describing batoid Optic in yaml format.
+    telescope : batoid.Optic or str
+        Either the fiducial telescope to modify, or a string giving the
+        name of a yaml file describing the telescope.
     perturbations : (list of) dict of dict
         (List of) dict of dict describing perturbations to apply to the
         telescope in order.  Each outer dict should have keys indicating
@@ -143,8 +142,12 @@ def load_telescope(
         to apply (each perturbation is a dictionary keyed by the type of
         perturbation and value the magnitude of the perturbation.)  See notes
         for details.
-    fea : dict, optional
-        Finite element analysis perturbations.  See parse_fea docstring for
+    fea_dir: str, optional
+        Directory containing batoid_rubin FEA data.
+    bend_dir: str, optional
+        Directory containing batoid_rubin bending mode data.
+    fea_perturbations : dict, optional
+        Finite element analysis perturbations.  See apply_fea docstring for
         details.
     rotTelPos : galsim.Angle, optional
         Rotator angle to apply.
@@ -204,61 +207,37 @@ def load_telescope(
             }
         ]
     """
-    telescope = batoid.Optic.fromYaml(file_name)
+    if isinstance(telescope, str):
+        telescope = batoid.Optic.fromYaml(telescope)
     if not isinstance(perturbations, Sequence):
         perturbations = [perturbations]
     for group in perturbations:
         for optic, perturbs in group.items():
             for ptype, pval in perturbs.items():
                 if ptype == 'shift':
-                    shift, safe = parse_xyz(pval, base)
                     telescope = telescope.withLocallyShiftedOptic(
-                        optic, shift
+                        optic, pval
                     )
                 elif ptype.startswith('rot'):
-                    angle, safe = ParseValue(perturbs, ptype, base, Angle)
                     if ptype == 'rotX':
-                        rotMat = batoid.RotX(angle)
+                        rotMat = batoid.RotX(pval)
                     elif ptype == 'rotY':
-                        rotMat = batoid.RotY(angle)
+                        rotMat = batoid.RotY(pval)
                     elif ptype == 'rotZ':
-                        rotMat = batoid.RotZ(angle)
+                        rotMat = batoid.RotZ(pval)
                     telescope = telescope.withLocallyRotatedOptic(
                         optic, rotMat
                     )
                 elif ptype == 'Zernike':
-                    R_outer = pval.get('R_outer', None)
-                    R_inner = pval.get('R_inner', None)
-                    if (R_outer is None) != (R_inner is None):
-                        raise ValueError(
-                            "Must specify both or neither of R_outer and R_inner"
-                        )
-                    if not R_outer or not R_inner:
-                        R_outer = telescope[optic].R_outer
-                        R_inner = telescope[optic].R_inner
-
-                    if 'coef' in pval and 'idx' in pval:
-                        raise ValueError(
-                            "Cannot specify both coef and idx for Zernike perturbation"
-                        )
-                    if 'coef' in pval:
-                        coef = pval['coef']
-                    if 'idx' in pval:
-                        idx = pval['idx']
-                        if not isinstance(idx, Sequence):
-                            idx = [idx]
-                        val = pval['val']
-                        if not isinstance(val, Sequence):
-                            val = [val]
-                        coef = [0.0]*(max(idx)+1)
-                        for i, v in zip(idx, val):
-                            coef[i] = v
+                    R_outer = pval['R_outer']
+                    R_inner = pval['R_inner']
+                    coef = pval['coef']
                     telescope = telescope.withPerturbedSurface(
                         optic,
                         batoid.Zernike(coef, R_outer, R_inner)
                     )
-    if fea is not None:
-        telescope = parse_fea(fea, base, telescope)
+    if fea_perturbations is not None:
+        telescope = apply_fea(fea_perturbations, telescope, fea_dir, bend_dir)
 
     if rotTelPos is not None:
         telescope = telescope.withLocallyRotatedOptic(
@@ -266,6 +245,102 @@ def load_telescope(
             batoid.RotZ(rotTelPos.rad)
         )
     return telescope
+
+
+def _parse_fea(config, base, logger):
+    from batoid_rubin import LSSTBuilder
+    perturbations = {}
+    fea_dir = None
+    bend_dir = None
+    if 'fea_dir' in config:
+        fea_dir = ParseValue(config, 'fea_dir', base, str)
+    if 'bend_dir' in config:
+        bend_dir = ParseValue(config, 'bend_dir', base, str)
+
+    safe = True
+    for k, v in config.items():
+        method = getattr(LSSTBuilder, "with_"+k)
+        req = getattr(method, "_req_params", {})
+        opt = getattr(method, "_opt_params", {})
+        single = getattr(method, "_single_params", {})
+        ignore = getattr(method, "_ignore_params", {})
+
+        kwargs, safe1 = GetAllParams(
+            v, base,
+            req=req, opt=opt, single=single, ignore=ignore
+        )
+        safe &= safe1
+        perturbations[k] = {}
+        perturbations[k].update(kwargs)
+    return fea_dir, bend_dir, perturbations, safe
+
+
+def _parse_perturbations(config, base, telescope, logger):
+    safe = True
+    out = ()
+    if not isinstance(config, Sequence):
+        config = (config,)
+    for group in config:
+        outgroup = {}
+        for optic, perturbs in group.items():
+            outperturbs = {}
+            for ptype, pval in perturbs.items():
+                if ptype == 'shift':
+                    shift, safe1 = parse_xyz(pval, base)
+                    safe &= safe1
+                    outperturbs['shift'] = shift
+                elif ptype.startswith('rot'):
+                    angle, safe1 = ParseValue(perturbs, ptype, base, Angle)
+                    safe &= safe1
+                    outperturbs[ptype] = angle
+                elif ptype == 'Zernike':
+                    R_outer = None
+                    if 'R_outer' in pval:
+                        R_outer, safe1 = ParseValue(pval, 'R_outer', base, float)
+                        safe &= safe1
+                    R_inner = None
+                    if 'R_inner' in pval:
+                        R_inner, safe1 = ParseValue(pval, 'R_inner', base, float)
+                        safe &= safe1
+                    if (R_outer is None) != (R_inner is None):
+                        raise ValueError(
+                            "Must specify both or neither of R_outer and R_inner"
+                        )
+                    if not R_outer:
+                        R_outer = telescope[optic].R_outer
+                        R_inner = telescope[optic].R_inner
+                    if 'coef' in pval and 'idx' in pval:
+                        raise ValueError(
+                            "Cannot specify both coef and idx for Zernike perturbation"
+                        )
+
+                    if 'coef' in pval:
+                        coef, safe1 = ParseValue(pval, 'coef', base, list)
+                        safe &= safe1
+                    if 'idx' in pval:
+                        try:
+                            idx, safe1 = ParseValue(pval, 'idx', base, list)
+                        except Exception:
+                            idx, safe1 = ParseValue(pval, 'idx', base, int)
+                            idx = [idx]
+                        safe &= safe1
+                        try:
+                            val, safe1 = ParseValue(pval, 'val', base, list)
+                        except Exception:
+                            val, safe1 = ParseValue(pval, 'val', base, float)
+                            val = [val]
+                        safe &= safe1
+                        coef = [0.0]*(max(idx)+1)
+                        for i, v in zip(idx, val):
+                            coef[i] = v
+                    outperturbs['Zernike'] = {
+                        'coef': coef,
+                        'R_outer': R_outer,
+                        'R_inner': R_inner
+                    }
+            outgroup[optic] = outperturbs
+        out += (outgroup,)
+    return out, safe
 
 
 class DetectorTelescope:
@@ -277,7 +352,6 @@ class DetectorTelescope:
     _opt_params = {
         'rotTelPos': Angle,
         'camera': str,
-        'fea': None,
     }
 
     def __init__(
@@ -286,13 +360,18 @@ class DetectorTelescope:
         perturbations=(),
         rotTelPos=None,
         camera='LSSTCamera',
-        fea=None,
+        fea_dir=None,
+        bend_dir=None,
+        fea_perturbations=None,
         logger=None
     ):
         self.fiducial = load_telescope(
-            file_name, perturbations=perturbations,
-            rotTelPos=rotTelPos, cameraName=camera,
-            fea=fea
+            telescope=file_name,
+            perturbations=perturbations,
+            fea_dir=fea_dir, bend_dir=bend_dir,
+            fea_perturbations=fea_perturbations,
+            rotTelPos=rotTelPos,
+            cameraName=camera
         )
         self.logger = logger
 
@@ -304,18 +383,44 @@ class DetectorTelescope:
             [0, 0, -z_offset]  # batoid convention is opposite of DM
         )
 
+
 class TelescopeLoader(InputLoader):
     """Load a telescope from a yaml file.
     """
     def getKwargs(self, config, base, logger):
+        safe = True
         req, opt, single, takes_rng = get_cls_params(self.init_func)
-        perturbations = config.pop('perturbations', ())
-        fea = config.pop('fea', None)
-        kwargs, safe = GetAllParams(config, base, req=req, opt=opt, single=single)
+        kwargs, safe1 = GetAllParams(
+            config, base,
+            req=req, opt=opt, single=single,
+            ignore=['fea', 'perturbations']
+        )
+        safe &= safe1
+        telescope = batoid.Optic.fromYaml(kwargs['file_name'])
+
+        perturbations = config.get('perturbations', ())
+        if perturbations:
+            perturbations, safe1 = _parse_perturbations(
+                perturbations, base, telescope, logger
+            )
+            safe &= safe1
+        fea = config.get('fea', None)
+        if fea:
+            fea_dir, bend_dir, fea_perturbations, safe1 = _parse_fea(
+                fea, base, logger
+            )
+            safe &= safe1
+        else:
+            fea_dir = None
+            bend_dir = None
+            fea_perturbations = None
+
         kwargs['perturbations'] = perturbations
-        kwargs['fea'] = fea
+        kwargs['fea_perturbations'] = fea_perturbations
+        kwargs['fea_dir'] = fea_dir
+        kwargs['bend_dir'] = bend_dir
         kwargs['logger'] = logger
-        return kwargs, True
+        return kwargs, safe
 
     def setupImage(self, input_obj, config, base, logger=None):
         """Set up the telescope for the current image."""
@@ -330,5 +435,6 @@ class TelescopeLoader(InputLoader):
             z_offset = 0
         det_telescope = input_obj.get_telescope(z_offset)
         base['det_telescope'] = det_telescope
+
 
 RegisterInputType('telescope', TelescopeLoader(DetectorTelescope, file_scope=True))
