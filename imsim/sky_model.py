@@ -3,7 +3,11 @@ import copy
 import warnings
 import numpy as np
 import galsim
+import pickle
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
+from scipy.interpolate import RegularGridInterpolator
+import os
+from .meta_data import data_dir
 
 RUBIN_AREA = 0.25 * np.pi * 649**2  # cm^2
 
@@ -107,7 +111,126 @@ class SkyGradient:
         value at the CCD center.
         """
         return (self.a*x + self.b*y + self.c)/self.sky_level_center
+    
+class CCD_Fringing:
+    """
+    Class generates normalized fringing map. 
+    
+    The function call operator returns the normlized fringing level
+    as a function of pixel coordinates relative to the value at the 
+    CCD center.
+    """
+    def __init__(self, true_center, boresight, seed, spatial_vary):
+        """
+        Parameters
+        ----------
+        true_center : 
+            Center of the current image.
+        boresight : `CelestialCoord`
+            Boresight of the current pointing. 
+            This is projected to the true_center to get the angular offset 
+            from FoV center for each CCD.
+        seed : `int`
+            Random seed number for each CCD. 
+            This is the hash value computed for the current sensor based on
+            its serial number.
+        spatial_vary : `bool`
+            Parameter controls whether to account for Sky line variation
+            in the fringing model or not. Default is set to True.
+        """
+        self.true_center = true_center
+        self.boresight = boresight
+        self.spatial_vary = spatial_vary
+        self.seed = seed
+        
+    def generate_heightfield(self, fractal_dimension=2.5, n=4096):
+        '''
+        # Use the spectral sythesis method to generate a heightfield
+        '''
+        H = 1 - (fractal_dimension - 2)
+        kpow = -(H + 1.0) / 1.2
+        
+        A = np.zeros((n, n), complex)
 
+        kvec = np.fft.fftfreq(n)
+        k0 = kvec[n // 64]
+        kx, ky = np.meshgrid(kvec, kvec, sparse=True, copy=False)
+        ksq = kx ** 2 + ky ** 2
+        m = ksq > 0
+        random_seed = self.seed
+        gen = galsim.BaseDeviate(random_seed).np
+        phase = 2 * np.pi * gen.uniform(size=(n, n))
+        A[m] = ksq[m] ** kpow * gen.normal(size=(n, n))[m] * np.exp(1.j * phase[m]) * np.exp(-ksq[m] / k0 ** 2)
+
+        return np.fft.ifft2(A)
+
+
+    def simulate_fringes(self, amp=0.002):
+        '''
+        # Generate random fringing pattern from a heightfield
+        Parameters
+        ------------------------
+        amp: `float`
+            Fringing amplitude. Default is set to 0.002 (0.02%)
+        '''
+        n = 1.2
+        n1 = 1.5
+        nwaves_rms=10.
+        X = self.generate_heightfield(n, 4096)
+        X *= nwaves_rms / np.std(X.real)
+        Z =  amp * np.cos(2 * n1 * (X.real))
+        # Scale up to unity
+        #Z  += 1
+        return(Z)
+
+        
+    def fringe_variation_level(self):
+        '''
+        Function implementing temporal and spatial variation of fringing. 
+        
+        The function will return a multiplicative factor that modifies
+        the fringing amplitude from sensor to sensor based on the 
+        time (not implemented yet) and its location on the focal plane.
+        
+        Set spatial = True to turn on spatial variation implementation.
+        Otherwise, this function will return a unity value.
+        '''
+        
+        if self.spatial_vary:
+            # Load 2d interpolator for OH spatial variation
+            filename = os.path.join(data_dir, 'fringing_data',
+                                        'skyline_var.pkl')
+            with open(filename, 'rb') as f:
+                interp = pickle.load(f)
+                
+            dx, dy = self.boresight.project(self.true_center)
+            # calculated OH flux level wrst the center of focal plane.
+            level = interp(dx.deg,dy.deg)/interp(0,0)
+            return(level)
+        else:
+            return 1
+        
+
+    def calculate_fringe_amplitude(self,x,y,amplitude = 0.002):
+        """
+        Return the normalized fringing amplitude at the desired pixel 
+        wrt the value at the CCD center.
+        
+        Parameters
+        ------------------------
+        amplitude: `float`
+            Fringing amplitude. Default is set to 0.002 (0.02%)
+        """
+        level = self.fringe_variation_level()
+        fringe_im = self.simulate_fringes(amp=amplitude*level)
+        if (np.all(fringe_im) != True) or (True in np.isnan(fringe_im)):
+            raise ValueError(" 0 or nan value in the fringe map!")
+        fringe_im += 1
+        xx = np.linspace(0, fringe_im.shape[-1]-1, fringe_im.shape[-1], dtype= int)
+        yy = np.linspace(0, fringe_im.shape[0]-1, fringe_im.shape[0], dtype=int )
+        interp_func = RegularGridInterpolator((xx, yy), fringe_im.T)
+        
+        return (interp_func((x,y)))
 
 class SkyModelLoader(InputLoader):
     """

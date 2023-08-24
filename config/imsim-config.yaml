@@ -157,6 +157,10 @@ image:
     sky_level: { type: SkyLevel }  # Computed from input.sky_model.
 
     apply_sky_gradient: True
+    
+    apply_fringing: "$band == 'y'" # Only set to True if simulating y-bands images!
+
+    boresight: "$boresight"
 
     use_flux_sky_areas: False   # This means don't bother with the BFE from sky flux when computing
                                 # the pixel areas for drawing the sky.

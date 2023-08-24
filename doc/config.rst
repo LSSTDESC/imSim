@@ -434,9 +434,11 @@ Optional keywords to set:
 """""""""""""""""""""""""
 
     * ``dytpe`` = *str_value* (default = None) allows you to set numpy.dtype  for the underlying data in the image.
-    *  ``apply_sky_gradient`` = *bool_value* (default = False) If true vary the sky background level linearly across the sensors to match the expected flux at the four corners of the at each sensor.
+    *  ``apply_sky_gradient`` = *bool_value* (default = False) If True vary the sky background level linearly across the sensors to match the expected flux at the four corners of the at each sensor.
+    * ``apply_fringing`` = *bool_value* (default = False) If True, apply a fringing pattern to the sky background level.  This is only currently possible for y band observations, so a recommended value for this parameters is ``$band == 'y'``.
     *  ``camera`` = *str_value* (default = 'LsstCam') name of the camera such as ``LsstCam``. Other options include 'LsstComCam' and 'LsstCamImSim'.
     *  ``nbatch`` = *int_value* (default = 10) if checkpointing, otherwise the value is 1. How many batches of objects to run.  If checkpointing, the checkpoint will be written after finishing each batch.
+    * ``boresight`` = *sky_value* (required if ``apply_fringing`` is True) The CelestialCoord of the boresight of the observation.
 
 *imSim* also registers a new type of WCS object. When this WCS is chosen the `Batoid ray-tracing package  <https://github.com/jmeyers314/batoid>`__ traces a set of rays through the optics and fits the result to create a WCS which accurately represents the current state of the telescope optics.
 
