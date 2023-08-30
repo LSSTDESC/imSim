@@ -163,6 +163,7 @@ class LSST_CCDBuilder(OutputBuilder):
         ratel = parse('fieldRA', float, 0.0)
         dectel = parse('fieldDec', float, 0.0)
         airmass = parse('airmass', float, 'N/A')
+        focus_z = parse('focusZ', float, 0.0)
 
         # Now construct the image header
         image.header['MJD'] = mjd
@@ -189,6 +190,7 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header['HAEND'] = opsim_data.getHourAngle(mjd_end, ratel)
         image.header['AMSTART'] = airmass
         image.header['AMEND'] = airmass  # wrong, does anyone care?
+        image.header['FOCUSZ'] = focus_z
 
         # If there's anything left in header_vals, add it to the header.
         for k in header_vals:

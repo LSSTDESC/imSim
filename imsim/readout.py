@@ -271,6 +271,7 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
     phdu.header['PKG00000'] = 'throughputs'
     phdu.header['VER00000'] = '1.4'
     phdu.header['CHIPID'] = det_name
+    phdu.header['FOCUSZ'] = eimage.header['FOCUSZ']
 
     phdu.header.update(added_keywords)
     return phdu
