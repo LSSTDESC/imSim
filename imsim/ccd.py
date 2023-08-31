@@ -9,12 +9,12 @@ from .meta_data import data_dir
 from .camera import get_camera
 from .opsim_data import get_opsim_data
 
-
 class LSST_CCDBuilder(OutputBuilder):
     """This runs the overall generation of an LSST CCD file.
 
     Most of the defaults work fine.  There are a few extra things we do that are LSST-specific.
     """
+    _added_eval_base_variables = False
 
     def setup(self, config, base, file_num, logger):
         """Do any necessary setup at the start of processing a file.
@@ -33,7 +33,7 @@ class LSST_CCDBuilder(OutputBuilder):
             config['det_num'] = { 'type': 'Sequence', 'nitems': 189 }
 
         # Figure out the detector name for the file name.
-        detnum = galsim.config.ParseValue(config, 'det_num', base, int)[0]
+        det_num = galsim.config.ParseValue(config, 'det_num', base, int)[0]
         if 'camera' in config:
             camera_name = galsim.config.ParseValue(config, 'camera', base, str)[0]
         else:
@@ -41,12 +41,18 @@ class LSST_CCDBuilder(OutputBuilder):
         camera = get_camera(camera_name)
         if 'only_dets' in config:
             only_dets = config['only_dets']
-            det_name = only_dets[detnum]
+            det_name = only_dets[det_num]
         else:
-            det_name = camera[detnum].getName()
-        if 'eval_variables' not in base:
-            base['eval_variables'] = {}
-        base['eval_variables']['sdet_name'] = det_name
+            det_name = camera[det_num].getName()
+
+        # If we haven't done so yet, let det_name and det_num be usable in eval statements.
+        if not self._added_eval_base_variables:
+            galsim.config.eval_base_variables.extend(['det_name', 'det_num'])
+            self._added_eval_base_variables = True
+
+        base['det_num'] = det_num
+        base['det_name'] = det_name
+
         self.det_name = det_name
 
         if 'exptime' in config:
