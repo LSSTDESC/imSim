@@ -181,29 +181,28 @@ class LSST_SiliconBuilder(StampBuilder):
             # Start with GalSim's estimate of a good box size.
             image_size = obj.getGoodImageSize(self._pixel_scale)
 
-            # Find a postage stamp region to draw onto.  Use (sky noise)/8. as the nominal
-            # minimum surface brightness for rendering an extended object.
-            base['current_noise_image'] = base['current_image']
-            noise_var = galsim.config.CalculateNoiseVariance(base)
-            keep_sb_level = np.sqrt(noise_var)/8.
-            self._large_object_sb_level = 3*keep_sb_level
-
-            gal_at_eff_wl = gal.evaluateAtWavelength(bandpass.effective_wavelength)
             # For bright things, defined as having an average of at least 10 photons per
             # pixel on average, or objects for which GalSim's estimate of the image_size is larger
             # than self._Nmax, compute the image_size using the surface brightness limit, trying
             # to be careful about not truncating the surface brightness
             # at the edge of the box.
             if (self.realized_flux > 10 * image_size**2) or (image_size > self._Nmax):
-                image_size = self._getGoodPhotImageSize([gal_at_eff_wl, psf], keep_sb_level,
+                # Find a postage stamp region to draw onto.  Use (sky noise)/8. as the nominal
+                # minimum surface brightness for rendering an extended object.
+                base['current_noise_image'] = base['current_image']
+                noise_var = galsim.config.CalculateNoiseVariance(base)
+                keep_sb_level = np.sqrt(noise_var)/8.
+                self._large_object_sb_level = 3*keep_sb_level
+                image_size = self._getGoodPhotImageSize([gal_achrom, psf], keep_sb_level,
                                                         pixel_scale=self._pixel_scale)
 
-            # If the above size comes out really huge, scale back to what you get for
-            # a somewhat brighter surface brightness limit.
-            if image_size > self._Nmax:
-                image_size = self._getGoodPhotImageSize([gal_at_eff_wl, psf], self._large_object_sb_level,
-                                                        pixel_scale=self._pixel_scale)
-                image_size = min(image_size, self._Nmax)
+                # If the above size comes out really huge, scale back to what you get for
+                # a somewhat brighter surface brightness limit.
+                if image_size > self._Nmax:
+                    image_size = self._getGoodPhotImageSize([gal_achrom, psf],
+                                                            self._large_object_sb_level,
+                                                            pixel_scale=self._pixel_scale)
+                    image_size = min(image_size, self._Nmax)
 
         logger.info('Object %d will use stamp size = %s',base.get('obj_num',0),image_size)
 
