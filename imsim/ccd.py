@@ -9,17 +9,12 @@ from .meta_data import data_dir
 from .camera import get_camera
 from .opsim_data import get_opsim_data
 
-
-# Add `xsize` and `ysize` to the list of preset variables. These are
-# evaluated below in LSST_CCDBuilder.setup.
-galsim.config.eval_base_variables.extend(('xsize', 'ysize'))
-
-
 class LSST_CCDBuilder(OutputBuilder):
     """This runs the overall generation of an LSST CCD file.
 
     Most of the defaults work fine.  There are a few extra things we do that are LSST-specific.
     """
+    _added_eval_base_variables = False
 
     def setup(self, config, base, file_num, logger):
         """Do any necessary setup at the start of processing a file.
@@ -38,7 +33,7 @@ class LSST_CCDBuilder(OutputBuilder):
             config['det_num'] = { 'type': 'Sequence', 'nitems': 189 }
 
         # Figure out the detector name for the file name.
-        detnum = galsim.config.ParseValue(config, 'det_num', base, int)[0]
+        det_num = galsim.config.ParseValue(config, 'det_num', base, int)[0]
         if 'camera' in config:
             camera_name = galsim.config.ParseValue(config, 'camera', base, str)[0]
         else:
@@ -46,18 +41,19 @@ class LSST_CCDBuilder(OutputBuilder):
         camera = get_camera(camera_name)
         if 'only_dets' in config:
             only_dets = config['only_dets']
-            det_name = only_dets[detnum]
+            det_name = only_dets[det_num]
         else:
-            det_name = camera[detnum].getName()
-        base['det_name'] = det_name
-        if 'eval_variables' not in base:
-            base['eval_variables'] = {}
-        base['eval_variables']['sdet_name'] = det_name
+            det_name = camera[det_num].getName()
 
-        # Get detector size in pixels.
-        det_bbox = camera[det_name].getBBox()
-        base['xsize'] = det_bbox.width
-        base['ysize'] = det_bbox.height
+        # If we haven't done so yet, let det_name and det_num be usable in eval statements.
+        if not self._added_eval_base_variables:
+            galsim.config.eval_base_variables.extend(['det_name', 'det_num'])
+            self._added_eval_base_variables = True
+
+        base['det_num'] = det_num
+        base['det_name'] = det_name
+
+        self.det_name = det_name
 
         if 'exptime' in config:
             base['exptime'] = galsim.config.ParseValue(
@@ -65,6 +61,12 @@ class LSST_CCDBuilder(OutputBuilder):
             )[0]
         else:
             base['exptime'] = 30.0
+
+        # Save the detector size, so the input catalogs can use it to figure out which
+        # objects will be visible.
+        det_bbox = camera[self.det_name].getBBox()
+        base['det_xsize'] = det_bbox.width
+        base['det_ysize'] = det_bbox.height
 
     def getNFiles(self, config, base, logger=None):
         """Returns the number of files to be built.
@@ -127,7 +129,6 @@ class LSST_CCDBuilder(OutputBuilder):
             logger.info('Adding cosmic rays with rate %f using %s.',
                         cosmic_ray_rate, cosmic_ray_catalog)
             exptime = base['exptime']
-            det_name = base['det_name']
             cosmic_rays = CosmicRays(cosmic_ray_rate, cosmic_ray_catalog)
             rng = galsim.config.GetRNG(config, base)
             cosmic_rays.paint(image.array, rng, exptime=exptime)
@@ -138,7 +139,7 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header = galsim.FitsHeader()
         exptime = base['exptime']
         image.header['EXPTIME'] = exptime
-        image.header['DET_NAME'] = base['det_name']
+        image.header['DET_NAME'] = self.det_name
 
         header_vals = copy.deepcopy(params.get('header', {}))
         opsim_data = get_opsim_data(config, base)

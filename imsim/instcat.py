@@ -462,7 +462,7 @@ def InstCatObj(config, base, ignore, gsparams, logger):
     index = kwargs['index']
 
     rng = galsim.config.GetRNG(config, base, logger, 'InstCatObj')
-    exptime = base.get('exptime',None)
+    exptime = base.get('exptime', 30)
 
     obj = inst.getObj(index, gsparams=gsparams, rng=rng, exptime=exptime)
     base['object_id'] = inst.getID(index)
@@ -528,8 +528,8 @@ class InstCatalogLoader(InputLoader):
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
         kwargs['wcs'] = wcs
-        kwargs['xsize'] = base['xsize']
-        kwargs['ysize'] = base['ysize']
+        kwargs['xsize'] = base.get('det_xsize', 4096)
+        kwargs['ysize'] = base.get('det_ysize', 4096)
         kwargs['logger'] = logger
         return kwargs, False
 

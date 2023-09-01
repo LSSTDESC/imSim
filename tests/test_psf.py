@@ -453,5 +453,67 @@ class PsfTestCase(unittest.TestCase):
         np.testing.assert_allclose(ref_img.array, img.array, rtol=0.15, atol=50)
 
 
+def test_doopt_true():
+    """Check that doOpt=True works properly.
+    """
+    config = {
+        'input': {
+            'telescope': {
+                'file_name': 'LSST_r.yaml',
+                'rotTelPos': np.pi / 3 * galsim.radians,
+                'camera': 'LsstCam',
+            },
+            'atm_psf': {
+                'airmass': 1.1,
+                'rawSeeing':  0.6,
+                'band':  'r',
+                'boresight': galsim.CelestialCoord(0*galsim.degrees, 0*galsim.degrees),
+                'screen_size': 102.4,
+                'nproc': 1,
+                'doOpt': True,
+            }
+        },
+        'image': {
+            'type': 'LSST_Image',
+            'det_name': 'R22_S11',
+            'xsize': 256,
+            'ysize': 256,
+            'random_seed': 1234,
+            'nobjects': 1,
+            'pixel_scale': 0.2,
+            'bandpass': {'type': 'RubinBandpass', 'band': 'r'},
+            'noise': {'type': 'Poisson'},
+            'wcs': {
+                'type' : 'Tan',
+                'dudx' : 0.2,
+                'dudy' : 0.,
+                'dvdx' : 0.,
+                'dvdy' : 0.2,
+                'ra' : '0 deg',
+                'dec' : '0 deg',
+            }
+        },
+        'psf': {
+            'type': 'AtmosphericPSF',
+        },
+        'gal': {
+            'type': 'DeltaFunction',
+            'flux': 1000,
+            'sed': galsim.SED('vega.txt', 'nm', 'flambda'),
+        },
+        'stamp': {
+            'type': 'LSST_Silicon',
+            'image_pos': galsim.PositionD(100,100),
+        },
+        'output': {
+            'file_name': 'output/doopt.fits',
+        },
+    }
+    with CaptureLog() as cl:
+        galsim.config.Process(config, logger=cl.logger)
+    print(cl.output)
+
+
+
 if __name__ == '__main__':
     unittest.main()

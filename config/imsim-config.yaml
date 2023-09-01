@@ -43,6 +43,10 @@ eval_variables:
 
     fexptime: { type: OpsimData, field: exptime }
 
+    # Note: Another value we use in many eval items is det_name.  If using the LSST_CCD
+    #       output type, as we do here, it's automatically added as an availble eval variable.
+    #       Otherwise you should set sdet_name here manually to e.g. 'R22_S11' or whatever.
+
 
 # Any input data is set here.  These are read in at the start of the program and
 # potentially updated for each output file. Also includes things that need some
@@ -120,8 +124,7 @@ image:
                 # the main process for all of the (many) vert faint sources, which only shoot
                 # a small numer of photons.
 
-    xsize: "$xsize"
-    ysize: "$ysize"
+    det_name: "$det_name"
 
     bandpass: { type: RubinBandpass, band: "$band" }
 
@@ -239,6 +242,7 @@ stamp:
                 theta: { type: OpsimData, field: HA }
         -
             type: RubinDiffractionOptics
+            det_name: "$det_name"
             boresight: "$boresight"
             camera: "@output.camera"
             altitude: $altitude

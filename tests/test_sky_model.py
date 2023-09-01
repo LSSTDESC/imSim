@@ -102,6 +102,7 @@ def test_sky_gradient():
         },
         'image': {
             'type': 'LSST_Image',
+            'det_name': 'R22_S11',
             'xsize': image_xsize,
             'ysize': image_xsize,
             'wcs': wcs,

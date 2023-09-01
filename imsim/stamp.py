@@ -181,29 +181,28 @@ class LSST_SiliconBuilder(StampBuilder):
             # Start with GalSim's estimate of a good box size.
             image_size = obj.getGoodImageSize(self._pixel_scale)
 
-            # Find a postage stamp region to draw onto.  Use (sky noise)/8. as the nominal
-            # minimum surface brightness for rendering an extended object.
-            base['current_noise_image'] = base['current_image']
-            noise_var = galsim.config.CalculateNoiseVariance(base)
-            keep_sb_level = np.sqrt(noise_var)/8.
-            self._large_object_sb_level = 3*keep_sb_level
-
-            gal_at_eff_wl = gal.evaluateAtWavelength(bandpass.effective_wavelength)
             # For bright things, defined as having an average of at least 10 photons per
             # pixel on average, or objects for which GalSim's estimate of the image_size is larger
             # than self._Nmax, compute the image_size using the surface brightness limit, trying
             # to be careful about not truncating the surface brightness
             # at the edge of the box.
             if (self.realized_flux > 10 * image_size**2) or (image_size > self._Nmax):
-                image_size = self._getGoodPhotImageSize([gal_at_eff_wl, psf], keep_sb_level,
+                # Find a postage stamp region to draw onto.  Use (sky noise)/8. as the nominal
+                # minimum surface brightness for rendering an extended object.
+                base['current_noise_image'] = base['current_image']
+                noise_var = galsim.config.CalculateNoiseVariance(base)
+                keep_sb_level = np.sqrt(noise_var)/8.
+                self._large_object_sb_level = 3*keep_sb_level
+                image_size = self._getGoodPhotImageSize([gal_achrom, psf], keep_sb_level,
                                                         pixel_scale=self._pixel_scale)
 
-            # If the above size comes out really huge, scale back to what you get for
-            # a somewhat brighter surface brightness limit.
-            if image_size > self._Nmax:
-                image_size = self._getGoodPhotImageSize([gal_at_eff_wl, psf], self._large_object_sb_level,
-                                                        pixel_scale=self._pixel_scale)
-                image_size = min(image_size, self._Nmax)
+                # If the above size comes out really huge, scale back to what you get for
+                # a somewhat brighter surface brightness limit.
+                if image_size > self._Nmax:
+                    image_size = self._getGoodPhotImageSize([gal_achrom, psf],
+                                                            self._large_object_sb_level,
+                                                            pixel_scale=self._pixel_scale)
+                    image_size = min(image_size, self._Nmax)
 
         logger.info('Object %d will use stamp size = %s',base.get('obj_num',0),image_size)
 
@@ -407,7 +406,6 @@ class LSST_SiliconBuilder(StampBuilder):
             return psf
 
         # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
-        psf = galsim.config.BuildGSObject(base, 'psf', logger=logger)[0]
         bandpass = base['bandpass']
         fft_psf = self.make_fft_psf(psf.evaluateAtWavelength(bandpass.effective_wavelength), logger)
         logger.warning('Object %d has flux = %s.  Check if we should switch to FFT',
@@ -535,6 +533,10 @@ class LSST_SiliconBuilder(StampBuilder):
             # don't draw anything.
             return image
 
+        # Prof is normally a convolution here with obj_list being [gal, psf1, psf2,...]
+        # for some number of component PSFs.
+        gal, *psfs = prof.obj_list if hasattr(prof,'obj_list') else [prof]
+
         def fix_seds(prof):
             # If any SEDs are not currently using a LookupTable for the function or if they are
             # using spline interpolation, then the codepath is quite slow.
@@ -568,11 +570,11 @@ class LSST_SiliconBuilder(StampBuilder):
         bandpass = base['bandpass']
         if faint:
             logger.info("Flux = %.0f  Using trivial sed", self.realized_flux)
-            prof = prof.evaluateAtWavelength(bandpass.effective_wavelength)
-            prof = prof * self._trivial_sed
+            gal = gal.evaluateAtWavelength(bandpass.effective_wavelength)
+            gal = gal * self._trivial_sed
         else:
-            fix_seds(prof)
-        prof = prof.withFlux(self.realized_flux, bandpass)
+            fix_seds(gal)
+        gal = gal.withFlux(self.realized_flux, bandpass)
 
         wcs = base['wcs']
 
@@ -599,6 +601,8 @@ class LSST_SiliconBuilder(StampBuilder):
                     "n_subsample": 1,
                 })
 
+            # Go back to a combined convolution for fft drawing.
+            prof = galsim.Convolve([gal] + psfs)
             try:
                 prof.drawImage(bandpass, **kwargs)
             except galsim.errors.GalSimFFTSizeError as e:
@@ -628,6 +632,10 @@ class LSST_SiliconBuilder(StampBuilder):
                 photon_ops = galsim.config.BuildPhotonOps(config, 'photon_ops', base, logger)
             else:
                 photon_ops = []
+            # Put the psfs at the start of the photon_ops.
+            # Probably a little better to put them a bit later than the start in some cases
+            # (e.g. after TimeSampler, PupilAnnulusSampler), but leave that as a todo for now.
+            photon_ops = psfs + photon_ops
 
             if faint:
                 sensor = None
@@ -636,18 +644,18 @@ class LSST_SiliconBuilder(StampBuilder):
                 if sensor is not None:
                     sensor.updateRNG(self.rng)
 
-            prof.drawImage(bandpass,
-                           method='phot',
-                           offset=offset,
-                           rng=self.rng,
-                           maxN=maxN,
-                           n_photons=self.realized_flux,
-                           image=image,
-                           wcs=wcs,
-                           sensor=sensor,
-                           photon_ops=photon_ops,
-                           add_to_image=True,
-                           poisson_flux=False)
+            gal.drawImage(bandpass,
+                          method='phot',
+                          offset=offset,
+                          rng=self.rng,
+                          maxN=maxN,
+                          n_photons=self.realized_flux,
+                          image=image,
+                          wcs=wcs,
+                          sensor=sensor,
+                          photon_ops=photon_ops,
+                          add_to_image=True,
+                          poisson_flux=False)
 
         return image
 

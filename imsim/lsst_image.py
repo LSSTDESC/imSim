@@ -42,13 +42,27 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         # These are allowed for LSST_Image, but we don't use them here.
         extra_ignore = [ 'image_pos', 'world_pos', 'stamp_size', 'stamp_xsize', 'stamp_ysize',
                          'nobjects' ]
+        req = { 'det_name': str }
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
                  'apply_sky_gradient': bool, 'apply_fringing': bool,
                  'boresight': galsim.CelestialCoord, 'camera': str, 'nbatch': int}
-        params = GetAllParams(config, base, opt=opt, ignore=ignore+extra_ignore)[0]
+        params = GetAllParams(config, base, req=req, opt=opt, ignore=ignore+extra_ignore)[0]
+
+        # Let the user override the image size
         size = params.get('size',0)
-        full_xsize = params.get('xsize',size)
-        full_ysize = params.get('ysize',size)
+        xsize = params.get('xsize',size)
+        ysize = params.get('ysize',size)
+
+        self.det_name = params['det_name']
+        self.camera_name = params.get('camera', 'LsstCam')
+
+        # If not overridden, then get size from the camera.
+        camera = get_camera(self.camera_name)
+        if xsize == 0 or ysize == 0:
+            # Get detector size in pixels.
+            det_bbox = camera[self.det_name].getBBox()
+            xsize = det_bbox.width
+            ysize = det_bbox.height
 
         try:
             self.vignetting = galsim.config.GetInputObj('vignetting', config,
@@ -76,18 +90,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             # Note: This will probably also become 10 once we're doing the photon
             #       pooling stuff.  But for now, let it be 1 if not checkpointing.
 
-        if (full_xsize <= 0) or (full_ysize <= 0):
-            raise galsim.config.GalSimConfigError(
-                "Both image.xsize and image.ysize need to be defined and > 0.")
-
-        # If image_force_xsize and image_force_ysize were set in config, make sure it matches.
-        if ( ('image_force_xsize' in base and full_xsize != base['image_force_xsize']) or
-             ('image_force_ysize' in base and full_ysize != base['image_force_ysize']) ):
-            raise galsim.config.GalSimConfigError(
-                "Unable to reconcile required image xsize and ysize with provided "
-                "xsize=%d, ysize=%d, "%(full_xsize,full_ysize))
-
-        return full_xsize, full_ysize
+        return xsize, ysize
 
     def buildImage(self, config, base, image_num, obj_num, logger):
         """Build the Image.
@@ -146,7 +149,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         all_vars = []
 
         if self.checkpoint is not None:
-            chk_name = 'buildImage_%s'%(base.get('det_name',''))
+            chk_name = 'buildImage_%s'%(self.det_name)
             saved = self.checkpoint.load(chk_name)
             if saved is not None:
                 full_image, all_bounds, all_vars, start_num, extra_builder = saved
@@ -268,10 +271,9 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             sky.array[:] *= sky_gradient(xarr, yarr)
 
         if self.vignetting is not None:
-            det_name = base['det_name']
             camera = get_camera(self.camera_name)
             logger.info("Applying vignetting according to radial spline model.")
-            radii = Vignetting.get_pixel_radii(camera[det_name])
+            radii = Vignetting.get_pixel_radii(camera[self.det_name])
             sky.array[:] *= self.vignetting.apply_to_radii(radii)
 
         if self.apply_fringing:

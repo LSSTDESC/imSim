@@ -33,6 +33,7 @@ def test_fringing():
             'ysize': 4004,
             'wcs': wcs,
             'nobjects': 0,
+            'det_name': 'R22_S11',
         },
     }
 
@@ -70,7 +71,8 @@ def test_fringing():
             'nobjects': 0,
             'sky_level_pixel': sky_level,
             'apply_fringing': True,
-            'boresight': world_center
+            'boresight': world_center,
+            'det_name': 'R22_S11',
         },
         'det_name': 'R22_S11'
     }
