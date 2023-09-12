@@ -29,7 +29,7 @@ class TreeRings():
         This code reads in a file with tree ring parameters from file_name
         and assigns a tree ring model to each sensor.
         """
-        self.logger = galsim.config.LoggerWrapper(logger)
+        logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
         if not os.path.isfile(self.file_name):
             # Then check for this name in the imsim data_dir
@@ -46,17 +46,17 @@ class TreeRings():
         dr = 3.0 # Step size of tree ring function in pixels
         self.npoints = int(self.r_max / dr) + 1 # Number of points in tree ring function
 
+        logger.warning("TreeRing file %s will be used.", self.file_name)
         # Make a dict indexed by det_name (a string that looks like Rxx_Syy)
         self.info = {}
         if not defer_load:
+            if only_dets:
+                logger.info("Reading in det_names: %s", only_dets)
             self.fill_dict(only_dets=only_dets)
 
     def fill_dict(self, only_dets=None):
         """Read the tree rings file and save the information therein to a dict, self.info.
         """
-        self.logger.warning("Reading TreeRing file %s", self.file_name)
-        if only_dets:
-            self.logger.info("Reading in det_names: %s", only_dets)
         with open(self.file_name, 'r') as input_:
             lines = input_.readlines()
 
@@ -69,7 +69,6 @@ class TreeRings():
 
             det_name = "R%s%s_S%s%s"%(tuple(items[:4]))
             if only_dets and det_name not in only_dets: continue
-            self.logger.info(det_name)
 
             Cx = float(items[4]) + xCenterPix
             Cy = float(items[5]) + yCenterPix
