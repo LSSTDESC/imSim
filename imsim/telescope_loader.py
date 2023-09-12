@@ -126,7 +126,8 @@ def load_telescope(
     bend_dir=None,
     fea_perturbations=None,
     rotTelPos=None,
-    cameraName="LSSTCamera"
+    cameraName="LSSTCamera",
+    focusZ=None,
 ):
     """ Load a telescope.
 
@@ -153,6 +154,9 @@ def load_telescope(
         Rotator angle to apply.
     cameraName : str, optional
         The name of the camera to rotate.
+    focusZ : float, optional
+        Distance to intentionally defocus the camera for AOS analysis.
+        Units are meters.
 
     Examples of perturbations dicts:
     --------------------------------
@@ -244,6 +248,9 @@ def load_telescope(
             cameraName,
             batoid.RotZ(rotTelPos.rad)
         )
+
+    if focusZ is not None:
+        telescope = telescope.withLocallyShiftedOptic(cameraName, [0.0, 0.0, focusZ])
     return telescope
 
 
@@ -354,6 +361,7 @@ class DetectorTelescope:
     _opt_params = {
         'rotTelPos': Angle,
         'camera': str,
+        'focusZ': float,
     }
 
     def __init__(
@@ -365,6 +373,7 @@ class DetectorTelescope:
         fea_dir=None,
         bend_dir=None,
         fea_perturbations=None,
+        focusZ=None,
         logger=None
     ):
         # Batoid has a different name for LsstCam than DM code.  So we need to switch it here.
@@ -376,6 +385,7 @@ class DetectorTelescope:
             fea_perturbations=fea_perturbations,
             rotTelPos=rotTelPos,
             cameraName=cameraName,
+            focusZ=focusZ
         )
         self.camera = camera
         self.logger = logger
