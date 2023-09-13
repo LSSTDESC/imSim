@@ -438,13 +438,14 @@ class LSST_SiliconBuilder(StampBuilder):
                 self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
                 base['realized_flux'] = self.realized_flux
 
-            logger.warning('Yes. Use FFT for this object.  max_sb = %.0f > %.0f',
-                           max_sb, fft_sb_thresh)
+            logger.warning('Yes. Use FFT for object %d.  max_sb = %.0f > %.0f',
+                           base.get('obj_num'), max_sb, fft_sb_thresh)
             return fft_psf
         else:
             self.use_fft = False
-            logger.warning('No. Use photon shooting.  max_sb = %.0f <= %.0f',
-                           max_sb, fft_sb_thresh)
+            logger.warning('No. Use photon shooting for object %d. '
+                           'max_sb = %.0f <= %.0f',
+                           base.get('obj_num'), max_sb, fft_sb_thresh)
             return psf
 
     def make_fft_psf(self, psf, logger):
