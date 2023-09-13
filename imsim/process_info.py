@@ -31,8 +31,12 @@ class ProcessInfoBuilder(ExtraOutputBuilder):
         # User cpu time
         user_time = proc.cpu_times().user
 
-        self.scratch[obj_num] \
-            = ProcessInfo(object_id, pid, rss, uss, user_time, time.time())
+        process_info = ProcessInfo(object_id, pid, rss, uss, user_time,
+                                   time.time())
+        logger.info("Object %d, id %s, pid %d, RSS %.2f GB, USS %.2f GB, "
+                    "user_time %.2f, unix_time %.1f, det_name %s",
+                    obj_num, *process_info, base.get("det_name", ""))
+        self.scratch[obj_num] = process_info
 
     def finalize(self, config, base, main_data, logger):
         self.cat = galsim.OutputCatalog(names=_PROCESS_INFO_COLS,
