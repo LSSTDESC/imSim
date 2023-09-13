@@ -25,3 +25,4 @@ from .checkpoint import *
 from .opd import *
 from .vignetting import *
 from .sag import *
+from .process_info import *
