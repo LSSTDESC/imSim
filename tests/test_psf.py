@@ -426,7 +426,7 @@ class PsfTestCase(unittest.TestCase):
             img = galsim.config.BuildImage(config, logger=cl.logger)
         #print(cl.output)
         assert 'Check if we should switch to FFT' in cl.output
-        assert 'Yes. Use FFT for this object.' in cl.output
+        assert 'Yes. Use FFT for' in cl.output
 
         print('Peak of reference PSF (flux=1.e5): ',ref_img.array.max())
         print('Peak of FFT PSF (flux=1.e8): ',img.array.max())
