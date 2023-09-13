@@ -61,6 +61,7 @@ class PsfTestCase(unittest.TestCase):
                     'rawSeeing': self.opsim_data['rawSeeing'],
                     'band':  self.opsim_data['band'],
                     'screen_scale': 6.4,
+                    'nproc': 1,
                     'boresight': {
                         'type': 'RADec',
                         'ra': { 'type': 'Degrees', 'theta': self.opsim_data['rightascension'], },
@@ -106,6 +107,7 @@ class PsfTestCase(unittest.TestCase):
                     'rawSeeing': self.opsim_data['rawSeeing'],
                     'band':  self.opsim_data['band'],
                     'screen_scale': 6.4,
+                    'nproc': 1,
                     'boresight': {
                         'type': 'RADec',
                         'ra': { 'type': 'Degrees', 'theta': self.opsim_data['rightascension'], },
@@ -177,6 +179,7 @@ class PsfTestCase(unittest.TestCase):
                     'rawSeeing': self.opsim_data['rawSeeing'],
                     'band':  self.opsim_data['band'],
                     'screen_scale': 6.4,
+                    'nproc': 1,
                     'boresight': {
                         'type': 'RADec',
                         'ra': { 'type': 'Degrees', 'theta': self.opsim_data['rightascension'], },
@@ -300,6 +303,7 @@ class PsfTestCase(unittest.TestCase):
                         'ra': { 'type': 'Degrees', 'theta': 0.0},
                         'dec': { 'type': 'Degrees', 'theta': 0.0}
                     },
+                    'nproc': 1,
                     'exponent': None,
                     'exptime': 600.0,  # Lots of mixing.
                     'doOpt': False,
@@ -372,6 +376,7 @@ class PsfTestCase(unittest.TestCase):
                     'rawSeeing': self.opsim_data['rawSeeing'],
                     'band':  self.opsim_data['band'],
                     'screen_size': 409.6,
+                    'nproc': 1,
                     'boresight': {
                         'type': 'RADec',
                         'ra': { 'type': 'Degrees', 'theta': self.opsim_data['rightascension'], },
