@@ -47,6 +47,7 @@ class ProcessInfoBuilder(ExtraOutputBuilder):
         return self.cat
 
     def writeFile(self, file_name, config, base, logger):
+        logger.warning("Writing process info output to %s", file_name)
         self.cat.write(file_name)
 
 
