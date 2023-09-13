@@ -401,6 +401,8 @@ class LSST_SiliconBuilder(StampBuilder):
             fft_sb_thresh = galsim.config.ParseValue(config,'fft_sb_thresh',base,float)[0]
         else:
             fft_sb_thresh = 0.
+
+        base['realized_flux'] = self.realized_flux
         if self.realized_flux < 1.e6 or not fft_sb_thresh or self.realized_flux < fft_sb_thresh:
             self.use_fft = False
             return psf
@@ -434,6 +436,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 flux = self.gal.flux*self.vignetting.at_sky_coord(
                     base['sky_pos'], self.image.wcs, pix_to_fp)
                 self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
+                base['realized_flux'] = self.realized_flux
 
             logger.warning('Yes. Use FFT for this object.  max_sb = %.0f > %.0f',
                            max_sb, fft_sb_thresh)

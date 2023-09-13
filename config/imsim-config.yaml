@@ -330,6 +330,7 @@ output:
             dec: "$sky_pos.dec.deg"
             x: "$image_pos.x"
             y: "$image_pos.y"
+            realized_flux: "@realized_flux"
             # TODO: ... more probably
 
     process_info:
