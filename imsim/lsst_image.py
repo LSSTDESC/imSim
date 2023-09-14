@@ -112,19 +112,6 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         Returns:
             the final image and the current noise variance in the image as a tuple
         """
-        try:
-            # GalSim 2.5+ name
-            from galsim.config.stamp import ParseDType
-        except ImportError:
-            # GalSim 2.4 name
-            from galsim.config.stamp import _ParseDType as ParseDType
-
-        full_xsize = base['image_xsize']
-        full_ysize = base['image_ysize']
-        wcs = base['wcs']
-
-        dtype = ParseDType(config, base)
-
         if 'image_pos' in config and 'world_pos' in config:
             raise galsim.config.GalSimConfigValueError(
                 "Both image_pos and world_pos specified for LSST_Image.",
@@ -133,6 +120,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         if ('image_pos' not in config and 'world_pos' not in config and
                 not ('stamp' in base and
                     ('image_pos' in base['stamp'] or 'world_pos' in base['stamp']))):
+            full_xsize = base['image_xsize']
+            full_ysize = base['image_ysize']
             xmin = base['image_origin'].x
             xmax = xmin + full_xsize-1
             ymin = base['image_origin'].y
@@ -171,12 +160,25 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         nobj_tot = self.nobjects - (start_num - obj_num)
 
         if full_image is None:
-            full_image = galsim.Image(full_xsize, full_ysize, dtype=dtype)
-            full_image.setOrigin(base['image_origin'])
-            full_image.wcs = wcs
-            full_image.setZero()
+            if galsim.__version_info__ < (2,5):
+                # GalSim 2.4 required a bit more work here.
+                from galsim.config.stamp import _ParseDType
+
+                full_xsize = base['image_xsize']
+                full_ysize = base['image_ysize']
+                wcs = base['wcs']
+
+                dtype = _ParseDType(config, base)
+
+                full_image = galsim.Image(full_xsize, full_ysize, dtype=dtype)
+                full_image.setOrigin(base['image_origin'])
+                full_image.wcs = wcs
+                full_image.setZero()
+                base['current_image'] = full_image
+            else:
+                # In GalSim 2.5+, the image is already built and available as 'current_image'
+                full_image = base['current_image']
             start_batch = 0
-        base['current_image'] = full_image
 
         nbatch = min(self.nbatch, nobj_tot)
         for batch in range(nbatch):
