@@ -86,8 +86,13 @@ def test_lsst_silicon_builder_passes_correct_photon_ops_to_drawImage() -> None:
         "n_subsample": 1,
         "image": mock.ANY,  # For fft, the image gets modified from the original
     }
+    if galsim.__version_info__ < (2,5):
+        phot_type = 'galsim.ChromaticTransformation'
+    else:
+        # In GalSim 2.5+, this is now a SimpleChromaticTransformation
+        phot_type = 'galsim.SimpleChromaticTransformation'
     for method, expected_specific_args, prof_type, op_type in (
-        ("phot", expected_phot_args, 'galsim.ChromaticTransformation', imsim.RubinDiffractionOptics),
+        ("phot", expected_phot_args, phot_type, imsim.RubinDiffractionOptics),
         ("fft", expected_fft_args, 'galsim.ChromaticConvolution', imsim.RubinDiffraction),
     ):
         # mock.patch basically wraps these functions so we can access how they were called
@@ -138,8 +143,12 @@ def test_stamp_builder_works_without_photon_ops_or_faint() -> None:
     expected_fft_args = {
         "image": mock.ANY
     }
+    if galsim.__version_info__ < (2,5):
+        phot_type = 'galsim.ChromaticTransformation'
+    else:
+        phot_type = 'galsim.SimpleChromaticTransformation'
     for method, expected_specific_args, photon_ops_key, prof_type in (
-        ("phot", expected_phot_args, 'photon_ops', 'galsim.ChromaticTransformation'),
+        ("phot", expected_phot_args, 'photon_ops', phot_type),
         ("fft", expected_fft_args, 'fft_photon_ops', 'galsim.ChromaticConvolution'),
     ):
         for faint in [True, False]:
