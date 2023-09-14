@@ -112,13 +112,18 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         Returns:
             the final image and the current noise variance in the image as a tuple
         """
-        from galsim.config.stamp import _ParseDType
+        try:
+            # GalSim 2.5+ name
+            from galsim.config.stamp import ParseDType
+        except ImportError:
+            # GalSim 2.4 name
+            from galsim.config.stamp import _ParseDType as ParseDType
 
         full_xsize = base['image_xsize']
         full_ysize = base['image_ysize']
         wcs = base['wcs']
 
-        dtype = _ParseDType(config, base)
+        dtype = ParseDType(config, base)
 
         if 'image_pos' in config and 'world_pos' in config:
             raise galsim.config.GalSimConfigValueError(
