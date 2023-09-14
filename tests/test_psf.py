@@ -390,14 +390,10 @@ class PsfTestCase(unittest.TestCase):
                 # But others (airmass, band) may be omitted in this case.
                 # Also, don't need det_num since not doing vignetting.
                 'rawSeeing': self.opsim_data['rawSeeing'],
-                'image_pos': {
-                    'type': 'XY',
-                    'x': 0,
-                    'y': 0,
-                }
             },
             'image' : {
-                'size': 64,
+                'xsize': 50,
+                'ysize': 52,
                 'random_seed': 1234,
                 'wcs': {
                     'type' : 'Tan',
@@ -420,6 +416,9 @@ class PsfTestCase(unittest.TestCase):
         # First make a reference image, using photon shooting
         config1 = galsim.config.CopyConfig(config)
         ref_img = galsim.config.BuildImage(config1)
+        # The stamp type would want to make this (48,48).  Make sure it respects the given
+        # size of (52,50)  (Y,X, because numpy)
+        assert ref_img.array.shape == (52,50)
 
         # Repeat with an object bright enough to switch to FFT
         config['gal']['flux'] = 1.e8

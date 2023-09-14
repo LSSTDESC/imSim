@@ -130,13 +130,16 @@ class LSST_SiliconBuilder(StampBuilder):
             raise galsim.config.SkipThisObject('realized flux=0')
 
         # Otherwise figure out the stamp size
-        if self.realized_flux < 10:
+        if xsize > 0 and ysize > 0:
+            pass  # Already set.
+
+        elif self.realized_flux < 10:
             # For really faint things, don't try too hard.  Just use 32x32.
-            image_size = 32
+            xsize = ysize = 32
 
         elif 'size' in config:
             # Get the stamp size from the config entry.
-            image_size = galsim.config.ParseValue(config, 'size', base, int)[0]
+            xsize = ysize = galsim.config.ParseValue(config, 'size', base, int)[0]
 
         elif (hasattr(gal, 'original') and isinstance(gal.original, galsim.DeltaFunction)):
             # For bright stars, set the folding threshold for the
@@ -167,7 +170,7 @@ class LSST_SiliconBuilder(StampBuilder):
             psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams, **kwargs)
             image_size = psf.getGoodImageSize(self._pixel_scale)
             # No point in this being larger than a CCD.  Cut back to Nmax if larger than this.
-            image_size = min(image_size, self._Nmax)
+            xsize = ysize = min(image_size, self._Nmax)
 
         else:
             # For extended objects, recreate the object to draw, but
@@ -203,8 +206,10 @@ class LSST_SiliconBuilder(StampBuilder):
                                                             self._large_object_sb_level,
                                                             pixel_scale=self._pixel_scale)
                     image_size = min(image_size, self._Nmax)
+            xsize = ysize = image_size
 
-        logger.info('Object %d will use stamp size = %s',base.get('obj_num',0),image_size)
+        logger.info('Object %d will use stamp size = %s,%s', base.get('obj_num',0),
+                    xsize, ysize)
 
         # Determine where this object is going to go:
         # This is the same as what the base StampBuilder does:
@@ -218,7 +223,7 @@ class LSST_SiliconBuilder(StampBuilder):
         else:
             world_pos = None
 
-        return image_size, image_size, image_pos, world_pos
+        return xsize, ysize, image_pos, world_pos
 
     def _getGoodPhotImageSize(self, obj_list, keep_sb_level, pixel_scale):
         sizes = [self._getGoodPhotImageSize1(obj, keep_sb_level, pixel_scale)
