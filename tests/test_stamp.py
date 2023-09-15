@@ -177,3 +177,9 @@ def test_stamp_builder_works_without_photon_ops_or_faint() -> None:
                     wcs=config['wcs'],
                     **expected_specific_args
                 )
+
+
+if __name__ == "__main__":
+    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    for testfn in testfns:
+        testfn()
