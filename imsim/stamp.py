@@ -429,14 +429,13 @@ class LSST_SiliconBuilder(StampBuilder):
             # For FFT-rendered objects, the telescope vignetting isn't
             # emergent as it is for the ray-traced objects, so use the
             # empirical vignetting function, if it's available, to
-            # recompute the realized flux.
+            # scale the realized flux.
             if self.vignetting is not None:
                 pix_to_fp = self.det.getTransform(cameraGeom.PIXELS,
                                                   cameraGeom.FOCAL_PLANE)
-                flux = self.gal.flux*self.vignetting.at_sky_coord(
+                vignetted_flux = self.realized_flux*self.vignetting.at_sky_coord(
                     base['sky_pos'], self.image.wcs, pix_to_fp)
-                self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
-                base['realized_flux'] = self.realized_flux
+                self.realized_flux = round(vignetted_flux)
 
             logger.warning('Yes. Use FFT for object %d.  max_sb = %.0f > %.0f',
                            base.get('obj_num'), max_sb, fft_sb_thresh)
