@@ -111,7 +111,6 @@ def test_lsst_silicon_builder_passes_correct_photon_ops_to_drawImage() -> None:
                 config['bandpass'],
                 method=method,
                 offset=offset,
-                wcs=config['wcs'],
                 photon_ops=mock.ANY,  # Check the items in this below.
                 **expected_specific_args
             )
@@ -174,7 +173,6 @@ def test_stamp_builder_works_without_photon_ops_or_faint() -> None:
                     config['bandpass'],
                     method=method,
                     offset=offset,
-                    wcs=config['wcs'],
                     **expected_specific_args
                 )
 

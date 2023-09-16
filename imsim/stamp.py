@@ -618,7 +618,7 @@ class LSST_SiliconBuilder(StampBuilder):
             self._fix_seds(gal, bandpass)
         gal = gal.withFlux(self.realized_flux, bandpass)
 
-        wcs = base['wcs']
+        image.wcs = base['wcs']
 
         # Set limit on the size of photons batches to consider when
         # calling gsobject.drawImage.
@@ -633,7 +633,6 @@ class LSST_SiliconBuilder(StampBuilder):
                 method='fft',
                 offset=fft_offset,
                 image=fft_image,
-                wcs=wcs,
             )
             if not faint and config.get('fft_photon_ops'):
                 kwargs.update({
@@ -659,7 +658,6 @@ class LSST_SiliconBuilder(StampBuilder):
                 logger.info('prof = %r',prof)
                 logger.info('fft_image = %s',fft_image)
                 logger.info('offset = %r',offset)
-                logger.info('wcs = %r',wcs)
                 raise
             # Some pixels can end up negative from FFT numerics.  Just set them to 0.
             fft_image.array[fft_image.array < 0] = 0.
@@ -693,7 +691,6 @@ class LSST_SiliconBuilder(StampBuilder):
                           maxN=maxN,
                           n_photons=self.realized_flux,
                           image=image,
-                          wcs=wcs,
                           sensor=sensor,
                           photon_ops=photon_ops,
                           add_to_image=True,
