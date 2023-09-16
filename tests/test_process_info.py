@@ -16,7 +16,7 @@ class ProcessInfoTestCase(unittest.TestCase):
         pass
 
     def tearDown(self):
-        for output_dir in (self.config['output.process_info.dir'],
+        for output_dir in (self.config['output.process_info']['dir'],
                            self.config['output.dir']):
             if os.path.isdir(output_dir):
                 shutil.rmtree(output_dir)
@@ -54,7 +54,16 @@ class ProcessInfoTestCase(unittest.TestCase):
                        'output.readout': '',
                        'output.truth': '',
                        'output.dir': 'process_info_fits',
-                       'output.process_info.dir': 'process_info_test',
+                       'output.process_info': {'dir': 'process_info_test',
+                                               'file_name': {'type': 'FormattedStr',
+                                                             'format': 'process_info_%08d-%1d-%s-%s-det%03d.txt.gz',
+                                                             'items': [{'type': 'OpsimData', 'field': 'observationId'},
+                                                                       {'type': 'OpsimData', 'field': 'snap'},
+                                                                       '$band',
+                                                                       '$det_name',
+                                                                       '@output.det_num']
+                                                             }
+                                               }
                        }
         galsim.config.Process(self.config, logger=logger, except_abort=True)
 
@@ -65,7 +74,7 @@ class ProcessInfoTestCase(unittest.TestCase):
         user_time_0 = proc.cpu_times().user
         self.run_imsim()
         user_time_1 = proc.cpu_times().user
-        pattern = os.path.join(self.config['output.process_info.dir'],
+        pattern = os.path.join(self.config['output.process_info']['dir'],
                                "process_info_*-R22_S11-det094.txt.gz")
         process_info_file = glob.glob(pattern)[0]
         data = np.genfromtxt(process_info_file,
