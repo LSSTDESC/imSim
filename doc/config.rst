@@ -710,3 +710,30 @@ Optional keywords to set:
     *  ``eps`` = *float_value* (default = None) Annular Zernike obscuration fraction.  If not specified, then the value will be taken from the telescope object.
     *  ``jmax`` = *int_value* (default = 28) Maximum Zernike Order.
 
+Extra Output Type: process_info
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Write the user cpu time, the RSS, and the USS memory (GB) for each CCD/process.
+One output file is created per CCD.
+
+Required keywords to set:
+"""""""""""""""""""""""""
+
+    * ``dir`` = *str_value* Directory to contain the output files.
+    * ``file_name`` = *str_value* File name for the output files.
+
+Here's an example entry which would appear under the ``output`` section:
+
+    .. code-block:: yaml
+
+       process_info:
+           dir: output
+           file_name:
+           type: FormattedStr
+                format: process_info_%08d-%1d-%s-%s-det%03d.txt.gz
+                items:
+                    - { type: OpsimData, field: observationId }
+                    - { type: OpsimData, field: snap }
+                    - "$band"
+                    - "$det_name"
+                    - "@output.det_num"
