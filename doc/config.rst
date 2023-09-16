@@ -729,11 +729,11 @@ Here's an example entry which would appear under the ``output`` section:
        process_info:
            dir: output
            file_name:
-           type: FormattedStr
-                format: process_info_%08d-%1d-%s-%s-det%03d.txt.gz
-                items:
-                    - { type: OpsimData, field: observationId }
-                    - { type: OpsimData, field: snap }
-                    - "$band"
-                    - "$det_name"
-                    - "@output.det_num"
+               type: FormattedStr
+               format: process_info_%08d-%1d-%s-%s-det%03d.txt.gz
+               items:
+                   - { type: OpsimData, field: observationId }
+                   - { type: OpsimData, field: snap }
+                   - "$band"
+                   - "$det_name"
+                   - "@output.det_num"
