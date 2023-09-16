@@ -410,8 +410,8 @@ class LSST_SiliconBuilder(StampBuilder):
         # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
         bandpass = base['bandpass']
         fft_psf = self.make_fft_psf(psf.evaluateAtWavelength(bandpass.effective_wavelength), logger)
-        logger.warning('Object %d has flux = %s.  Check if we should switch to FFT',
-                       base['obj_num'], self.realized_flux)
+        logger.info('Object %d has flux = %s.  Check if we should switch to FFT',
+                    base['obj_num'], self.realized_flux)
 
         # Now this object should have a much better estimate of the real maximum surface brightness
         # than the original psf did.
@@ -437,14 +437,14 @@ class LSST_SiliconBuilder(StampBuilder):
                     base['sky_pos'], self.image.wcs, pix_to_fp)
                 self.realized_flux = round(vignetted_flux)
 
-            logger.warning('Yes. Use FFT for object %d.  max_sb = %.0f > %.0f',
-                           base.get('obj_num'), max_sb, fft_sb_thresh)
+            logger.info('Yes. Use FFT for object %d.  max_sb = %.0f > %.0f',
+                        base.get('obj_num'), max_sb, fft_sb_thresh)
             return fft_psf
         else:
             self.use_fft = False
-            logger.warning('No. Use photon shooting for object %d. '
-                           'max_sb = %.0f <= %.0f',
-                           base.get('obj_num'), max_sb, fft_sb_thresh)
+            logger.info('No. Use photon shooting for object %d. '
+                        'max_sb = %.0f <= %.0f',
+                        base.get('obj_num'), max_sb, fft_sb_thresh)
             return psf
 
     def make_fft_psf(self, psf, logger):
