@@ -123,7 +123,16 @@ class LSST_SiliconBuilder(StampBuilder):
             # In this case, the object flux has not been precomputed
             # or cached by the skyCatalogs code.
             gal.flux = gal.calculateFlux(bandpass)
+        self.nominal_flux = gal.flux
+
+        # For photon shooting rendering, precompute the realization of the Poisson variate.
+        # Mostly so we can possibly abort early if realized_flux=0.
         self.realized_flux = galsim.PoissonDeviate(self.rng, mean=gal.flux)()
+
+        # Save these later, in case needed for the output catalog.
+        base['nominal_flux'] = self.nominal_flux
+        base['realized_flux'] = self.realized_flux
+        base['fft_flux'] = 0.  # For fft drawing, this will be updated in buildPSF.
 
         # Check if the realized flux is 0.
         if self.realized_flux == 0:
@@ -135,7 +144,7 @@ class LSST_SiliconBuilder(StampBuilder):
         if xsize > 0 and ysize > 0:
             pass  # Already set.
 
-        elif self.realized_flux < self._tiny_flux:
+        elif self.nominal_flux < self._tiny_flux:
             # For really faint things, don't try too hard.  Just use 32x32.
             xsize = ysize = 32
 
@@ -153,7 +162,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 # evaluate than an AtmosphericPSF.
                 base['current_noise_image'] = base['current_image']
                 noise_var = galsim.config.CalculateNoiseVariance(base)
-                folding_threshold = noise_var/self.realized_flux
+                folding_threshold = noise_var/self.nominal_flux
                 if folding_threshold >= self._ft_default or folding_threshold == 0:
                     # a) Don't gratuitously raise folding_threshold above the normal default.
                     # b) If sky_level = 0, then folding_threshold=0.  This is bad (stepk=0 below),
@@ -166,7 +175,7 @@ class LSST_SiliconBuilder(StampBuilder):
                     # minimize how many of these we need to do.
                     folding_threshold = np.exp(np.floor(np.log(folding_threshold)))
                     logger.debug('Using folding_threshold %s',folding_threshold)
-                    logger.debug('From: noise_var = %s, flux = %s',noise_var,self.realized_flux)
+                    logger.debug('From: noise_var = %s, flux = %s',noise_var,self.nominal_flux)
                     gsparams = galsim.GSParams(folding_threshold=folding_threshold)
 
                 # Grab the three parameters we need for Kolmogorov_and_Gaussian_PSF.
@@ -183,7 +192,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 psf = self.DoubleGaussian()
                 # For Chromatic objects, need to evaluate at the
                 # effective wavelength of the bandpass.
-                obj = galsim.Convolve(gal_achrom, psf).withFlux(self.realized_flux)
+                obj = galsim.Convolve(gal_achrom, psf).withFlux(self.nominal_flux)
 
                 # Start with GalSim's estimate of a good box size.
                 image_size = obj.getGoodImageSize(self._pixel_scale)
@@ -193,7 +202,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 # than self._Nmax, compute the image_size using the surface brightness limit, trying
                 # to be careful about not truncating the surface brightness
                 # at the edge of the box.
-                if (self.realized_flux > 10 * image_size**2) or (image_size > self._Nmax):
+                if (self.nominal_flux > 10 * image_size**2) or (image_size > self._Nmax):
                     # Find a postage stamp region to draw onto.  Use (sky noise)/8. as the nominal
                     # minimum surface brightness for rendering an extended object.
                     base['current_noise_image'] = base['current_image']
@@ -411,8 +420,7 @@ class LSST_SiliconBuilder(StampBuilder):
         else:
             fft_sb_thresh = 0.
 
-        base['realized_flux'] = self.realized_flux
-        if self.realized_flux < 1.e6 or not fft_sb_thresh or self.realized_flux < fft_sb_thresh:
+        if self.nominal_flux < 1.e6 or not fft_sb_thresh or self.nominal_flux < fft_sb_thresh:
             self.use_fft = False
             return psf
 
@@ -420,7 +428,7 @@ class LSST_SiliconBuilder(StampBuilder):
         bandpass = base['bandpass']
         fft_psf = self.make_fft_psf(psf.evaluateAtWavelength(bandpass.effective_wavelength), logger)
         logger.info('Object %d has flux = %s.  Check if we should switch to FFT',
-                    base['obj_num'], self.realized_flux)
+                    base['obj_num'], self.nominal_flux)
 
         # Now this object should have a much better estimate of the real maximum surface brightness
         # than the original psf did.
@@ -430,7 +438,7 @@ class LSST_SiliconBuilder(StampBuilder):
         # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
         # to get photons/pixel, which we compare to fft_sb_thresh.
         gal_achrom = self.gal.evaluateAtWavelength(bandpass.effective_wavelength)
-        fft_obj = galsim.Convolve(gal_achrom, fft_psf).withFlux(self.realized_flux)
+        fft_obj = galsim.Convolve(gal_achrom, fft_psf).withFlux(self.nominal_flux)
         max_sb = fft_obj.max_sb/2. * self._pixel_scale**2
         logger.debug('max_sb = %s. cf. %s',max_sb,fft_sb_thresh)
         if max_sb > fft_sb_thresh:
@@ -438,13 +446,15 @@ class LSST_SiliconBuilder(StampBuilder):
             # For FFT-rendered objects, the telescope vignetting isn't
             # emergent as it is for the ray-traced objects, so use the
             # empirical vignetting function, if it's available, to
-            # scale the realized flux.
+            # scale the flux to use in FFTs.
             if self.vignetting is not None:
                 pix_to_fp = self.det.getTransform(cameraGeom.PIXELS,
                                                   cameraGeom.FOCAL_PLANE)
-                vignetted_flux = self.realized_flux*self.vignetting.at_sky_coord(
+                self.fft_flux = self.nominal_flux*self.vignetting.at_sky_coord(
                     base['sky_pos'], self.image.wcs, pix_to_fp)
-                self.realized_flux = round(vignetted_flux)
+            else:
+                self.fft_flux = self.nominal_flux
+            base['fft_flux'] = self.fft_flux
 
             logger.info('Yes. Use FFT for object %d.  max_sb = %.0f > %.0f',
                         base.get('obj_num'), max_sb, fft_sb_thresh)
@@ -622,10 +632,10 @@ class LSST_SiliconBuilder(StampBuilder):
         gal, *psfs = prof.obj_list if hasattr(prof,'obj_list') else [prof]
 
         max_flux_simple = config.get('max_flux_simple', 100)
-        faint = self.realized_flux < max_flux_simple
+        faint = self.nominal_flux < max_flux_simple
         bandpass = base['bandpass']
         if faint:
-            logger.info("Flux = %.0f  Using trivial sed", self.realized_flux)
+            logger.info("Flux = %.0f  Using trivial sed", self.nominal_flux)
             gal = gal.evaluateAtWavelength(bandpass.effective_wavelength)
             gal = gal * self._trivial_sed
         else:

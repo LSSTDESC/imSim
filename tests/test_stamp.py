@@ -61,6 +61,8 @@ def create_test_config():
 def create_test_lsst_silicon(faint: bool):
     lsst_silicon = imsim.LSST_SiliconBuilder()
     lsst_silicon.realized_flux = 100 if not faint else 99
+    lsst_silicon.nominal_flux = lsst_silicon.realized_flux
+    lsst_silicon.fft_flux = lsst_silicon.nominal_flux
     lsst_silicon.rng = galsim.BaseDeviate(1234)
     lsst_silicon.diffraction_fft = None
     return lsst_silicon
