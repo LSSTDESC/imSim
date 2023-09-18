@@ -640,7 +640,6 @@ class LSST_SiliconBuilder(StampBuilder):
             gal = gal * self._trivial_sed
         else:
             self._fix_seds(gal, bandpass, logger)
-        gal = gal.withFlux(self.realized_flux, bandpass)
 
         # Normally, wcs is provided as an argument, rather than setting it directly here.
         # However, there is a subtle bug in the ChromaticSum class where it can fail to
@@ -656,6 +655,11 @@ class LSST_SiliconBuilder(StampBuilder):
             maxN = galsim.config.ParseValue(config, 'maxN', base, int)[0]
 
         if method == 'fft':
+            # For FFT, we may have adjusted the flux to account for vignetting.
+            # So update the flux to self.fft_flux if it's different.
+            if self.fft_flux != self.nominal_flux:
+                gal = gal.withFlux(self.fft_flux, bandpass)
+
             fft_image = image.copy()
             fft_offset = offset
             kwargs = dict(
@@ -697,6 +701,10 @@ class LSST_SiliconBuilder(StampBuilder):
             image += fft_image[image.bounds]
 
         else:
+            # For photon shooting, use the poisson-realization of the flux
+            # and tell GalSim not to redo the Poisson realization.
+            gal = gal.withFlux(self.realized_flux, bandpass)
+
             if not faint and 'photon_ops' in config:
                 photon_ops = galsim.config.BuildPhotonOps(config, 'photon_ops', base, logger)
             else:
