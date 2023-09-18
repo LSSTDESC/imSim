@@ -337,5 +337,9 @@ output:
             dec: "$sky_pos.dec.deg"
             x: "$image_pos.x"
             y: "$image_pos.y"
-            realized_flux: "@realized_flux"
-            # TODO: ... more probably
+
+            # Note: these next 4 will only work if using the LSST_Silicon stamp type.
+            nominal_flux: "@nominal_flux"  # The nominal "expectation value" flux.
+            phot_flux: "@phot_flux"  # The realized flux for photon shooting.
+            fft_flux: "@fft_flux"  # If FFT rendering, then the flux used, including vignetting.
+            realized_flux: "@realized_flux"  # The actual flux that was added to the image.

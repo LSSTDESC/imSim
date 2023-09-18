@@ -456,6 +456,7 @@ class LSST_SiliconBuilder(StampBuilder):
             else:
                 self.fft_flux = self.nominal_flux
             base['fft_flux'] = self.fft_flux
+            base['phot_flux'] = 0.  # Indicates that photon shooting wasn't done.
 
             logger.info('Yes. Use FFT for object %d.  max_sb = %.0f > %.0f',
                         base.get('obj_num'), max_sb, fft_sb_thresh)
