@@ -372,6 +372,7 @@ class PsfTestCase(unittest.TestCase):
                     'rawSeeing': self.opsim_data['rawSeeing'],
                     'band':  self.opsim_data['band'],
                     'screen_size': 409.6,
+                    'nproc': 1,
                     'boresight': {
                         'type': 'RADec',
                         'ra': { 'type': 'Degrees', 'theta': self.opsim_data['rightascension'], },
@@ -426,7 +427,7 @@ class PsfTestCase(unittest.TestCase):
             img = galsim.config.BuildImage(config, logger=cl.logger)
         #print(cl.output)
         assert 'Check if we should switch to FFT' in cl.output
-        assert 'Yes. Use FFT for this object.' in cl.output
+        assert 'Yes. Use FFT for' in cl.output
 
         print('Peak of reference PSF (flux=1.e5): ',ref_img.array.max())
         print('Peak of FFT PSF (flux=1.e8): ',img.array.max())
@@ -469,7 +470,6 @@ def test_doopt_true():
                 'band':  'r',
                 'boresight': galsim.CelestialCoord(0*galsim.degrees, 0*galsim.degrees),
                 'screen_size': 102.4,
-                'nproc': 1,
                 'doOpt': True,
             }
         },

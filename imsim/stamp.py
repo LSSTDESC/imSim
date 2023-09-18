@@ -401,6 +401,8 @@ class LSST_SiliconBuilder(StampBuilder):
             fft_sb_thresh = galsim.config.ParseValue(config,'fft_sb_thresh',base,float)[0]
         else:
             fft_sb_thresh = 0.
+
+        base['realized_flux'] = self.realized_flux
         if self.realized_flux < 1.e6 or not fft_sb_thresh or self.realized_flux < fft_sb_thresh:
             self.use_fft = False
             return psf
@@ -408,8 +410,8 @@ class LSST_SiliconBuilder(StampBuilder):
         # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
         bandpass = base['bandpass']
         fft_psf = self.make_fft_psf(psf.evaluateAtWavelength(bandpass.effective_wavelength), logger)
-        logger.warning('Object %d has flux = %s.  Check if we should switch to FFT',
-                       base['obj_num'], self.realized_flux)
+        logger.info('Object %d has flux = %s.  Check if we should switch to FFT',
+                    base['obj_num'], self.realized_flux)
 
         # Now this object should have a much better estimate of the real maximum surface brightness
         # than the original psf did.
@@ -427,21 +429,22 @@ class LSST_SiliconBuilder(StampBuilder):
             # For FFT-rendered objects, the telescope vignetting isn't
             # emergent as it is for the ray-traced objects, so use the
             # empirical vignetting function, if it's available, to
-            # recompute the realized flux.
+            # scale the realized flux.
             if self.vignetting is not None:
                 pix_to_fp = self.det.getTransform(cameraGeom.PIXELS,
                                                   cameraGeom.FOCAL_PLANE)
-                flux = self.gal.flux*self.vignetting.at_sky_coord(
+                vignetted_flux = self.realized_flux*self.vignetting.at_sky_coord(
                     base['sky_pos'], self.image.wcs, pix_to_fp)
-                self.realized_flux = galsim.PoissonDeviate(self.rng, mean=flux)()
+                self.realized_flux = round(vignetted_flux)
 
-            logger.warning('Yes. Use FFT for this object.  max_sb = %.0f > %.0f',
-                           max_sb, fft_sb_thresh)
+            logger.info('Yes. Use FFT for object %d.  max_sb = %.0f > %.0f',
+                        base.get('obj_num'), max_sb, fft_sb_thresh)
             return fft_psf
         else:
             self.use_fft = False
-            logger.warning('No. Use photon shooting.  max_sb = %.0f <= %.0f',
-                           max_sb, fft_sb_thresh)
+            logger.info('No. Use photon shooting for object %d. '
+                        'max_sb = %.0f <= %.0f',
+                        base.get('obj_num'), max_sb, fft_sb_thresh)
             return psf
 
     def make_fft_psf(self, psf, logger):

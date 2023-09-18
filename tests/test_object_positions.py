@@ -1,6 +1,7 @@
 import os
 import glob
 import sys
+import shutil
 from pathlib import Path
 import logging
 from astropy.io import fits
@@ -82,6 +83,9 @@ def test_object_positions():
             offset = compute_pixel_offset(eimage_file)
             print(eimage_file, offset)
             np.testing.assert_(offset < 2)
+        output_dir = f"fits_{camera}"
+        if os.path.isdir(output_dir):
+            shutil.rmtree(output_dir)
 
 
 if __name__ == "__main__":
