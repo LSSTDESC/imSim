@@ -126,16 +126,17 @@ class LSST_SiliconBuilder(StampBuilder):
         self.nominal_flux = gal.flux
 
         # For photon shooting rendering, precompute the realization of the Poisson variate.
-        # Mostly so we can possibly abort early if realized_flux=0.
-        self.realized_flux = galsim.PoissonDeviate(self.rng, mean=gal.flux)()
+        # Mostly so we can possibly abort early if phot_flux=0.
+        self.phot_flux = galsim.PoissonDeviate(self.rng, mean=gal.flux)()
 
         # Save these later, in case needed for the output catalog.
         base['nominal_flux'] = self.nominal_flux
-        base['realized_flux'] = self.realized_flux
+        base['phot_flux'] = self.phot_flux
         base['fft_flux'] = 0.  # For fft drawing, this will be updated in buildPSF.
+        base['realized_flux'] = 0.  # Will update this after drawImage using im.added_flux
 
-        # Check if the realized flux is 0.
-        if self.realized_flux == 0:
+        # Check if the Poisson draw for the photon flux is 0.
+        if self.phot_flux == 0:
             # If so, we'll skip everything after this.
             # The mechanism within GalSim to do this is to raise a special SkipThisObject class.
             raise galsim.config.SkipThisObject('realized flux=0')
@@ -678,7 +679,7 @@ class LSST_SiliconBuilder(StampBuilder):
             # Go back to a combined convolution for fft drawing.
             prof = galsim.Convolve([gal] + psfs)
             try:
-                prof.drawImage(bandpass, **kwargs)
+                fft_image = prof.drawImage(bandpass, **kwargs)
             except galsim.errors.GalSimFFTSizeError as e:
                 # I think this shouldn't happen with the updates I made to how the image size
                 # is calculated, even for extremely bright things.  So it should be ok to
@@ -699,11 +700,12 @@ class LSST_SiliconBuilder(StampBuilder):
             fft_image.addNoise(galsim.PoissonNoise(rng=self.rng))
             # In case we had to make a bigger image, just copy the part we need.
             image += fft_image[image.bounds]
+            base['realized_flux'] = fft_image.added_flux
 
         else:
             # For photon shooting, use the poisson-realization of the flux
             # and tell GalSim not to redo the Poisson realization.
-            gal = gal.withFlux(self.realized_flux, bandpass)
+            gal = gal.withFlux(self.phot_flux, bandpass)
 
             if not faint and 'photon_ops' in config:
                 photon_ops = galsim.config.BuildPhotonOps(config, 'photon_ops', base, logger)
@@ -721,17 +723,18 @@ class LSST_SiliconBuilder(StampBuilder):
                 if sensor is not None:
                     sensor.updateRNG(self.rng)
 
-            gal.drawImage(bandpass,
-                          method='phot',
-                          offset=offset,
-                          rng=self.rng,
-                          maxN=maxN,
-                          n_photons=self.realized_flux,
-                          image=image,
-                          sensor=sensor,
-                          photon_ops=photon_ops,
-                          add_to_image=True,
-                          poisson_flux=False)
+            image = gal.drawImage(bandpass,
+                                  method='phot',
+                                  offset=offset,
+                                  rng=self.rng,
+                                  maxN=maxN,
+                                  n_photons=self.phot_flux,
+                                  image=image,
+                                  sensor=sensor,
+                                  photon_ops=photon_ops,
+                                  add_to_image=True,
+                                  poisson_flux=False)
+            base['realized_flux'] = image.added_flux
 
         return image
 
