@@ -141,72 +141,74 @@ class LSST_SiliconBuilder(StampBuilder):
             # Get the stamp size from the config entry.
             xsize = ysize = galsim.config.ParseValue(config, 'size', base, int)[0]
 
-        elif (hasattr(gal, 'original') and isinstance(gal.original, galsim.DeltaFunction)):
-            # For bright stars, set the folding threshold for the
-            # stamp size calculation.  Use a
-            # Kolmogorov_and_Gaussian_PSF since it is faster to
-            # evaluate than an AtmosphericPSF.
-            base['current_noise_image'] = base['current_image']
-            noise_var = galsim.config.CalculateNoiseVariance(base)
-            folding_threshold = noise_var/self.realized_flux
-            if folding_threshold >= self._ft_default or folding_threshold == 0:
-                # a) Don't gratuitously raise folding_threshold above the normal default.
-                # b) If sky_level = 0, then folding_threshold=0.  This is bad (stepk=0 below),
-                #    but if the user is doing this to avoid sky noise, then they probably care about
-                #    other things than detailed large-scale behavior of very bright stars.
-                gsparams = None
-            else:
-                # Every different folding threshold requires a new initialization of Kolmogorov,
-                # which takes about a second.  So round down to the nearest e folding to
-                # minimize how many of these we need to do.
-                folding_threshold = np.exp(np.floor(np.log(folding_threshold)))
-                logger.debug('Using folding_threshold %s',folding_threshold)
-                logger.debug('From: noise_var = %s, flux = %s',noise_var,self.realized_flux)
-                gsparams = galsim.GSParams(folding_threshold=folding_threshold)
-
-            # Grab the three parameters we need for Kolmogorov_and_Gaussian_PSF.
-            keys = ('airmass', 'rawSeeing', 'band')
-            kwargs = { k:v for k,v in params.items() if k in keys }
-            psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams, **kwargs)
-            image_size = psf.getGoodImageSize(self._pixel_scale)
-            # No point in this being larger than a CCD.  Cut back to Nmax if larger than this.
-            xsize = ysize = min(image_size, self._Nmax)
-
         else:
-            # For extended objects, recreate the object to draw, but
-            # convolved with the faster DoubleGaussian PSF.
-            psf = self.DoubleGaussian()
-            # For Chromatic objects, need to evaluate at the
-            # effective wavelength of the bandpass.
             gal_achrom = gal.evaluateAtWavelength(bandpass.effective_wavelength)
-            obj = galsim.Convolve(gal_achrom, psf).withFlux(self.realized_flux)
-
-            # Start with GalSim's estimate of a good box size.
-            image_size = obj.getGoodImageSize(self._pixel_scale)
-
-            # For bright things, defined as having an average of at least 10 photons per
-            # pixel on average, or objects for which GalSim's estimate of the image_size is larger
-            # than self._Nmax, compute the image_size using the surface brightness limit, trying
-            # to be careful about not truncating the surface brightness
-            # at the edge of the box.
-            if (self.realized_flux > 10 * image_size**2) or (image_size > self._Nmax):
-                # Find a postage stamp region to draw onto.  Use (sky noise)/8. as the nominal
-                # minimum surface brightness for rendering an extended object.
+            if (hasattr(gal_achrom, 'original')
+                and isinstance(gal_achrom.original, galsim.DeltaFunction)):
+                # For bright stars, set the folding threshold for the
+                # stamp size calculation.  Use a
+                # Kolmogorov_and_Gaussian_PSF since it is faster to
+                # evaluate than an AtmosphericPSF.
                 base['current_noise_image'] = base['current_image']
                 noise_var = galsim.config.CalculateNoiseVariance(base)
-                keep_sb_level = np.sqrt(noise_var)/8.
-                self._large_object_sb_level = 3*keep_sb_level
-                image_size = self._getGoodPhotImageSize([gal_achrom, psf], keep_sb_level,
-                                                        pixel_scale=self._pixel_scale)
+                folding_threshold = noise_var/self.realized_flux
+                if folding_threshold >= self._ft_default or folding_threshold == 0:
+                    # a) Don't gratuitously raise folding_threshold above the normal default.
+                    # b) If sky_level = 0, then folding_threshold=0.  This is bad (stepk=0 below),
+                    #    but if the user is doing this to avoid sky noise, then they probably care
+                    #    about other things than detailed large-scale behavior of very bright stars.
+                    gsparams = None
+                else:
+                    # Every different folding threshold requires a new initialization of Kolmogorov,
+                    # which takes about a second.  So round down to the nearest e folding to
+                    # minimize how many of these we need to do.
+                    folding_threshold = np.exp(np.floor(np.log(folding_threshold)))
+                    logger.debug('Using folding_threshold %s',folding_threshold)
+                    logger.debug('From: noise_var = %s, flux = %s',noise_var,self.realized_flux)
+                    gsparams = galsim.GSParams(folding_threshold=folding_threshold)
 
-                # If the above size comes out really huge, scale back to what you get for
-                # a somewhat brighter surface brightness limit.
-                if image_size > self._Nmax:
-                    image_size = self._getGoodPhotImageSize([gal_achrom, psf],
-                                                            self._large_object_sb_level,
+                # Grab the three parameters we need for Kolmogorov_and_Gaussian_PSF.
+                keys = ('airmass', 'rawSeeing', 'band')
+                kwargs = { k:v for k,v in params.items() if k in keys }
+                psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams, **kwargs)
+                image_size = psf.getGoodImageSize(self._pixel_scale)
+                # No point in this being larger than a CCD.  Cut back to Nmax if larger than this.
+                xsize = ysize = min(image_size, self._Nmax)
+
+            else:
+                # For extended objects, recreate the object to draw, but
+                # convolved with the faster DoubleGaussian PSF.
+                psf = self.DoubleGaussian()
+                # For Chromatic objects, need to evaluate at the
+                # effective wavelength of the bandpass.
+                obj = galsim.Convolve(gal_achrom, psf).withFlux(self.realized_flux)
+
+                # Start with GalSim's estimate of a good box size.
+                image_size = obj.getGoodImageSize(self._pixel_scale)
+
+                # For bright things, defined as having an average of at least 10 photons per
+                # pixel on average, or objects for which GalSim's estimate of the image_size is larger
+                # than self._Nmax, compute the image_size using the surface brightness limit, trying
+                # to be careful about not truncating the surface brightness
+                # at the edge of the box.
+                if (self.realized_flux > 10 * image_size**2) or (image_size > self._Nmax):
+                    # Find a postage stamp region to draw onto.  Use (sky noise)/8. as the nominal
+                    # minimum surface brightness for rendering an extended object.
+                    base['current_noise_image'] = base['current_image']
+                    noise_var = galsim.config.CalculateNoiseVariance(base)
+                    keep_sb_level = np.sqrt(noise_var)/8.
+                    self._large_object_sb_level = 3*keep_sb_level
+                    image_size = self._getGoodPhotImageSize([gal_achrom, psf], keep_sb_level,
                                                             pixel_scale=self._pixel_scale)
-                    image_size = min(image_size, self._Nmax)
-            xsize = ysize = image_size
+
+                    # If the above size comes out really huge, scale back to what you get for
+                    # a somewhat brighter surface brightness limit.
+                    if image_size > self._Nmax:
+                        image_size = self._getGoodPhotImageSize([gal_achrom, psf],
+                                                                self._large_object_sb_level,
+                                                                pixel_scale=self._pixel_scale)
+                        image_size = min(image_size, self._Nmax)
+                xsize = ysize = image_size
 
         logger.info('Object %d will use stamp size = %s,%s', base.get('obj_num',0),
                     xsize, ysize)
