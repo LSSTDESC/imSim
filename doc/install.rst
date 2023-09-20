@@ -11,7 +11,7 @@ Installation Instructions
 
    are required. The instructions below for the cvmfs and stackvana installations should automatically fulfill these requirements for you.  If you are using a different installation method, please ensure that you have met these requirements.
 
-   These instructions were last updated August of 2023. If you find that parts of this document are out of date or are incorrect, please submit a bug report `here <https://github.com/LSSTDESC/imSim/issues>`_.
+   These instructions were last updated September of 2023. If you find that parts of this document are out of date or are incorrect, please submit a bug report `here <https://github.com/LSSTDESC/imSim/issues>`_.
 
 
 .. warning::
@@ -58,7 +58,7 @@ Now go to where you would like to install *imSim* and download a set of data fil
 
    mkdir -p rubin_sim_data/sims_sed_library
    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
-   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
+   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_2023_09_07.tgz | tar -C rubin_sim_data -xz
    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
 
 
@@ -171,7 +171,7 @@ To download:
 
    mkdir -p rubin_sim_data/sims_sed_library
    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
-   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
+   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_2023_09_07.tgz | tar -C rubin_sim_data -xz
    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
 
 
@@ -340,6 +340,6 @@ imSim is run by executing the galsim executable with an imSim yaml file as input
 
 .. code-block:: sh
 
-   galsim $IMSIM_HOME/imSim/examples/imsim-user.yaml
+   galsim $IMSIM_HOME/imSim/examples/imsim-user-instcat.yaml
 
 The program should run to completion without errors.
