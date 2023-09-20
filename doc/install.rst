@@ -16,7 +16,7 @@ Installation Instructions
 
 .. warning::
 
-   If you are using MacOS on an Apple Silicon machine then currently the only binary installation below that will work is to use the CVMFS distribution (method #1). Method #2 (stackvana) will not work.  Method #3 (using docker), should work but will run through emulation and will not run at native speed.  In the meantime, the best other option is to install the science pipelines yourself via the *lsstinstall* package as described `HERE <https://pipelines.lsst.io/install/lsstinstall.html/>`_ and then add the extra imSim conda dependencies as needed.
+   If you are using MacOS on an Apple Silicon machine then currently the only binary installation below that will work is to use the CVMFS distribution (method #1). Method #2 (stackvana) will not work.  Method #3 (using docker), should work but will run through emulation and will not run at native speed.  In the meantime, the best other option is to install the science pipelines yourself via the *lsstinstall* package as described `in the pipelines documentation <https://pipelines.lsst.io/install/lsstinstall.html/>`_ and then add the extra imSim conda dependencies as needed.
 
 
 The *imSim* software is *GalSim* based, and it also depends on the `LSST science pipelines <https://pipelines.lsst.io/>`_ and Rubin simulation framework.   It is easiest to work in an environment where someone else has already built the science pipelines, simulation packages and GalSim for you.  Luckily, several such options exist.
@@ -130,7 +130,7 @@ First install conda from  `Miniforge <https://github.com/conda-forge/miniforge>`
 
 .. note::
 
-   If you prefer you can use  `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`__  or your own conda installation but, in that case, be careful to specify that you want to use the conda-forge channel.
+   If you prefer you can use  `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`_  or your own conda installation but, in that case, be careful to specify that you want to use the conda-forge channel.
 
 Next, create a *Conda* environment and activate it.
 
