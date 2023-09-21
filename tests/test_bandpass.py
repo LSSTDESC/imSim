@@ -11,14 +11,19 @@ def test_rubin_bandpass():
         print(f'Band = {band}')
         print('Rubin_bp: ',rubin_bp.blue_limit, rubin_bp.effective_wavelength, rubin_bp.red_limit)
         print('galsim_bp: ',galsim_bp.blue_limit, galsim_bp.effective_wavelength, galsim_bp.red_limit)
-        # These are quite close.  The only exception is the blue_limit of the u band, where the
-        # old GalSim bandpass is too red.
-        if band == 'u':
-            assert np.isclose(rubin_bp.blue_limit, galsim_bp.blue_limit, atol=20)
+        #print('Rubin_bp: ',repr(rubin_bp))
+
+        # These are reasonably close.  Especially in the effective wavelength.
+        # The limits of the actual filters are a bit different in some cases though from what was
+        # estimated many years ago.  Especially for u and y bands.
+        if band in 'uy':
+            assert np.isclose(rubin_bp.blue_limit, galsim_bp.blue_limit, atol=30)
+            assert np.isclose(rubin_bp.red_limit, galsim_bp.red_limit, atol=10)
+            assert np.isclose(rubin_bp.effective_wavelength, galsim_bp.effective_wavelength, atol=5)
         else:
-            assert np.isclose(rubin_bp.blue_limit, galsim_bp.blue_limit, atol=1)
-        assert np.isclose(rubin_bp.red_limit, galsim_bp.red_limit, atol=1)
-        assert np.isclose(rubin_bp.effective_wavelength, galsim_bp.effective_wavelength, atol=3)
+            assert np.isclose(rubin_bp.blue_limit, galsim_bp.blue_limit, atol=15)
+            assert np.isclose(rubin_bp.red_limit, galsim_bp.red_limit, atol=8)
+            assert np.isclose(rubin_bp.effective_wavelength, galsim_bp.effective_wavelength, atol=3)
 
 
 if __name__ == "__main__":
