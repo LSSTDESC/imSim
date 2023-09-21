@@ -58,11 +58,18 @@ jobs:
               run: |
                 # Do the minimal installation from source to avoid installing
                 # a bunch of unneeded packages.
-                git clone https://github.com/lsst/rubin_sim.git
-                cd rubin_sim
-                git checkout 1.1.1
-                pip install .
-                cd ..
+                ##
+                ## Pip has changed how it operates in a breaking way for us. 
+                ## Try using conda instead. 
+                ##
+                ## git clone https://github.com/lsst/rubin_sim.git
+                ## cd rubin_sim
+                ## git checkout 1.1.1
+                ## pip -e install .
+                ## cd ..
+                ##
+                conda install rubin-sim=1.1.1  
+                ##
                 mkdir rubin_sim_data
                 mkdir rubin_sim_data/sims_sed_library
                 # Just get the skybrightness, throughputs, and SED data for now.
