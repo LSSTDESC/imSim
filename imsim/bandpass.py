@@ -28,6 +28,7 @@ def RubinBandpass(band, logger=None):
         logger.warning("Warning: Using the old bandpass files from GalSim, not lsst.sims")
         file_name = f"LSST_{band}.dat"
     bp = galsim.Bandpass(file_name, wave_type='nm')
+    bp = bp.truncate(relative_throughput=1.e-3)
     bp = bp.thin()
     bp = bp.withZeropoint('AB')
     return bp
