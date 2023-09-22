@@ -2,8 +2,11 @@
 import warnings
 import numpy as np
 import json
+from unittest import mock
 import galsim
 from rubin_sim import skybrightness
+import imsim
+from imsim_test_helpers import CaptureLog
 
 
 RUBIN_AREA = 0.25 * np.pi * 649**2  # cm^2
@@ -19,12 +22,14 @@ camera_name = 'LsstCam'
 sky_model = skybrightness.SkyModel()
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
-    sky_model.setRaDecMjd(ra, dec, mjd, degrees=True)
+    sky_model.set_ra_dec_mjd(ra, dec, mjd, degrees=True)
 
 sky_levels = {}
 for band in 'ugrizy':
-    bandpass = galsim.RubinBandpass(band)
-    wave, spec = sky_model.returnWaveSpec()
+    with mock.patch('os.getenv', return_value=''):
+        with CaptureLog() as cl:
+            bandpass = imsim.RubinBandpass(band, logger=cl.logger)
+    wave, spec = sky_model.return_wave_spec()
     lut = galsim.LookupTable(wave, spec[0])
     sed = galsim.SED(lut, wave_type='nm', flux_type='flambda')
     sky_levels[band] = sed.calculateFlux(bandpass)*RUBIN_AREA*exptime
