@@ -80,7 +80,7 @@ input:
         t0: 0               # seconds
         exptime: $exptime
         kcrit: 0.2          # in units of 1/r0
-        screen_size: 812.2  # To use less memory for testing/development, you can try 409.6
+        screen_size: 819.2  # To use less memory for testing/development, you can try 409.6
         screen_scale: 0.1   # meters
         doOpt: False
         nproc: 1            # Default (None) means one proc per screen.
