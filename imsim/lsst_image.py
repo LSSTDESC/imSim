@@ -63,6 +63,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             det_bbox = camera[self.det_name].getBBox()
             xsize = det_bbox.width
             ysize = det_bbox.height
+            base['det_xsize'] = xsize
+            base['det_ysize'] = ysize
 
         try:
             self.vignetting = galsim.config.GetInputObj('vignetting', config,
