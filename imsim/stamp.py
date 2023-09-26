@@ -621,6 +621,11 @@ class LSST_SiliconBuilder(StampBuilder):
             self._fix_seds(gal, bandpass)
         gal = gal.withFlux(self.realized_flux, bandpass)
 
+        # Normally, wcs is provided as an argument, rather than setting it directly here.
+        # However, there is a subtle bug in the ChromaticSum class where it can fail to
+        # apply the wcs correctly if the first component has zero realized flux in the band.
+        # This line sidesteps that bug.  And it never hurts, so even once we fix this in
+        # GalSim, it doesn't hurt to keep this here.
         image.wcs = base['wcs']
 
         # Set limit on the size of photons batches to consider when
