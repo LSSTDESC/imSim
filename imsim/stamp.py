@@ -54,6 +54,7 @@ class LSST_SiliconBuilder(StampBuilder):
     _pixel_scale = 0.2
     _trivial_sed = galsim.SED(galsim.LookupTable([100, 2000], [1,1], interpolant='linear'),
                               wave_type='nm', flux_type='fphotons')
+    _tiny_flux = 10
     _Nmax = 4096  # (Don't go bigger than 4096)
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
@@ -133,7 +134,7 @@ class LSST_SiliconBuilder(StampBuilder):
         if xsize > 0 and ysize > 0:
             pass  # Already set.
 
-        elif self.realized_flux < 10:
+        elif self.realized_flux < self._tiny_flux:
             # For really faint things, don't try too hard.  Just use 32x32.
             xsize = ysize = 32
 
