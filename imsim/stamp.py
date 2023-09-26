@@ -56,6 +56,7 @@ class LSST_SiliconBuilder(StampBuilder):
                               wave_type='nm', flux_type='fphotons')
     _tiny_flux = 10
     _Nmax = 4096  # (Don't go bigger than 4096)
+    _sed_logged = False  # Only log SED linear interpolant warning once.
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
         """
@@ -525,7 +526,7 @@ class LSST_SiliconBuilder(StampBuilder):
             return method
 
     @classmethod
-    def _fix_seds_24(cls, prof, bandpass):
+    def _fix_seds_24(cls, prof, bandpass, logger):
         # If any SEDs are not currently using a LookupTable for the function or if they are
         # using spline interpolation, then the codepath is quite slow.
         # Better to fix them before doing WavelengthSampler.
@@ -536,6 +537,11 @@ class LSST_SiliconBuilder(StampBuilder):
             #       Something like sed.make_tabulated()
             if (not isinstance(sed._spec, galsim.LookupTable)
                 or sed._spec.interpolant != 'linear'):
+                if not cls._sed_logged:
+                    logger.warning(
+                            "Warning: Chromatic drawing is most efficient when SEDs have "
+                            "interpont='linear'. Switching LookupTables to use 'linear'.")
+                    cls._sed_logged = True
                 # Workaround for https://github.com/GalSim-developers/GalSim/issues/1228
                 f = np.broadcast_to(sed(wave_list), wave_list.shape)
                 new_spec = galsim.LookupTable(wave_list, f, interpolant='linear')
@@ -549,12 +555,12 @@ class LSST_SiliconBuilder(StampBuilder):
             # Also recurse onto any components.
             if hasattr(prof, 'obj_list'):
                 for obj in prof.obj_list:
-                    cls._fix_seds_24(obj, bandpass)
+                    cls._fix_seds_24(obj, bandpass, logger)
             if hasattr(prof, 'original'):
-                cls._fix_seds_24(prof.original, bandpass)
+                cls._fix_seds_24(prof.original, bandpass, logger)
 
     @classmethod
-    def _fix_seds_25(cls, prof, bandpass):
+    def _fix_seds_25(cls, prof, bandpass, logger):
         # If any SEDs are not currently using a LookupTable for the function or if they are
         # using spline interpolation, then the codepath is quite slow.
         # Better to fix them before doing WavelengthSampler.
@@ -566,6 +572,11 @@ class LSST_SiliconBuilder(StampBuilder):
         if (isinstance(prof, galsim.SimpleChromaticTransformation) and
             (not isinstance(prof._flux_ratio._spec, galsim.LookupTable)
              or prof._flux_ratio._spec.interpolant != 'linear')):
+            if not cls._sed_logged:
+                logger.warning(
+                        "Warning: Chromatic drawing is most efficient when SEDs have "
+                        "interpont='linear'. Switching LookupTables to use 'linear'.")
+                cls._sed_logged = True
             original = prof._original
             sed = prof._flux_ratio
             wave_list, _, _ = galsim.utilities.combine_wave_list(sed, bandpass)
@@ -582,9 +593,9 @@ class LSST_SiliconBuilder(StampBuilder):
         if isinstance(prof, galsim.ChromaticObject):
             if hasattr(prof, 'obj_list'):
                 for obj in prof.obj_list:
-                    cls._fix_seds_25(obj, bandpass)
+                    cls._fix_seds_25(obj, bandpass, logger)
             if hasattr(prof, 'original'):
-                cls._fix_seds_25(prof.original, bandpass)
+                cls._fix_seds_25(prof.original, bandpass, logger)
 
     def draw(self, prof, image, method, offset, config, base, logger):
         """Draw the profile on the postage stamp image.
@@ -618,7 +629,7 @@ class LSST_SiliconBuilder(StampBuilder):
             gal = gal.evaluateAtWavelength(bandpass.effective_wavelength)
             gal = gal * self._trivial_sed
         else:
-            self._fix_seds(gal, bandpass)
+            self._fix_seds(gal, bandpass, logger)
         gal = gal.withFlux(self.realized_flux, bandpass)
 
         # Normally, wcs is provided as an argument, rather than setting it directly here.
