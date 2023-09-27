@@ -1,5 +1,6 @@
 from textwrap import dedent
 from unittest import mock
+from pathlib import Path
 import os
 import yaml
 import galsim
@@ -9,6 +10,7 @@ from test_photon_ops import create_test_icrf_to_field
 METHOD_PHOT = "phot"
 METHOD_FFT = "fft"
 
+DATA_DIR = Path(__file__).parent / 'data'
 
 def create_test_config():
     config = {
@@ -203,6 +205,10 @@ def test_stamp_sizes():
         stamp.diffraction_fft: ""
         stamp.photon_ops: ""
         """))
+    # If tests aren't run from test directory, need this:
+    config['input.sky_catalog.file_name'] = str(DATA_DIR / "sky_cat_9683.yaml")
+    config['input.opsim_data.file_name'] = str(DATA_DIR / "small_opsim_9683.db")
+
     galsim.config.ProcessAllTemplates(config)
     print(os.environ['SIMS_SED_LIBRARY_DIR'])
 
