@@ -54,11 +54,8 @@ jobs:
                 pip install -e .
                 cd ..
 
-            - name: Install rubin_sim and rubin_sim_data
+            - name: Install rubin_sim_data
               run: |
-                # Install a fixed version so we control the code for tests etc.
-                mamba install rubin-sim=1.1.1  
-                #
                 mkdir rubin_sim_data
                 mkdir rubin_sim_data/sims_sed_library
                 # Just get the skybrightness, throughputs, and SED data for now.
