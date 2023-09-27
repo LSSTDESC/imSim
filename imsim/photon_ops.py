@@ -21,6 +21,20 @@ from .diffraction import (
 )
 
 
+class Shift(PhotonOp):
+    """Shifts photons from stamp center to full image center."""
+    _req_params = {}
+    _opt_params = {"invert": bool}
+
+    def __init__(self, img_pos):
+        self.img_pos = img_pos
+
+    def applyTo(self, photon_array, local_wcs=None, rng=None):
+        """Apply the photon operator to a PhotonArray."""
+        photon_array.x += self.img_pos.x
+        photon_array.y += self.img_pos.y
+
+
 class RubinOptics(PhotonOp):
     """A photon operator that performs raytracing through the Rubin optics.
 
@@ -32,7 +46,7 @@ class RubinOptics(PhotonOp):
         The ICRF coordinate of light that reaches the boresight.  Note that this
         is distinct from the spherical coordinates of the boresight with respect
         to the ICRF axes.
-    sky_pos : galsim.CelestialCoord
+    img_wcs : galsim.BaseWCS
     image_pos : galsim.PositionD
     icrf_to_field : galsim.GSFitsWCS
     det_name : str
@@ -49,7 +63,7 @@ class RubinOptics(PhotonOp):
         self,
         telescope,
         boresight,
-        sky_pos,
+        img_wcs,
         image_pos,
         icrf_to_field,
         det_name,
@@ -58,7 +72,7 @@ class RubinOptics(PhotonOp):
         self.telescope = telescope
         self.detector = camera[det_name]
         self.boresight = boresight
-        self.sky_pos = sky_pos
+        self.img_wcs = img_wcs
         self.image_pos = image_pos
         self.icrf_to_field = icrf_to_field
 
@@ -67,7 +81,7 @@ class RubinOptics(PhotonOp):
 
         return photon_velocity(
             photon_array,
-            XyToV(local_wcs, self.icrf_to_field, self.sky_pos),
+            XyToV(local_wcs, self.icrf_to_field, self.img_wcs),
             self.telescope.inMedium.getN,
         )
 
@@ -145,7 +159,7 @@ class RubinDiffractionOptics(RubinOptics):
         The ICRF coordinate of light that reaches the boresight.  Note that this
         is distinct from the spherical coordinates of the boresight with respect
         to the ICRF axes.
-    sky_pos : galsim.CelestialCoord
+    img_wcs : galsim.BaseWCS
     image_pos : galsim.PositionD
     icrf_to_field : galsim.GSFitsWCS
     det_name : str
@@ -171,15 +185,13 @@ class RubinDiffractionOptics(RubinOptics):
         self,
         telescope,
         boresight,
-        sky_pos,
         image_pos,
-        icrf_to_field,
         det_name,
         camera,
         rubin_diffraction: "RubinDiffraction",
     ):
         super().__init__(
-            telescope, boresight, sky_pos, image_pos, icrf_to_field, det_name, camera
+            telescope, boresight, rubin_diffraction.img_wcs, image_pos, rubin_diffraction.icrf_to_field, det_name, camera
         )
         self.rubin_diffraction = rubin_diffraction
 
@@ -204,7 +216,7 @@ class RubinDiffraction(PhotonOp):
         for the spider diffraction.
     altitude, azimuth : float
         alt/az coordinates the telescope is pointing to (in rad).
-    sky_pos : galsim.CelestialCoord
+    img_wcs : galsim.BaseWCS
     icrf_to_field : galsim.GSFitsWCS
     """
 
@@ -217,12 +229,12 @@ class RubinDiffraction(PhotonOp):
         latitude,
         altitude,
         azimuth,
-        sky_pos,
+        img_wcs,
         icrf_to_field,
         disable_field_rotation: bool = False,
     ):
         self.telescope = telescope
-        self.sky_pos = sky_pos
+        self.img_wcs = img_wcs
         self.icrf_to_field = icrf_to_field
         if disable_field_rotation:
             self.apply_diffraction_delta = lambda pos, v, _t, wavelength, geometry, distribution: apply_diffraction_delta(
@@ -263,7 +275,7 @@ class RubinDiffraction(PhotonOp):
 
                     Returns: ndarray of shape (n, 3), where n = photon_array.pupil_u.size()
         """
-        xy_to_v = XyToV(local_wcs, self.icrf_to_field, self.sky_pos)
+        xy_to_v = XyToV(local_wcs, self.icrf_to_field, self.img_wcs)
         v = photon_velocity(
             photon_array,
             xy_to_v,
@@ -298,7 +310,7 @@ class RubinDiffraction(PhotonOp):
 
         assert photon_array.hasAllocatedPupil()
         assert photon_array.hasAllocatedTimes()
-        xy_to_v = XyToV(local_wcs, self.icrf_to_field, self.sky_pos)
+        xy_to_v = XyToV(local_wcs, self.icrf_to_field, self.img_wcs)
         # Convert xy coordinates to a cartesian 3d velocity vector of the photons
         v = xy_to_v(photon_array.x, photon_array.y)
 
@@ -361,7 +373,7 @@ def config_kwargs(config, base, cls, base_args=()):
     return kwargs
 
 
-_rubin_optics_base_args = ("sky_pos", "image_pos")
+_rubin_optics_base_args = ("image_pos",)
 
 
 @photon_op_type("RubinOptics", input_type="telescope")
@@ -372,6 +384,7 @@ def deserialize_rubin_optics(config, base, _logger):
     return RubinOptics(
         telescope=telescope,
         icrf_to_field=base["_icrf_to_field"],
+        img_wcs=base["current_image"].wcs,
         camera=get_camera_cached(kwargs.pop("camera")),
         **kwargs,
     )
@@ -386,14 +399,13 @@ def deserialize_rubin_diffraction_optics(config, base, _logger):
         latitude=kwargs.pop("latitude", RUBIN_LOC.lat.rad),
         altitude=kwargs.pop("altitude"),
         azimuth=kwargs.pop("azimuth"),
-        sky_pos=base["sky_pos"],
+        img_wcs=base["current_image"].wcs,
         icrf_to_field=base["_icrf_to_field"],
         disable_field_rotation=kwargs.pop("disable_field_rotation", False),
     )
 
     return RubinDiffractionOptics(
         telescope=telescope,
-        icrf_to_field=base["_icrf_to_field"],
         camera=get_camera_cached(kwargs.pop("camera")),
         rubin_diffraction=rubin_diffraction,
         **kwargs,
@@ -407,14 +419,26 @@ def get_camera_cached(camera_name: str):
 
 @photon_op_type("RubinDiffraction", input_type="telescope")
 def deserialize_rubin_diffraction(config, base, _logger):
-    kwargs = config_kwargs(config, base, RubinDiffraction, base_args=("sky_pos",))
+    kwargs = config_kwargs(config, base, RubinDiffraction)
     telescope = base["det_telescope"]
 
     return RubinDiffraction(
         telescope=telescope,
         icrf_to_field=base["_icrf_to_field"],
+        img_wcs=base["current_image"].wcs,
         **kwargs,
     )
+
+@photon_op_type("Shift", input_type="telescope")
+def deserialize_shift(config, base, _logger):
+    kwargs = config_kwargs(config, base, Shift)
+
+    img_pos = base["image_pos"]
+    if kwargs.get("invert"):
+        img_pos.x = -img_pos.x
+        img_pos.y = -img_pos.y
+    return Shift(img_pos=img_pos)
+
 
 
 class XyToV:
@@ -428,19 +452,14 @@ class XyToV:
     a column major vector of shape (n,3).
     """
 
-    def __init__(self, local_wcs, icrf_to_field, sky_pos):
+    def __init__(self, local_wcs, icrf_to_field, img_wcs):
         self.local_wcs = local_wcs
         self.icrf_to_field = icrf_to_field
-        self.sky_pos = sky_pos
+        self.img_wcs = img_wcs
 
     def __call__(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         # x/y to u/v
-        u = self.local_wcs._u(x, y)
-        v = self.local_wcs._v(x, y)
-        # u/v to ICRF
-        u_rad = np.deg2rad(u / 3600)
-        v_rad = np.deg2rad(v / 3600)
-        ra, dec = self.sky_pos.deproject_rad(u_rad, v_rad)
+        ra, dec = self.img_wcs.xyToradec(x, y, units="rad")
         # ICRF to field
         thx, thy = self.icrf_to_field.radecToxy(ra, dec, units="rad")
 
@@ -452,15 +471,7 @@ class XyToV:
         )
         # field to ICRF
         ra, dec = self.icrf_to_field.xyToradec(thx, thy, units="rad")
-        # ICRF to u/v
-        u_rad, v_rad = self.sky_pos.project_rad(ra, dec)
-        u = 3600 * np.rad2deg(u_rad)
-        v = 3600 * np.rad2deg(v_rad)
-        # u/v to x/y
-        x = self.local_wcs._x(u, v)
-        y = self.local_wcs._y(u, v)
-
-        return (x, y)
+        return self.img_wcs.radecToxy(ra, dec, units="rad")
 
 
 def ray_vector_to_photon_array(
