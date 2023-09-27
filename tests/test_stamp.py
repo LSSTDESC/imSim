@@ -209,11 +209,10 @@ def test_stamp_sizes():
     # Hotfix indeterminism in skyCatalogs 1.6.0. 
     # cf. https://github.com/LSSTDESC/skyCatalogs/pull/62
     # Remove this bit once we are dependent on a version that includes the above PR.
-    from skycatalogs import skyCatalogs
-    orig_toplevel_only = skyCatalogs.SkyCatalog.toplevel_only
+    orig_toplevel_only = imsim.skycat.skyCatalogs.SkyCatalog.toplevel_only
     def new_toplevel_only(self, object_types):
         return sorted(orig_toplevel_only(self, object_types))
-    skyCatalogs.SkyCatalog.toplevel_only = new_toplevel_only
+    imsim.skycat.skyCatalogs.SkyCatalog.toplevel_only = new_toplevel_only
 
     # Run through some setup things that BuildImage normally does for us.
     logger = galsim.config.LoggerWrapper(None)
