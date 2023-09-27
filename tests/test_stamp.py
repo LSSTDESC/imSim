@@ -217,6 +217,11 @@ def test_stamp_sizes():
     # Run through some setup things that BuildImage normally does for us.
     logger = galsim.config.LoggerWrapper(None)
     builder = galsim.config.valid_image_types['LSST_Image']
+
+    # Note: the safe_only=True call is only required with GalSim 2.4.
+    # It's a workaround for a bug that we fixed in 2.5.
+    if galsim.__version_info__ < (2,5):
+        galsim.config.ProcessInput(config, logger, safe_only=True)
     galsim.config.ProcessInput(config, logger)
     galsim.config.SetupConfigImageNum(config, 0, 0, logger)
     xsize, ysize = builder.setup(config['image'], config, 0, 0, galsim.config.image_ignore, logger)
@@ -225,6 +230,9 @@ def test_stamp_sizes():
     galsim.config.SetupExtraOutputsForImage(config, logger)
     config['bandpass'] = builder.buildBandpass(config['image'], config, 0, 0, logger)
     config['sensor'] = builder.buildSensor(config['image'], config, 0, 0, logger)
+    if galsim.__version_info__ < (2,5):
+        config['current_image'] = galsim.Image(config['image_xsize'], config['image_ysize'],
+                                               wcs=config['wcs'])
 
     nobj = builder.getNObj(config['image'], config, 0)
     print('nobj = ',nobj)
