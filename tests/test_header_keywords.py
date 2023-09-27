@@ -10,10 +10,8 @@ import galsim
 
 def run_imsim(camera):
     imsim_dir = os.path.dirname(os.path.abspath(str(Path(__file__).parent)))
-
-    if 'SIMS_SED_LIBRARY_DIR' not in os.environ:
-        os.environ['SIMS_SED_LIBRARY_DIR'] \
-            = os.path.join(imsim_dir, 'tests', 'data', 'test_sed_library')
+    os.environ['SIMS_SED_LIBRARY_DIR'] \
+        = os.path.join(imsim_dir, 'tests', 'data', 'test_sed_library')
     template = os.path.join(imsim_dir, 'config', 'imsim-config-instcat.yaml')
     instcat_file = os.path.join(imsim_dir, 'tests', 'data',
                                 'instcat_object_positions_test.txt')

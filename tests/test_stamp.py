@@ -208,9 +208,9 @@ def test_stamp_sizes():
     # If tests aren't run from test directory, need this:
     config['input.sky_catalog.file_name'] = str(DATA_DIR / "sky_cat_9683.yaml")
     config['input.opsim_data.file_name'] = str(DATA_DIR / "small_opsim_9683.db")
+    os.environ['SIMS_SED_LIBRARY_DIR'] = str(DATA_DIR / "test_sed_library")
 
     galsim.config.ProcessAllTemplates(config)
-    print(os.environ['SIMS_SED_LIBRARY_DIR'])
 
     # Hotfix indeterminism in skyCatalogs 1.6.0. 
     # cf. https://github.com/LSSTDESC/skyCatalogs/pull/62
