@@ -1,5 +1,6 @@
 from textwrap import dedent
 from unittest import mock
+import os
 import yaml
 import galsim
 import imsim
@@ -203,6 +204,7 @@ def test_stamp_sizes():
         stamp.photon_ops: ""
         """))
     galsim.config.ProcessAllTemplates(config)
+    print(os.environ['SIMS_SED_LIBRARY_DIR'])
 
     # Hotfix indeterminism in skyCatalogs 1.6.0. 
     # cf. https://github.com/LSSTDESC/skyCatalogs/pull/62
