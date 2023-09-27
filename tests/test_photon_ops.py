@@ -96,14 +96,15 @@ def create_test_rubin_optics_kwargs(
     if icrf_to_field is None:
         icrf_to_field = create_test_icrf_to_field(boresight, det_name=det_name)
     img_wcs = create_test_img_wcs(boresight, rottelpos)
+    img_wcs = create_test_img_wcs(boresight, rottelpos)
     return dict(
         telescope=create_test_telescope(rottelpos),
         boresight=boresight,
-        sky_pos=img_wcs.toWorld(image_pos),
         image_pos=image_pos,
         icrf_to_field=icrf_to_field,
         det_name=det_name,
         camera=get_camera(),
+        img_wcs=img_wcs,
     )
 
 
@@ -111,23 +112,23 @@ def create_test_rubin_diffraction(
     latitude=-30.24463 * degrees,
     azimuth=45.0 * degrees,
     altitude=89.9 * degrees,
-    sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
     icrf_to_field=None,
+    rottelpos=np.pi / 3 * galsim.radians,
     **kwargs
 ):
+    boresight = galsim.CelestialCoord(
+        0.543 * galsim.radians, -0.174 * galsim.radians
+    )
     if icrf_to_field is None:
-        boresight = galsim.CelestialCoord(
-            0.543 * galsim.radians, -0.174 * galsim.radians
-        )
         icrf_to_field = create_test_icrf_to_field(boresight, det_name="R22_S11")
 
     return photon_ops.RubinDiffraction(
         telescope=create_test_telescope(),
-        sky_pos=sky_pos,
         icrf_to_field=icrf_to_field,
         latitude=latitude,
         azimuth=azimuth,
         altitude=altitude,
+        img_wcs=create_test_img_wcs(boresight, rottelpos=rottelpos),
         **kwargs,
     )
 
@@ -138,7 +139,6 @@ def create_test_rubin_diffraction_optics(
     altitude=89.9 * degrees,
     boresight=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
     icrf_to_field=None,
-    sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
     image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
     rottelpos=np.pi / 3 * galsim.radians,
     **kwargs
@@ -147,17 +147,20 @@ def create_test_rubin_diffraction_optics(
         latitude=latitude,
         azimuth=azimuth,
         altitude=altitude,
-        sky_pos=sky_pos,
         icrf_to_field=icrf_to_field,
+        rottelpos=rottelpos,
         **kwargs,
     )
+    optics_kwargs = create_test_rubin_optics_kwargs(
+        boresight,
+        icrf_to_field,
+        image_pos=image_pos,
+        rottelpos=rottelpos,
+    )
+    del optics_kwargs["icrf_to_field"]
+    del optics_kwargs["img_wcs"]
     return photon_ops.RubinDiffractionOptics(
-        **create_test_rubin_optics_kwargs(
-            boresight,
-            icrf_to_field,
-            image_pos=image_pos,
-            rottelpos=rottelpos,
-        ),
+        **optics_kwargs,
         rubin_diffraction=rubin_diffraction,
     )
 
@@ -210,6 +213,7 @@ def test_rubin_diffraction_produces_spikes() -> None:
         photon_array, local_wcs=local_wcs, rng=create_test_rng()
     )
 
+    expected_center = np.array([-989.57, -3840.27])
     # The expected image is contained in a disc + spikes outside the disc:
     spike_angles = extract_spike_angles(
         photon_array,
@@ -420,8 +424,8 @@ def test_xy_to_v_inverse():
         boresight=boresight,
         det_name="R22_S11",
     )
-    sky_pos = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    xy_to_v = photon_ops.XyToV(local_wcs, icrf_to_field, sky_pos)
+    img_wcs = create_test_img_wcs(boresight)
+    xy_to_v = photon_ops.XyToV(local_wcs, icrf_to_field, img_wcs)
 
     x, y = np.array(
         np.meshgrid(np.linspace(-10.0, 10, 20), np.linspace(-10.0, 10, 20))
@@ -447,8 +451,8 @@ def test_xy_to_v():
         boresight=boresight,
         det_name="R22_S11",
     )
-    sky_pos = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    xy_to_v = photon_ops.XyToV(local_wcs, icrf_to_field, sky_pos)
+    img_wcs = create_test_img_wcs(boresight)
+    xy_to_v = photon_ops.XyToV(local_wcs, icrf_to_field, img_wcs)
 
     x, y = np.array(
         np.meshgrid(np.linspace(-10.0, 10, 20), np.linspace(-10.0, 10, 20))
@@ -482,14 +486,12 @@ TEST_BASE_CONFIG = {
         }
     },
     "output": {"camera": "LsstCam"},
+    "current_image": galsim.Image(1024, 1024, wcs=create_test_img_wcs(boresight=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians))),
     "_icrf_to_field": create_test_icrf_to_field(
         galsim.CelestialCoord(
             1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
         ),
         "R22_S11",
-    ),
-    "sky_pos": galsim.CelestialCoord(
-        1.1056660811384078 * galsim.radians, -0.5253441048502933 * galsim.radians
     ),
 }
 TEST_ALT_AZ_CONFIG = {"altitude": "43.0 degrees", "azimuth": "0.0 degrees"}
@@ -516,7 +518,6 @@ def test_config_rubin_diffraction():
     reference_op = create_test_rubin_diffraction(
         altitude=43.0 * degrees,
         azimuth=0.0 * degrees,
-        sky_pos=TEST_BASE_CONFIG["sky_pos"],
         icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
     )
     assert_photon_ops_act_equal(photon_op, reference_op)
@@ -544,7 +545,6 @@ def test_config_rubin_diffraction_without_field_rotation():
     reference_op = create_test_rubin_diffraction(
         altitude=43.0 * degrees,
         azimuth=0.0 * degrees,
-        sky_pos=TEST_BASE_CONFIG["sky_pos"],
         disable_field_rotation=True,
         icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
     )
@@ -581,7 +581,6 @@ def test_config_rubin_diffraction_optics():
     reference_op = create_test_rubin_diffraction_optics(
         altitude=43.0 * degrees,
         azimuth=0.0 * degrees,
-        sky_pos=TEST_BASE_CONFIG["sky_pos"],
         image_pos=image_pos,
         icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
         boresight=photon_op.boresight,
@@ -619,7 +618,6 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
     reference_op = create_test_rubin_diffraction_optics(
         altitude=43.0 * degrees,
         azimuth=0.0 * degrees,
-        sky_pos=TEST_BASE_CONFIG["sky_pos"],
         image_pos=image_pos,
         icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
         boresight=photon_op.boresight,
@@ -646,10 +644,6 @@ def test_config_rubin_optics():
                 },
             ]
         },
-        "sky_pos": create_test_img_wcs(
-            boresight=boresight,
-            rottelpos=np.pi / 3 * galsim.radians
-        ).toWorld(image_pos),
     }
     galsim.config.ProcessInput(config)
     galsim.config.input.SetupInputsForImage(config, None)

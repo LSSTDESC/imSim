@@ -1,3 +1,5 @@
+from enum import Enum, auto
+from functools import lru_cache
 from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
@@ -9,6 +11,22 @@ from .camera import get_camera
 from .photon_ops import BandpassRatio
 from .psf_utils import get_fft_psf_maybe
 from .stamp_utils import get_stamp_size
+
+class ProcessingMode(Enum):
+    FFT = auto()
+    PHOT = auto()
+    FAINT = auto()
+
+
+@dataclass
+class StellarObject:
+    index: int
+    gal: object
+    psf: object
+    phot_flux: float
+    fft_flux: float
+    mode: ProcessingMode
+
 
 @dataclass
 class DiffractionFFT:
@@ -43,13 +61,40 @@ class DiffractionFFT:
         kwargs, _safe = GetAllParams(config, base, req=req, opt=opt)
         return cls(**kwargs)
 
+def build_gal(base, logger):
+    gal, _ = galsim.config.BuildGSObject(base, 'gal', logger=logger)
+    if gal is None:
+        return None
+    if not hasattr(gal, 'flux'):
+        # In this case, the object flux has not been precomputed
+        # or cached by the skyCatalogs code.
+        gal.flux = gal.calculateFlux(base['bandpass'])
+    if gal.flux == 0.:
+        return None
+    return gal
 
-class LSST_SiliconBuilder(StampBuilder):
-    """This performs the tasks necessary for building the stamp for a single object.
 
-    It uses the regular Basic functions for most things.
-    It specializes the quickSkip, buildProfile, and draw methods.
-    """
+def build_obj(stamp_config, base, logger):
+    builder = LSST_SiliconBuilder()
+    try:
+        xsize, ysize, image_pos, world_pos = builder.setup(stamp_config, base, 0.0, 0.0, galsim.config.stamp.stamp_ignore, logger)
+    except galsim.SkipThisObject:
+        return None
+    builder.locateStamp(stamp_config, base, xsize, ysize, image_pos, world_pos, logger)
+    psf = builder.buildPSF(stamp_config, base, None, logger)
+    max_flux_simple = stamp_config.get('max_flux_simple', 100)
+    if builder.use_fft:
+        mode = ProcessingMode.FFT
+    elif builder.nominal_flux < max_flux_simple:
+        mode = ProcessingMode.FAINT
+    else:
+        mode = ProcessingMode.PHOT
+
+    return StellarObject(base.get('obj_num', 0), builder.gal, psf, phot_flux=builder.phot_flux, fft_flux=builder.fft_flux, mode=mode)
+
+
+class StampBuilderBase(StampBuilder):
+    """Shared functionality between PhotonStampBuilder and LSST_SiliconBuilder."""
     _ft_default = galsim.GSParams().folding_threshold
     _pixel_scale = 0.2
     _trivial_sed = galsim.SED(galsim.LookupTable([100, 2000], [1,1], interpolant='linear'),
@@ -57,6 +102,163 @@ class LSST_SiliconBuilder(StampBuilder):
     _tiny_flux = 10
     _Nmax = 4096  # (Don't go bigger than 4096)
     _sed_logged = False  # Only log SED linear interpolant warning once.
+
+    @classmethod
+    def _fix_seds_24(cls, prof, bandpass, logger):
+        # If any SEDs are not currently using a LookupTable for the function or if they are
+        # using spline interpolation, then the codepath is quite slow.
+        # Better to fix them before doing WavelengthSampler.
+        if isinstance(prof, galsim.ChromaticObject):
+            wave_list, _, _ = galsim.utilities.combine_wave_list(prof.SED, bandpass)
+            sed = prof.SED
+            # TODO: This bit should probably be ported back to Galsim.
+            #       Something like sed.make_tabulated()
+            if (not isinstance(sed._spec, galsim.LookupTable)
+                or sed._spec.interpolant != 'linear'):
+                if not cls._sed_logged:
+                    logger.warning(
+                            "Warning: Chromatic drawing is most efficient when SEDs have "
+                            "interpont='linear'. Switching LookupTables to use 'linear'.")
+                    cls._sed_logged = True
+                # Workaround for https://github.com/GalSim-developers/GalSim/issues/1228
+                f = np.broadcast_to(sed(wave_list), wave_list.shape)
+                new_spec = galsim.LookupTable(wave_list, f, interpolant='linear')
+                new_sed = galsim.SED(
+                    new_spec,
+                    'nm',
+                    'fphotons' if sed.spectral else '1'
+                )
+                prof.SED = new_sed
+
+            # Also recurse onto any components.
+            if hasattr(prof, 'obj_list'):
+                for obj in prof.obj_list:
+                    cls._fix_seds_24(obj, bandpass, logger)
+            if hasattr(prof, 'original'):
+                cls._fix_seds_24(prof.original, bandpass, logger)
+
+    @classmethod
+    def _fix_seds_25(cls, prof, bandpass, logger):
+        # If any SEDs are not currently using a LookupTable for the function or if they are
+        # using spline interpolation, then the codepath is quite slow.
+        # Better to fix them before doing WavelengthSampler.
+
+        # In GalSim 2.5, SEDs are not necessarily constructed in most chromatic objects.
+        # And really the only ones we need to worry about are the ones that come from
+        # SkyCatalog, since they might not have linear interpolants.
+        # Those objects are always SimpleChromaticTransformations.  So only fix those.
+        if (isinstance(prof, galsim.SimpleChromaticTransformation) and
+            (not isinstance(prof._flux_ratio._spec, galsim.LookupTable)
+             or prof._flux_ratio._spec.interpolant != 'linear')):
+            if not cls._sed_logged:
+                logger.warning(
+                        "Warning: Chromatic drawing is most efficient when SEDs have "
+                        "interpont='linear'. Switching LookupTables to use 'linear'.")
+                cls._sed_logged = True
+            sed = prof._flux_ratio
+            wave_list, _, _ = galsim.utilities.combine_wave_list(sed, bandpass)
+            f = np.broadcast_to(sed(wave_list), wave_list.shape)
+            new_spec = galsim.LookupTable(wave_list, f, interpolant='linear')
+            new_sed = galsim.SED(
+                new_spec,
+                'nm',
+                'fphotons' if sed.spectral else '1'
+            )
+            prof._flux_ratio = new_sed
+
+        # Also recurse onto any components.
+        if isinstance(prof, galsim.ChromaticObject):
+            if hasattr(prof, 'obj_list'):
+                for obj in prof.obj_list:
+                    cls._fix_seds_25(obj, bandpass, logger)
+            if hasattr(prof, 'original'):
+                cls._fix_seds_25(prof.original, bandpass, logger)
+
+    # Pick the right function to be _fix_seds.
+    _fix_seds = _fix_seds_24 if galsim.__version_info__ < (2,5) else _fix_seds_25
+
+
+class PhotonStampBuilder(StampBuilderBase):
+    """StampBuilder which builds photons instead of image stamps."""
+    def setup(self, config, base, xsize, ysize, ignore, logger):
+        return LSST_SiliconBuilder().setup(config, base, xsize, ysize, ignore, logger)
+
+    def getDrawMethod(self, config, base, logger):
+        return "phot"
+
+    def updateOrigin(self, stamp, config, image):
+        return
+
+    def draw(self, prof, image, method, offset, config, base, logger):
+        """Draw the profile on the postage stamp image.
+
+        Parameters:
+            prof:       The profile to draw.
+            image:      The image onto which to draw the profile (which may be None).
+            method:     The method to use in drawImage.
+            offset:     The offset to apply when drawing.
+            config:     The configuration dict for the stamp field.
+            base:       The base configuration dict.
+            logger:     A logger object to log progress.
+
+        Returns:
+            the resulting image
+        """
+        if prof is None:
+            # If was decide to do any rejection steps, this could be set to None, in which case,
+            # don't draw anything.
+            return image
+
+        # Prof is normally a convolution here with obj_list being [gal, psf1, psf2,...]
+        # for some number of component PSFs.
+        gal, *psfs = prof.obj_list if hasattr(prof,'obj_list') else [prof]
+        obj_num = base.get('obj_num',0)
+        stellar_obj = base.get("_objects", {})[obj_num] # Use cached object
+        bandpass = base['bandpass']
+
+        faint = stellar_obj.mode == ProcessingMode.FAINT
+        if faint:
+            logger.info("Flux = %.0f  Using trivial sed", stellar_obj.gal.flux)
+            gal = gal.evaluateAtWavelength(bandpass.effective_wavelength)
+            gal = gal * self._trivial_sed
+        else:
+            self._fix_seds(gal, bandpass, logger)
+        gal = gal.withFlux(stellar_obj.phot_flux, bandpass)
+
+        # Put the psfs at the start of the photon_ops.
+        # Probably a little better to put them a bit later than the start in some cases
+        # (e.g. after TimeSampler, PupilAnnulusSampler), but leave that as a todo for now.
+        rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
+        gal.drawImage(bandpass,
+                      method='phot',
+                      offset=offset,
+                      rng=rng,
+                      maxN=None,
+                      n_photons=stellar_obj.phot_flux,
+                      image=image,
+                      wcs=base['wcs'],
+                      sensor=NullSensor(),
+                      photon_ops=psfs,
+                      add_to_image=True,
+                      poisson_flux=False,
+                      save_photons=True)
+        img_pos = base["image_pos"]
+        image.photons.x += img_pos.x
+        image.photons.y += img_pos.y
+        return image.photons
+
+# Register this as a valid stamp type
+RegisterStampType('PhotonStampBuilder', PhotonStampBuilder())
+
+
+class LSST_SiliconBuilder(StampBuilderBase):
+    """This performs the tasks necessary for building the stamp for a single object.
+
+    It uses the regular Basic functions for most things.
+    It specializes the quickSkip, buildProfile, and draw methods.
+    """
+
+    fft_flux: float = 0.
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
         """
@@ -102,12 +304,16 @@ class LSST_SiliconBuilder(StampBuilder):
         ignore = ['fft_sb_thresh', 'max_flux_simple'] + ignore
         params = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)[0]
 
-        obj = galsim.config.BuildGSObject(base, 'gal', logger=logger)[0]
+        obj_num = base.get('obj_num',0)
+        # Use cached object, if possible.
+        # The cache is currently only used in the `LSST_PhotonPoolingImageBuilder`:
+        stellar_obj = base.get("_objects", {}).get(obj_num)
+        gal = build_gal(base, logger) if stellar_obj is None else stellar_obj.gal
 
-        if obj is None:
+        if gal is None:
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
 
-        self.obj = obj
+        self.gal = gal
 
         if 'diffraction_fft' in config:
             self.diffraction_fft = DiffractionFFT.from_config(config['diffraction_fft'], base)
@@ -121,25 +327,29 @@ class LSST_SiliconBuilder(StampBuilder):
         camera = get_camera(params.get('camera', 'LsstCam'))
         if self.vignetting:
             self.det = camera[params['det_name']]
-        if hasattr(obj, 'flux'):
-            # In this case, the object flux has been precomputed.  If our
-            # realized bandpass is different from the fiducial bandpass used
-            # in the precomputation, then we'll need to reweight the flux.
-            # We'll only do this if the bandpass was obtained from
-            # RubinBandpass though.
-            self.fiducial_bandpass = base.get('fiducial_bandpass', None)
-            self.do_reweight = (
-                self.fiducial_bandpass is not None
-                and self.fiducial_bandpass != bandpass
-            )
+        if stellar_obj is not None:
+            self.nominal_flux = stellar_obj.gal.flux
+            self.phot_flux = stellar_obj.phot_flux
         else:
-            obj.flux = obj.calculateFlux(bandpass)
-            self.do_reweight = False
-        self.nominal_flux = obj.flux
+            if hasattr(gal, 'flux'):
+                # In this case, the object flux has been precomputed.  If our
+                # realized bandpass is different from the fiducial bandpass used
+                # in the precomputation, then we'll need to reweight the flux.
+                # We'll only do this if the bandpass was obtained from
+                # RubinBandpass though.
+                self.fiducial_bandpass = base.get('fiducial_bandpass', None)
+                self.do_reweight = (
+                    self.fiducial_bandpass is not None
+                    and self.fiducial_bandpass != bandpass
+                )
+            else:
+                gal.flux = gal.calculateFlux(bandpass)
+                self.do_reweight = False
+            self.nominal_flux = gal.flux
 
-        # For photon shooting rendering, precompute the realization of the Poisson variate.
-        # Mostly so we can possibly abort early if phot_flux=0.
-        self.phot_flux = galsim.PoissonDeviate(self.rng, mean=obj.flux)()
+            # For photon shooting rendering, precompute the realization of the Poisson variate.
+            # Mostly so we can possibly abort early if phot_flux=0.
+            self.phot_flux = galsim.PoissonDeviate(self.rng, mean=gal.flux)()
 
         # Save these later, in case needed for the output catalog.
         base['nominal_flux'] = self.nominal_flux
@@ -216,6 +426,17 @@ class LSST_SiliconBuilder(StampBuilder):
         Returns:
             the PSF
         """
+        # Use cached psf and mode (fft / phot):
+        obj_num = base['obj_num']
+        stellar_obj = base.get('_objects', {}).get(obj_num)
+        if stellar_obj is not None:
+            self.use_fft = stellar_obj.mode == ProcessingMode.FFT
+            if self.use_fft:
+                self.fft_flux = stellar_obj.fft_flux
+                base['fft_flux'] = self.fft_flux
+                base['phot_flux'] = 0.  # Indicates that photon shooting wasn't done.
+            return stellar_obj.psf
+
         psf = galsim.config.BuildGSObject(base, 'psf', gsparams=gsparams, logger=logger)[0]
 
         # For very bright things, we might want to change this for FFT drawing.
@@ -258,8 +479,11 @@ class LSST_SiliconBuilder(StampBuilder):
         else:
             logger.info('Yes. Use photon shooting for object %d.', base.get('obj_num'))
             self.use_fft = False
+            logger.info('No. Use photon shooting for object %d. '
+                        'max_sb = %.0f <= %.0f',
+                        base.get('obj_num'), max_sb, fft_sb_thresh)
+            return psf
 
-        return psf
 
     def getDrawMethod(self, config, base, logger):
         """Determine the draw method to use.
@@ -526,6 +750,9 @@ class LSST_SiliconBuilder(StampBuilder):
 
         return image
 
+class NullSensor(galsim.Sensor):
+    def accumulate(self, photons, image, orig_center=None, resume=False):
+        return 0.
 
 # Pick the right function to be _fix_seds.
 if galsim.__version_info__ < (2,5):
