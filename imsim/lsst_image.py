@@ -85,12 +85,13 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
 
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
-            self.nbatch = params.get('nbatch', 10)
+            self.nbatch = params.get('nbatch', 100)
         except galsim.config.GalSimConfigError:
             self.checkpoint = None
-            self.nbatch = params.get('nbatch', 1)
-            # Note: This will probably also become 10 once we're doing the photon
-            #       pooling stuff.  But for now, let it be 1 if not checkpointing.
+            # Batching is also useful for memory reasons, to limit the number of stamps held
+            # in memory before adding them all to the main image.  So even if not checkpointing,
+            # keep the default value as 100.
+            self.nbatch = params.get('nbatch', 100)
 
         return xsize, ysize
 
@@ -182,7 +183,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                 full_image = base['current_image']
             start_batch = 0
 
-        nbatch = min(self.nbatch, nobj_tot)
+        # Ensure 1 <= nbatch <= nobj_tot
+        nbatch = max(min(self.nbatch, nobj_tot), 1)
         for batch in range(nbatch):
             start_obj_num = start_num + (nobj_tot * batch // nbatch)
             end_obj_num = start_num + (nobj_tot * (batch+1) // nbatch)
