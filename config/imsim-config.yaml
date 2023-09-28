@@ -124,6 +124,13 @@ image:
                 # the main process for all of the (many) vert faint sources, which only shoot
                 # a small numer of photons.
 
+    # The objects are processed in batches.
+    # If checkpointing is turned on, then the checkpoint file will be updated after each batch.
+    # Even if not checkpointing, using batches helps keep the memory down, since a bunch of
+    # temporary data can be purged after each batch.
+    # The default number of batches is 100, but you can change it if desired.
+    nbatch: 100
+
     det_name: "$det_name"
 
     bandpass: { type: RubinBandpass, band: "$band" }

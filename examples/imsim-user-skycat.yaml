@@ -21,7 +21,8 @@ psf:
         -
            type: Gaussian
            fwhm: 0.8
-        -  type: Gaussian
+        -
+           type: Gaussian
            fwhm: 0.3
 
 # Turn off check pointing for this example.

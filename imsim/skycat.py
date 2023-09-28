@@ -239,8 +239,11 @@ def SkyCatObj(config, base, ignore, gsparams, logger):
     world_center = base['world_center']
     ccd_center = skycat.get_ccd_center()
     sep = ccd_center.distanceTo(base['world_center'])/galsim.arcsec
-    # Centers must agree to within at least 1 arcsec:
-    if sep > 1.0:
+    # Centers must agree to within at least 10 arcsec:
+    # (If the sizes here are the default 4096, the real ysize might be 4004, so center could
+    #  be off by as much as 1/2 * 92 * 0.2 arcsec < 10 arcsec.  This can happen if det_xsize
+    #  and det_ysize aren't set by the time the SkyCatatalog is loaded.)
+    if sep > 10.0:
         message = ("skyCatalogs selection and CCD center do not agree: \n"
                    "skycat.ccd_center: "
                    f"{ccd_center.ra/galsim.degrees:.5f}, "

@@ -63,6 +63,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             det_bbox = camera[self.det_name].getBBox()
             xsize = det_bbox.width
             ysize = det_bbox.height
+            base['det_xsize'] = xsize
+            base['det_ysize'] = ysize
 
         try:
             self.vignetting = galsim.config.GetInputObj('vignetting', config,
@@ -83,12 +85,13 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
 
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
-            self.nbatch = params.get('nbatch', 10)
+            self.nbatch = params.get('nbatch', 100)
         except galsim.config.GalSimConfigError:
             self.checkpoint = None
-            self.nbatch = params.get('nbatch', 1)
-            # Note: This will probably also become 10 once we're doing the photon
-            #       pooling stuff.  But for now, let it be 1 if not checkpointing.
+            # Batching is also useful for memory reasons, to limit the number of stamps held
+            # in memory before adding them all to the main image.  So even if not checkpointing,
+            # keep the default value as 100.
+            self.nbatch = params.get('nbatch', 100)
 
         return xsize, ysize
 
@@ -112,14 +115,6 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         Returns:
             the final image and the current noise variance in the image as a tuple
         """
-        from galsim.config.stamp import _ParseDType
-
-        full_xsize = base['image_xsize']
-        full_ysize = base['image_ysize']
-        wcs = base['wcs']
-
-        dtype = _ParseDType(config, base)
-
         if 'image_pos' in config and 'world_pos' in config:
             raise galsim.config.GalSimConfigValueError(
                 "Both image_pos and world_pos specified for LSST_Image.",
@@ -128,6 +123,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         if ('image_pos' not in config and 'world_pos' not in config and
                 not ('stamp' in base and
                     ('image_pos' in base['stamp'] or 'world_pos' in base['stamp']))):
+            full_xsize = base['image_xsize']
+            full_ysize = base['image_ysize']
             xmin = base['image_origin'].x
             xmax = xmin + full_xsize-1
             ymin = base['image_origin'].y
@@ -166,14 +163,28 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         nobj_tot = self.nobjects - (start_num - obj_num)
 
         if full_image is None:
-            full_image = galsim.Image(full_xsize, full_ysize, dtype=dtype)
-            full_image.setOrigin(base['image_origin'])
-            full_image.wcs = wcs
-            full_image.setZero()
-            start_batch = 0
-        base['current_image'] = full_image
+            if galsim.__version_info__ < (2,5):
+                # GalSim 2.4 required a bit more work here.
+                from galsim.config.stamp import _ParseDType
 
-        nbatch = min(self.nbatch, nobj_tot)
+                full_xsize = base['image_xsize']
+                full_ysize = base['image_ysize']
+                wcs = base['wcs']
+
+                dtype = _ParseDType(config, base)
+
+                full_image = galsim.Image(full_xsize, full_ysize, dtype=dtype)
+                full_image.setOrigin(base['image_origin'])
+                full_image.wcs = wcs
+                full_image.setZero()
+                base['current_image'] = full_image
+            else:
+                # In GalSim 2.5+, the image is already built and available as 'current_image'
+                full_image = base['current_image']
+            start_batch = 0
+
+        # Ensure 1 <= nbatch <= nobj_tot
+        nbatch = max(min(self.nbatch, nobj_tot), 1)
         for batch in range(nbatch):
             start_obj_num = start_num + (nobj_tot * batch // nbatch)
             end_obj_num = start_num + (nobj_tot * (batch+1) // nbatch)

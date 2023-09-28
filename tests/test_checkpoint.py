@@ -261,6 +261,7 @@ def test_checkpoint_flatten():
     }
 
     # First without any checkpointing or batching
+    config['image']['nbatch'] = 0
     galsim.config.ProcessInput(config)
     im1 = galsim.config.BuildImage(config)
 

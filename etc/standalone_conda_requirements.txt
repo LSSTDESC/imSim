@@ -7,3 +7,4 @@ batoid
 batoid-rubin
 sncosmo
 palpy
+rubin-sim=1.1.1
