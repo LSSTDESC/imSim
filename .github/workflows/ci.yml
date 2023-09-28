@@ -44,7 +44,7 @@ jobs:
                 conda install -y mamba
                 mamba install -y --file etc/standalone_conda_requirements.txt
                 conda info
-                conda list
+                mamba list
 
             - name: Install skyCatalogs from source
               run: |
@@ -56,18 +56,14 @@ jobs:
 
             - name: Install rubin_sim and rubin_sim_data
               run: |
-                # Do the minimal installation from source to avoid installing
-                # a bunch of unneeded packages.
-                git clone https://github.com/lsst/rubin_sim.git
-                cd rubin_sim
-                git checkout 1.1.1
-                pip install -e .
-                cd ..
+                # Install a fixed version so we control the code for tests etc.
+                mamba install rubin-sim=1.1.1  
+                #
                 mkdir rubin_sim_data
                 mkdir rubin_sim_data/sims_sed_library
                 # Just get the skybrightness, throughputs, and SED data for now.
                 curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
-                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
+                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_2023_09_07.tgz | tar -C rubin_sim_data -xz
                 curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
 
             - name: Install imSim

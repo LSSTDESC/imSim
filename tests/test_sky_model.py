@@ -5,8 +5,6 @@ import json
 import logging
 import galsim
 from imsim import SkyModel, SkyGradient, make_batoid_wcs, RubinBandpass
-from unittest import mock
-from imsim_test_helpers import CaptureLog
 
 DATA_DIR = Path(__file__).parent / 'data'
 
@@ -32,12 +30,7 @@ def test_sky_model():
         expected_sky_levels = json.load(fobj)
 
     for band in 'ugrizy':
-        # This regression test used the GalSim bandpasses.
-        # So use them here by mocking that RUBIN_DATA_DIR is not defined.
-        with mock.patch('os.getenv', return_value=''):
-            with CaptureLog() as cl:
-                bandpass = RubinBandpass(band, logger=cl.logger)
-        assert "Using the old bandpass files" in cl.output
+        bandpass = RubinBandpass(band)
         sky_model = SkyModel(exptime, mjd, bandpass)
         sky_level = sky_model.get_sky_level(skyCoord)
         np.testing.assert_approx_equal(sky_level, expected_sky_levels[band],
@@ -50,7 +43,6 @@ def test_sky_gradient():
     # http://astro-lsst-01.astro.washington.edu:8080/
     ra = 54.9348753510528
     dec = -35.8385705255579
-    skyCoord = galsim.CelestialCoord(ra*galsim.degrees, dec*galsim.degrees)
     mjd = 60232.3635999295
     rottelpos = 350.946271812373
     exptime = 30.
@@ -91,7 +83,6 @@ def test_sky_gradient():
                                        sky_gradient(*r[:2]),
                                        significant=4)
 
-
     # Check that it gets applied by LSST_Image
     config = {
         'input': {
@@ -125,6 +116,7 @@ def test_sky_gradient():
     del config['image']['_current_sky_tag']
     image2 = galsim.config.BuildImage(config, logger=logger)
     assert image2 == image
+
 
 if __name__ == "__main__":
     testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
