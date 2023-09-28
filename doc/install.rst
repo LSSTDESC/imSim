@@ -11,12 +11,12 @@ Installation Instructions
 
    are required. The instructions below for the cvmfs and stackvana installations should automatically fulfill these requirements for you.  If you are using a different installation method, please ensure that you have met these requirements.
 
-   These instructions were last updated August of 2023. If you find that parts of this document are out of date or are incorrect, please submit a bug report `here <https://github.com/LSSTDESC/imSim/issues>`_.
+   These instructions were last updated September of 2023. If you find that parts of this document are out of date or are incorrect, please submit a bug report `here <https://github.com/LSSTDESC/imSim/issues>`_.
 
 
 .. warning::
 
-   If you are using MacOS on Apple Silicon then .... ``Need to figure out what is true to say``
+   If you are using MacOS on an Apple Silicon machine then currently the only binary installation below that will work is to use the CVMFS distribution (method #1). Method #2 (stackvana) will not work.  Method #3 (using docker), should work but will run through emulation and will not run at native speed.  In the meantime, the best other option is to install the science pipelines yourself via the *lsstinstall* package as described `in the pipelines documentation <https://pipelines.lsst.io/install/lsstinstall.html/>`_ and then add the extra imSim conda dependencies as needed.
 
 
 The *imSim* software is *GalSim* based, and it also depends on the `LSST science pipelines <https://pipelines.lsst.io/>`_ and Rubin simulation framework.   It is easiest to work in an environment where someone else has already built the science pipelines, simulation packages and GalSim for you.  Luckily, several such options exist.
@@ -58,7 +58,7 @@ Now go to where you would like to install *imSim* and download a set of data fil
 
    mkdir -p rubin_sim_data/sims_sed_library
    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
-   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
+   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_2023_09_07.tgz | tar -C rubin_sim_data -xz
    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
 
 
@@ -130,7 +130,7 @@ First install conda from  `Miniforge <https://github.com/conda-forge/miniforge>`
 
 .. note::
 
-   If you prefer you can use  `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`__  or your own conda installation but, in that case, be careful to specify that you want to use the conda-forge channel.
+   If you prefer you can use  `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`_  or your own conda installation but, in that case, be careful to specify that you want to use the conda-forge channel.
 
 Next, create a *Conda* environment and activate it.
 
@@ -171,7 +171,7 @@ To download:
 
    mkdir -p rubin_sim_data/sims_sed_library
    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
-   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
+   curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_2023_09_07.tgz | tar -C rubin_sim_data -xz
    curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
 
 
@@ -340,6 +340,6 @@ imSim is run by executing the galsim executable with an imSim yaml file as input
 
 .. code-block:: sh
 
-   galsim $IMSIM_HOME/imSim/examples/imsim-user.yaml
+   galsim $IMSIM_HOME/imSim/examples/imsim-user-instcat.yaml
 
 The program should run to completion without errors.
