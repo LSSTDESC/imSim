@@ -16,7 +16,7 @@ def parse_xyz(xyz, base):
 
 
 def apply_fea(
-    fea_perturbations, telescope, fea_dir=None, bend_dir=None
+    fea_perturbations, telescope, **kwargs
 ):
     """ Parse a finite element analysis config dict.  Used to add detailed
     effects like mirror print through or temperature originating figure
@@ -29,10 +29,8 @@ def apply_fea(
         The perturbations dictionary to parse.
     telescope : batoid.Optic
         Telescope to perturb
-    fea_dir : str, optional
-        Directory containing batoid_rubin FEA data.
-    bend_dir : str, optional
-        Directory containing batoid_rubin bending mode data.
+    **kwargs: dict
+        Additional arguments to pass to the LSSTBuilder constructor.
 
     Examples of fea config dicts
     ----------------------------
@@ -108,11 +106,7 @@ def apply_fea(
     """
     from batoid_rubin import LSSTBuilder
 
-    if fea_dir is None:
-        fea_dir = "fea_legacy"
-    if bend_dir is None:
-        bend_dir = "bend_legacy"
-    builder = LSSTBuilder(telescope, fea_dir=fea_dir, bend_dir=bend_dir)
+    builder = LSSTBuilder(telescope, **kwargs)
     for k, v in fea_perturbations.items():
         method = getattr(builder, "with_"+k)
         builder = method(**v)
@@ -121,9 +115,8 @@ def apply_fea(
 
 def load_telescope(
     telescope,
+    builder_kwargs=None,
     perturbations=(),
-    fea_dir=None,
-    bend_dir=None,
     fea_perturbations=None,
     rotTelPos=None,
     cameraName="LSSTCamera",
@@ -136,6 +129,8 @@ def load_telescope(
     telescope : batoid.Optic or str
         Either the fiducial telescope to modify, or a string giving the
         name of a yaml file describing the telescope.
+    builder_kwargs: dict, optional
+        Additional arguments to pass to the LSSTBuilder constructor.
     perturbations : (list of) dict of dict
         (List of) dict of dict describing perturbations to apply to the
         telescope in order.  Each outer dict should have keys indicating
@@ -143,10 +138,6 @@ def load_telescope(
         to apply (each perturbation is a dictionary keyed by the type of
         perturbation and value the magnitude of the perturbation.)  See notes
         for details.
-    fea_dir: str, optional
-        Directory containing batoid_rubin FEA data.
-    bend_dir: str, optional
-        Directory containing batoid_rubin bending mode data.
     fea_perturbations : dict, optional
         Finite element analysis perturbations.  See apply_fea docstring for
         details.
@@ -241,7 +232,7 @@ def load_telescope(
                         batoid.Zernike(coef, R_outer, R_inner)
                     )
     if fea_perturbations is not None:
-        telescope = apply_fea(fea_perturbations, telescope, fea_dir, bend_dir)
+        telescope = apply_fea(fea_perturbations, telescope, **builder_kwargs)
 
     if rotTelPos is not None:
         telescope = telescope.withLocallyRotatedOptic(
@@ -256,16 +247,23 @@ def load_telescope(
 
 def _parse_fea(config, base, logger):
     from batoid_rubin import LSSTBuilder
-    perturbations = {}
-    fea_dir = None
-    bend_dir = None
-    if 'fea_dir' in config:
-        fea_dir = ParseValue(config, 'fea_dir', base, str)
-    if 'bend_dir' in config:
-        bend_dir = ParseValue(config, 'bend_dir', base, str)
 
-    safe = True
+    req, opt, single, takes_rng = get_cls_params(LSSTBuilder)
+    LSSTBuilder_kwargs, safe = GetAllParams(
+        config,
+        base,
+        req=req,
+        opt=opt,
+        single=single,
+        ignore=LSSTBuilder._ignore_params
+    )
+
+    perturbations = {}
+
+    skip = list(req.keys()) + list(opt.keys()) + list(single.keys()) + ['_get']
     for k, v in config.items():
+        if k in skip:
+            continue
         method = getattr(LSSTBuilder, "with_"+k)
         req = getattr(method, "_req_params", {})
         opt = getattr(method, "_opt_params", {})
@@ -279,7 +277,7 @@ def _parse_fea(config, base, logger):
         safe &= safe1
         perturbations[k] = {}
         perturbations[k].update(kwargs)
-    return fea_dir, bend_dir, perturbations, safe
+    return LSSTBuilder_kwargs, perturbations, safe
 
 
 def _parse_perturbations(config, base, telescope, logger):
@@ -370,8 +368,7 @@ class DetectorTelescope:
         perturbations=(),
         rotTelPos=None,
         camera='LsstCam',
-        fea_dir=None,
-        bend_dir=None,
+        builder_kwargs=None,
         fea_perturbations=None,
         focusZ=None,
         logger=None
@@ -381,7 +378,7 @@ class DetectorTelescope:
         self.fiducial = load_telescope(
             telescope=file_name,
             perturbations=perturbations,
-            fea_dir=fea_dir, bend_dir=bend_dir,
+            builder_kwargs=builder_kwargs,
             fea_perturbations=fea_perturbations,
             rotTelPos=rotTelPos,
             cameraName=cameraName,
@@ -430,19 +427,17 @@ class TelescopeLoader(InputLoader):
             safe &= safe1
         fea = config.get('fea', None)
         if fea:
-            fea_dir, bend_dir, fea_perturbations, safe1 = _parse_fea(
+            builder_kwargs, fea_perturbations, safe1 = _parse_fea(
                 fea, base, logger
             )
             safe &= safe1
         else:
-            fea_dir = None
-            bend_dir = None
+            builder_kwargs = {}
             fea_perturbations = None
 
         kwargs['perturbations'] = perturbations
         kwargs['fea_perturbations'] = fea_perturbations
-        kwargs['fea_dir'] = fea_dir
-        kwargs['bend_dir'] = bend_dir
+        kwargs['builder_kwargs'] = builder_kwargs
         kwargs['logger'] = logger
         return kwargs, safe
 
