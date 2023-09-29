@@ -139,7 +139,7 @@ class LSST_SiliconBuilder(StampBuilder):
         if self.phot_flux == 0:
             # If so, we'll skip everything after this.
             # The mechanism within GalSim to do this is to raise a special SkipThisObject class.
-            raise galsim.config.SkipThisObject('realized flux=0')
+            raise galsim.config.SkipThisObject('phot_flux=0')
 
         # Otherwise figure out the stamp size
         if xsize > 0 and ysize > 0:
