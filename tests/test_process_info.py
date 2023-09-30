@@ -43,6 +43,7 @@ class ProcessInfoTestCase(unittest.TestCase):
                        'image.sky_level': 0,
                        'image.random_seed': 42,
                        'image.sensor': '',
+                       'stamp.diffraction_fft': '',
                        'stamp.fft_sb_thresh': '1e5',
                        'stamp.size': 48,
                        'psf.items': '',
