@@ -662,6 +662,37 @@ def test_config_fea_file_num():
 
         assert configd == reference
 
+def test_config_focus_z():
+    """Test that focusZ is properly set from configs."""
+
+    telescope = imsim.load_telescope("LSST_r.yaml")
+    shifted_ref = (telescope
+        .withLocallyShiftedOptic('LSSTCamera', [0.0, 0.0, 1e-3])
+    )
+
+    focusz_shifted_function_call = imsim.load_telescope("LSST_r.yaml", focusZ=1e-3)
+
+    assert shifted_ref == focusz_shifted_function_call
+
+    shifted_config = textwrap.dedent(
+            """
+            input:
+                telescope:
+                    file_name: LSST_r.yaml
+                    focusZ : 1e-3
+            """
+        )
+
+    config = yaml.safe_load(shifted_config)
+    galsim.config.ProcessInput(config)
+    focusz_shifted_config = galsim.config.GetInputObj(
+        'telescope',
+        config['input']['telescope'],
+        config,
+        'telescope'
+    ).fiducial
+
+    assert shifted_ref == focusz_shifted_config
 
 
 if __name__ == "__main__":
