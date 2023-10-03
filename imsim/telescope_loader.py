@@ -260,9 +260,9 @@ def _parse_fea(config, base, logger):
 
     perturbations = {}
 
-    skip = list(req.keys()) + list(opt.keys()) + list(single.keys()) + ['_get']
+    skip = list(req.keys()) + list(opt.keys()) + list(single.keys())
     for k, v in config.items():
-        if k in skip:
+        if k in skip or k[0] == '_':
             continue
         method = getattr(LSSTBuilder, "with_"+k)
         req = getattr(method, "_req_params", {})
