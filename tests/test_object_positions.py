@@ -9,7 +9,7 @@ import numpy as np
 import galsim
 
 
-def run_imsim(camera):
+def run_imsim(camera, nfiles=None):
     imsim_dir = os.path.dirname(os.path.abspath(str(Path(__file__).parent)))
     os.environ['SIMS_SED_LIBRARY_DIR'] \
         = os.path.join(imsim_dir, 'tests', 'data', 'test_sed_library')
@@ -21,8 +21,10 @@ def run_imsim(camera):
     if len(logger.handlers) == 0:
         logger.addHandler(logging.StreamHandler(sys.stdout))
     logger.setLevel(logging.CRITICAL)
+    logger.setLevel(logging.INFO)
 
     only_dets = ['R22_S11', 'R01_S00', 'R42_S21', 'R34_S22', 'R03_S02']
+    nfiles = len(only_dets) if nfiles is None else nfiles
 
     config = {'modules': ['imsim'],
               'template': template,
@@ -43,7 +45,7 @@ def run_imsim(camera):
               'output.cosmic_ray_rate': 0,
               'output.only_dets': only_dets,
               'output.det_num.first': 0,
-              'output.nfiles': len(only_dets),
+              'output.nfiles': nfiles,
               'output.readout': '',
               'output.dir': f'fits_{camera}',
               'output.truth.dir': f'fits_{camera}',
@@ -51,6 +53,7 @@ def run_imsim(camera):
             }
 
     galsim.config.Process(config, logger=logger)
+    return config
 
 def compute_pixel_offset(eimage_file):
     # Assuming there is just one object rendered on the eimage,
@@ -86,6 +89,27 @@ def test_object_positions():
         output_dir = f"fits_{camera}"
         if os.path.isdir(output_dir):
             shutil.rmtree(output_dir)
+
+def test_output_catalog():
+    config = run_imsim('LsstCam', nfiles=1)
+    centroid_file = 'fits_LsstCam/centroid_00182850-0-i-R22_S11-det000.txt'
+    print(centroid_file)
+    data = np.genfromtxt(centroid_file, names=True)
+    print(data)
+
+    print('nominal_flux = ',data['nominal_flux'])
+    print('phot_flux = ',data['phot_flux'])
+    print('fft_flux = ',data['fft_flux'])
+    print('realized_flux = ',data['realized_flux'])
+
+    flux = data['nominal_flux']
+    # phot_flux is the Poisson draw.  Should be within 4 sigma.
+    assert np.abs(data['phot_flux'] - flux) < 4 * np.sqrt(flux)
+    # realized_flux is how many photons hit the sensor.  Should be most of them.
+    assert data['realized_flux'] <= data['phot_flux']
+    assert data['realized_flux'] > 0.99 * data['phot_flux']
+    # fft_flux is 0 when object was photon shot.
+    assert data['fft_flux'] == 0.
 
 
 if __name__ == "__main__":

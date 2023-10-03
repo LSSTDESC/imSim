@@ -60,7 +60,9 @@ def create_test_config():
 
 def create_test_lsst_silicon(faint: bool):
     lsst_silicon = imsim.LSST_SiliconBuilder()
-    lsst_silicon.realized_flux = 100 if not faint else 99
+    lsst_silicon.nominal_flux = 100 if not faint else 10
+    lsst_silicon.phot_flux = lsst_silicon.nominal_flux
+    lsst_silicon.fft_flux = lsst_silicon.nominal_flux
     lsst_silicon.rng = galsim.BaseDeviate(1234)
     lsst_silicon.diffraction_fft = None
     return lsst_silicon
@@ -79,7 +81,7 @@ def test_lsst_silicon_builder_passes_correct_photon_ops_to_drawImage() -> None:
     expected_phot_args = {
         "rng": lsst_silicon.rng,
         "maxN": int(1e6),
-        "n_photons": lsst_silicon.realized_flux,
+        "n_photons": lsst_silicon.phot_flux,
         "image": image,
         "sensor": None,
         "add_to_image": True,
@@ -102,7 +104,8 @@ def test_lsst_silicon_builder_passes_correct_photon_ops_to_drawImage() -> None:
     ):
         # mock.patch basically wraps these functions so we can access how they were called
         # and what their return values were.
-        with mock.patch(prof_type+'.drawImage') as mock_drawImage:
+        image.added_flux = lsst_silicon.phot_flux
+        with mock.patch(prof_type+'.drawImage', return_value=image) as mock_drawImage:
             lsst_silicon.draw(
                 prof,
                 image,
@@ -162,9 +165,10 @@ def test_stamp_builder_works_without_photon_ops_or_faint() -> None:
                 # When not faint, check that photon_ops ends up empty when none are listed in
                 # the config (and there are no PSFs).
                 del use_config['stamp'][photon_ops_key]
-            expected_phot_args['n_photons'] = lsst_silicon.realized_flux
+            expected_phot_args['n_photons'] = lsst_silicon.phot_flux
 
-            with mock.patch(prof_type+'.drawImage') as mock_drawImage:
+            image.added_flux = lsst_silicon.phot_flux
+            with mock.patch(prof_type+'.drawImage', return_value=image) as mock_drawImage:
                 lsst_silicon.draw(
                     prof,
                     image,
