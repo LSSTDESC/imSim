@@ -222,6 +222,7 @@ class OpsimDataLoader(object):
         (Mostly used for unit tests.)
         """
         ret = cls.__new__(cls)
+        ret.disable_iers_downloads = False
         ret.file_name = ''
         ret.meta = d
         # If possible, add in the derived values.
