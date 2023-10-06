@@ -48,7 +48,8 @@ class OpsimDataLoader(object):
     _opt_params = {'visit' : int,
                    'snap' : int,
                    'image_type' : str,
-                   'reason' : str}
+                   'reason' : str,
+                   'disable_iers_downloads' : bool}
     _single_params = []
     _takes_rng = False
 
@@ -74,13 +75,14 @@ class OpsimDataLoader(object):
                                 vistime""".split())
 
     def __init__(self, file_name, visit=None, snap=0, image_type='SKYEXP',
-                 reason='survey', logger=None):
+                 reason='survey', logger=None, disable_iers_downloads=False):
         self.logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
         self.visit = visit
         self.meta = {'snap' : snap,
                      'image_type': image_type,
                      'reason': reason}
+        self.disable_iers_downloads = disable_iers_downloads
 
         if _is_sqlite3_file(self.file_name):
             self._read_opsim_db()
@@ -355,6 +357,13 @@ class OpsimDataLoader(object):
             # Astropy likes to emit obnoxious warnings about this maybe being slightly inaccurate
             # if the user hasn't updated to the absolute latest IERS data.  Ignore them.
             warnings.simplefilter("ignore")
+            # Some systems, e.g., Theta at ALCF, do not allow remote
+            # downloads from the batch workers. These downloads can be
+            # disabled via the iers.conf settings.
+            if self.disable_iers_downloads:
+                from astropy.utils import iers
+                iers.conf.auto_download = False
+                iers.conf.iers_degraded_accuracy = 'warn'
             last = time.sidereal_time('apparent').degree
         ha = last - ra
         return ha
