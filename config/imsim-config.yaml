@@ -43,6 +43,8 @@ eval_variables:
 
     fexptime: { type: OpsimData, field: exptime }
 
+    bdisable_iers_downloads: False
+
     # Note: Another value we use in many eval items is det_name.  If using the LSST_CCD
     #       output type, as we do here, it's automatically added as an availble eval variable.
     #       Otherwise you should set sdet_name here manually to e.g. 'R22_S11' or whatever.
