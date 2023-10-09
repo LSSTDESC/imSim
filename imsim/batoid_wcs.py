@@ -499,6 +499,7 @@ class BatoidWCSBuilder(WCSBuilder):
                 "H2O_pressure": float,
                 "wavelength": float,
                 "order": int,
+                "disable_iers_downloads": bool,
               }
 
         # Make sure the bandpass is built, since we are likely to need it to get the

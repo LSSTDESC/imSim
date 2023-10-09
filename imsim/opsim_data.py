@@ -375,6 +375,10 @@ def OpsimData(config, base, value_type):
     """
     meta = galsim.config.GetInputObj('opsim_data', config, base, 'OpsimData')
 
+    if 'disable_iers_downloads' not in galsim.config.eval_base_variables:
+        galsim.config.eval_base_variables.append('disable_iers_downloads')
+        base['disable_iers_downloads'] = meta.disable_iers_downloads
+
     req = { 'field' : str }
     opt = { 'num' : int }  # num, if present, was used by GetInputObj
     kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
