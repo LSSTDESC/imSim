@@ -14,7 +14,7 @@ import galsim
 from galsim.config import WCSBuilder, RegisterWCSType, GetInputObj
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 from .camera import get_camera
-from .utils import pixel_to_focal, focal_to_pixel
+from .utils import pixel_to_focal, focal_to_pixel, ignore_erfa_warnings
 from .bandpass import RubinBandpass
 
 # There are 5 coordinate systems to handle.  In order:
@@ -64,6 +64,7 @@ class BatoidWCSFactory:
     H2O_pressure : float
         Water vapor pressure in kPa
     """
+    @ignore_erf_warnings
     def __init__(
         self,
         boresight,

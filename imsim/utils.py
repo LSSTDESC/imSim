@@ -1,10 +1,23 @@
 """Shared functionality"""
 
+import warnings
+from functools import wraps
+import erfa
+
 # These need conda (via stackvana).  Not pip-installable
 from lsst.afw import cameraGeom
 from lsst.geom import Point2D
 
 import numpy as np
+
+
+def ignore_erfa_warnings(func):
+    @wraps(func)
+    def call_func(*args, **kwargs):
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', 'ERFA', erfa.ErfaWarning)
+            return func(*args, **kwargs)
+    return call_func
 
 
 def focal_to_pixel(fpx, fpy, det):
