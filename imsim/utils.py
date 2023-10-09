@@ -20,6 +20,17 @@ def ignore_erfa_warnings(func):
     return call_func
 
 
+def disable_iers_auto_downloads():
+    """Disable auto downloads of IERS correction and leap second data.
+    This is needed for running on batch systems which do not
+    allow remote downloads.
+    See https://docs.astropy.org/en/stable/utils/iers.html#configuration-parameters
+    """
+    from astropy.utils import iers
+    iers.conf.auto_download = False
+    iers.conf.iers_degraded_accuracy = 'warn'
+
+
 def focal_to_pixel(fpx, fpy, det):
     """
     Parameters

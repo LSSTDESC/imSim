@@ -7,6 +7,7 @@ import pandas as pd
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
 import galsim
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
+from .utils import disable_iers_auto_downloads
 
 
 def get_opsim_data(config, base):
@@ -362,9 +363,7 @@ class OpsimDataLoader(object):
             # downloads from the batch workers. These downloads can be
             # disabled via the iers.conf settings.
             if self.disable_iers_downloads:
-                from astropy.utils import iers
-                iers.conf.auto_download = False
-                iers.conf.iers_degraded_accuracy = 'warn'
+                disable_iers_auto_downloads()
             last = time.sidereal_time('apparent').degree
         ha = last - ra
         return ha
