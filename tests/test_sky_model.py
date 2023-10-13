@@ -85,6 +85,7 @@ def test_sky_gradient():
 
     # Check that it gets applied by LSST_Image
     config = {
+        'eval_variables.bdisable_iers_downloads': False,
         'input': {
             'sky_model': {
                 'exptime': exptime,
