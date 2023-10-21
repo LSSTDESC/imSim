@@ -193,6 +193,7 @@ def test_stamp_sizes():
         modules:
             - imsim
         template: imsim-config-skycat
+        eval_variables.bdisable_iers_downloads: False
         input.atm_psf.screen_size: 40.96
         input.checkpoint: ""
         input.sky_catalog.file_name: data/sky_cat_9683.yaml
