@@ -1,3 +1,4 @@
+from batoid_rubin import LSSTBuilder
 from galsim.config import (
     InputLoader, RegisterInputType, GetAllParams, get_cls_params, ParseValue,
     LoggerWrapper, GetCurrentValue
@@ -104,8 +105,6 @@ def apply_fea(
     float.  Future additions to the `batoid_rubin` package may include new or
     changed APIs to the examples above.
     """
-    from batoid_rubin import LSSTBuilder
-
     builder = LSSTBuilder(telescope, **kwargs)
     for k, v in fea_perturbations.items():
         method = getattr(builder, "with_"+k)
@@ -246,8 +245,6 @@ def load_telescope(
 
 
 def _parse_fea(config, base, logger):
-    from batoid_rubin import LSSTBuilder
-
     req, opt, single, takes_rng = get_cls_params(LSSTBuilder)
     LSSTBuilder_kwargs, safe = GetAllParams(
         config,
