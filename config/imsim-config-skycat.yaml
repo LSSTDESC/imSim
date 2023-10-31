@@ -23,7 +23,7 @@ template: imsim-config
 
 input.sky_catalog:
     file_name: default_sky_cat.yaml
-    band: { type: OpsimData, field: band }
+    band: $band
     mjd: { type: OpsimData, field: mjd }
 
 input.opsim_data:
