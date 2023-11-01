@@ -257,35 +257,35 @@ def test_stamp_sizes():
     # 1. Faint star
     # There aren't any very faint stars in this db file.  The faintest is around flux=2000.
     # But that's easily small enough to hit the minimum stamp size.
-    obj_num = 2618
+    obj_num = 2619
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
     print(obj_num, image.center, image.array.shape, image.array.sum())
     assert image.array.shape == (40,40)
     assert 2000 < image.array.sum() < 2300  # 2173
 
     # 2. 10x brighter star.  Still minimum stamp size.
-    obj_num = 2698
+    obj_num = 2699
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
     print(obj_num, image.center, image.array.shape, image.array.sum())
     assert image.array.shape == (40,40)
     assert 24000 < image.array.sum() < 27000  # 25593
 
     # 3. 10x brighter star.  Needs bigger stamp.
-    obj_num = 2745
+    obj_num = 2746
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
     print(obj_num, image.center, image.array.shape, image.array.sum())
     assert image.array.shape == (106,106)
     assert 250_000 < image.array.sum() < 280_000  # 264459
 
     # 4. 10x brighter star.  (Uses photon shooting, but checks the max sb.)
-    obj_num = 2610
+    obj_num = 2611
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
     print(obj_num, image.center, image.array.shape, image.array.sum())
     assert image.array.shape == (350,350)
     assert 2_400_000 < image.array.sum() < 2_700_000  # 2591010
 
     # 5. Extremely bright star.  Maxes out size at _Nmax.  (And uses fft.)
-    obj_num = 2696
+    obj_num = 2697
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
     print(obj_num, image.center, image.array.shape, image.array.sum())
     assert image.array.shape == (4096,4096)
@@ -375,6 +375,78 @@ def test_stamp_sizes():
     print(obj_num, image.center, image.array.shape, image.array.sum())
     assert image.array.shape == (128,128)
     assert 290_000 < image.array.sum() < 320_000  # 306675
+
+def test_faint_high_redshift_stamp():
+    """Test the stamp size calculation in u-band for a faint cosmoDC2
+    galaxy with redshift > 2.71 so that the SED is zero-valued at
+    bandpass.effective_wavelength.
+    """
+    # This is basically imsim-config-skycat, but a few adjustments for speed.
+    config = yaml.safe_load(dedent("""
+        modules:
+            - imsim
+        template: imsim-config-skycat
+        input.atm_psf.screen_size: 40.96
+        input.checkpoint: ""
+        input.sky_catalog.file_name: data/sky_cat_9683.yaml
+        input.sky_catalog.obj_types: [galaxy]
+        input.sky_catalog.band: u
+        input.opsim_data.file_name: data/small_opsim_9683.db
+        input.opsim_data.visit: 449053
+        input.tree_rings.only_dets: [R22_S11]
+        image.random_seed: 42
+        output.det_num.first: 94
+        eval_variables.sdet_name: R22_S11
+        eval_variables.sband: u
+        image.sensor: ""
+        psf.items.0:
+            type: Kolmogorov
+            fwhm: '@stamp.rawSeeing'
+        stamp.diffraction_fft: ""
+        stamp.photon_ops: ""
+        """))
+    # If tests aren't run from test directory, need this:
+    config['input.sky_catalog.file_name'] = str(DATA_DIR / "sky_cat_9683.yaml")
+    config['input.opsim_data.file_name'] = str(DATA_DIR / "small_opsim_9683.db")
+    os.environ['SIMS_SED_LIBRARY_DIR'] = str(DATA_DIR / "test_sed_library")
+
+    galsim.config.ProcessAllTemplates(config)
+
+    # Hotfix indeterminism in skyCatalogs 1.6.0.
+    # cf. https://github.com/LSSTDESC/skyCatalogs/pull/62
+    # Remove this bit once we are dependent on a version that includes the above PR.
+    orig_toplevel_only = imsim.skycat.skyCatalogs.SkyCatalog.toplevel_only
+    def new_toplevel_only(self, object_types):
+        return sorted(orig_toplevel_only(self, object_types))
+    imsim.skycat.skyCatalogs.SkyCatalog.toplevel_only = new_toplevel_only
+
+    # Run through some setup things that BuildImage normally does for us.
+    logger = galsim.config.LoggerWrapper(None)
+    builder = galsim.config.valid_image_types['LSST_Image']
+
+    # Note: the safe_only=True call is only required with GalSim 2.4.
+    # It's a workaround for a bug that we fixed in 2.5.
+    if galsim.__version_info__ < (2,5):
+        galsim.config.ProcessInput(config, logger, safe_only=True)
+    galsim.config.ProcessInput(config, logger)
+    galsim.config.SetupConfigImageNum(config, 0, 0, logger)
+    xsize, ysize = builder.setup(config['image'], config, 0, 0, galsim.config.image_ignore, logger)
+    galsim.config.SetupConfigImageSize(config, xsize, ysize, logger)
+    galsim.config.SetupInputsForImage(config, logger)
+    galsim.config.SetupExtraOutputsForImage(config, logger)
+    config['bandpass'] = builder.buildBandpass(config['image'], config, 0, 0, logger)
+    config['sensor'] = builder.buildSensor(config['image'], config, 0, 0, logger)
+    if galsim.__version_info__ < (2,5):
+        config['current_image'] = galsim.Image(config['image_xsize'], config['image_ysize'],
+                                               wcs=config['wcs'])
+
+    nobj = builder.getNObj(config['image'], config, 0)
+    print('nobj = ',nobj)
+    obj_num = 2561
+    image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
+    print(obj_num, image.center, image.array.shape, image.array.sum())
+    assert image.array.shape == (32, 32)
+    assert 5 < image.array.sum() < 10  # 8
 
 
 if __name__ == "__main__":

@@ -638,7 +638,25 @@ class LSST_SiliconBuilder(StampBuilder):
         bandpass = base['bandpass']
         if faint:
             logger.info("Flux = %.0f  Using trivial sed", self.nominal_flux)
-            gal = gal.evaluateAtWavelength(bandpass.effective_wavelength)
+            # cosmoDC2 galaxies with z > 2.71 and some SNANA objects
+            # may have zero-valued SEDs at the bandpass effective
+            # wavelength, so try to evaluate the SED at a few
+            # locations across the bandpass and use the first value
+            # that returns a non-zero result.
+            for profile_wl in (bandpass.effective_wavelength,
+                               bandpass.red_limit,
+                               bandpass.blue_limit):
+                sed_value = gal.sed(profile_wl)
+                if sed_value != 0:
+                    break
+            if sed_value == 0:
+                # We can't evalue the profile for this object, so skip it.
+                obj_num = base.get('obj_num')
+                object_id = base.get('object_id')
+                logger.warning("Zero-valued SED for faint object %d, "
+                               "object_id %s.  Skipping.", obj_num, object_id)
+                return image
+            gal = gal.evaluateAtWavelength(profile_wl)
             gal = gal * self._trivial_sed
         else:
             self._fix_seds(gal, bandpass, logger)
