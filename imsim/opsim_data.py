@@ -7,7 +7,6 @@ import pandas as pd
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
 import galsim
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
-from .utils import disable_iers_auto_downloads
 
 
 def get_opsim_data(config, base):
@@ -49,8 +48,7 @@ class OpsimDataLoader(object):
     _opt_params = {'visit' : int,
                    'snap' : int,
                    'image_type' : str,
-                   'reason' : str,
-                   'disable_iers_downloads' : bool}
+                   'reason' : str}
     _single_params = []
     _takes_rng = False
 
@@ -76,14 +74,13 @@ class OpsimDataLoader(object):
                                 vistime""".split())
 
     def __init__(self, file_name, visit=None, snap=0, image_type='SKYEXP',
-                 reason='survey', logger=None, disable_iers_downloads=False):
+                 reason='survey', logger=None):
         self.logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
         self.visit = visit
         self.meta = {'snap' : snap,
                      'image_type': image_type,
                      'reason': reason}
-        self.disable_iers_downloads = disable_iers_downloads
 
         if _is_sqlite3_file(self.file_name):
             self._read_opsim_db()
@@ -223,7 +220,6 @@ class OpsimDataLoader(object):
         (Mostly used for unit tests.)
         """
         ret = cls.__new__(cls)
-        ret.disable_iers_downloads = False
         ret.file_name = ''
         ret.meta = d
         # If possible, add in the derived values.
@@ -359,11 +355,6 @@ class OpsimDataLoader(object):
             # Astropy likes to emit obnoxious warnings about this maybe being slightly inaccurate
             # if the user hasn't updated to the absolute latest IERS data.  Ignore them.
             warnings.simplefilter("ignore")
-            # Some systems, e.g., Theta at ALCF, do not allow remote
-            # downloads from the batch workers. These downloads can be
-            # disabled via the iers.conf settings.
-            if self.disable_iers_downloads:
-                disable_iers_auto_downloads()
             last = time.sidereal_time('apparent').degree
         ha = last - ra
         return ha
@@ -373,10 +364,6 @@ def OpsimData(config, base, value_type):
     """Return one of the meta values stored in the instance catalog.
     """
     meta = galsim.config.GetInputObj('opsim_data', config, base, 'OpsimData')
-
-    if 'disable_iers_downloads' not in galsim.config.eval_base_variables:
-        galsim.config.eval_base_variables.append('disable_iers_downloads')
-        base['disable_iers_downloads'] = meta.disable_iers_downloads
 
     req = { 'field' : str }
     opt = { 'num' : int }  # num, if present, was used by GetInputObj

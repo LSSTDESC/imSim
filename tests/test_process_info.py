@@ -36,7 +36,6 @@ class ProcessInfoTestCase(unittest.TestCase):
 
         self.config = {'modules': ['imsim'],
                        'template': template,
-                       'eval_variables.bdisable_iers_downloads': False,
                        'input.instance_catalog.file_name': instcat_file,
                        'input.opsim_data.file_name': instcat_file,
                        'input.atm_psf': '',

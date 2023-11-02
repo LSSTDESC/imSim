@@ -157,10 +157,6 @@ image:
         H2O_pressure: 1.0 # kPa
         order: 3          # Order of the SIP polynomial
 
-        # This is optionally set as input.opsim_data.disable_iers_downloads.
-        # The default is False.
-        disable_iers_downloads: "$disable_iers_downloads"
-
     camera: "@output.camera"
 
     noise:
