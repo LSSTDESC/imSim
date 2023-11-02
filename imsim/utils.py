@@ -14,7 +14,7 @@ import numpy as np
 # Disable auto downloads of IERS correction and leap second data.
 # See https://docs.astropy.org/en/stable/utils/iers.html#configuration-parameters
 iers.conf.auto_download = False
-iers.conf.iers_degraded_accuracy = 'warn'
+iers.conf.iers_degraded_accuracy = 'ignore'
 
 
 def ignore_erfa_warnings(func):
