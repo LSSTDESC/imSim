@@ -81,6 +81,8 @@ class SkyCatalogInterface:
             self.logger.warning(f'Object types restricted to {obj_types}')
         self.ccd_center = wcs.toWorld(galsim.PositionD(xsize/2.0, ysize/2.0))
         self._objects = None
+        self.sky_cat = skyCatalogs.open_catalog(
+            self.file_name, skycatalog_root=self.skycatalog_root)
 
     @property
     def objects(self):
@@ -96,9 +98,7 @@ class SkyCatalogInterface:
                 vertices.append((sky_coord.ra/galsim.degrees,
                                  sky_coord.dec/galsim.degrees))
             region = skyCatalogs.PolygonalRegion(vertices)
-            sky_cat = skyCatalogs.open_catalog(
-                self.file_name, skycatalog_root=self.skycatalog_root)
-            self._objects = sky_cat.get_objects_by_region(
+            self._objects = self.sky_cat.get_objects_by_region(
                 region, obj_type_set=self.obj_types, mjd=self.mjd)
             if not self._objects:
                 self.logger.warning("No objects found on image.")
