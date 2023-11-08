@@ -9,6 +9,7 @@ import galsim
 from galsim.config import ExtraOutputBuilder, RegisterExtraOutput, GetAllParams
 from lsst.afw import cameraGeom
 import lsst.obs.lsst
+from lsst.obs.lsst.translators.lsst import SIMONYI_TELESCOPE
 from .bleed_trails import bleed_eimage
 from .camera import Camera, get_camera
 from .batoid_wcs import BatoidWCSBuilder
@@ -29,6 +30,18 @@ LSSTCam_filter_map = {'u': 'u_24',
                       'z': 'z_20',
                       'y': 'y_10'}
 
+# There are multiple u, g, and z filters for ComCam.
+# See https://github.com/lsst/obs_lsst/blob/w.2023.26/python/lsst/obs/lsst/filters.py#L352-L361
+# and https://jira.lsstcorp.org/browse/DM-21706
+# I chose the ones that made the most sense to me (JM)
+ComCam_filter_map = {
+    'u': 'u_05',
+    'g': 'g_01',
+    'r': 'r_03',
+    'i': 'i_06',
+    'z': 'z_03',
+    'y': 'y_04',
+}
 
 def make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name,
                     logger=None):
@@ -239,6 +252,15 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
     dectel = eimage.header['DECTEL']
     rottelpos = eimage.header['ROTTELPOS']
     band = eimage.header['FILTER']
+    # Compute rotSkyPos instead of using likely inconsistent values
+    # from the instance catalog or opsim db.
+    mjd_obs = eimage.header['MJD-OBS']
+    mjd_end =  mjd_obs + exptime/86400.
+    rotang = compute_rotSkyPos(
+        ratel, dectel, rottelpos, mjd_obs, band, camera_name=camera_name,
+        logger=logger
+    )
+    phdu.header['ROTANGLE'] = rotang
     if camera_name == 'LsstCamImSim':
         phdu.header['FILTER'] = band
         phdu.header['TESTTYPE'] = 'IMSIM'
@@ -246,6 +268,16 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         phdu.header['SENSNAME'] = sensor
         phdu.header['RATEL'] = ratel
         phdu.header['DECTEL'] = dectel
+    elif camera_name == 'LsstComCam':
+        phdu.header['FILTER'] = ComCam_filter_map.get(band, None)
+        phdu.header['TELESCOP'] = SIMONYI_TELESCOPE
+        phdu.header['INSTRUME'] = 'ComCam'
+        phdu.header['RAFTBAY'] = raft
+        phdu.header['CCDSLOT'] = sensor
+        phdu.header['RA'] = ratel
+        phdu.header['DEC'] = dectel
+        phdu.header['ROTCOORD'] = 'sky'
+        phdu.header['ROTPA'] = rotang
     else:
         phdu.header['FILTER'] = LSSTCam_filter_map.get(band, None)
         phdu.header['INSTRUME'] = 'LSSTCam'
@@ -254,13 +286,6 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         phdu.header['RA'] = ratel
         phdu.header['DEC'] = dectel
         phdu.header['ROTCOORD'] = 'sky'
-    # Compute rotSkyPos instead of using likely inconsistent values
-    # from the instance catalog or opsim db.
-    mjd_obs = eimage.header['MJD-OBS']
-    mjd_end =  mjd_obs + exptime/86400.
-    phdu.header['ROTANGLE'] = compute_rotSkyPos(
-        ratel, dectel, rottelpos, mjd_obs, band, camera_name=camera_name,
-        logger=logger)
     phdu.header['MJD-OBS'] = mjd_obs
     phdu.header['HASTART'] = eimage.header['HASTART']
     phdu.header['HAEND'] = eimage.header['HAEND']
