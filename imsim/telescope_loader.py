@@ -371,7 +371,13 @@ class DetectorTelescope:
         logger=None
     ):
         # Batoid has a different name for LsstCam than DM code.  So we need to switch it here.
-        cameraName = 'LSSTCamera' if camera == 'LsstCam' else camera
+        match camera:
+            case 'LsstCam':
+                cameraName = 'LSSTCamera'
+            case 'LsstComCam':
+                cameraName = 'ComCam'
+            case _:
+                cameraName = camera
         self.fiducial = load_telescope(
             telescope=file_name,
             perturbations=perturbations,
