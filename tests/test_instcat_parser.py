@@ -32,6 +32,7 @@ def sources_from_list(lines, opsim_data, phot_params, file_name):
             gs_object_dict[gsobj.uniqueId] = gsobj
     return list(gs_object_dict.values()), out_obj_dict
 
+
 class InstanceCatalogParserTestCase(unittest.TestCase):
     """
     TestCase class for instance catalog parsing code.
@@ -527,6 +528,67 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         self.assertEqual(len(id_arr), 21)
         for obj_id in id_arr:
             self.assertNotIn(obj_id, bad_unique_ids)
+
+    def radec_limits_contain(self, min_ra, max_ra, min_dec, max_dec, tests):
+        from imsim.instcat import clarify_radec_limits
+        min_ra, max_ra, min_dec, max_dec, ref_ra = clarify_radec_limits(
+            min_ra, max_ra, min_dec, max_dec
+        )
+        for ra, dec, expected in tests:
+            # print()
+            # print((ra*galsim.degrees).wrap(ref_ra).deg)
+            # print(min_ra <= (ra*galsim.degrees).wrap(ref_ra).deg <= max_ra)
+            # print(min_dec <= dec <= max_dec)
+            self.assertEqual(
+                min_ra <= (ra*galsim.degrees).wrap(ref_ra).deg <= max_ra
+                and min_dec <= dec <= max_dec,
+                expected
+            )
+
+    def test_radec_clarification(self):
+        # Normal case where min and max are on the same side of zero.
+        for min_ra in [0.9, 0.9+360, 0.9-360]:
+            for max_ra in [1.1, 1.1+360, 1.1-360]:
+                self.radec_limits_contain(
+                    min_ra, max_ra, # ra lim
+                    0.9, 1.1, # dec lim
+                    [
+                        (1.0, 1.0, True),  # test ra/dec/iscontained tuples
+                        (1.0, 0.0, False),
+                        (0.0, 1.0, False),
+                        (1.0+360, 1.0, True),
+                        (1.0-360, 1.0, True),
+                    ]
+                )
+
+        # Now with min and max on opposite sides of zero.
+        for min_ra in [-0.1, -0.1+360, -0.1-360]:
+            for max_ra in [0.1, 0.1+360, 0.1-360]:
+                self.radec_limits_contain(
+                    min_ra, max_ra, # ra lim
+                    -0.1, 0.1, # dec lim
+                    [
+                        (0.0, 0.0, True),  # test ra/dec/iscontained tuples
+                        (1.0, 0.0, False),
+                        (0.0, 1.0, False),
+                        (-0.001+360, 0.001, True),
+                        (-0.001-360, 0.001, True),
+                    ]
+                )
+
+        # And if we're close to the pole, then just accept any ra/dec.
+        self.radec_limits_contain(
+            -0.1, 0.1, # ra lim
+            -89.7, -89.0, # dec lim
+            [
+                (0.0, -89.5, True),  # inside limits
+                (100.0, -89.5, True),  # nominally outside ralim, but passes
+                (0.0, -90.0, True),  # nominally outside declim, but passes
+                (100.0, -90.0, True),  # nominally outside both, but passes
+                (0.0, -88.0, False),   # too far north
+                (100.0, -88.0, False),   # still too far north
+            ]
+        )
 
 
 if __name__ == '__main__':
