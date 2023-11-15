@@ -281,7 +281,8 @@ class LSST_SiliconBuilder(StampBuilder):
         N = obj.getGoodImageSize(pixel_scale)
 
         if (isinstance(obj, galsim.Sum) and
-            any([isinstance(_.original, galsim.RandomKnots)
+            any([(isinstance(_.original, galsim.RandomKnots) or
+                  isinstance(_.original, galsim.Convolution))
                  for _ in obj.obj_list])):
             # obj is a galsim.Sum object and contains a
             # galsim.RandomKnots component, so make a new obj that's
