@@ -14,7 +14,50 @@ import galsim
 import pickle
 
 
-def get_radec_limits(wcs, xsize, ysize, logger, edge_pix, threshold=0.5*galsim.degrees):
+def clarify_radec_limits(
+    min_ra, max_ra, min_dec, max_dec, threshold=0.5*galsim.degrees
+):
+    """Handle RA wrapping and poles in ra/dec limits.
+
+    Parameters
+    ----------
+    min_ra, max_ra: float
+        The min and max values for RA.
+    min_dec, max_dec: float
+        The min and max values for Dec.
+    threshold: galsim.Angle
+        The threshold for how close to the pole we are before we set the limit
+        to the pole itself.
+
+    Returns
+    -------
+    min_ra, max_ra, min_dec, max_dec: float
+        The min and max values for RA and Dec.
+    ref_ra: galsim.Angle
+        The reference for wrapping RA.
+    """
+
+    # Handle wrap-around in RA:
+    min_ra_angle = min_ra*galsim.degrees
+    max_ra_angle = max_ra*galsim.degrees
+    ref_ra = (min_ra_angle + max_ra_angle.wrap(min_ra_angle))/2.
+    min_ra = min_ra_angle.wrap(ref_ra).deg
+    max_ra = max_ra_angle.wrap(ref_ra).deg
+
+    # Special case if we're close to one of the poles.
+    if max(np.abs([min_dec, max_dec])) > 90 - threshold.deg:
+        if min_dec < 0:
+            min_dec = -91.0
+        else:
+            max_dec = 91.0
+        min_ra = ref_ra.deg-181
+        max_ra = ref_ra.deg+181
+    return min_ra, max_ra, min_dec, max_dec, ref_ra
+
+
+def get_radec_limits(
+    wcs, xsize, ysize, logger, edge_pix, threshold=0.5*galsim.degrees
+):
     """Min and max values for RA, Dec given the wcs.
 
     Parameters
@@ -28,8 +71,8 @@ def get_radec_limits(wcs, xsize, ysize, logger, edge_pix, threshold=0.5*galsim.d
     edge_pix: int
         The number of pixels to allow objects to be off the image.
     threshold: galsim.Angle
-        The threshold for how close to the pole we are before we don't bother
-        to check the ra range.
+        The threshold for how close to the pole we are before we set the limit
+        to the pole itself.
 
     Returns
     -------
@@ -61,21 +104,9 @@ def get_radec_limits(wcs, xsize, ysize, logger, edge_pix, threshold=0.5*galsim.d
     min_dec = min([ll.dec.deg, lr.dec.deg, ul.dec.deg, ur.dec.deg])
     max_dec = max([ll.dec.deg, lr.dec.deg, ul.dec.deg, ur.dec.deg])
 
-    # Handle wrap-around in RA:
-    min_ra_angle = min_ra*galsim.degrees
-    max_ra_angle = max_ra*galsim.degrees
-    ref_ra = (min_ra_angle + max_ra_angle.wrap(min_ra_angle))/2.
-    min_ra = min_ra_angle.wrap(ref_ra).deg
-    max_ra = max_ra_angle.wrap(ref_ra).deg
-
-    # Special case if we're close to one of the poles.
-    if max(np.abs([min_dec, max_dec])) > 90 - threshold.deg:
-        if min_dec < 0:
-            min_dec = -91.0
-        else:
-            max_dec = 91.0
-        min_ra = ref_ra.deg-181
-        max_ra = ref_ra.deg+181
+    min_ra, max_ra, min_dec, max_dec, ref_ra = clarify_radec_limits(
+        min_ra, max_ra, min_dec, max_dec, threshold
+    )
 
     logger.debug("RA range for image is %f .. %f", min_ra, max_ra)
     logger.debug("Dec range for image is %f .. %f", min_dec, max_dec)
