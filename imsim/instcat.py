@@ -21,37 +21,33 @@ def clarify_radec_limits(
 
     Parameters
     ----------
-    min_ra, max_ra: float
-        The min and max values for RA.
-    min_dec, max_dec: float
-        The min and max values for Dec.
+    min_ra, max_ra, min_dec, max_dec: galsim.Angle
+        RA and dec ranges.
     threshold: galsim.Angle
-        The threshold for how close to the pole we are before we set the limit
-        to the pole itself.
+        The threshold for how close to the pole we are before we set the dec
+        limit to the pole itself.
 
     Returns
     -------
-    min_ra, max_ra, min_dec, max_dec: float
+    min_ra, max_ra, min_dec, max_dec: galsim.Angle
         The min and max values for RA and Dec.
     ref_ra: galsim.Angle
         The reference for wrapping RA.
     """
 
     # Handle wrap-around in RA:
-    min_ra_angle = min_ra*galsim.degrees
-    max_ra_angle = max_ra*galsim.degrees
-    ref_ra = (min_ra_angle + max_ra_angle.wrap(min_ra_angle))/2.
-    min_ra = min_ra_angle.wrap(ref_ra).deg
-    max_ra = max_ra_angle.wrap(ref_ra).deg
+    ref_ra = (min_ra + max_ra.wrap(min_ra))/2.
+    min_ra = min_ra.wrap(ref_ra)
+    max_ra = max_ra.wrap(ref_ra)
 
     # Special case if we're close to one of the poles.
-    if max(np.abs([min_dec, max_dec])) > 90 - threshold.deg:
-        if min_dec < 0:
-            min_dec = -91.0
+    if max(np.abs([min_dec.deg, max_dec.deg])) > 90 - threshold.deg:
+        if min_dec.deg < 0:
+            min_dec = -91.0*galsim.degrees
         else:
-            max_dec = 91.0
-        min_ra = ref_ra.deg-181
-        max_ra = ref_ra.deg+181
+            max_dec = 91.0*galsim.degrees
+        min_ra = ref_ra - 181*galsim.degrees
+        max_ra = ref_ra + 181*galsim.degrees
     return min_ra, max_ra, min_dec, max_dec, ref_ra
 
 
@@ -76,7 +72,7 @@ def get_radec_limits(
 
     Returns
     -------
-    min_ra, max_ra, min_dec, max_dec: float
+    min_ra, max_ra, min_dec, max_dec: galsim.Angle
         The min and max values for RA and Dec.
     min_x, min_y, max_x, max_y: float
         The min and max values for x and y on the image.
@@ -99,17 +95,17 @@ def get_radec_limits(
     lr = wcs.toWorld(lr)
     ul = wcs.toWorld(ul)
     ur = wcs.toWorld(ur)
-    min_ra = min([ll.ra.deg, lr.ra.deg, ul.ra.deg, ur.ra.deg])
-    max_ra = max([ll.ra.deg, lr.ra.deg, ul.ra.deg, ur.ra.deg])
-    min_dec = min([ll.dec.deg, lr.dec.deg, ul.dec.deg, ur.dec.deg])
-    max_dec = max([ll.dec.deg, lr.dec.deg, ul.dec.deg, ur.dec.deg])
+    min_ra = min([ll.ra, lr.ra, ul.ra, ur.ra])
+    max_ra = max([ll.ra, lr.ra, ul.ra, ur.ra])
+    min_dec = min([ll.dec, lr.dec, ul.dec, ur.dec])
+    max_dec = max([ll.dec, lr.dec, ul.dec, ur.dec])
 
     min_ra, max_ra, min_dec, max_dec, ref_ra = clarify_radec_limits(
         min_ra, max_ra, min_dec, max_dec, threshold
     )
 
-    logger.debug("RA range for image is %f .. %f", min_ra, max_ra)
-    logger.debug("Dec range for image is %f .. %f", min_dec, max_dec)
+    logger.debug("RA range for image is %f .. %f", min_ra.deg, max_ra.deg)
+    logger.debug("Dec range for image is %f .. %f", min_dec.deg, max_dec.deg)
     return min_ra, max_ra, min_dec, max_dec, min_x, min_y, max_x, max_y, ref_ra
 
 
@@ -223,8 +219,8 @@ class InstCatalog(object):
                     dec = float(tokens[3])*galsim.degrees
                     #logger.debug('object at %s,%s',ra,dec)
                     if not (
-                        min_ra <= ra.wrap(ref_ra).deg <= max_ra
-                        and min_dec <= dec.deg <= max_dec
+                        min_ra <= ra.wrap(ref_ra) <= max_ra
+                        and min_dec <= dec <= max_dec
                     ):
                         continue
                     world_pos = galsim.CelestialCoord(ra, dec)
