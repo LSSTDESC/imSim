@@ -532,16 +532,13 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
     def radec_limits_contain(self, min_ra, max_ra, min_dec, max_dec, tests):
         from imsim.instcat import clarify_radec_limits
         min_ra, max_ra, min_dec, max_dec, ref_ra = clarify_radec_limits(
-            min_ra, max_ra, min_dec, max_dec
+            min_ra*galsim.degrees, max_ra*galsim.degrees,
+            min_dec*galsim.degrees, max_dec*galsim.degrees
         )
         for ra, dec, expected in tests:
-            # print()
-            # print((ra*galsim.degrees).wrap(ref_ra).deg)
-            # print(min_ra <= (ra*galsim.degrees).wrap(ref_ra).deg <= max_ra)
-            # print(min_dec <= dec <= max_dec)
             self.assertEqual(
-                min_ra <= (ra*galsim.degrees).wrap(ref_ra).deg <= max_ra
-                and min_dec <= dec <= max_dec,
+                min_ra <= (ra*galsim.degrees).wrap(ref_ra) <= max_ra
+                and min_dec <= dec*galsim.degrees <= max_dec,
                 expected
             )
 
