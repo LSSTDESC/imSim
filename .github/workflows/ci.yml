@@ -39,12 +39,12 @@ jobs:
 
             - name: Install conda deps
               run: |
+                conda update -n base conda
                 conda info
                 conda list
-                conda install -y mamba
-                mamba install -y --file etc/standalone_conda_requirements.txt
+                conda install -y --file etc/standalone_conda_requirements.txt
                 conda info
-                mamba list
+                conda list
 
             - name: Install skyCatalogs from source
               run: |
