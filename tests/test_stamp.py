@@ -282,7 +282,7 @@ def test_stamp_sizes():
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
     print(obj_num, image.center, image.array.shape, image.array.sum())
     assert image.array.shape == (350,350)
-    assert 2_400_000 < image.array.sum() < 2_700_000  # 2591010
+    assert 2_900_000 < image.array.sum() < 3_200_000  # 3086402
 
     # 5. Extremely bright star.  Maxes out size at _Nmax.  (And uses fft.)
     obj_num = 2697
@@ -299,7 +299,7 @@ def test_stamp_sizes():
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
     print(obj_num, image.center, image.array.shape, image.array.sum())
     assert image.array.shape == (328,328)
-    assert 40 < image.array.sum() < 70  # 58
+    assert 20 < image.array.sum() < 50  # 38
 
     # None of the objects trigger the tiny flux option, but for extremely faint things (flux<10),
     # we use a fixed size (32,32) stamp.  Test this by mocking the tiny_flux value.

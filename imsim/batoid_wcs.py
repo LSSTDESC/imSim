@@ -14,7 +14,7 @@ import galsim
 from galsim.config import WCSBuilder, RegisterWCSType, GetInputObj
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 from .camera import get_camera
-from .utils import pixel_to_focal, focal_to_pixel
+from .utils import pixel_to_focal, focal_to_pixel, ignore_erfa_warnings
 from .bandpass import RubinBandpass
 
 # There are 5 coordinate systems to handle.  In order:
@@ -64,6 +64,7 @@ class BatoidWCSFactory:
     H2O_pressure : float
         Water vapor pressure in kPa
     """
+    @ignore_erfa_warnings
     def __init__(
         self,
         boresight,
@@ -113,6 +114,7 @@ class BatoidWCSFactory:
         else:
             return self.telescope
 
+    @ignore_erfa_warnings
     def _ICRF_to_observed(self, rc, dc, all=False):
         """
         Parameters
@@ -157,6 +159,7 @@ class BatoidWCSFactory:
             return aob, zob, hob, dob, rob, eo
         return rob, dob
 
+    @ignore_erfa_warnings
     def _observed_to_ICRF(self, rob, dob):
         """
         Parameters
@@ -183,6 +186,7 @@ class BatoidWCSFactory:
             self.wl
         )
 
+    @ignore_erfa_warnings
     def _observed_hadec_to_ICRF(self, hob, dob):
         """
         Parameters
@@ -210,6 +214,7 @@ class BatoidWCSFactory:
             self.wl
         )
 
+    @ignore_erfa_warnings
     def _observed_az_to_ICRF(self, aob, zob):
         """
         Parameters
@@ -248,6 +253,7 @@ class BatoidWCSFactory:
         return galsim.CelestialCoord(rob*galsim.radians, dob*galsim.radians)
 
     @galsim.utilities.lazy_property
+    @ignore_erfa_warnings
     def q(self):
         """Parallactic angle.
         Should be equal to rotTelPos - rotSkyPos.

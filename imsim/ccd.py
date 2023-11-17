@@ -8,6 +8,7 @@ from .cosmic_rays import CosmicRays
 from .meta_data import data_dir
 from .camera import get_camera
 from .opsim_data import get_opsim_data
+from .utils import ignore_erfa_warnings
 
 class LSST_CCDBuilder(OutputBuilder):
     """This runs the overall generation of an LSST CCD file.
@@ -87,6 +88,7 @@ class LSST_CCDBuilder(OutputBuilder):
         else:
             return 189
 
+    @ignore_erfa_warnings
     def buildImages(self, config, base, file_num, image_num, obj_num, ignore, logger):
         """Build the images for output.
 

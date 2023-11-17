@@ -13,6 +13,7 @@ from .bleed_trails import bleed_eimage
 from .camera import Camera, get_camera
 from .batoid_wcs import BatoidWCSBuilder
 from .telescope_loader import load_telescope
+from .utils import ignore_erfa_warnings
 from ._version import __version__
 
 
@@ -428,6 +429,7 @@ class CcdReadout:
                 noise = galsim.GaussianNoise(rng, sigma=self.read_noise)
             full_segment.addNoise(noise)
 
+    @ignore_erfa_warnings
     def prepare_hdus(self, rng):
         """
         Create per-amp image HDUs from the eimage and fill the primary

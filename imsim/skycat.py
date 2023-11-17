@@ -8,6 +8,15 @@ from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
     RegisterObjectType
 from skycatalogs import skyCatalogs
 
+# Hot-fix to set interpolant for 500nm magnorm bandpass in skyCatalogs.
+# Once this is fixed in a skyCatalogs release, we can remove it here.
+import skycatalogs
+import galsim
+bp500 = galsim.Bandpass(
+    galsim.LookupTable([499, 500, 501],[0, 1, 0], interpolant='linear'),
+    wave_type='nm').withZeropoint('AB')
+skycatalogs.objects.base_object.BaseObject._bp500 = bp500
+
 
 class SkyCatalogInterface:
     """Interface to skyCatalogs package."""
@@ -78,7 +87,7 @@ class SkyCatalogInterface:
         self.approx_nobjects = approx_nobjects
 
         if obj_types is not None:
-            self.logger.warning(f'Object types restricted to {obj_types}')
+            self.logger.info(f'Object types restricted to {obj_types}')
         self.ccd_center = wcs.toWorld(galsim.PositionD(xsize/2.0, ysize/2.0))
         self._objects = None
 
@@ -97,7 +106,8 @@ class SkyCatalogInterface:
                                  sky_coord.dec/galsim.degrees))
             region = skyCatalogs.PolygonalRegion(vertices)
             sky_cat = skyCatalogs.open_catalog(
-                self.file_name, skycatalog_root=self.skycatalog_root)
+                self.file_name, skycatalog_root=self.skycatalog_root,
+                verbose=True)
             self._objects = sky_cat.get_objects_by_region(
                 region, obj_type_set=self.obj_types, mjd=self.mjd)
             if not self._objects:
@@ -163,7 +173,7 @@ class SkyCatalogInterface:
             raise RuntimeError("Trying to get an object from an empty sky catalog")
 
         skycat_obj = self.objects[index]
-        gsobjs = skycat_obj.get_gsobject_components(gsparams, rng)
+        gsobjs = skycat_obj.get_gsobject_components(gsparams)
 
         if self.apply_dc2_dilation and skycat_obj.object_type == 'galaxy':
             # Apply DC2 dilation to the individual galaxy components.
@@ -194,7 +204,8 @@ class SkyCatalogInterface:
         gs_object.flux \
             = skycat_obj.get_LSST_flux(self.band, mjd=self.mjd)*exptime*self._eff_area
 
-        if self.max_flux is not None and gs_object.flux > self.max_flux:
+        if ((self.max_flux is not None and gs_object.flux > self.max_flux)
+            or gs_object.flux < 0):
             return None
 
         return gs_object

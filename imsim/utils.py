@@ -1,10 +1,29 @@
 """Shared functionality"""
 
+import warnings
+from functools import wraps
+import erfa
+from astropy.utils import iers
+
 # These need conda (via stackvana).  Not pip-installable
 from lsst.afw import cameraGeom
 from lsst.geom import Point2D
 
 import numpy as np
+
+# Disable auto downloads of IERS correction and leap second data.
+# See https://docs.astropy.org/en/stable/utils/iers.html#configuration-parameters
+iers.conf.auto_download = False
+iers.conf.iers_degraded_accuracy = 'ignore'
+
+
+def ignore_erfa_warnings(func):
+    @wraps(func)
+    def call_func(*args, **kwargs):
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', 'ERFA', erfa.ErfaWarning)
+            return func(*args, **kwargs)
+    return call_func
 
 
 def focal_to_pixel(fpx, fpy, det):
