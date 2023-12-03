@@ -30,8 +30,8 @@ class Checkpointer:
 
         # Guard against failures during I/O.
         # The mode we'll use for writing is the following:
-        #   1. Move the existing file to the backup name (_bak)
-        #   2. Copy the backup to a new name (_new)
+        #   1. Copy the existing file to the backup name (_bak)
+        #   2. Copy the backup to a new name (_new) (why???)
         #   3. Edit the new file with any new information being checkpointed.
         #   4. Move the new file to the regular name.
         #   5. Delete the backup.
@@ -70,7 +70,7 @@ class Checkpointer:
         self.logger.debug('checkpointing: %s',name)
         # 1. First backup the current file before we edit anything.
         if os.path.isfile(self.file_name):
-            os.rename(self.file_name, self.file_name_bak)
+            shutil.copy(self.file_name, self.file_name_bak)
             # 2. Copy the file to a new name.
             shutil.copy(self.file_name_bak, self.file_name_new)
             self.logger.debug('copied existing file to %s',self.file_name_bak)
