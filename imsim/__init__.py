@@ -1,4 +1,5 @@
-
+from lsst.utils.threads import disable_implicit_threading
+disable_implicit_threading()
 from ._version import *
 from .meta_data import *
 from .stamp import *
