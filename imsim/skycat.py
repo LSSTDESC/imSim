@@ -11,9 +11,8 @@ from skycatalogs import skyCatalogs
 # Hot-fix to set interpolant for 500nm magnorm bandpass in skyCatalogs.
 # Once this is fixed in a skyCatalogs release, we can remove it here.
 import skycatalogs
-import galsim
 bp500 = galsim.Bandpass(
-    galsim.LookupTable([499, 500, 501],[0, 1, 0], interpolant='linear'),
+    galsim.LookupTable([499, 500, 501], [0, 1, 0], interpolant='linear'),
     wave_type='nm').withZeropoint('AB')
 skycatalogs.objects.base_object.BaseObject._bp500 = bp500
 
@@ -205,7 +204,8 @@ class SkyCatalogInterface:
             = skycat_obj.get_LSST_flux(self.band, mjd=self.mjd)*exptime*self._eff_area
 
         if ((self.max_flux is not None and gs_object.flux > self.max_flux)
-            or gs_object.flux < 0):
+            or gs_object.flux < 0
+            or np.isnan(gs_object.flux)):
             return None
 
         return gs_object
