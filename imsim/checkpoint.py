@@ -31,7 +31,7 @@ class Checkpointer:
         # Guard against failures during I/O.
         # The mode we'll use for writing is the following:
         #   1. Copy the existing file to the backup name (_bak)
-        #   2. Copy the backup to a new name (_new) (why???)
+        #   2. Copy the backup to a new name (_new)
         #   3. Edit the new file with any new information being checkpointed.
         #   4. Move the new file to the regular name.
         #   5. Delete the backup.
