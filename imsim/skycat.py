@@ -203,7 +203,9 @@ class SkyCatalogInterface:
         gs_object.flux \
             = skycat_obj.get_LSST_flux(self.band, mjd=self.mjd)*exptime*self._eff_area
 
-        if ((self.max_flux is not None and gs_object.flux > self.max_flux)
+        if ((self.max_flux is not None
+             and skycat_obj.object_type == "star"
+             and gs_object.flux > self.max_flux)
             or gs_object.flux < 0
             or np.isnan(gs_object.flux)):
             return None
