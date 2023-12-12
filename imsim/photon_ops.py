@@ -22,7 +22,10 @@ from .diffraction import (
 
 
 class Shift(PhotonOp):
-    """Shifts photons from stamp center to full image center."""
+    """Shifts photons from stamp center to full image center.
+
+    Only add this to `stamp.photon_ops` when using the `LSST_Image` image type.
+    The image type `LSST_PhotonPoolingImage` type already has a shift included."""
     _req_params = {}
     _opt_params = {"invert": bool}
 

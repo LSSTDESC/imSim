@@ -20,6 +20,12 @@ class ProcessingMode(Enum):
 
 @dataclass
 class StellarObject:
+    """Cache for quantities of a single object, which need to be computed
+    when determining the rendering mode of the object.
+
+    `LSST_PhotonPoolingImage` will store `StellarObject` instances in
+    `base._objects` when determining the rendering mode and reuse the data
+    in the rendering stage."""
     index: int
     gal: object
     psf: object
@@ -30,6 +36,7 @@ class StellarObject:
 
 @dataclass
 class DiffractionFFT:
+    """Config subsection to enable diffraction in FFT mode."""
     exptime: float
     azimuth: galsim.Angle
     altitude: galsim.Angle
@@ -75,6 +82,8 @@ def build_gal(base, logger):
 
 
 def build_obj(stamp_config, base, logger):
+    """Precompute all data needed to determine the rendering mode of an
+    object."""
     builder = LSST_SiliconBuilder()
     try:
         xsize, ysize, image_pos, world_pos = builder.setup(stamp_config, base, 0.0, 0.0, galsim.config.stamp.stamp_ignore, logger)
@@ -237,7 +246,7 @@ class PhotonStampBuilder(StampBuilderBase):
                       n_photons=stellar_obj.phot_flux,
                       image=image,
                       wcs=base['wcs'],
-                      sensor=NullSensor(),
+                      sensor=NullSensor(), # Prevent premature photon accumulation
                       photon_ops=psfs,
                       add_to_image=True,
                       poisson_flux=False,
@@ -751,6 +760,11 @@ class LSST_SiliconBuilder(StampBuilderBase):
         return image
 
 class NullSensor(galsim.Sensor):
+    """galsim sensor type which does nothing.
+
+    It is used in the photon pooling workflow (`LSST_PhotonPoolingImage`)
+    to prevent rendering an
+    image when we only want to generate photons."""
     def accumulate(self, photons, image, orig_center=None, resume=False):
         return 0.
 
