@@ -307,9 +307,9 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
     def buildImage(self, config, base, image_num, _obj_num, logger):
         """Build the Image.
 
-        In contrast to LSST_ImageBuilder, fluxes of all objects are computed
-        before rendering. In a first step all FFT objects are handled.
-        Thereafter the photon shooting objects are handled.
+        In contrast to LSST_ImageBuilder, fluxes of all objects are precomputed
+        before rendering to determine how each object is rendered (FFT / photon shooting).
+        FFT objects will be handled before the photon shooting objects.
         Batching is done over objects for FFT objects and over photons for
         all photon shooting objects.
 
