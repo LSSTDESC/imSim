@@ -630,12 +630,6 @@ class LSST_SiliconBuilder(StampBuilder):
             # don't draw anything.
             return image
 
-        my_bounds = image.bounds & base['current_image'].bounds
-        if my_bounds.area() == 0:
-            # The stamp for this object doesn't overlap with the
-            # current image, so skip it.
-            return image
-
         # Prof is normally a convolution here with obj_list being [gal, psf1, psf2,...]
         # for some number of component PSFs.
         gal, *psfs = prof.obj_list if hasattr(prof,'obj_list') else [prof]
@@ -755,7 +749,7 @@ class LSST_SiliconBuilder(StampBuilder):
                                   rng=self.rng,
                                   maxN=maxN,
                                   n_photons=self.phot_flux,
-                                  image=image[my_bounds],
+                                  image=image,
                                   sensor=sensor,
                                   photon_ops=photon_ops,
                                   add_to_image=True,
