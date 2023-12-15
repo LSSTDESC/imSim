@@ -104,9 +104,10 @@ input:
         dir: checkpoint
         file_name:
           type: FormattedStr
-          format : checkpoint_%08d-%s.hdf
+          format : checkpoint_%08d-%s-%s.hdf
           items:
               - { type: OpsimData, field: observationId }
+              - "$band"
               - "$det_name"
 
     vignetting:
@@ -321,7 +322,7 @@ output:
                 - "@output.det_num"
 
     truth:
-        dir: output
+        dir: '@output.dir'
         file_name:
             type: FormattedStr
             format : centroid_%08d-%1d-%s-%s-det%03d.txt.gz

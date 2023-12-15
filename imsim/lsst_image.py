@@ -149,7 +149,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             chk_name = 'buildImage_%s'%(self.det_name)
             saved = self.checkpoint.load(chk_name)
             if saved is not None:
-                full_image, all_bounds, all_vars, start_num, extra_builder = saved
+                full_image, all_bounds, all_vars, delta_start_num, extra_builder = saved
+                start_num = delta_start_num + base.get('start_obj_num', 0)
                 if extra_builder is not None:
                     base['extra_builder'] = extra_builder
                 all_stamps = [galsim._Image(np.array([]), b, full_image.wcs) for b in all_bounds]
@@ -223,7 +224,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                 # Don't save the full stamps.  All we need for FlattenNoiseVariance is the bounds.
                 # Everything else about the stamps has already been handled above.
                 all_bounds = [stamp.bounds for stamp in all_stamps]
-                data = (full_image, all_bounds, all_vars, end_obj_num,
+                delta_end_obj_num = end_obj_num - base.get('start_obj_num', 0)
+                data = (full_image, all_bounds, all_vars, delta_end_obj_num,
                         base.get('extra_builder',None))
                 self.checkpoint.save(chk_name, data)
                 logger.warning('File %d: Completed batch %d with objects [%d, %d), and wrote '
