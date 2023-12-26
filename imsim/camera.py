@@ -162,7 +162,7 @@ def get_camera(camera='LsstCam'):
     -------
     lsst.afw.cameraGeom.Camera
     """
-    valid_cameras = ('LsstCam', 'LsstComCam', 'LsstCamImSim')
+    valid_cameras = ('LsstCam', 'LsstComCam', 'LsstCamImSim', 'LsstComCamSim')
     if camera not in valid_cameras:
         raise ValueError('Invalid camera: %s', camera)
     if camera not in _camera_cache:
