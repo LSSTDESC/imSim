@@ -125,11 +125,15 @@ image:
                 # a small numer of photons.
 
     # The objects are processed in batches.
-    # If checkpointing is turned on, then the checkpoint file will be updated after each batch.
+    # If checkpointing is turned on, then the checkpoint file will be updated after every
+    # group of checkpoint_sampling_factor batches.  This factor helps lower the overall checkpoint
+    # rate when running thousands of processes concurrently; otherwise, the contention
+    # from lots of concurrent checkpoint writes can overwhelm the file system.
     # Even if not checkpointing, using batches helps keep the memory down, since a bunch of
     # temporary data can be purged after each batch.
     # The default number of batches is 100, but you can change it if desired.
     nbatch: 100
+    checkpoint_sampling_factor: 10
 
     det_name: "$det_name"
 

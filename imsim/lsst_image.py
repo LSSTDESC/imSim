@@ -45,7 +45,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         req = { 'det_name': str }
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
                  'apply_sky_gradient': bool, 'apply_fringing': bool,
-                 'boresight': galsim.CelestialCoord, 'camera': str, 'nbatch': int}
+                 'boresight': galsim.CelestialCoord, 'camera': str, 'nbatch': int,
+                 'checkpoint_sampling_factor': int}
         params = GetAllParams(config, base, req=req, opt=opt, ignore=ignore+extra_ignore)[0]
 
         # Let the user override the image size
@@ -86,6 +87,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
             self.nbatch = params.get('nbatch', 100)
+            self.checkpoint_sampling_factor = params.get('checkpoint_sampling_factor', 10)
         except galsim.config.GalSimConfigError:
             self.checkpoint = None
             # Batching is also useful for memory reasons, to limit the number of stamps held
@@ -227,11 +229,12 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                 delta_end_obj_num = end_obj_num - base.get('start_obj_num', 0)
                 data = (full_image, all_bounds, all_vars, delta_end_obj_num,
                         base.get('extra_builder',None))
-                self.checkpoint.save(chk_name, data)
-                logger.warning('File %d: Completed batch %d with objects [%d, %d), and wrote '
-                               'checkpoint data to %s',
-                               base.get('file_num', 0), batch+1, start_obj_num, end_obj_num,
-                               self.checkpoint.file_name)
+                logger.warning('File %d: Completed batch %d with objects [%d, %d)',
+                               base.get('file_num', 0), batch+1, start_obj_num, end_obj_num)
+                if (batch % self.checkpoint_sampling_factor == 0
+                    or batch + 1 == nbatch):
+                    self.checkpoint.save(chk_name, data)
+                    logger.warning('Wrote checkpoint data to %s', self.checkpoint.file_name)
 
         # Bring the image so far up to a flat noise variance
         current_var = galsim.config.FlattenNoiseVariance(
