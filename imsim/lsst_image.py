@@ -229,7 +229,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                         base.get('extra_builder',None))
                 logger.warning('File %d: Completed batch %d with objects [%d, %d)',
                                base.get('file_num', 0), batch+1, start_obj_num, end_obj_num)
-                if nbatch % 10 == 0:
+                if batch % 10 == 0:
                     self.checkpoint.save(chk_name, data)
                     logger.warning('Wrote checkpoint data to %s', self.checkpoint.file_name)
 
