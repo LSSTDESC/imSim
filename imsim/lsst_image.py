@@ -227,11 +227,11 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                 delta_end_obj_num = end_obj_num - base.get('start_obj_num', 0)
                 data = (full_image, all_bounds, all_vars, delta_end_obj_num,
                         base.get('extra_builder',None))
-                self.checkpoint.save(chk_name, data)
-                logger.warning('File %d: Completed batch %d with objects [%d, %d), and wrote '
-                               'checkpoint data to %s',
-                               base.get('file_num', 0), batch+1, start_obj_num, end_obj_num,
-                               self.checkpoint.file_name)
+                logger.warning('File %d: Completed batch %d with objects [%d, %d)',
+                               base.get('file_num', 0), batch+1, start_obj_num, end_obj_num)
+                if nbatch % 10 == 0:
+                    self.checkpoint.save(chk_name, data)
+                    logger.warning('Wrote checkpoint data to %s', self.checkpoint.file_name)
 
         # Bring the image so far up to a flat noise variance
         current_var = galsim.config.FlattenNoiseVariance(
