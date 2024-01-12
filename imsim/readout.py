@@ -311,7 +311,7 @@ class CcdReadout:
     def __init__(self, eimage, logger, camera=None,
                  readout_time=2.0, dark_current=0.02, bias_level=1000.0,
                  scti=1.0e-6, pcti=1.0e-6, full_well=None, read_noise=None,
-                 bias_levels_file=None):
+                 bias_levels_file=None, added_keywords=None):
         """
         Parameters
         ----------
@@ -335,6 +335,9 @@ class CcdReadout:
             The name of json-formatted file with the per-amp bias levels.
             If provided, these values will supersede the single-valued
             bias_level parameter.
+        added_keywords : dict [None]
+            Dict with additional key, value pairs to include in primary
+            HDU header.
         """
         self.eimage = eimage
         self.det_name = eimage.header['DET_NAME']
@@ -365,6 +368,8 @@ class CcdReadout:
                             else cte_matrix(amp_bounds.xmax, scti))
         self.pcte_matrix = (None if pcti == 0
                             else cte_matrix(amp_bounds.ymax, pcti))
+
+        self.added_keywords = added_keywords
 
     def apply_cte(self, amp_images):
         """Apply CTI to a list of amp images."""
@@ -477,7 +482,8 @@ class CcdReadout:
 
         phdu = get_primary_hdu(self.eimage, self.ccd.getSerial(),
                                camera_name=self.camera_name,
-                               logger=self.logger)
+                               logger=self.logger,
+                               added_keywords=self.added_keywords)
         hdus = fits.HDUList(phdu)
         for amp_num, amp in enumerate(self.amp_images):
             channel = 'C' + channels[amp_num]
@@ -551,6 +557,7 @@ class CameraReadout(ExtraOutputBuilder):
             'full_well': float,
             'read_noise': float,
             'bias_levels_file': str,
+            'added_keywords': dict
             }
         ignore = ['file_name', 'dir', 'hdu', 'filter']
         kwargs = GetAllParams(config, base, opt=opt, ignore=ignore)[0]
