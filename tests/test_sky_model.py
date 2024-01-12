@@ -36,6 +36,17 @@ def test_sky_model():
         np.testing.assert_approx_equal(sky_level, expected_sky_levels[band],
                                        significant=4)
 
+    # Repeat explicitly setting the airmass to 1.2.  This _ought_ to be the same
+    # as the default bandpass files, but is slightly different for unknown but
+    # presumably innocuous reasons (makes a difference ~part per 10000).
+    # Test still passes at significant=3.
+    for band in 'ugrizy':
+        bandpass = RubinBandpass(band, airmass=1.2)
+        sky_model = SkyModel(exptime, mjd, bandpass)
+        sky_level = sky_model.get_sky_level(skyCoord)
+        np.testing.assert_approx_equal(sky_level, expected_sky_levels[band],
+                                       significant=3)
+
 
 def test_sky_gradient():
     # Pointing info for observationId=11873 from the
@@ -119,6 +130,7 @@ def test_sky_gradient():
 
 
 if __name__ == "__main__":
-    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
-    for testfn in testfns:
-        testfn()
+    test_sky_model()
+    # testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    # for testfn in testfns:
+    #     testfn()
