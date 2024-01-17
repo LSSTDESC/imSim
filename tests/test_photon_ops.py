@@ -8,6 +8,7 @@ from copy import deepcopy
 
 from imsim import photon_ops, BatoidWCSFactory, get_camera, diffraction
 from imsim.telescope_loader import load_telescope
+from imsim.bandpass import RubinBandpass
 
 
 def create_test_telescope(rottelpos=np.pi / 3 * galsim.radians):
@@ -702,6 +703,52 @@ def test_phase_affects_image():
     photon_op.applyTo(pa2, local_wcs=create_test_wcs(), rng=rng)
 
     assert pa2 != pa
+
+
+def test_envelope_ratio():
+    config = {
+        **deepcopy(TEST_BASE_CONFIG),
+        "image": {
+            "type": "LSST_Image",
+            "random_seed": 1234,
+            "bandpass": {"type": "RubinBandpass", "band": "r"},
+        },
+        "stamp": {
+            "photon_ops": [
+                {
+                    "type": "EnvelopeRatio",
+                    "envelope": "$bandpass/0.8"
+                }
+            ]
+        }
+    }
+    galsim.config.ProcessInput(config)
+    galsim.config.input.SetupInputsForImage(config, None)
+    # Add bandpass to base directly.  This would normally be done in
+    # config.BuildImage()
+    config['bandpass'] = RubinBandpass('r')
+    [photon_op] = galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
+    pa = galsim.PhotonArray(100_000, flux=1, wavelength=577.6)
+    rng = galsim.BaseDeviate(123)
+    photon_op.applyTo(pa, rng=rng)
+    # Should have removed ~20% of photons, and be accurate to ~1/sqrt(100_000).
+    np.testing.assert_allclose(np.sum(pa.flux), 0.8*pa.size(), rtol=0.005)
+
+    # Let's try some more realistic bandpass ratios
+    for f in 'zy':
+        envelope = RubinBandpass(f, airmass=1.0)
+        sed = galsim.SED('vega.txt', 'nm', 'flambda')
+        envelope_flux = sed.calculateFlux(envelope)
+        for airmass in [1.2, 1.6, 2.2, 2.6]:
+            bandpass = RubinBandpass(f, airmass=airmass)
+            ratio = sed.calculateFlux(bandpass) / envelope_flux
+            pa = galsim.PhotonArray(100_000, flux=1)
+            pa.wavelength = sed.sampleWavelength(pa.size(), envelope, rng=rng)
+            deleter = photon_ops.EnvelopeRatio(
+                bandpass=bandpass, envelope=envelope
+            )
+            deleter.applyTo(pa, rng=rng)
+            np.testing.assert_allclose(np.mean(pa.flux), ratio, rtol=0.005)
 
 
 if __name__ == "__main__":
