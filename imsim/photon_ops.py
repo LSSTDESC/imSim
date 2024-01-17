@@ -3,10 +3,10 @@
 from functools import lru_cache
 import numpy as np
 
-import galsim
 import batoid
-from galsim import PhotonArray, PhotonOp, GaussianDeviate
+from galsim import Bandpass, PhotonArray, PhotonOp, GaussianDeviate
 from galsim.config import RegisterPhotonOpType, PhotonOpBuilder, GetAllParams
+from galsim.config import BuildBandpass, GalSimConfigError
 from galsim.celestial import CelestialCoord
 from galsim.config.util import get_cls_params
 from coord import Angle
@@ -481,3 +481,37 @@ def ray_vector_to_photon_array(
     out.dxdz, out.dydz = (out.dxdz.ravel(), out.dydz.ravel())
     out.flux[ray_vector.vignetted] = 0.0
     return out
+
+
+class EnvelopeRatio(PhotonOp):
+    """Photon operator that zeros the flux of photons with a
+    probability proportional to the ratio of the current
+    bandpass throughput to the specified envelope throughput.
+    """
+    def __init__(
+        self,
+        bandpass: Bandpass,
+        envelope: Bandpass
+    ):
+        self.bandpass = bandpass
+        self.envelope = envelope
+        self.ratio = bandpass / envelope
+
+    def applyTo(self, photon_array, local_wcs=None, rng=None):
+        f = rng.np.uniform(size=photon_array.size())
+        photon_array.flux[f > self.ratio(photon_array.wavelength)] = 0.0
+
+
+class EnvelopeRatioBuilder(PhotonOpBuilder):
+    def buildPhotonOp(self, config, base, logger):
+        if 'bandpass' not in base:
+            raise GalSimConfigError("bandpass is required for EnvelopeRatio")
+        if 'envelope' not in config:
+            raise GalSimConfigError("envelope is required for EnvelopeRatio")
+        kwargs = {}
+        kwargs['bandpass'] = base['bandpass']
+        kwargs['envelope'] = BuildBandpass(config, 'envelope', base, logger)[0]
+        return EnvelopeRatio(**kwargs)
+
+
+RegisterPhotonOpType('EnvelopeRatio', EnvelopeRatioBuilder())
