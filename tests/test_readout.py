@@ -39,7 +39,7 @@ class ImageSourceTestCase(unittest.TestCase):
                     'scti': 1.e-6,
                     'added_keywords' : {
                         'TESTKEY1': 'TESTVAL1',
-                        'TESTKEY2': 'TESTVAL2'
+                        'SOMEMATH': '$1+2'
                     }
                 }
             },
@@ -98,7 +98,7 @@ class ImageSourceTestCase(unittest.TestCase):
             self.assertEqual(hdus[0].header['IMSIMVER'], imsim.__version__)
             # Test added_keywords are included correctly
             self.assertEqual(hdus[0].header['TESTKEY1'], 'TESTVAL1')
-            self.assertEqual(hdus[0].header['TESTKEY2'], 'TESTVAL2')
+            self.assertEqual(hdus[0].header['SOMEMATH'], '3')
         os.remove(outfile)
 
     def test_no_opsim(self):
