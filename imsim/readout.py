@@ -6,7 +6,7 @@ from collections import namedtuple
 from astropy.io import fits
 from astropy.time import Time
 import galsim
-from galsim.config import ExtraOutputBuilder, RegisterExtraOutput, GetAllParams
+from galsim.config import ExtraOutputBuilder, RegisterExtraOutput, GetAllParams, ParseValue
 from lsst.afw import cameraGeom
 import lsst.obs.lsst
 from lsst.obs.lsst.translators.lsst import SIMONYI_TELESCOPE
@@ -556,11 +556,15 @@ class CameraReadout(ExtraOutputBuilder):
             'pcti': float,
             'full_well': float,
             'read_noise': float,
-            'bias_levels_file': str,
-            'added_keywords': dict
+            'bias_levels_file': str
             }
-        ignore = ['file_name', 'dir', 'hdu', 'filter']
+        ignore = ['file_name', 'dir', 'hdu', 'filter', 'added_keywords']
         kwargs = GetAllParams(config, base, opt=opt, ignore=ignore)[0]
+
+        if 'added_keywords' in config:
+            kwargs['added_keywords'] = {}
+            for k in (added_keywords := config.get('added_keywords', {})):
+                kwargs['added_keywords'][k], safe = ParseValue(added_keywords, k, base, str)
 
         ccd_readout = CcdReadout(main_data[0], logger, **kwargs)
 
