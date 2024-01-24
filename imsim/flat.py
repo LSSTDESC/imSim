@@ -38,24 +38,31 @@ class LSST_FlatBuilder(ImageBuilder):
         """
         logger.debug('image %d: Building Tiled: image, obj = %d,%d',image_num,image_num,obj_num)
 
-        req = { 'counts_per_pixel' : float,
-              }
-        opt = { 'max_counts_per_iter': float,
-                'buffer_size': int,
-                'nx': int,
-                'ny': int,
-                'size': int,
-                'xsize': int,
-                'ysize': int,
-                'camera': str,
-                'det_name': str
+        req = {}
+        opt = {'counts_per_pixel': float,
+               'countrate_per_pixel': float,
+               'max_counts_per_iter': float,
+               'buffer_size': int,
+               'nx': int,
+               'ny': int,
+               'size': int,
+               'xsize': int,
+               'ysize': int,
+               'camera': str,
+               'det_name': str,
               }
         ignore = ignore + ['sed', 'image_pos', 'world_pos', 'stamp_size',
                            'stamp_xsize', 'stamp_ysize', 'nobjects', 'apply_sky_gradient',
                            'apply_fringing', 'sky_level', 'boresight', 'nbatch']
         params = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)[0]
 
-        self.counts_per_pixel = params['counts_per_pixel']
+        countrate_per_pixel = params.get('countrate_per_pixel', 0)
+        if countrate_per_pixel == 0:
+            self.counts_per_pixel = params['counts_per_pixel']
+        else:
+            exptime = base['exptime']
+            self.counts_per_pixel = params['countrate_per_pixel']*exptime
+
         size = params.get('size', 0)
         self.xsize = params.get('xsize', size)
         self.ysize = params.get('ysize', size)
