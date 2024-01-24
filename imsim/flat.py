@@ -5,6 +5,7 @@ import numpy as np
 import time
 import galsim
 from galsim.config import ImageBuilder, RegisterImageType
+from .camera import get_camera
 
 class LSST_FlatBuilder(ImageBuilder):
     """
@@ -38,20 +39,35 @@ class LSST_FlatBuilder(ImageBuilder):
         logger.debug('image %d: Building Tiled: image, obj = %d,%d',image_num,image_num,obj_num)
 
         req = { 'counts_per_pixel' : float,
-                'xsize' : int,
-                'ysize': int
               }
         opt = { 'max_counts_per_iter': float,
                 'buffer_size': int,
                 'nx': int,
                 'ny': int,
+                'size': int,
+                'xsize': int,
+                'ysize': int,
+                'camera': str,
+                'det_name': str
               }
-        ignore = ignore + ['sed']
+        ignore = ignore + ['sed', 'image_pos', 'world_pos', 'stamp_size',
+                           'stamp_xsize', 'stamp_ysize', 'nobjects', 'apply_sky_gradient',
+                           'apply_fringing', 'sky_level', 'boresight', 'nbatch']
         params = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)[0]
 
         self.counts_per_pixel = params['counts_per_pixel']
-        self.xsize = params['xsize']
-        self.ysize = params['ysize']
+        size = params.get('size', 0)
+        self.xsize = params.get('xsize', size)
+        self.ysize = params.get('ysize', size)
+        if self.xsize == 0 or self.ysize == 0:
+            # Get the image size from the camera for the specified detector.
+            det_name = params['det_name']
+            camera_name = params.get('camera', 'LsstCam')
+            camera = get_camera(camera_name)
+            det_bbox = camera[det_name].getBBox()
+            self.xsize = det_bbox.width
+            self.ysize = det_bbox.height
+
         self.buffer_size = params.get("buffer_size", 5)
         self.max_counts_per_iter = params.get("max_counts_per_iter", 1000)
         if 'sed' in config:
@@ -116,6 +132,8 @@ class LSST_FlatBuilder(ImageBuilder):
             current_var:    The current noise variance in each postage stamps.
             logger:         If given, a logger object to log progress.
         """
+        base['current_noise_image'] = base['current_image']
+
         # Get the sensor if there is one. (Or use a trivial one if not.)
         sensor = base.get('sensor', galsim.Sensor())
 

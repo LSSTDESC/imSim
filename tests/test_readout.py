@@ -37,6 +37,10 @@ class ImageSourceTestCase(unittest.TestCase):
                     'bias_level': 1000.,
                     'pcti': 1.e-6,
                     'scti': 1.e-6,
+                    'added_keywords' : {
+                        'TESTKEY1': 'TESTVAL1',
+                        'SOMEMATH': '$1+2'
+                    }
                 }
             },
             'index_key': 'image_num',
@@ -92,6 +96,9 @@ class ImageSourceTestCase(unittest.TestCase):
         self.readout.writeFile(outfile, self.readout_config, self.config, self.logger)
         with fits.open(outfile) as hdus:
             self.assertEqual(hdus[0].header['IMSIMVER'], imsim.__version__)
+            # Test added_keywords are included correctly
+            self.assertEqual(hdus[0].header['TESTKEY1'], 'TESTVAL1')
+            self.assertEqual(hdus[0].header['SOMEMATH'], '3')
         os.remove(outfile)
 
     def test_no_opsim(self):
