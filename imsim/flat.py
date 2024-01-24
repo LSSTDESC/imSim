@@ -59,10 +59,11 @@ class LSST_FlatBuilder(ImageBuilder):
         size = params.get('size', 0)
         self.xsize = params.get('xsize', size)
         self.ysize = params.get('ysize', size)
-        det_name = params['det_name']
-        camera_name = params.get('camera', 'LsstCam')
-        camera = get_camera(camera_name)
         if self.xsize == 0 or self.ysize == 0:
+            # Get the image size from the camera for the specified detector.
+            det_name = params['det_name']
+            camera_name = params.get('camera', 'LsstCam')
+            camera = get_camera(camera_name)
             det_bbox = camera[det_name].getBBox()
             self.xsize = det_bbox.width
             self.ysize = det_bbox.height
