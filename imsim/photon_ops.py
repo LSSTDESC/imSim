@@ -483,35 +483,34 @@ def ray_vector_to_photon_array(
     return out
 
 
-class EnvelopeRatio(PhotonOp):
-    """Photon operator that zeros the flux of photons with a
-    probability proportional to the ratio of the current
-    bandpass throughput to the specified envelope throughput.
+class BandpassRatio(PhotonOp):
+    """Photon operator that reweights photon fluxes to effect
+    a specified bandpass from photons initially sampled from 
+    a different bandpass.
     """
     def __init__(
         self,
-        bandpass: Bandpass,
-        envelope: Bandpass
+        target_bandpass: Bandpass,
+        initial_bandpass: Bandpass
     ):
-        self.bandpass = bandpass
-        self.envelope = envelope
-        self.ratio = bandpass / envelope
+        self.target = target_bandpass
+        self.initial = initial_bandpass
+        self.ratio = self.target / self.initial
 
     def applyTo(self, photon_array, local_wcs=None, rng=None):
-        f = rng.np.uniform(size=photon_array.size())
-        photon_array.flux[f > self.ratio(photon_array.wavelength)] = 0.0
+        photon_array.flux *= self.ratio(photon_array.wavelength)
 
 
-class EnvelopeRatioBuilder(PhotonOpBuilder):
+class BandpassRatioBuilder(PhotonOpBuilder):
     def buildPhotonOp(self, config, base, logger):
-        if 'bandpass' not in base:
-            raise GalSimConfigError("bandpass is required for EnvelopeRatio")
-        if 'envelope' not in config:
-            raise GalSimConfigError("envelope is required for EnvelopeRatio")
+        if 'target_bandpass' not in config:
+            raise GalSimConfigError("target_bandpass is required for BandpassRatio")
+        if 'initial_bandpass' not in config:
+            raise GalSimConfigError("initial_bandpass is required for BandpassRatio")
         kwargs = {}
-        kwargs['bandpass'] = base['bandpass']
-        kwargs['envelope'] = BuildBandpass(config, 'envelope', base, logger)[0]
-        return EnvelopeRatio(**kwargs)
+        kwargs['target_bandpass'] = BuildBandpass(config, 'target_bandpass', base, logger)[0]
+        kwargs['initial_bandpass'] = BuildBandpass(config, 'initial_bandpass', base, logger)[0]
+        return BandpassRatio(**kwargs)
 
 
-RegisterPhotonOpType('EnvelopeRatio', EnvelopeRatioBuilder())
+RegisterPhotonOpType('BandpassRatio', BandpassRatioBuilder())
