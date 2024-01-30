@@ -705,7 +705,7 @@ def test_phase_affects_image():
     assert pa2 != pa
 
 
-def test_envelope_ratio():
+def test_bandpass_ratio():
     config = {
         **deepcopy(TEST_BASE_CONFIG),
         "image": {
@@ -716,8 +716,9 @@ def test_envelope_ratio():
         "stamp": {
             "photon_ops": [
                 {
-                    "type": "EnvelopeRatio",
-                    "envelope": "$bandpass/0.8"
+                    "type": "BandpassRatio",
+                    "initial_bandpass": "$bandpass",
+                    "target_bandpass": "$bandpass*0.8",
                 }
             ]
         }
@@ -731,24 +732,24 @@ def test_envelope_ratio():
     pa = galsim.PhotonArray(100_000, flux=1, wavelength=577.6)
     rng = galsim.BaseDeviate(123)
     photon_op.applyTo(pa, rng=rng)
-    # Should have removed ~20% of photons, and be accurate to ~1/sqrt(100_000).
-    np.testing.assert_allclose(np.sum(pa.flux), 0.8*pa.size(), rtol=0.005)
+    # Reweight fluxes.  Should very precisely get desired bandpass.
+    np.testing.assert_allclose(np.sum(pa.flux), 0.8*pa.size(), rtol=1e-3)
 
     # Let's try some more realistic bandpass ratios
     for f in 'zy':
-        envelope = RubinBandpass(f, airmass=1.0)
+        initial_bandpass = RubinBandpass(f, airmass=1.0)
         sed = galsim.SED('vega.txt', 'nm', 'flambda')
-        envelope_flux = sed.calculateFlux(envelope)
+        initial_flux = sed.calculateFlux(initial_bandpass)
         for airmass in [1.2, 1.6, 2.2, 2.6]:
-            bandpass = RubinBandpass(f, airmass=airmass)
-            ratio = sed.calculateFlux(bandpass) / envelope_flux
+            target_bandpass = RubinBandpass(f, airmass=airmass)
+            ratio = sed.calculateFlux(target_bandpass) / initial_flux
             pa = galsim.PhotonArray(100_000, flux=1)
-            pa.wavelength = sed.sampleWavelength(pa.size(), envelope, rng=rng)
-            deleter = photon_ops.EnvelopeRatio(
-                bandpass=bandpass, envelope=envelope
+            pa.wavelength = sed.sampleWavelength(pa.size(), initial_bandpass, rng=rng)
+            op = photon_ops.BandpassRatio(
+                target_bandpass=target_bandpass, initial_bandpass=initial_bandpass, 
             )
-            deleter.applyTo(pa, rng=rng)
-            np.testing.assert_allclose(np.mean(pa.flux), ratio, rtol=0.005)
+            op.applyTo(pa, rng=rng)
+            np.testing.assert_allclose(np.mean(pa.flux), ratio, rtol=1e-3)
 
 
 if __name__ == "__main__":
