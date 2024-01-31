@@ -646,6 +646,12 @@ class LSST_SiliconBuilder(StampBuilder):
         max_flux_simple = config.get('max_flux_simple', 100)
         faint = self.nominal_flux < max_flux_simple
         bandpass = base['bandpass']
+
+        if self.do_reweight:
+            initial_flux_bandpass = self.fiducial_bandpass
+        else:
+            initial_flux_bandpass = base['bandpass']
+
         if faint:
             logger.info("Flux = %.0f  Using trivial sed", self.nominal_flux)
             # cosmoDC2 galaxies with z > 2.71 and some SNANA objects
@@ -660,7 +666,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 if sed_value != 0:
                     break
             if sed_value == 0:
-                # We can't evalue the profile for this object, so skip it.
+                # We can't evaluate the profile for this object, so skip it.
                 obj_num = base.get('obj_num')
                 object_id = base.get('object_id')
                 logger.warning("Zero-valued SED for faint object %d, "
@@ -669,6 +675,7 @@ class LSST_SiliconBuilder(StampBuilder):
             gal = gal.evaluateAtWavelength(profile_wl)
             gal = gal * self._trivial_sed
         else:
+            # TODO: should this be bandpass or initial_flux_bandpass?
             self._fix_seds(gal, bandpass, logger)
 
         # Normally, wcs is provided as an argument, rather than setting it directly here.
@@ -685,6 +692,8 @@ class LSST_SiliconBuilder(StampBuilder):
             maxN = galsim.config.ParseValue(config, 'maxN', base, int)[0]
 
         if method == 'fft':
+            # TODO:  Need to go through the logic of bandpass vs initial_flux_bandpass here.
+
             # For FFT, we may have adjusted the flux to account for vignetting.
             # So update the flux to self.fft_flux if it's different.
             if self.fft_flux != self.nominal_flux:
@@ -704,20 +713,11 @@ class LSST_SiliconBuilder(StampBuilder):
                     "rng": self.rng,
                     "n_subsample": 1,
                 })
-            if self.do_reweight:
-                kwargs['photon_ops'].append(
-                    BandpassRatio(
-                        bandpass,
-                        self.fiducial_bandpass,
-                    )
-                )
-                bp_for_drawImage = self.fiducial_bandpass
-            else:
-                bp_for_drawImage = bandpass
+
             # Go back to a combined convolution for fft drawing.
             prof = galsim.Convolve([gal] + psfs)
             try:
-                fft_image = prof.drawImage(bp_for_drawImage, **kwargs)
+                fft_image = prof.drawImage(bandpass, **kwargs)
             except galsim.errors.GalSimFFTSizeError as e:
                 # I think this shouldn't happen with the updates I made to how the image size
                 # is calculated, even for extremely bright things.  So it should be ok to
@@ -743,7 +743,9 @@ class LSST_SiliconBuilder(StampBuilder):
         else:
             # For photon shooting, use the poisson-realization of the flux
             # and tell GalSim not to redo the Poisson realization.
-            gal = gal.withFlux(self.phot_flux, bandpass)
+            # Use the initial_flux_bandpass here, and use a photon op to get to the realized
+            # bandpass below.
+            gal = gal.withFlux(self.phot_flux, initial_flux_bandpass)
 
             if not faint and 'photon_ops' in config:
                 photon_ops = galsim.config.BuildPhotonOps(config, 'photon_ops', base, logger)
@@ -753,8 +755,8 @@ class LSST_SiliconBuilder(StampBuilder):
             if self.do_reweight:
                 photon_ops.append(
                     BandpassRatio(
-                        bandpass,
-                        self.fiducial_bandpass,
+                        target_bandpass=bandpass,
+                        initial_bandpass=self.fiducial_bandpass,
                     )
                 )
                 bp_for_drawImage = self.fiducial_bandpass
