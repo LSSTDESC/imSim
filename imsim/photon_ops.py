@@ -485,7 +485,7 @@ def ray_vector_to_photon_array(
 
 class BandpassRatio(PhotonOp):
     """Photon operator that reweights photon fluxes to effect
-    a specified bandpass from photons initially sampled from 
+    a specified bandpass from photons initially sampled from
     a different bandpass.
     """
     def __init__(
