@@ -1,3 +1,4 @@
+import numpy as np
 from textwrap import dedent
 from unittest import mock
 from pathlib import Path
@@ -447,6 +448,125 @@ def test_faint_high_redshift_stamp():
     print(obj_num, image.center, image.array.shape, image.array.sum())
     assert image.array.shape == (32, 32)
     assert 5 < image.array.sum() < 10  # 8
+
+
+def test_stamp_bandpass_airmass():
+    """Test that LSST_SiliconBuilder correctly uses the specified airmass,
+    rather than the airmass in the precomputed flux.
+    """
+
+    config_str = dedent(f"""
+        modules:
+            - imsim
+        template: imsim-config-skycat
+        input.atm_psf.screen_size: 40.96
+        input.checkpoint: ""
+        input.sky_catalog.file_name: data/sky_cat_9683.yaml
+        input.sky_catalog.obj_types: [galaxy]
+        input.sky_catalog.band: z
+        input.opsim_data.file_name: data/small_opsim_9683.db
+        input.opsim_data.visit: 449053
+        input.tree_rings.only_dets: [R22_S11]
+        image.random_seed: 42
+        output.det_num.first: 94
+        eval_variables.sdet_name: R22_S11
+        eval_variables.sband: z
+        image.sensor: ""
+        psf.items.0:
+            type: Kolmogorov
+            fwhm: '@stamp.rawSeeing'
+        stamp.diffraction_fft: ""
+        stamp.photon_ops: ""
+        """)
+    # Compute image flux vs calculated flux ratio first.  Accounts for vignetting.
+    ref_fluxes = []
+    image_fluxes = []
+
+    config = yaml.safe_load(config_str)
+    # If tests aren't run from test directory, need this:
+    config['input.sky_catalog.file_name'] = str(DATA_DIR / "sky_cat_9683.yaml")
+    config['input.opsim_data.file_name'] = str(DATA_DIR / "small_opsim_9683.db")
+    os.environ['SIMS_SED_LIBRARY_DIR'] = str(DATA_DIR / "test_sed_library")
+
+    galsim.config.ProcessAllTemplates(config)
+
+    # Run through some setup things that BuildImage normally does for us.
+    logger = galsim.config.LoggerWrapper(None)
+    builder = galsim.config.valid_image_types['LSST_Image']
+
+    galsim.config.ProcessInput(config, logger)
+    galsim.config.SetupConfigImageNum(config, 0, 0, logger)
+    xsize, ysize = builder.setup(
+        config['image'], config, 0, 0, galsim.config.image_ignore, logger
+    )
+    galsim.config.SetupConfigImageSize(config, xsize, ysize, logger)
+    galsim.config.SetupInputsForImage(config, logger)
+    galsim.config.SetupExtraOutputsForImage(config, logger)
+    config['bandpass'] = builder.buildBandpass(config['image'], config, 0, 0, logger)
+    config['sensor'] = builder.buildSensor(config['image'], config, 0, 0, logger)
+
+    nobj = builder.getNObj(config['image'], config, 0)
+
+    # 5. Extremely bright star.  Uses fft.
+    obj_num = 2697
+    image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
+    gal = galsim.config.BuildGSObject(config, 'gal', logger=logger)[0]
+    ref_fluxes.append(gal.sed.calculateFlux(config['bandpass']))
+    image_fluxes.append(image.array.sum())
+
+    # 9. Bright, big galaxy
+    obj_num = 75
+    image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
+    gal = galsim.config.BuildGSObject(config, 'gal', logger=logger)[0]
+    ref_fluxes.append(gal.sed.calculateFlux(config['bandpass']))
+    image_fluxes.append(image.array.sum())
+
+    ratios = np.array(image_fluxes) / np.array(ref_fluxes)
+    ratio = np.mean(ratios)
+
+
+    # Now loop through a few airmasses and check that delivered image fluxes match
+    # the calculated fluxes, scaled by the ratio.
+    for airmass in [1.5, 2.5, 3.5]:
+        this_config_str = config_str + f"image.bandpass.airmass: {airmass}\n"
+        # This is basically imsim-config-skycat, but a few adjustments for speed.
+        config = yaml.safe_load(this_config_str)
+        config['input.sky_catalog.file_name'] = str(DATA_DIR / "sky_cat_9683.yaml")
+        config['input.opsim_data.file_name'] = str(DATA_DIR / "small_opsim_9683.db")
+        os.environ['SIMS_SED_LIBRARY_DIR'] = str(DATA_DIR / "test_sed_library")
+        galsim.config.ProcessAllTemplates(config)
+        logger = galsim.config.LoggerWrapper(None)
+        builder = galsim.config.valid_image_types['LSST_Image']
+        galsim.config.ProcessInput(config, logger)
+        galsim.config.SetupConfigImageNum(config, 0, 0, logger)
+        xsize, ysize = builder.setup(
+            config['image'], config, 0, 0, galsim.config.image_ignore, logger
+        )
+        galsim.config.SetupConfigImageSize(config, xsize, ysize, logger)
+        galsim.config.SetupInputsForImage(config, logger)
+        galsim.config.SetupExtraOutputsForImage(config, logger)
+        config['bandpass'] = builder.buildBandpass(config['image'], config, 0, 0, logger)
+        config['sensor'] = builder.buildSensor(config['image'], config, 0, 0, logger)
+        nobj = builder.getNObj(config['image'], config, 0)
+
+        # 9. Bright, big galaxy
+        obj_num = 75
+        image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
+        gal = galsim.config.BuildGSObject(config, 'gal', logger=logger)[0]
+        ref_flux = gal.sed.calculateFlux(config['bandpass'])
+        image_flux = image.array.sum()
+
+        print(obj_num, airmass, ref_flux, image_flux*ratio, ref_flux - image_flux*ratio)
+        np.testing.assert_allclose(image_flux, ref_flux*ratio, rtol=2e-3)
+
+        # 5. Extremely bright star.  Uses fft.
+        obj_num = 2697
+        image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
+        gal = galsim.config.BuildGSObject(config, 'gal', logger=logger)[0]
+        ref_flux = gal.sed.calculateFlux(config['bandpass'])
+        image_flux = image.array.sum()
+        print(obj_num, airmass, ref_flux, image_flux*ratio, ref_flux - image_flux*ratio)
+        np.testing.assert_allclose(image_flux, ref_flux*ratio, rtol=2e-3)
 
 
 if __name__ == "__main__":
