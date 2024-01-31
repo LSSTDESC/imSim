@@ -73,11 +73,21 @@ def RubinBandpass(band, airmass=None, logger=None):
 
         interpolator = AtmInterpolator(Xs, arr)
         tput = interpolator(airmass)
-        bp_atm = galsim.Bandpass(galsim.LookupTable(wave, tput), wave_type='nm')
+        bp_atm = galsim.Bandpass(
+            galsim.LookupTable(
+                wave, tput, interpolant='linear'
+            ),
+            wave_type='nm'
+        )
 
         file_name = path / "baseline" / f"hardware_{band}.dat"
         wave, hardware_tput = np.genfromtxt(file_name).T
-        bp_hardware = galsim.Bandpass(galsim.LookupTable(wave, hardware_tput), wave_type='nm')
+        bp_hardware = galsim.Bandpass(
+            galsim.LookupTable(
+                wave, hardware_tput, interpolant='linear'
+            ),
+            wave_type='nm'
+        )
         bp = bp_atm * bp_hardware
     bp = bp.truncate(relative_throughput=1.e-3)
     bp = bp.thin()
