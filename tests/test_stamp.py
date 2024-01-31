@@ -216,7 +216,7 @@ def test_stamp_sizes():
 
     galsim.config.ProcessAllTemplates(config)
 
-    # Hotfix indeterminism in skyCatalogs 1.6.0. 
+    # Hotfix indeterminism in skyCatalogs 1.6.0.
     # cf. https://github.com/LSSTDESC/skyCatalogs/pull/62
     # Remove this bit once we are dependent on a version that includes the above PR.
     orig_toplevel_only = imsim.skycat.skyCatalogs.SkyCatalog.toplevel_only

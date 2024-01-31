@@ -8,7 +8,7 @@ from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 from .diffraction_fft import apply_diffraction_psf
 from .camera import get_camera
-
+from .photon_ops import BandpassRatio
 
 @dataclass
 class DiffractionFFT:
@@ -119,10 +119,20 @@ class LSST_SiliconBuilder(StampBuilder):
         camera = get_camera(params.get('camera', 'LsstCam'))
         if self.vignetting:
             self.det = camera[params['det_name']]
-        if not hasattr(gal, 'flux'):
-            # In this case, the object flux has not been precomputed
-            # or cached by the skyCatalogs code.
+        if hasattr(gal, 'flux'):
+            # In this case, the object flux has been precomputed.  If our
+            # realized bandpass is different from the fiducial bandpass used
+            # in the precomputation, then we'll need to reweight the flux.
+            # We'll only do this if the bandpass was obtained from
+            # RubinBandpass though.
+            self.fiducial_bandpass = base.get('fiducial_bandpass', None)
+            self.do_reweight = (
+                self.fiducial_bandpass is not None
+                and self.fiducial_bandpass != bandpass
+            )
+        else:
             gal.flux = gal.calculateFlux(bandpass)
+            self.do_reweight = False
         self.nominal_flux = gal.flux
 
         # For photon shooting rendering, precompute the realization of the Poisson variate.
@@ -694,11 +704,20 @@ class LSST_SiliconBuilder(StampBuilder):
                     "rng": self.rng,
                     "n_subsample": 1,
                 })
-
+            if self.do_reweight:
+                kwargs['photon_ops'].append(
+                    BandpassRatio(
+                        bandpass,
+                        self.fiducial_bandpass,
+                    )
+                )
+                bp_for_drawImage = self.fiducial_bandpass
+            else:
+                bp_for_drawImage = bandpass
             # Go back to a combined convolution for fft drawing.
             prof = galsim.Convolve([gal] + psfs)
             try:
-                fft_image = prof.drawImage(bandpass, **kwargs)
+                fft_image = prof.drawImage(bp_for_drawImage, **kwargs)
             except galsim.errors.GalSimFFTSizeError as e:
                 # I think this shouldn't happen with the updates I made to how the image size
                 # is calculated, even for extremely bright things.  So it should be ok to
@@ -730,6 +749,18 @@ class LSST_SiliconBuilder(StampBuilder):
                 photon_ops = galsim.config.BuildPhotonOps(config, 'photon_ops', base, logger)
             else:
                 photon_ops = []
+
+            if self.do_reweight:
+                photon_ops.append(
+                    BandpassRatio(
+                        bandpass,
+                        self.fiducial_bandpass,
+                    )
+                )
+                bp_for_drawImage = self.fiducial_bandpass
+            else:
+                bp_for_drawImage = bandpass
+
             # Put the psfs at the start of the photon_ops.
             # Probably a little better to put them a bit later than the start in some cases
             # (e.g. after TimeSampler, PupilAnnulusSampler), but leave that as a todo for now.
@@ -742,7 +773,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 if sensor is not None:
                     sensor.updateRNG(self.rng)
 
-            image = gal.drawImage(bandpass,
+            image = gal.drawImage(bp_for_drawImage,
                                   method='phot',
                                   offset=offset,
                                   rng=self.rng,
