@@ -35,7 +35,9 @@ class AtmInterpolator:
             frac = (X - self.Xs[idx-1]) / (self.Xs[idx] - self.Xs[idx-1])
             out = (1-frac)*np.array(self.logarr[idx-1])
             out += frac*self.logarr[idx]
-        return np.exp(out)
+        out = np.exp(out)
+        out[~np.isfinite(out)] = 0.0  # Clean up exp(log(0)) => 0
+        return out
 
 
 def RubinBandpass(band, airmass=None, logger=None):
