@@ -44,7 +44,7 @@ class AtmInterpolator:
 def RubinBandpass(
     band,
     airmass=None,
-    instrument_name=None,
+    camera=None,
     det_name=None,
     logger=None
 ):
@@ -59,8 +59,8 @@ def RubinBandpass(
     airmass : `float`, optional
         The airmass at which to evaluate the bandpass.  If None, use the
         standard X=1.2 bandpass.
-    instrument_name : `str`, optional
-        Name of the instrument for which to incorporate the detector-specific
+    camera : `str`, optional
+        Name of the camera for which to incorporate the detector-specific
         quantum efficiency.  If None, use the standard hardware bandpass.
     det_name : `str`, optional
         Name of the detector for which to incorporate the quantum efficiency.  If
@@ -68,10 +68,17 @@ def RubinBandpass(
     logger : logging.Logger
         If provided, a logger for logging debug statements.
     """
-    if sum([instrument_name is not None, det_name is not None]) == 1:
-        raise ValueError("Must provide both instrument_name and det_name if using one.")
+    if sum([camera is not None, det_name is not None]) == 1:
+        raise ValueError("Must provide both camera and det_name if using one.")
+    match camera:
+        case 'LsstCam':
+            camera = 'lsstCam'
+        case 'LsstComCam':
+            camera = 'comCamSim'
+        case _:
+            camera = camera
     tp_path = Path(os.getenv("RUBIN_SIM_DATA_DIR")) / "throughputs"
-    if airmass is None and instrument_name is None:
+    if airmass is None and camera is None:
         file_name = tp_path / "baseline" / f"total_{band}.dat"
         if not file_name.is_file():
             logger = galsim.config.LoggerWrapper(logger)
@@ -100,9 +107,9 @@ def RubinBandpass(
             wave_type='nm'
         )
 
-        if instrument_name is not None:
+        if camera is not None:
             old_path = Path(os.getenv("OBS_LSST_DATA_DIR"))
-            old_path = old_path / instrument_name / "transmission_sensor" / det_name.lower()
+            old_path = old_path / camera / "transmission_sensor" / det_name.lower()
             det_files = list(old_path.glob("*.ecsv"))
             if len(det_files) != 1:
                 raise ValueError(f"Expected 1 detector file, found {len(det_files)}")
@@ -173,7 +180,7 @@ class RubinBandpassBuilder(galsim.config.BandpassBuilder):
         req = { 'band' : str }
         opt = {
             'airmass' : float,
-            'instrument_name' : str,
+            'camera' : str,
             'det_name' : str
         }
         kwargs, safe = galsim.config.GetAllParams(
