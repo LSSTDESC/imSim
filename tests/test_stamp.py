@@ -477,15 +477,15 @@ def test_stamp_bandpass_airmass():
         stamp.photon_ops: ""
         """)
 
-    def get_fluxes(airmass, instrument_name, det_name):
+    def get_fluxes(airmass, camera, det_name):
         print(f"{airmass = }")
-        print(f"{instrument_name = }")
+        print(f"{camera = }")
         print(f"{det_name = }")
         this_config_str = "" + config_str  # Make a copy
         if airmass is not None:
             this_config_str += f"image.bandpass.airmass: {airmass}\n"
-        if instrument_name is not None:
-            this_config_str += f"image.bandpass.instrument_name: {instrument_name}\n"
+        if camera is not None:
+            this_config_str += f"image.bandpass.camera: {camera}\n"
             this_config_str += f"image.bandpass.det_name: {det_name}\n"
 
         config = yaml.safe_load(this_config_str)
@@ -539,7 +539,7 @@ def test_stamp_bandpass_airmass():
         print("\n"*3)
         return np.array(ref_fluxes), np.array(realized_fluxes)
 
-    ref_QE, realized_QE = get_fluxes(None, 'comCamSim', 'R22_S11')
+    ref_QE, realized_QE = get_fluxes(None, 'LsstComCam', 'R22_S11')
     ref_X_None, realized_X_None = get_fluxes(None, None, None)
     ref_X10, realized_X10 = get_fluxes(1.0, None, None)
     ref_X12, realized_X12 = get_fluxes(1.2, None, None)
