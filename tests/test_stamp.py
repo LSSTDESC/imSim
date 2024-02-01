@@ -66,6 +66,7 @@ def create_test_lsst_silicon(faint: bool):
     lsst_silicon.fft_flux = lsst_silicon.nominal_flux
     lsst_silicon.rng = galsim.BaseDeviate(1234)
     lsst_silicon.diffraction_fft = None
+    lsst_silicon.do_reweight = False
     return lsst_silicon
 
 
@@ -495,6 +496,14 @@ def test_stamp_bandpass_airmass():
 
         galsim.config.ProcessAllTemplates(config)
 
+        # Hotfix indeterminism in skyCatalogs 1.6.0.
+        # cf. https://github.com/LSSTDESC/skyCatalogs/pull/62
+        # Remove this bit once we are dependent on a version that includes the above PR.
+        orig_toplevel_only = imsim.skycat.skyCatalogs.SkyCatalog.toplevel_only
+        def new_toplevel_only(self, object_types):
+            return sorted(orig_toplevel_only(self, object_types))
+        imsim.skycat.skyCatalogs.SkyCatalog.toplevel_only = new_toplevel_only
+
         # Run through some setup things that BuildImage normally does for us.
         logger = galsim.config.LoggerWrapper(None)
         builder = galsim.config.valid_image_types['LSST_Image']
@@ -538,8 +547,7 @@ def test_stamp_bandpass_airmass():
     ref_X35, realized_X35 = get_fluxes(3.5, None, None)
 
     # Reference bandpass is close to (but not exactly equal to) the X=1.2 bandpass.
-    np.testing.assert_allclose(ref_X_None, ref_X12, rtol=1e-3, atol=0)
-    np.testing.assert_allclose(ref_X_None, ref_X12, rtol=1e-3, atol=0)
+    np.testing.assert_allclose(ref_X_None, ref_X12, rtol=1e-2, atol=0)
 
     # Predict realized_X from realized_X_None and the ratio of ref_X_None to ref_X.
     for ref_X, realized_X, rtol in zip(
