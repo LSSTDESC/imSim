@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import galsim
 from galsim.config import RegisterBandpassType
+from astropy.table import Table
 
 __all__ = ['RubinBandpass']
 
@@ -40,7 +41,13 @@ class AtmInterpolator:
         return out
 
 
-def RubinBandpass(band, airmass=None, logger=None):
+def RubinBandpass(
+    band,
+    airmass=None,
+    instrument_name=None,
+    det_name=None,
+    logger=None
+):
     """Return one of the Rubin bandpasses, specified by the single-letter name.
 
     The zeropoint is automatically set to the AB zeropoint normalization.
@@ -49,22 +56,35 @@ def RubinBandpass(band, airmass=None, logger=None):
     ----------
     band : `str`
         The name of the bandpass.  One of u,g,r,i,z,y.
+    airmass : `float`, optional
+        The airmass at which to evaluate the bandpass.  If None, use the
+        standard X=1.2 bandpass.
+    instrument_name : `str`, optional
+        Name of the instrument for which to incorporate the detector-specific
+        quantum efficiency.  If None, use the standard hardware bandpass.
+    det_name : `str`, optional
+        Name of the detector for which to incorporate the quantum efficiency.  If
+        None, use the standard hardware bandpass.
     logger : logging.Logger
         If provided, a logger for logging debug statements.
     """
-    path = Path(os.getenv("RUBIN_SIM_DATA_DIR")) / "throughputs"
-    if airmass is None:
-        file_name = path / "baseline" / f"total_{band}.dat"
+    if sum([instrument_name is not None, det_name is not None]) == 1:
+        raise ValueError("Must provide both instrument_name and det_name if using one.")
+    tp_path = Path(os.getenv("RUBIN_SIM_DATA_DIR")) / "throughputs"
+    if airmass is None and instrument_name is None:
+        file_name = tp_path / "baseline" / f"total_{band}.dat"
         if not file_name.is_file():
             logger = galsim.config.LoggerWrapper(logger)
             logger.warning("Warning: Using the old bandpass files from GalSim, not lsst.sims")
             file_name = f"LSST_{band}.dat"
         bp = galsim.Bandpass(str(file_name), wave_type='nm')
     else:
+        if airmass is None:
+            airmass = 1.2
         # Could be more efficient by only reading in the bracketing airmasses,
         # but probably doesn't matter much here.
         atmos = {}
-        for f in (path / "atmos").glob("atmos_??_aerosol.dat"):
+        for f in (tp_path / "atmos").glob("atmos_??_aerosol.dat"):
             X = float(f.name[-14:-12])/10.0
             wave, tput = np.genfromtxt(f).T
             atmos[X] = wave, tput
@@ -80,14 +100,55 @@ def RubinBandpass(band, airmass=None, logger=None):
             wave_type='nm'
         )
 
-        file_name = path / "baseline" / f"hardware_{band}.dat"
-        wave, hardware_tput = np.genfromtxt(file_name).T
-        bp_hardware = galsim.Bandpass(
-            galsim.LookupTable(
-                wave, hardware_tput, interpolant='linear'
-            ),
-            wave_type='nm'
-        )
+        if instrument_name is not None:
+            old_path = Path(os.getenv("OBS_LSST_DATA_DIR"))
+            old_path = old_path / instrument_name / "transmission_sensor" / det_name.lower()
+            det_files = list(old_path.glob("*.ecsv"))
+            if len(det_files) != 1:
+                raise ValueError(f"Expected 1 detector file, found {len(det_files)}")
+            det_file = det_files[0]
+            table = Table.read(det_file)
+            # Average over amplifiers
+            amps = np.unique(table['amp_name'])
+            det_wave = table[table['amp_name'] == amps[0]]['wavelength']
+            det_tput = table[table['amp_name'] == amps[0]]['efficiency']/100
+            for amp in amps[1:]:
+                assert np.all(det_wave == table[table['amp_name'] == amp]['wavelength'])
+                det_tput += table[table['amp_name'] == amp]['efficiency']/100
+            det_tput /= len(amps)
+            bp_det = galsim.Bandpass(
+                galsim.LookupTable(
+                    det_wave, det_tput, interpolant='linear'
+                ),
+                wave_type='nm'
+            )
+
+            # Get the rest of the hardware throughput
+            optics_wave, optics_tput = np.genfromtxt(
+                tp_path / "baseline" / f"filter_{band}.dat"
+            ).T
+            for f in ["m1.dat", "m2.dat", "m3.dat", "lens1.dat", "lens2.dat", "lens3.dat"]:
+                wave, tput = np.genfromtxt(
+                    tp_path / "baseline" / f
+                ).T
+                assert np.all(wave == optics_wave)
+                optics_tput *= tput
+            bp_optics = galsim.Bandpass(
+                galsim.LookupTable(
+                    optics_wave, optics_tput, interpolant='linear'
+                ),
+                wave_type='nm'
+            )
+            bp_hardware = bp_det * bp_optics
+        else:
+            file_name = tp_path / "baseline" / f"hardware_{band}.dat"
+            wave, hardware_tput = np.genfromtxt(file_name).T
+            bp_hardware = galsim.Bandpass(
+                galsim.LookupTable(
+                    wave, hardware_tput, interpolant='linear'
+                ),
+                wave_type='nm'
+            )
         bp = bp_atm * bp_hardware
     bp = bp.truncate(relative_throughput=1.e-3)
     bp = bp.thin()
@@ -110,14 +171,18 @@ class RubinBandpassBuilder(galsim.config.BandpassBuilder):
             the constructed Bandpass object.
         """
         req = { 'band' : str }
-        opt = { 'airmass' : float }
+        opt = {
+            'airmass' : float,
+            'instrument_name' : str,
+            'det_name' : str
+        }
         kwargs, safe = galsim.config.GetAllParams(
             config, base, req=req, opt=opt
         )
         kwargs['logger'] = logger
         bp = RubinBandpass(**kwargs)
 
-        # Also, store the airmass=None version in the base config.
+        # Also, store the kwargs=None version in the base config.
         if 'airmass' in kwargs:
             base['fiducial_bandpass'] = RubinBandpass(band=kwargs['band'], logger=logger)
         else:
