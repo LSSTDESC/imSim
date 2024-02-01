@@ -130,7 +130,6 @@ def test_sky_gradient():
 
 
 if __name__ == "__main__":
-    test_sky_model()
-    # testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
-    # for testfn in testfns:
-    #     testfn()
+    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    for testfn in testfns:
+        testfn()
