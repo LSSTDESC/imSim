@@ -678,7 +678,6 @@ class LSST_SiliconBuilder(StampBuilder):
             gal = gal.evaluateAtWavelength(profile_wl)
             gal = gal * self._trivial_sed
         else:
-            # TODO: should this be bandpass or initial_flux_bandpass?
             self._fix_seds(gal, bandpass, logger)
 
         # Normally, wcs is provided as an argument, rather than setting it directly here.
