@@ -133,7 +133,12 @@ image:
 
     det_name: "$det_name"
 
-    bandpass: { type: RubinBandpass, band: "$band" }
+    bandpass:
+        type: RubinBandpass
+        band: $band
+        # You can optionally add an airmass here to incorporate into the bandpass.  If you leave
+        # this out, then the fiducial bandpass with airmass = 1.2 will be used.
+        airmass: { type: OpsimData, field: airmass }
 
     wcs:
         type: Batoid

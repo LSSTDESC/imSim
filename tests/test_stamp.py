@@ -476,12 +476,17 @@ def test_stamp_bandpass_airmass():
         stamp.photon_ops: ""
         """)
 
-    def get_fluxes(airmass):
+    def get_fluxes(airmass, instrument_name, det_name):
         print(f"{airmass = }")
+        print(f"{instrument_name = }")
+        print(f"{det_name = }")
+        this_config_str = "" + config_str  # Make a copy
         if airmass is not None:
-            this_config_str = config_str + f"image.bandpass.airmass: {airmass}\n"
-        else:
-            this_config_str = config_str
+            this_config_str += f"image.bandpass.airmass: {airmass}\n"
+        if instrument_name is not None:
+            this_config_str += f"image.bandpass.instrument_name: {instrument_name}\n"
+            this_config_str += f"image.bandpass.det_name: {det_name}\n"
+
         config = yaml.safe_load(this_config_str)
         # If tests aren't run from test directory, need this:
         config['input.sky_catalog.file_name'] = str(DATA_DIR / "sky_cat_9683.yaml")
@@ -525,20 +530,22 @@ def test_stamp_bandpass_airmass():
         print("\n"*3)
         return np.array(ref_fluxes), np.array(realized_fluxes)
 
-    ref_X_None, realized_X_None = get_fluxes(None)
-    ref_X10, realized_X10 = get_fluxes(1.0)
-    ref_X12, realized_X12 = get_fluxes(1.2)
-    ref_X20, realized_X20 = get_fluxes(2.0)
-    ref_X35, realized_X35 = get_fluxes(3.5)
+    ref_QE, realized_QE = get_fluxes(None, 'comCamSim', 'R22_S11')
+    ref_X_None, realized_X_None = get_fluxes(None, None, None)
+    ref_X10, realized_X10 = get_fluxes(1.0, None, None)
+    ref_X12, realized_X12 = get_fluxes(1.2, None, None)
+    ref_X20, realized_X20 = get_fluxes(2.0, None, None)
+    ref_X35, realized_X35 = get_fluxes(3.5, None, None)
 
     # Reference bandpass is close to (but not exactly equal to) the X=1.2 bandpass.
     np.testing.assert_allclose(ref_X_None, ref_X12, rtol=1e-3, atol=0)
     np.testing.assert_allclose(ref_X_None, ref_X12, rtol=1e-3, atol=0)
 
     # Predict realized_X from realized_X_None and the ratio of ref_X_None to ref_X.
-    for ref_X, realized_X in zip(
-        [ref_X10, ref_X12, ref_X20, ref_X35],
-        [realized_X10, realized_X12, realized_X20, realized_X35]
+    for ref_X, realized_X, rtol in zip(
+        [ref_X10, ref_X12, ref_X20, ref_X35, ref_QE],
+        [realized_X10, realized_X12, realized_X20, realized_X35, realized_QE],
+        [1e-3, 1e-3, 3e-3, 1e-2, 3e-2]
     ):
         with np.printoptions(formatter={'float': '{: 15.3f}'.format}, linewidth=100):
             predict = realized_X_None * (ref_X/ref_X_None)
@@ -553,7 +560,7 @@ def test_stamp_bandpass_airmass():
             print()
             # But we actually deliver much better than the Poisson level since the
             # rngs align.
-            np.testing.assert_allclose(realized_X, predict, rtol=1e-2)
+            np.testing.assert_allclose(realized_X, predict, rtol=rtol)
 
 
 if __name__ == "__main__":
