@@ -462,15 +462,12 @@ def test_stamp_bandpass_airmass():
         input.atm_psf.screen_size: 40.96
         input.checkpoint: ""
         input.sky_catalog.file_name: data/sky_cat_9683.yaml
-        input.sky_catalog.obj_types: [galaxy]
-        input.sky_catalog.band: z
         input.opsim_data.file_name: data/small_opsim_9683.db
         input.opsim_data.visit: 449053
         input.tree_rings.only_dets: [R22_S11]
         image.random_seed: 42
         output.det_num.first: 94
         eval_variables.sdet_name: R22_S11
-        eval_variables.sband: z
         image.sensor: ""
         psf.items.0:
             type: Kolmogorov
@@ -478,65 +475,25 @@ def test_stamp_bandpass_airmass():
         stamp.diffraction_fft: ""
         stamp.photon_ops: ""
         """)
-    # Compute image flux vs calculated flux ratio first.  Accounts for vignetting.
-    ref_fluxes = []
-    image_fluxes = []
 
-    config = yaml.safe_load(config_str)
-    # If tests aren't run from test directory, need this:
-    config['input.sky_catalog.file_name'] = str(DATA_DIR / "sky_cat_9683.yaml")
-    config['input.opsim_data.file_name'] = str(DATA_DIR / "small_opsim_9683.db")
-    os.environ['SIMS_SED_LIBRARY_DIR'] = str(DATA_DIR / "test_sed_library")
-
-    galsim.config.ProcessAllTemplates(config)
-
-    # Run through some setup things that BuildImage normally does for us.
-    logger = galsim.config.LoggerWrapper(None)
-    builder = galsim.config.valid_image_types['LSST_Image']
-
-    galsim.config.ProcessInput(config, logger)
-    galsim.config.SetupConfigImageNum(config, 0, 0, logger)
-    xsize, ysize = builder.setup(
-        config['image'], config, 0, 0, galsim.config.image_ignore, logger
-    )
-    galsim.config.SetupConfigImageSize(config, xsize, ysize, logger)
-    galsim.config.SetupInputsForImage(config, logger)
-    galsim.config.SetupExtraOutputsForImage(config, logger)
-    config['bandpass'] = builder.buildBandpass(config['image'], config, 0, 0, logger)
-    config['sensor'] = builder.buildSensor(config['image'], config, 0, 0, logger)
-
-    nobj = builder.getNObj(config['image'], config, 0)
-
-    # 5. Extremely bright star.  Uses fft.
-    obj_num = 2697
-    image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    gal = galsim.config.BuildGSObject(config, 'gal', logger=logger)[0]
-    ref_fluxes.append(gal.sed.calculateFlux(config['bandpass']))
-    image_fluxes.append(image.array.sum())
-
-    # 9. Bright, big galaxy
-    obj_num = 75
-    image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    gal = galsim.config.BuildGSObject(config, 'gal', logger=logger)[0]
-    ref_fluxes.append(gal.sed.calculateFlux(config['bandpass']))
-    image_fluxes.append(image.array.sum())
-
-    ratios = np.array(image_fluxes) / np.array(ref_fluxes)
-    ratio = np.mean(ratios)
-
-
-    # Now loop through a few airmasses and check that delivered image fluxes match
-    # the calculated fluxes, scaled by the ratio.
-    for airmass in [1.5, 2.5, 3.5]:
-        this_config_str = config_str + f"image.bandpass.airmass: {airmass}\n"
-        # This is basically imsim-config-skycat, but a few adjustments for speed.
+    def get_fluxes(airmass):
+        print(f"{airmass = }")
+        if airmass is not None:
+            this_config_str = config_str + f"image.bandpass.airmass: {airmass}\n"
+        else:
+            this_config_str = config_str
         config = yaml.safe_load(this_config_str)
+        # If tests aren't run from test directory, need this:
         config['input.sky_catalog.file_name'] = str(DATA_DIR / "sky_cat_9683.yaml")
         config['input.opsim_data.file_name'] = str(DATA_DIR / "small_opsim_9683.db")
         os.environ['SIMS_SED_LIBRARY_DIR'] = str(DATA_DIR / "test_sed_library")
+
         galsim.config.ProcessAllTemplates(config)
+
+        # Run through some setup things that BuildImage normally does for us.
         logger = galsim.config.LoggerWrapper(None)
         builder = galsim.config.valid_image_types['LSST_Image']
+
         galsim.config.ProcessInput(config, logger)
         galsim.config.SetupConfigImageNum(config, 0, 0, logger)
         xsize, ysize = builder.setup(
@@ -547,26 +504,56 @@ def test_stamp_bandpass_airmass():
         galsim.config.SetupExtraOutputsForImage(config, logger)
         config['bandpass'] = builder.buildBandpass(config['image'], config, 0, 0, logger)
         config['sensor'] = builder.buildSensor(config['image'], config, 0, 0, logger)
+
         nobj = builder.getNObj(config['image'], config, 0)
 
-        # 9. Bright, big galaxy
-        obj_num = 75
-        image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-        gal = galsim.config.BuildGSObject(config, 'gal', logger=logger)[0]
-        ref_flux = gal.sed.calculateFlux(config['bandpass'])
-        image_flux = image.array.sum()
+        ref_fluxes = []
+        realized_fluxes = []
+        for obj_num in [75, 2697, 2619, 2699, 2538]:  # bright, big galaxy, extremely bright star
+            print(f"{obj_num = }")
+            image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
+            realized_flux = config['realized_flux']
+            print(f"{realized_flux = }")
+            gal = galsim.config.BuildGSObject(config, 'gal', logger=logger)[0]
+            ref_flux = gal.sed.calculateFlux(config['bandpass'])
+            print(f"{ref_flux = }")
+            print()
 
-        print(obj_num, airmass, ref_flux, image_flux*ratio, ref_flux - image_flux*ratio)
-        np.testing.assert_allclose(image_flux, ref_flux*ratio, rtol=2e-3)
+            ref_fluxes.append(ref_flux)
+            realized_fluxes.append(realized_flux)
 
-        # 5. Extremely bright star.  Uses fft.
-        obj_num = 2697
-        image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-        gal = galsim.config.BuildGSObject(config, 'gal', logger=logger)[0]
-        ref_flux = gal.sed.calculateFlux(config['bandpass'])
-        image_flux = image.array.sum()
-        print(obj_num, airmass, ref_flux, image_flux*ratio, ref_flux - image_flux*ratio)
-        np.testing.assert_allclose(image_flux, ref_flux*ratio, rtol=2e-3)
+        print("\n"*3)
+        return np.array(ref_fluxes), np.array(realized_fluxes)
+
+    ref_X_None, realized_X_None = get_fluxes(None)
+    ref_X10, realized_X10 = get_fluxes(1.0)
+    ref_X12, realized_X12 = get_fluxes(1.2)
+    ref_X20, realized_X20 = get_fluxes(2.0)
+    ref_X35, realized_X35 = get_fluxes(3.5)
+
+    # Reference bandpass is close to (but not exactly equal to) the X=1.2 bandpass.
+    np.testing.assert_allclose(ref_X_None, ref_X12, rtol=1e-3, atol=0)
+    np.testing.assert_allclose(ref_X_None, ref_X12, rtol=1e-3, atol=0)
+
+    # Predict realized_X from realized_X_None and the ratio of ref_X_None to ref_X.
+    for ref_X, realized_X in zip(
+        [ref_X10, ref_X12, ref_X20, ref_X35],
+        [realized_X10, realized_X12, realized_X20, realized_X35]
+    ):
+        with np.printoptions(formatter={'float': '{: 15.3f}'.format}, linewidth=100):
+            predict = realized_X_None * (ref_X/ref_X_None)
+            print("delivered:     ", realized_X)
+            print("expected:      ", predict)
+            print("diff:          ", realized_X - predict)
+            print("diff/expected: ", (realized_X - predict)/predict)
+            # ought to be within the Poisson level.
+            err = np.sqrt(ref_X_None + ref_X)
+            print("Poisson err:   ", err)
+            print()
+            print()
+            # But we actually deliver much better than the Poisson level since the
+            # rngs align.
+            np.testing.assert_allclose(realized_X, predict, rtol=1e-2)
 
 
 if __name__ == "__main__":
