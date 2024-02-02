@@ -699,10 +699,7 @@ class LSST_SiliconBuilder(StampBuilder):
             # print(f"{self.nominal_flux =                             }")
             # print(f"{self.fft_flux =                                 }")
             if self.fft_flux != self.nominal_flux:
-                if self.do_reweight:
-                    gal = gal.withFlux(self.fft_flux, self.fiducial_bandpass)
-                else:
-                    gal = gal.withFlux(self.fft_flux, bandpass)
+                gal = gal.withFlux(self.fft_flux, initial_flux_bandpass)
             # print(f"{gal.sed.calculateFlux(bandpass) =               }")
             # print(f"{gal.sed.calculateFlux(self.fiducial_bandpass) = }")
 
