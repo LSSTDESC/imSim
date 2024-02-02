@@ -208,10 +208,7 @@ class RubinBandpassBuilder(galsim.config.BandpassBuilder):
         bp = RubinBandpass(**kwargs)
 
         # Also, store the kwargs=None version in the base config.
-        if 'airmass' in kwargs:
-            base['fiducial_bandpass'] = RubinBandpass(band=kwargs['band'], logger=logger)
-        else:
-            base['fiducial_bandpass'] = bp
+        base['fiducial_bandpass'] = RubinBandpass(band=kwargs['band'], logger=logger)
         logger.debug('bandpass = %s', bp)
         return bp, safe
 
