@@ -1,4 +1,5 @@
 import numpy as np
+import hashlib
 import logging
 import galsim
 from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
@@ -293,11 +294,15 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             camera = get_camera(self.camera_name)
             det_name = base['det_name']
             serial_number = camera[det_name].getSerial()
+            # Note: the regular Python hash function is non-derterministic, which is not good.
+            # Instead we use hashlib.sha256, which is deterministic and convert that to an integer.
+            # https://stackoverflow.com/questions/27954892/deterministic-hashing-in-python-3
+            seed = int(hashlib.sha256(serial_number.encode('UTF-8')).hexdigest(), 16) & 0xFFFFFFFF
             # Only apply fringing to e2v sensors.
             if serial_number[:3] == 'E2V':
                 ccd_fringing = CCD_Fringing(true_center=image.wcs.toWorld(image.true_center),
                                             boresight=self.boresight,
-                                            seed=hash(serial_number), spatial_vary=True)
+                                            seed=seed, spatial_vary=True)
                 ny, nx = sky.array.shape
                 xarr, yarr = np.meshgrid(range(nx), range(ny))
                 logger.info("Apply fringing")
