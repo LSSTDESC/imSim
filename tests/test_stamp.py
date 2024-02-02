@@ -539,7 +539,7 @@ def test_stamp_bandpass_airmass():
         print("\n"*3)
         return np.array(ref_fluxes), np.array(realized_fluxes)
 
-    ref_QE, realized_QE = get_fluxes(None, 'LsstComCam', 'R22_S11')
+    ref_QE, realized_QE = get_fluxes(None, 'LsstCam', 'R22_S11')
     ref_X_None, realized_X_None = get_fluxes(None, None, None)
     ref_X10, realized_X10 = get_fluxes(1.0, None, None)
     ref_X12, realized_X12 = get_fluxes(1.2, None, None)
