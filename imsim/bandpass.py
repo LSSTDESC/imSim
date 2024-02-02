@@ -13,6 +13,14 @@ class AtmInterpolator:
     Linear interpolation of log(transmission) independently for every wavelength
     does a good job.  Extrapolation is done by assuming a constant slope in
     log(transmission).
+
+    Parameters
+    ----------
+    Xs : `np.array`
+        Airmass values at which the transmission curves are tabulated.
+    arr : `np.array`
+        Transmission curves at the airmass values.  First index is the airmass,
+        second index is the wavelength.
     """
     def __init__(self, Xs, arr):
         self.Xs = Xs
@@ -25,6 +33,16 @@ class AtmInterpolator:
 
     def __call__(self, X):
         """ Evaluate atmospheric transmission curve at airmass X.
+
+        Parameters
+        ----------
+        X : `float`
+            Airmass at which to evaluate the transmission curve.
+
+        Returns
+        -------
+        out : `np.array`
+            Transmission curve at the requested airmass.
         """
         assert X >= 1.0
         idx = np.searchsorted(self.Xs, X, side='right')
