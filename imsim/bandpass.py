@@ -100,7 +100,7 @@ def RubinBandpass(
         file_name = tp_path / "baseline" / f"total_{band}.dat"
         if not file_name.is_file():
             logger = galsim.config.LoggerWrapper(logger)
-            logger.warning("Warning: Using the old bandpass files from GalSim, not lsst.sims")
+            logger.warning("Warning: Using the old bandpass files from GalSim, not rubin_sim")
             file_name = f"LSST_{band}.dat"
         bp = galsim.Bandpass(str(file_name), wave_type='nm')
     else:
