@@ -294,7 +294,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             camera = get_camera(self.camera_name)
             det_name = base['det_name']
             serial_number = camera[det_name].getSerial()
-            # Note: the regular Python hash function is non-derterministic, which is not good.
+            # Note: the regular Python hash function is non-deterministic, which is not good.
             # Instead we use hashlib.sha256, which is deterministic and convert that to an integer.
             # https://stackoverflow.com/questions/27954892/deterministic-hashing-in-python-3
             seed = int(hashlib.sha256(serial_number.encode('UTF-8')).hexdigest(), 16) & 0xFFFFFFFF
