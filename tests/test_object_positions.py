@@ -52,6 +52,10 @@ def run_imsim(camera, nfiles=None):
               'output.truth.file_name.format': 'centroid_%08d-%1d-%s-%s-det%03d.txt',
             }
 
+    # Override until LsstCamImSim exists in obs_lsst_data
+    if camera == 'LsstCamImSim':
+        config['image.bandpass.camera'] = 'LsstCam'
+
     galsim.config.Process(config, logger=logger)
     return config
 

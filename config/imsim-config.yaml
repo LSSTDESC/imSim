@@ -139,6 +139,8 @@ image:
         # You can optionally add an airmass here to incorporate into the bandpass.  If you leave
         # this out, then the fiducial bandpass with airmass = 1.2 will be used.
         airmass: { type: OpsimData, field: airmass }
+        camera: "@output.camera"
+        det_name: $det_name
 
     wcs:
         type: Batoid
