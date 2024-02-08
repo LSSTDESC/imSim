@@ -474,7 +474,7 @@ def make_photon_batches(config, base, logger, phot_objects: list[StellarObject],
         return []
     batches = [
         [dataclasses.replace(obj, phot_flux=obj.phot_flux / nbatch) for obj in phot_objects]
-    ] * nbatch
+    for _ in range(nbatch)]
     rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
     ud = galsim.UniformDeviate(rng)
     # Shuffle faint objects into the batches randomly:
@@ -521,7 +521,7 @@ def load_objects(obj_numbers, config, base, logger):
         galsim.config.SetupConfigObjNum(base, obj_num, logger)
         obj = build_obj(stamp, base, logger)
         if obj is not None:
-            yield build_obj(stamp, base, logger)
+            yield obj
 
 def create_full_image(config, base):
     if galsim.__version_info__ < (2,5):

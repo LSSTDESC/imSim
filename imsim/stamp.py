@@ -456,6 +456,9 @@ class LSST_SiliconBuilder(StampBuilderBase):
 
         if self.nominal_flux < 1.e6 or not fft_sb_thresh or self.nominal_flux < fft_sb_thresh:
             self.use_fft = False
+            logger.info('Use photon shooting for object %d. '
+                        'nominal flux = %.0f, FFT threshold %.0f',
+                        base.get('obj_num'), self.nominal_flux, fft_sb_thresh)
             return psf
 
         dm_detector = None if not hasattr(self, 'det') else self.det
