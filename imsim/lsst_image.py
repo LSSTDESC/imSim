@@ -46,7 +46,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
                  'apply_sky_gradient': bool, 'apply_fringing': bool,
                  'boresight': galsim.CelestialCoord, 'camera': str, 'nbatch': int,
-                 'checkpoint_sampling_factor': int}
+                 'nbatch_per_checkpoint': int}
         params = GetAllParams(config, base, req=req, opt=opt, ignore=ignore+extra_ignore)[0]
 
         # Let the user override the image size
@@ -87,7 +87,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
             self.nbatch = params.get('nbatch', 100)
-            self.checkpoint_sampling_factor = params.get('checkpoint_sampling_factor', 10)
+            self.nbatch_per_checkpoint = params.get('nbatch_per_checkpoint', 1)
         except galsim.config.GalSimConfigError:
             self.checkpoint = None
             # Batching is also useful for memory reasons, to limit the number of stamps held
@@ -231,7 +231,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                         base.get('extra_builder',None))
                 logger.warning('File %d: Completed batch %d with objects [%d, %d)',
                                base.get('file_num', 0), batch+1, start_obj_num, end_obj_num)
-                if (batch % self.checkpoint_sampling_factor == 0
+                if (batch % self.nbatch_per_checkpoint == 0
                     or batch + 1 == nbatch):
                     self.checkpoint.save(chk_name, data)
                     logger.warning('Wrote checkpoint data to %s', self.checkpoint.file_name)

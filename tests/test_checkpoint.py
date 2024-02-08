@@ -214,9 +214,9 @@ def test_checkpoint_image():
     np.testing.assert_array_equal(centroid5, centroid2)
 
 
-def test_checkpoint_output_sampling():
+def test_nbatch_per_checkpoint():
     """Test that the final checkpoint files written with two different values
-    of checkpoint_sampling_factor, both not factors of nbatch, produce the same
+    of nbatch_per_checkpoint, both not factors of nbatch, produce the same
     checkpoint output."""
     wcs = galsim.PixelScale(0.2)
     config = {
@@ -251,7 +251,7 @@ def test_checkpoint_output_sampling():
     if os.path.exists(checkpoint_0):
         os.remove(checkpoint_0)
     config['image_num'] = 0
-    config['image']['checkpoint_sampling_factor'] = 11
+    config['image']['nbatch_per_checkpoint'] = 11
     galsim.config.ProcessInput(config)
     image0 = galsim.config.BuildImage(config)
     with open(checkpoint_0, 'rb') as fobj:
@@ -261,7 +261,7 @@ def test_checkpoint_output_sampling():
     if os.path.exists(checkpoint_1):
         os.remove(checkpoint_1)
     config['image_num'] = 1
-    config['image']['checkpoint_sampling_factor'] = 13
+    config['image']['nbatch_per_checkpoint'] = 13
     galsim.config.ProcessInput(config)
     image1 = galsim.config.BuildImage(config)
     with open(checkpoint_1, 'rb') as fobj:
