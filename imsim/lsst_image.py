@@ -400,11 +400,11 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 self.nbatch,
             )
             phot_batches = phot_batches[photon_batch_num:]
-        base["image_pos"].x = full_image.center.x
-        base["image_pos"].y = full_image.center.y
         photon_ops_cfg = {"photon_ops": base.get("stamp", {}).get("photon_ops", [])}
         photon_ops = galsim.config.BuildPhotonOps(photon_ops_cfg, 'photon_ops', base, logger)
-        local_wcs = base["wcs"].local(galsim.position._PositionD(0., 0.))
+        local_wcs = base["wcs"].local(galsim.position._PositionD(0., 0.)).shiftOrigin(galsim.position._PositionD(-0.5, -0.5))
+        base["image_pos"].x = full_image.center.x
+        base["image_pos"].y = full_image.center.y
         for batch_num, batch in enumerate(phot_batches, start=photon_batch_num):
             if not batch:
                 continue
@@ -437,6 +437,8 @@ def accumulate_photons(photons, image, sensor, center):
     imview = image._view()
     imview._shift(-center)  # equiv. to setCenter(), but faster
     imview.wcs = PixelScale(1.0)
+    photons.x -= 0.5
+    photons.y -= 0.5
     if imview.dtype in (np.float32, np.float64):
         sensor.accumulate(photons, imview, imview.center)
     else:
@@ -472,8 +474,9 @@ def build_stamps(base, logger, objects: list[StellarObject], stamp_type: str):
 def make_photon_batches(config, base, logger, phot_objects: list[StellarObject], faint_objects: list[StellarObject], nbatch: int):
     if not phot_objects and not faint_objects:
         return []
+    # Each batch is a copy of the original list of objects at 1/nbatch the original flux.
     batches = [
-        [dataclasses.replace(obj, phot_flux=obj.phot_flux / nbatch) for obj in phot_objects]
+        [dataclasses.replace(obj, phot_flux=np.floor(obj.phot_flux / nbatch)) for obj in phot_objects]
     for _ in range(nbatch)]
     rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
     ud = galsim.UniformDeviate(rng)
@@ -481,7 +484,6 @@ def make_photon_batches(config, base, logger, phot_objects: list[StellarObject],
     for obj in faint_objects:
         batch_index = int(ud() * nbatch)
         batches[batch_index].append(obj)
-
     return batches
 
 def stamp_bounds(stamp, full_image_bounds):

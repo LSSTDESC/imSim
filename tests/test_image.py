@@ -50,13 +50,14 @@ def DeltaFunctionSequence(config, base, ignore, gsparams, logger):
 galsim.config.RegisterObjectType('DeltaFunctions', DeltaFunctionSequence, input_type='instance_catalog')
 
 
-def assert_objects_at_positions(image, expected_positions, expected_brightnes_values, pixel_radius=10, rtol=0.1):
-    """Sum the brightnes values of squares of side length `2*pixel_radius` centered at `expected_positions` and compare against `expected_brightnes_values`."""
-    brightnes_values = np.empty_like(expected_brightnes_values)
+def assert_objects_at_positions(image, expected_positions, expected_brightness_values, pixel_radius=10, rtol=0.1):
+    """Sum the brightness values of squares of side length `2*pixel_radius` centered at `expected_positions` and compare against `expected_brightness_values`."""
+    brightness_values = np.empty_like(expected_brightness_values)
     for i, (col, row) in enumerate(expected_positions):
         neighbourhood = image[row-pixel_radius:row+pixel_radius, col-pixel_radius:col+pixel_radius]
-        brightnes_values[i] = np.sum(neighbourhood)
-    np.testing.assert_allclose(brightnes_values, expected_brightnes_values, rtol=rtol)
+        brightness_values[i] = np.sum(neighbourhood)
+        print("Object: ", i, expected_brightness_values[i], brightness_values[i])
+    np.testing.assert_allclose(brightness_values, expected_brightness_values, rtol=rtol)
 
 
 def create_test_config(
@@ -122,7 +123,7 @@ def create_test_config(
         "wcs": wcs,
         "image": {
             "type": "LSST_PhotonPoolingImage",
-#            "type": "LSST_Image",
+            # "type": "LSST_Image",
             "det_name": "R22_S11",
             "wcs": wcs,
             "random_seed": 12345,
@@ -148,7 +149,7 @@ def create_test_config(
             "photon_ops": [
                 {"type": "TimeSampler", "t0": 0.0, "exptime": exptime},
                 {"type": "PupilAnnulusSampler", "R_outer": 4.18, "R_inner": 2.55},
-#                {"type": "Shift"},
+                # {"type": "Shift"},
                 {
                     **optics_args,
                     "boresight": boresight,
@@ -175,7 +176,7 @@ def test_lsst_image_batches_photons():
         [image] = galsim.config.BuildImages(n_images, config, logger=logger)
     image.write("/tmp/tiny_instcat.fits")
     fft_obj_indices = {n for n in range(n_expected_objects) if any(f"Yes. Use FFT for object {n}." in msg for msg in logger.messages)}
-    phot_obj_indices = {n for n in range(n_expected_objects) if any(f"No. Use photon shooting for object {n}." in msg for msg in logger.messages)}
+    phot_obj_indices = {n for n in range(n_expected_objects) if any(f"Use photon shooting for object {n}." in msg for msg in logger.messages)}
     assert fft_obj_indices == expected_fft_obj_indices
     assert phot_obj_indices == all_obj_indices - expected_fft_obj_indices
 
@@ -203,7 +204,7 @@ def test_lsst_image_batches_photons():
         [3482, 3339],
         [3452, 3751],
     ])
-    expected_brightnes_values = np.array([
+    expected_brightness_values = np.array([
         1.974843e+06,
         4.325211e+06,
         0.0,
@@ -225,7 +226,7 @@ def test_lsst_image_batches_photons():
         1.965050e+05,
         4.000000e+01,
     ])
-    assert_objects_at_positions(image.array, expected_positions, expected_brightnes_values)
+    assert_objects_at_positions(image.array, expected_positions, expected_brightness_values)
 
 
 
