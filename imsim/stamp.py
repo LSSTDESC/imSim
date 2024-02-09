@@ -133,9 +133,6 @@ class LSST_SiliconBuilder(StampBuilder):
         else:
             gal.flux = gal.calculateFlux(bandpass)
             self.do_reweight = False
-        # print(f"{gal.flux =                                  }")
-        # print(f"{gal.calculateFlux(bandpass) =               }")
-        # print(f"{gal.calculateFlux(self.fiducial_bandpass) = }")
         self.nominal_flux = gal.flux
 
         # For photon shooting rendering, precompute the realization of the Poisson variate.
@@ -694,14 +691,8 @@ class LSST_SiliconBuilder(StampBuilder):
             maxN = galsim.config.ParseValue(config, 'maxN', base, int)[0]
 
         if method == 'fft':
-            # print(f"{gal.sed.calculateFlux(bandpass) =               }")
-            # print(f"{gal.sed.calculateFlux(self.fiducial_bandpass) = }")
-            # print(f"{self.nominal_flux =                             }")
-            # print(f"{self.fft_flux =                                 }")
             if self.fft_flux != self.nominal_flux:
                 gal = gal.withFlux(self.fft_flux, initial_flux_bandpass)
-            # print(f"{gal.sed.calculateFlux(bandpass) =               }")
-            # print(f"{gal.sed.calculateFlux(self.fiducial_bandpass) = }")
 
             fft_image = image.copy()
             fft_offset = offset
@@ -743,8 +734,6 @@ class LSST_SiliconBuilder(StampBuilder):
             # In case we had to make a bigger image, just copy the part we need.
             image += fft_image[image.bounds]
             base['realized_flux'] = fft_image.added_flux
-            # print(f"{fft_image.added_flux =                          }")
-            # print(f"{fft_image.array.sum() =                         }")
 
         else:
             # For photon shooting, use the poisson-realization of the flux
