@@ -86,7 +86,7 @@ def RubinBandpass(
     logger : logging.Logger
         If provided, a logger for logging debug statements.
     """
-    if sum([camera is not None, det_name is not None]) == 1:
+    if (camera is None) != (det_name is None):
         raise ValueError("Must provide both camera and det_name if using one.")
     match camera:
         case 'LsstCam':
