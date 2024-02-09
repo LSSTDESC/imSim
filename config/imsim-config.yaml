@@ -104,9 +104,10 @@ input:
         dir: checkpoint
         file_name:
           type: FormattedStr
-          format : checkpoint_%08d-%s.hdf
+          format : checkpoint_%08d-%s-%s.hdf
           items:
               - { type: OpsimData, field: observationId }
+              - "$band"
               - "$det_name"
 
     vignetting:
