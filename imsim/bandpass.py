@@ -126,7 +126,12 @@ def RubinBandpass(
         )
 
         if camera is not None:
-            old_path = Path(os.getenv("OBS_LSST_DATA_DIR"))
+            try:
+                old_path = Path(os.getenv("OBS_LSST_DATA_DIR"))
+            except TypeError:
+                raise ValueError(
+                    "Unable to find OBS_LSST_DATA; required if using camera or det_name for bandpass."
+                )
             old_path = old_path / camera / "transmission_sensor" / det_name.lower()
             det_files = list(old_path.glob("*.ecsv"))
             if len(det_files) != 1:
