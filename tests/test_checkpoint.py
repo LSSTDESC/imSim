@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import numpy as np
+import hashlib
 import logging
 import galsim
 import time
@@ -211,6 +212,62 @@ def test_checkpoint_image():
     centroid5 = fitsio.read('output/test_checkpoint_centroid_0.fits')
     assert image5 == image2
     np.testing.assert_array_equal(centroid5, centroid2)
+
+
+def test_nbatch_per_checkpoint():
+    """Test that the final checkpoint files written with two different values
+    of nbatch_per_checkpoint, both not factors of nbatch, produce the same
+    checkpoint output."""
+    wcs = galsim.PixelScale(0.2)
+    config = {
+        'input': {
+            'checkpoint': {
+                'dir': 'output',
+                'file_name': '$"checkpoint_%d.hdf"%image_num',
+            },
+        },
+        'gal': {
+            'type': 'Exponential',
+            'half_light_radius': {'type': 'Random', 'min': 0.3, 'max': 1.2},
+            'ellip': {
+                'type': 'EBeta',
+                'e': {'type': 'Random', 'min': 0.0, 'max': 0.3},
+                'beta': {'type': 'Random'},
+            }
+        },
+        'image': {
+            'type': 'LSST_Image',
+            'det_name': 'R22_S11',
+            'xsize': 2048,
+            'ysize': 2048,
+            'wcs': wcs,
+            'random_seed': 12345,
+            'nobjects': 500,
+            'nbatch': 100,
+        },
+    }
+
+    checkpoint_0 = 'output/checkpoint_0.hdf'
+    if os.path.exists(checkpoint_0):
+        os.remove(checkpoint_0)
+    config['image_num'] = 0
+    config['image']['nbatch_per_checkpoint'] = 11
+    galsim.config.ProcessInput(config)
+    image0 = galsim.config.BuildImage(config)
+    with open(checkpoint_0, 'rb') as fobj:
+        md5_0 = hashlib.md5(fobj.read()).hexdigest()
+
+    checkpoint_1 = 'output/checkpoint_1.hdf'
+    if os.path.exists(checkpoint_1):
+        os.remove(checkpoint_1)
+    config['image_num'] = 1
+    config['image']['nbatch_per_checkpoint'] = 13
+    galsim.config.ProcessInput(config)
+    image1 = galsim.config.BuildImage(config)
+    with open(checkpoint_1, 'rb') as fobj:
+        md5_1 = hashlib.md5(fobj.read()).hexdigest()
+
+    assert md5_0 == md5_1
 
 
 def test_checkpoint_flatten():

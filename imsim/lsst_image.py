@@ -45,7 +45,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         req = { 'det_name': str }
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
                  'apply_sky_gradient': bool, 'apply_fringing': bool,
-                 'boresight': galsim.CelestialCoord, 'camera': str, 'nbatch': int}
+                 'boresight': galsim.CelestialCoord, 'camera': str, 'nbatch': int,
+                 'nbatch_per_checkpoint': int}
         params = GetAllParams(config, base, req=req, opt=opt, ignore=ignore+extra_ignore)[0]
 
         # Let the user override the image size
@@ -86,6 +87,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
             self.nbatch = params.get('nbatch', 100)
+            self.nbatch_per_checkpoint = params.get('nbatch_per_checkpoint', 1)
         except galsim.config.GalSimConfigError:
             self.checkpoint = None
             # Batching is also useful for memory reasons, to limit the number of stamps held
@@ -149,7 +151,8 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
             chk_name = 'buildImage_%s'%(self.det_name)
             saved = self.checkpoint.load(chk_name)
             if saved is not None:
-                full_image, all_bounds, all_vars, start_num, extra_builder = saved
+                full_image, all_bounds, all_vars, delta_start_num, extra_builder = saved
+                start_num = delta_start_num + base.get('start_obj_num', 0)
                 if extra_builder is not None:
                     base['extra_builder'] = extra_builder
                 all_stamps = [galsim._Image(np.array([]), b, full_image.wcs) for b in all_bounds]
@@ -223,13 +226,15 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                 # Don't save the full stamps.  All we need for FlattenNoiseVariance is the bounds.
                 # Everything else about the stamps has already been handled above.
                 all_bounds = [stamp.bounds for stamp in all_stamps]
-                data = (full_image, all_bounds, all_vars, end_obj_num,
+                delta_end_obj_num = end_obj_num - base.get('start_obj_num', 0)
+                data = (full_image, all_bounds, all_vars, delta_end_obj_num,
                         base.get('extra_builder',None))
-                self.checkpoint.save(chk_name, data)
-                logger.warning('File %d: Completed batch %d with objects [%d, %d), and wrote '
-                               'checkpoint data to %s',
-                               base.get('file_num', 0), batch+1, start_obj_num, end_obj_num,
-                               self.checkpoint.file_name)
+                logger.warning('File %d: Completed batch %d with objects [%d, %d)',
+                               base.get('file_num', 0), batch+1, start_obj_num, end_obj_num)
+                if (batch % self.nbatch_per_checkpoint == 0
+                    or batch + 1 == nbatch):
+                    self.checkpoint.save(chk_name, data)
+                    logger.warning('Wrote checkpoint data to %s', self.checkpoint.file_name)
 
         # Bring the image so far up to a flat noise variance
         current_var = galsim.config.FlattenNoiseVariance(
