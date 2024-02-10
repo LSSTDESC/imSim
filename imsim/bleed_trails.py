@@ -144,7 +144,7 @@ class BleedCharge:
             # Off the bottom end, the charge escapes into the electronics.
             # We can reduce the excess charge by one full-well-worth.
             # These electrons are not added to any pixel though.
-            self.excess_charge -= self.full_well
+            self.excess_charge -= min(self.full_well, self.excess_charge)
         else:
             # Electrons do not escape off the top end, so excess charge is not reduced
             # when trying to bleed past the end of the channel.

@@ -2,6 +2,8 @@
 Unit tests for bleed trail implementation.
 """
 import unittest
+from pathlib import Path
+import pickle
 import numpy as np
 import galsim
 import imsim
@@ -63,6 +65,17 @@ class BleedTrailTestCase(unittest.TestCase):
 
         # Check that bleed trail is centered on original star.
         self.assertLessEqual(np.abs(star_center - (nmin + nmax)/2), 1)
+
+    def test_bleed_channel_no_negative_pixels(self):
+        """This is a reproducer for a case found from running the
+        code for ComCam simulations."""
+        # Read in the channel data and full well used.
+        DATA_DIR = Path(__file__).parent / 'data'
+        neg_pixel_data = str(DATA_DIR / 'neg_pixel_bleed.pickle')
+        with open(neg_pixel_data, "rb") as fobj:
+            channel_data, full_well = pickle.load(fobj)
+        bled_channel = imsim.bleed_channel(channel_data, full_well)
+        self.assertTrue(all(bled_channel > 0))
 
     def test_find_channels_with_saturation(self):
         """

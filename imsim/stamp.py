@@ -303,7 +303,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 else:
                     obj_list.append(item)
             obj = galsim.Add(obj_list)
-        elif isinstance(obj.original, galsim.RandomKnots):
+        elif hasattr(obj, 'original') and isinstance(obj.original, galsim.RandomKnots):
             # Handle RandomKnots object directly
             obj = obj.original._profile
 
