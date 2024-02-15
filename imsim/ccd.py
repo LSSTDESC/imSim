@@ -177,7 +177,6 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header['SEQNUM'] = seqnum
         image.header['CONTRLLR'] = 'S', 'simulated data'
         image.header['RUNNUM'] = parse('observationId', int, -999)
-        image.header['OBSID'] = f"IM_S_{dayobs}_{seqnum:06d}"
         image.header['IMGTYPE'] = parse('image_type', str, 'SKYEXP')
         image.header['REASON'] = parse('reason', str, 'survey')
         image.header['RATEL'] = ratel

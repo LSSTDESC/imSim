@@ -228,7 +228,6 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
     """
     phdu = fits.PrimaryHDU()
     phdu.header['RUNNUM'] = eimage.header['RUNNUM']
-    phdu.header['OBSID'] = eimage.header['OBSID']
     phdu.header['MJD'] = eimage.header['MJD']
     date = Time(eimage.header['MJD'], format='mjd')
     phdu.header['DATE'] = date.isot
@@ -268,6 +267,7 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         phdu.header['SENSNAME'] = sensor
         phdu.header['RATEL'] = ratel
         phdu.header['DECTEL'] = dectel
+        telcode = 'MC'
     elif camera_name in ('LsstComCam', 'LsstComCamSim') :
         phdu.header['FILTER'] = ComCam_filter_map.get(band, None)
         phdu.header['TELESCOP'] = SIMONYI_TELESCOPE
@@ -281,6 +281,7 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         phdu.header['DEC'] = dectel
         phdu.header['ROTCOORD'] = 'sky'
         phdu.header['ROTPA'] = rotang
+        telcode = 'CC'
     else:
         phdu.header['FILTER'] = LSSTCam_filter_map.get(band, None)
         phdu.header['INSTRUME'] = 'LSSTCam'
@@ -289,6 +290,11 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         phdu.header['RA'] = ratel
         phdu.header['DEC'] = dectel
         phdu.header['ROTCOORD'] = 'sky'
+        telcode = 'MC'
+    dayobs = eimage.header['DAYOBS']
+    seqnum = eimage.header['SEQNUM']
+    contrllr = eimage.header['CONTRLLR']
+    phdu.header['OBSID'] = f"{telcode}_{contrllr}_{dayobs}_{seqnum:06d}"
     phdu.header['MJD-OBS'] = mjd_obs
     phdu.header['HASTART'] = eimage.header['HASTART']
     phdu.header['HAEND'] = eimage.header['HAEND']
