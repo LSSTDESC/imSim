@@ -374,7 +374,7 @@ class DetectorTelescope:
         match camera:
             case 'LsstCam':
                 cameraName = 'LSSTCamera'
-            case 'LsstComCam':
+            case 'LsstComCamSim':
                 cameraName = 'ComCam'
             case _:
                 cameraName = camera

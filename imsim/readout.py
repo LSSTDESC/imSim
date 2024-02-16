@@ -63,7 +63,7 @@ def make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name,
         One of `ugrizy`.
     camera_name : str ['LsstCam']
         Class name of the camera to be simulated.  Valid values are
-        'LsstCam', 'LsstComCam', 'LsstCamImSim', 'LsstComCamSim'.
+        'LsstCam', 'LsstCamImSim', 'LsstComCamSim'.
     logger : logger.Logger [None]
         Logger object.
 
@@ -112,7 +112,7 @@ def compute_rotSkyPos(ra0, dec0, rottelpos, obsmjd, band,
         One of `ugrizy`.
     camera_name : str ['LsstCam']
         Class name of the camera to be simulated.  Valid values are
-        'LsstCam', 'LsstComCam', 'LsstCamImSim', 'LsstComCamSim'.
+        'LsstCam', 'LsstCamImSim', 'LsstComCamSim'.
     dxy : float [100]
         Size (in pixels) of legs of the triangle to use for computing the
         angle between North and the +y direction in the focal plane.
@@ -268,13 +268,10 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         phdu.header['RATEL'] = ratel
         phdu.header['DECTEL'] = dectel
         telcode = 'MC'
-    elif camera_name in ('LsstComCam', 'LsstComCamSim') :
+    elif camera_name == 'LsstComCamSim' :
         phdu.header['FILTER'] = ComCam_filter_map.get(band, None)
         phdu.header['TELESCOP'] = SIMONYI_TELESCOPE
-        if camera_name == 'LsstComCam':
-            phdu.header['INSTRUME'] = 'ComCam'
-        else:
-            phdu.header['INSTRUME'] = 'ComCamSim'
+        phdu.header['INSTRUME'] = 'ComCamSim'
         phdu.header['RAFTBAY'] = raft
         phdu.header['CCDSLOT'] = sensor
         phdu.header['RA'] = ratel
