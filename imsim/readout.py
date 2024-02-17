@@ -63,7 +63,7 @@ def make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name,
         One of `ugrizy`.
     camera_name : str ['LsstCam']
         Class name of the camera to be simulated.  Valid values are
-        'LsstCam', 'LsstComCam', 'LsstCamImSim'.
+        'LsstCam', 'LsstCamImSim', 'LsstComCamSim'.
     logger : logger.Logger [None]
         Logger object.
 
@@ -112,7 +112,7 @@ def compute_rotSkyPos(ra0, dec0, rottelpos, obsmjd, band,
         One of `ugrizy`.
     camera_name : str ['LsstCam']
         Class name of the camera to be simulated.  Valid values are
-        'LsstCam', 'LsstComCam', 'LsstCamImSim'.
+        'LsstCam', 'LsstCamImSim', 'LsstComCamSim'.
     dxy : float [100]
         Size (in pixels) of legs of the triangle to use for computing the
         angle between North and the +y direction in the focal plane.
@@ -228,7 +228,6 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
     """
     phdu = fits.PrimaryHDU()
     phdu.header['RUNNUM'] = eimage.header['RUNNUM']
-    phdu.header['OBSID'] = eimage.header['OBSID']
     phdu.header['MJD'] = eimage.header['MJD']
     date = Time(eimage.header['MJD'], format='mjd')
     phdu.header['DATE'] = date.isot
@@ -268,16 +267,18 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         phdu.header['SENSNAME'] = sensor
         phdu.header['RATEL'] = ratel
         phdu.header['DECTEL'] = dectel
-    elif camera_name == 'LsstComCam':
+        telcode = 'MC'
+    elif camera_name == 'LsstComCamSim' :
         phdu.header['FILTER'] = ComCam_filter_map.get(band, None)
         phdu.header['TELESCOP'] = SIMONYI_TELESCOPE
-        phdu.header['INSTRUME'] = 'ComCam'
+        phdu.header['INSTRUME'] = 'ComCamSim'
         phdu.header['RAFTBAY'] = raft
         phdu.header['CCDSLOT'] = sensor
         phdu.header['RA'] = ratel
         phdu.header['DEC'] = dectel
         phdu.header['ROTCOORD'] = 'sky'
         phdu.header['ROTPA'] = rotang
+        telcode = 'CC'
     else:
         phdu.header['FILTER'] = LSSTCam_filter_map.get(band, None)
         phdu.header['INSTRUME'] = 'LSSTCam'
@@ -286,6 +287,11 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         phdu.header['RA'] = ratel
         phdu.header['DEC'] = dectel
         phdu.header['ROTCOORD'] = 'sky'
+        telcode = 'MC'
+    dayobs = eimage.header['DAYOBS']
+    seqnum = eimage.header['SEQNUM']
+    contrllr = eimage.header['CONTRLLR']
+    phdu.header['OBSID'] = f"{telcode}_{contrllr}_{dayobs}_{seqnum:06d}"
     phdu.header['MJD-OBS'] = mjd_obs
     phdu.header['HASTART'] = eimage.header['HASTART']
     phdu.header['HAEND'] = eimage.header['HAEND']

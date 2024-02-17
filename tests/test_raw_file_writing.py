@@ -52,6 +52,8 @@ class RawFileOutputTestCase(unittest.TestCase):
             self.assertAlmostEqual(hdr['RA'], eimage.header['RATEL'])
             self.assertAlmostEqual(hdr['DEC'], eimage.header['DECTEL'])
 
+        self.assertTrue(hdr["OBSID"].startswith('MC_S'))
+
         self.assertEqual(hdr['CHIPID'], det_name)
 
         # Ensure the following keywords are set.
