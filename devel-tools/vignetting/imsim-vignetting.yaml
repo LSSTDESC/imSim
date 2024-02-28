@@ -14,6 +14,8 @@ eval_variables:
         dec:
             type: Degrees
             theta: { type: OpsimData, field: fieldDec }
+    bIsComCam: False  # Set True for ComCam, False for LSSTCam
+    sband: { type: OpsimData, field: band}
 
 input:
     instance_catalog:
@@ -25,27 +27,20 @@ input:
         snap: 1
 
     telescope:
-        file_name:
-            type: FormattedStr
-            format : LSST_%s.yaml
-            items:
-                - { type: OpsimData, field: band }
+        file_name: $f"ComCam_{band}.yaml" if IsComCam else f"LSST_{band}.yaml"
         rotTelPos:
             type: Degrees
             theta: { type: OpsimData, field: rotTelPos }
-
-#     sky_model:
-#         exptime: { type: OpsimData, field: exptime }
-#         mjd: { type: OpsimData, field: mjd }
+        camera: "@output.camera"
 
 
 image:
-    type: Scattered
-    random_seed: 42
-    nproc: 1
-    xsize: "$xsize"
-    ysize: "$ysize"
-    bandpass: { type: OpsimBandpass }
+    type: LSST_Image
+    det_name: $det_name
+    camera: "@output.camera"
+    bandpass:
+        type: RubinBandpass
+        band: $band
     wcs:
         type: Batoid
         camera: "@output.camera"
@@ -95,36 +90,17 @@ stamp:
             R_outer: 4.18
             R_inner: 2.55
         -
-            type: PhotonDCR
-            base_wavelength: $bandpass.effective_wavelength
-            latitude: -30.24463 degrees
-            HA:
-                type: Degrees
-                theta: { type: OpsimData, field: HA }
-        -
-            type: lsst_diffraction
-            latitude: -30.24463
-        -
-            type: lsst_optics
-            boresight: "$boresight"
+            type: RubinOptics
             camera: "@output.camera"
-        -
-            type: FocusDepth
-            depth:
-                type: Eval
-                str: depth_dict[band]
-                ddepth_dict: {'u':0, 'g':0, 'r':0, 'i':0, 'z':0, 'y':-0.6}
-                sband: { type: OpsimData, field: band }
-        -
-            type: Refraction
-            index_ratio: 3.9
+            boresight: $boresight
+            det_name: $det_name
 
 output:
     type: LSST_CCD
-    nproc: 1
-    nfiles: 189
+    nproc: 9
+    nfiles: $9 if IsComCam else 189
 
-    camera: LsstCam
+    camera: $"LsstComCamSim" if IsComCam else "LsstCam"
 
     exptime: 30
 
@@ -135,7 +111,7 @@ output:
         nitems: 189
         first: 0
 
-    dir: output_vignetting_test
+    dir: $"output_vignetting_ComCam" if IsComCam else "output_vignetting_LsstCam"
     file_name:
         type: FormattedStr
         format : eimage_%08d-%1d-%s-%s-det%03d.fits
