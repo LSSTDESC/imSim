@@ -64,6 +64,33 @@ def test_vignetting():
             test_values = sky_value, image_vignetting[corner[1], corner[0]]
             np.testing.assert_almost_equal(*test_values)
 
+    # Repeat for ComCam
+    camera = imsim.get_camera("LsstComCamSim")
+    vignetting = imsim.Vignetting('LSSTComCamSim_vignetting_data.json')
+    det_names = ["R22_S00", "R22_S01", "R22_S11"]
+
+    for det_name in det_names:
+        det = camera[det_name]
+        pix_to_fp = det.getTransform(cameraGeom.PIXELS, cameraGeom.FOCAL_PLANE)
+        wcs = wcs_factory.getWCS(det)
+
+        # Vignetting function evaluated over the entire CCD:
+        radii = imsim.Vignetting.get_pixel_radii(det)
+        image_vignetting = vignetting.apply_to_radii(radii)
+
+        # Compare with the values at the detector corners, using the
+        # corresponding sky coordinates obtained from the WCS for this
+        # detector to cross-check the .at_sky_coord(...) function.
+        corners = [(int(_.x), int(_.y)) for _ in
+                   det.getCorners(cameraGeom.PIXELS)]
+        for corner in corners:
+            image_pos = galsim.PositionD(*corner)
+            sky_coord = wcs.toWorld(image_pos)
+            sky_value = vignetting.at_sky_coord(sky_coord, wcs, pix_to_fp)
+            test_values = sky_value, image_vignetting[corner[1], corner[0]]
+            print(test_values)
+            np.testing.assert_almost_equal(*test_values)
+
 
 if __name__ == '__main__':
     test_vignetting()
