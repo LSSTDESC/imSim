@@ -91,7 +91,7 @@ def RubinBandpass(
     match camera:
         case 'LsstCam':
             camera = 'lsstCam'
-        case 'LsstComCam':
+        case 'LsstComCamSim':
             camera = 'comCamSim'
         case _:
             camera = camera
