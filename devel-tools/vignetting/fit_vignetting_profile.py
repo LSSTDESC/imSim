@@ -9,6 +9,7 @@ from collections import defaultdict
 import numpy as np
 from scipy import interpolate
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 import pandas as pd
 import lsst.afw.detection as afw_detect
 import lsst.afw.fits as afw_fits
@@ -16,7 +17,9 @@ import lsst.afw.image as afw_image
 import lsst.afw.math as afw_math
 from lsst.afw import cameraGeom
 import lsst.geom
-from lsst.obs.lsst import LsstCam
+from lsst.obs.lsst import LsstCam, LsstComCamSim
+from argparse import ArgumentParser
+
 
 def fp_signal(fp, image):
     """Return the flux contained within a footprint."""
@@ -69,22 +72,25 @@ def extract_fluxes(eimage_file, thresh=10, grow=1):
         data['y'].append(centroid.y)
     return pd.DataFrame(data)
 
-camera = LsstCam.getCamera()
+parser = ArgumentParser()
+parser.add_argument("--comcam", action="store_true", help="Setup for ComCam instead of LSSTCam")
+args = parser.parse_args()
 
-eimage_files = sorted(glob.glob('output_instcat/eimage*.fits'))
+if args.comcam:
+    camera = LsstComCamSim.getCamera()
+    eimage_files = sorted(glob.glob('output_vignetting_ComCam/eimage*.fits'))
+    data_file = 'vignetting_data_comcam.parq'
+else:
+    camera = LsstCam.getCamera()
+    eimage_files = sorted(glob.glob('output_vignetting_LsstCam/eimage*.fits'))
+    data_file = 'vignetting_data_lsstcam.parq'
 print(len(eimage_files))
 
-data_file = 'vignetting_data_ic.parq'
 if not os.path.isfile(data_file):
     # Extract source fluxes from each CCD and aggregate into a data frame.
     dfs = []
-    for i, item in enumerate(eimage_files):
-        if i % 10 == 0:
-            print(i, end='', flush=True)
-        else:
-            print('.', end='', flush=True)
+    for item in tqdm(eimage_files):
         dfs.append(extract_fluxes(item, thresh=10, grow=1))
-    print('!', flush=True)
     df0 = pd.concat(dfs)
 
     # Loop over sources and convert CCD pixel coordinates to focal
@@ -109,18 +115,19 @@ else:
 plt.figure(figsize=(8, 4))
 
 # Plot star locations on focal plane
+nstars = len(df0) // len(eimage_files)
 plt.subplot(1, 2, 1)
 plt.scatter(df0['fp_x'], df0['fp_y'], s=2)
 plt.gca().set_aspect('equal')
 plt.xlabel('x (mm)')
 plt.ylabel('y (mm)')
-plt.title('Star positions for vignetting evaluation,\n10 per CCD, mag_i = 22.5', fontsize='small')
+plt.title(f'Star positions for vignetting evaluation,\n{nstars} per CCD, mag_i = 22.5', fontsize='small')
 
 # Fit a spline to the profile.
 #
 # Exclude out-of-family values that may be blends or objects too close
 # to the CCD edge.
-df = df0.query('1000 < flux < 1.1e5')
+df = df0.query('1000 < flux < 2.0e5')
 x = df['radius'].to_numpy()
 y = df['flux'].to_numpy()
 index = np.argsort(x)  # Spline fitting code needs points sorted in x.
@@ -132,7 +139,10 @@ x_new = np.linspace(0, 1, knots + 2)[1:-1]
 q_knots = np.quantile(x, x_new)
 
 # Add locations of sizeable bends in the profile.
-q_knots = sorted(list(q_knots) + [312.5, 332.5, 347])
+if args.comcam:
+    q_knots = sorted(list(q_knots) + [62., 65.])
+else:
+    q_knots = sorted(list(q_knots) + [312.5, 332.5, 347])
 
 # plot the vignetting profile data and spline fit
 plt.subplot(1, 2, 2)
@@ -148,13 +158,13 @@ plt.plot(xx, yfit, color='red', label='spline fit')
 plt.legend(fontsize='x-small')
 plt.xlabel('distance from focal plane center (mm)')
 plt.ylabel('flux (ADU)')
-plt.title('Radial profile of vignetting for LSSTCam simulation',
+plt.title(f'Radial profile of vignetting for {camera.getName()} simulation',
           fontsize='small')
 
 plt.tight_layout(rect=(0, 0, 1, 0.95))
-plt.savefig('LSSTCam_vignetting_profile_fit.png');
+plt.savefig(f'{camera.getName()}_vignetting_profile_fit.png', dpi=300)
 
 # Save the data as a json file, converting np.arrays to serializable
 # lists.
-with open('vignetting_spline.json', 'w') as fobj:
+with open(f'{camera.getName()}_vignetting_spline.json', 'w') as fobj:
     json.dump((list(tck[0]), list(tck[1]), tck[2]), fobj)
