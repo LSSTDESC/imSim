@@ -8,6 +8,11 @@ import galsim
 from lsst.afw import cameraGeom
 import lsst.geom
 import imsim
+from argparse import ArgumentParser
+
+parser = ArgumentParser()
+parser.add_argument("--comcam", action="store_true", help="Setup for ComCam instead of LSSTCam")
+args = parser.parse_args()
 
 
 instcat_file = 'instcat_vignetting.txt'
@@ -19,14 +24,19 @@ rottelpos = opsim_data.get('rotTelPos')
 mjd = opsim_data.get('mjd')
 band = opsim_data.get('band')
 
-# The number of stars per CCD.
-nsamp = 10
+if args.comcam:
+    nsamp = 300  # Fewer CCDs, so need more stars per CCD.
+    camera_name = 'LsstComCamSim'
+    center_ccd = 4
+else:
+    nsamp = 30
+    camera_name = 'LsstCam'
+    center_ccd = 94
 
-camera_name = 'LsstCam'
 camera = imsim.get_camera(camera_name)
 
 wcs = imsim.make_batoid_wcs(ra, dec, rottelpos, mjd, band, camera_name)
-fp_to_pixel = camera[94].getTransform(cameraGeom.FOCAL_PLANE, cameraGeom.PIXELS)
+fp_to_pixel = camera[center_ccd].getTransform(cameraGeom.FOCAL_PLANE, cameraGeom.PIXELS)
 data = defaultdict(list)
 for i, det in enumerate(camera):
     if det.getType() != cameraGeom.DetectorType.SCIENCE:
