@@ -18,4 +18,5 @@ seed 182850
 seeing 0.8285710
 sunalt -53.1784288
 vistime 30.0000000
+seqnum 1
 includeobj stars_vignetting.txt
