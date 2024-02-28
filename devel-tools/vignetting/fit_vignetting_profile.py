@@ -144,6 +144,11 @@ if args.comcam:
 else:
     q_knots = sorted(list(q_knots) + [312.5, 332.5, 347])
 
+# Get continuity at the origin by reflecting the input data + knots
+x = np.concatenate((-x[::-1], x))
+y = np.concatenate((y[::-1], y))
+q_knots = np.concatenate(([-q for q in reversed(q_knots)], q_knots))
+
 # plot the vignetting profile data and spline fit
 plt.subplot(1, 2, 2)
 plt.scatter(x, y, s=2, label='stars')
@@ -160,6 +165,7 @@ plt.xlabel('distance from focal plane center (mm)')
 plt.ylabel('flux (ADU)')
 plt.title(f'Radial profile of vignetting for {camera.getName()} simulation',
           fontsize='small')
+plt.xlim(0, plt.xlim()[1])
 
 plt.tight_layout(rect=(0, 0, 1, 0.95))
 plt.savefig(f'{camera.getName()}_vignetting_profile_fit.png', dpi=300)
