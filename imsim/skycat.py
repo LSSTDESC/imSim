@@ -11,7 +11,6 @@ from skycatalogs import skyCatalogs
 # Hot-fix to set interpolant for 500nm magnorm bandpass in skyCatalogs.
 # Once this is fixed in a skyCatalogs release, we can remove it here.
 import skycatalogs
-import galsim
 bp500 = galsim.Bandpass(
     galsim.LookupTable([499, 500, 501],[0, 1, 0], interpolant='linear'),
     wave_type='nm').withZeropoint('AB')
@@ -26,7 +25,8 @@ class SkyCatalogInterface:
 
     def __init__(self, file_name, wcs, band, mjd, xsize=4096, ysize=4096,
                  obj_types=None, skycatalog_root=None, edge_pix=100,
-                 max_flux=None, logger=None, apply_dc2_dilation=False,
+                 max_flux=None, max_flux_band='i',
+                 logger=None, apply_dc2_dilation=False,
                  approx_nobjects=None):
         """
         Parameters
@@ -56,6 +56,8 @@ class SkyCatalogInterface:
         max_flux : float [None]
             If object flux exceeds max_flux, the return None for that object.
             if max_flux == None, then don't apply a maximum flux cut.
+        max_flux_band : str ['i']
+            LSST band to use for max_flux cut.
         logger : logging.Logger [None]
             Logger object.
         apply_dc2_dilation : bool [False]
@@ -82,6 +84,7 @@ class SkyCatalogInterface:
             self.skycatalog_root = skycatalog_root
         self.edge_pix = edge_pix
         self.max_flux = max_flux
+        self.max_flux_band = max_flux_band
         self.logger = galsim.config.LoggerWrapper(logger)
         self.apply_dc2_dilation = apply_dc2_dilation
         self.approx_nobjects = approx_nobjects
@@ -202,11 +205,18 @@ class SkyCatalogInterface:
 
         # Compute the flux or get the cached value.
         gs_object.flux \
-            = skycat_obj.get_LSST_flux(self.band, mjd=self.mjd)*exptime*self._eff_area
+            = (skycat_obj.get_LSST_flux(self.band, mjd=self.mjd)
+               * exptime * self._eff_area)
 
-        if ((self.max_flux is not None and gs_object.flux > self.max_flux)
-            or gs_object.flux < 0):
+        if gs_object.flux < 0:
             return None
+
+        if self.max_flux is not None:
+            target_band_flux \
+                = (skycat_obj.get_LSST_flux(self.max_flux_band, mjd=self.mjd)
+                   * exptime * self._eff_area)
+            if target_band_flux > self.max_flux:
+                return None
 
         return gs_object
 
