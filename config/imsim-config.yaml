@@ -132,7 +132,8 @@ input:
 
 # Define how the objects are placed on the image.  This refers to a single CCD.
 image:
-    type: LSST_Image
+    # type: LSST_Image
+    type: LSST_PhotonPoolingImage
 
     random_seed: { type: OpsimData, field: seed }
 
@@ -149,8 +150,18 @@ image:
     # from lots of concurrent checkpoint writes can overwhelm the file system.
     # Even if not checkpointing, using batches helps keep the memory down, since a bunch of
     # temporary data can be purged after each batch.
+    # This parameter only affects LSST_Image images (non-photon pooling).
     # The default number of batches is 100, but you can change it if desired.
     nbatch: 100
+    
+    # If using photon pooling, FFT and photon objects are batched separately.
+    # There will probably be few enough FFT objects to do in a single batch.
+    # Bright photon objects are treated in all photon batches, but at 1/nbatch_photon of
+    # their flux. Faint photonobjects are placed at their full flux in random batches.
+    # These parameters only affect LSST_PhotonPoolingImage images.
+    # The batch numbers can be changed if desired.
+    nbatch_fft: 1
+    nbatch_photon: 10
     nbatch_per_checkpoint: 1
 
     det_name: $det_name
@@ -276,8 +287,8 @@ stamp:
             HA:
                 type: Degrees
                 theta: { type: OpsimData, field: HA }
-        -
-            type: Shift
+        # -
+        #    type: Shift
         -
             type: RubinDiffractionOptics
             det_name: $det_name
