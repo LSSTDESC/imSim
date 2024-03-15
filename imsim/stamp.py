@@ -824,7 +824,7 @@ def _get_centroid_from_photons(
         image=timage,
 
         method='phot',
-        n_photons=1_000_000,
+        n_photons=100_000,
         sensor=sensor,
         photon_ops=photon_ops,
         poisson_flux=False,
