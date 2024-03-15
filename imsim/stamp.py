@@ -783,7 +783,65 @@ class LSST_SiliconBuilder(StampBuilder):
                                   poisson_flux=False)
             base['realized_flux'] = image.added_flux
 
+            xcen, ycen = _get_centroid_from_photons(
+                gal=gal,
+                rng=self.rng,
+                bp_for_drawImage=bp_for_drawImage,
+                image=image,
+                sensor=sensor,
+                photon_ops=photon_ops,
+                offset=offset,
+            )
+
+            # these can be saved in the config using @xcentroid, @ycentroid
+            base['xcentroid'] = xcen
+            base['ycentroid'] = ycen
+
         return image
+
+
+def _get_centroid_from_photons(
+    gal,
+    rng,
+    bp_for_drawImage,
+    image,
+
+    sensor,
+    photon_ops,
+    offset,
+):
+    """
+    draw another image with fixed number of photons
+    and use to get centroid.  We can't do this above
+    because with maxN the photons cannot be saved
+
+    100_000 photons should give centroid to a few miliarcsec
+    """
+
+    timage = image.copy()
+    gal.drawImage(
+        bp_for_drawImage,
+        image=timage,
+
+        method='phot',
+        n_photons=1_000_000,
+        sensor=sensor,
+        photon_ops=photon_ops,
+        poisson_flux=False,
+        save_photons=True,
+
+        offset=offset,
+        rng=rng,
+    )
+
+    # print('imcen:', imcen, 'bounds:', image.bounds, 'off:', xoff, yoff)
+
+    # location of true center, actually in big image
+    imcen = image.true_center
+    xcen = imcen.x + timage.photons.x.mean()
+    ycen = imcen.y + timage.photons.y.mean()
+    return xcen, ycen
+
 
 # Pick the right function to be _fix_seds.
 if galsim.__version_info__ < (2,5):
