@@ -110,5 +110,32 @@ def test_fringing():
         raise ValueError("Fringe amplitude should be the same for sensors when spatial vary is False.")
 
 
+def test_fringing_variation_level():
+    # Regression test for pkl => fits conversion.
+    for ra, dec, level in [
+        (0, 0.1, 1.056503042318907),
+        (0, 0.2, 1.1207294877266138),
+        (0.2, -0.1, 1.0044602251026102),
+        (1.1, 0.2, 1.0166040509448886),
+        (-1.2, 0.5, 1.0389039410245318),
+        (1.2, -0.4, 1.0204232685215646),
+    ]:
+        true_center = galsim.CelestialCoord(
+            ra*galsim.degrees, dec*galsim.degrees
+        )
+        fringing = CCD_Fringing(
+            true_center=true_center,
+            boresight=galsim.CelestialCoord(0*galsim.degrees, 0*galsim.degrees),
+            seed=0,
+            spatial_vary=True
+        )
+        np.testing.assert_allclose(
+            fringing.fringe_variation_level(),
+            level,
+            atol=1e-10, rtol=1e-10
+        )
+
+
 if __name__ == '__main__':
     test_fringing()
+    test_fringing_variation_level()
