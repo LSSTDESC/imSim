@@ -1,11 +1,11 @@
-
+from astropy.io import fits
 import copy
 import warnings
 import numpy as np
 import galsim
 import pickle
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
-from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 import os
 from .meta_data import data_dir
 
@@ -198,11 +198,17 @@ class CCD_Fringing:
 
         if self.spatial_vary:
             # Load 2d interpolator for OH spatial variation
-            filename = os.path.join(data_dir, 'fringing_data',
-                                        'skyline_var.pkl')
-            with open(filename, 'rb') as f:
-                interp = pickle.load(f)
-                
+            filename = os.path.join(
+                data_dir,
+                'fringing_data',
+                'skyline_var.fits'
+            )
+            hdu = fits.open(filename)[0]
+            z = hdu.data
+            nx, ny = z.shape
+            x = np.linspace(hdu.header['XMIN'], hdu.header['XMAX'], nx)
+            y = np.linspace(hdu.header['YMIN'], hdu.header['YMAX'], ny)
+            interp = RectBivariateSpline(x, y, z)
             dx, dy = self.boresight.project(self.true_center)
             # calculated OH flux level wrst the center of focal plane.
             level = interp(dx.deg,dy.deg)/interp(0,0)
