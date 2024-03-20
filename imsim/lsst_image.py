@@ -2,7 +2,7 @@ import numpy as np
 import hashlib
 import logging
 import galsim
-from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
+from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise, LoadInputObj
 from galsim.config.image_scattered import ScatteredImageBuilder
 from .sky_model import SkyGradient, CCD_Fringing
 from .camera import get_camera
@@ -37,8 +37,13 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         logger.debug('image %d: Building LSST_Image: image, obj = %d,%d',
                      image_num,image_num,obj_num)
 
-        self.nobjects = self.getNObj(config, base, image_num, logger=logger)
-        logger.debug('image %d: nobj = %d',image_num,self.nobjects)
+        if 'sky_catalog' in base['input'].keys():
+            nobjects = LoadInputObj(base, 'sky_catalog').getNObjects()
+        elif 'instance_catalog' in base['input'].keys():
+            nobjects = LoadInputObj(base, 'instance_catalog').getNObjects()
+
+        self.nobjects = min(nobjects, self.getNObj(config, base, image_num, logger=logger))
+        logger.info('image %d: nobj = %d',image_num,self.nobjects)
 
         # These are allowed for LSST_Image, but we don't use them here.
         extra_ignore = [ 'image_pos', 'world_pos', 'stamp_size', 'stamp_xsize', 'stamp_ysize',
