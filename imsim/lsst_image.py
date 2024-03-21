@@ -1,27 +1,27 @@
 import logging
-import dataclasses
 import numpy as np
 import hashlib
 import galsim
 from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
-from galsim.wcs import PixelScale
-from galsim.sensor import Sensor
 
 from .sky_model import SkyGradient, CCD_Fringing
 from .camera import get_camera
 from .vignetting import Vignetting
-from .stamp import StellarObject, ProcessingMode, build_obj
-
-def merge_photon_arrays(arrays):
-    n_tot = sum(len(arr) for arr in arrays)
-    merged = galsim.PhotonArray(n_tot)
-    start = 0
-    for arr in arrays:
-        merged.assignAt(start, arr)
-        start += len(arr)
-    return merged
-
+from .photon_pooling import (
+    merge_photon_arrays,
+    accumulate_photons,
+    build_stamps,
+    create_full_image,
+    load_checkpoint,
+    load_objects,
+    make_batches,
+    make_photon_batches,
+    partition_objects,
+    save_checkpoint,
+    set_config_image_pos,
+    stamp_bounds,
+)
 
 class LSST_ImageBuilderBase(ScatteredImageBuilder):
     def setup(self, config, base, image_num, obj_num, ignore, logger):
@@ -444,171 +444,6 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 base, full_image, all_stamps, tuple(all_vars), logger)
 
         return full_image, current_var
-
-
-
-def accumulate_photons(photons, image, sensor, center):
-    if sensor is None:
-        sensor = Sensor()
-    imview = image._view()
-    imview._shift(-center)  # equiv. to setCenter(), but faster
-    imview.wcs = PixelScale(1.0)
-    photons.x -= 0.5
-    photons.y -= 0.5
-    if imview.dtype in (np.float32, np.float64):
-        sensor.accumulate(photons, imview, imview.center)
-    else:
-        # Need a temporary
-        im1 = galsim.image.ImageD(bounds=imview.bounds)
-        sensor.accumulate(photons, im1, imview.center)
-        imview += im1
-
-def make_batches(objects, nbatch: int):
-    per_batch = len(objects) // nbatch
-    o_iter = iter(objects)
-    for _ in range(nbatch):
-        yield [obj for _, obj in zip(range(per_batch), o_iter)]
-
-
-def build_stamps(base, logger, objects: list[StellarObject], stamp_type: str):
-    base["stamp"]["type"] = stamp_type
-    if not objects:
-        return [], []
-    base["_objects"] = {obj.index: obj for obj in objects}
-
-    images, current_vars = zip(
-        *(
-            galsim.config.BuildStamp(
-                base, obj.index, xsize=0, ysize=0, do_noise=False, logger=logger
-            )
-            for obj in objects
-        )
-    )
-    return images, current_vars
-
-
-def make_photon_batches(config, base, logger, phot_objects: list[StellarObject], faint_objects: list[StellarObject], nbatch: int):
-    if not phot_objects and not faint_objects:
-        return []
-    # Each batch is a copy of the original list of objects at 1/nbatch the original flux.
-    batches = [
-        [dataclasses.replace(obj, phot_flux=np.floor(obj.phot_flux / nbatch)) for obj in phot_objects]
-    for _ in range(nbatch)]
-    rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
-    ud = galsim.UniformDeviate(rng)
-    # Shuffle faint objects into the batches randomly:
-    for obj in faint_objects:
-        batch_index = int(ud() * nbatch)
-        batches[batch_index].append(obj)
-    return batches
-
-def stamp_bounds(stamp, full_image_bounds):
-    if stamp is None:
-        return None
-    bounds = stamp.bounds & full_image_bounds
-    if not bounds.isDefined():  # pragma: no cover
-        # These noramlly show up as stamp==None, but technically it is possible
-        # to get a stamp that is off the main image, so check for that here to
-        # avoid an error.  But this isn't covered in the imsim test suite.
-        return None
-    return bounds
-
-
-def partition_objects(objects):
-    objects_by_mode = {
-        ProcessingMode.FFT: [],
-        ProcessingMode.PHOT: [],
-        ProcessingMode.FAINT: [],
-    }
-    for obj in objects:
-        objects_by_mode[obj.mode].append(obj)
-    return (
-        objects_by_mode[ProcessingMode.FFT],
-        objects_by_mode[ProcessingMode.PHOT],
-        objects_by_mode[ProcessingMode.FAINT],
-    )
-
-
-def load_objects(obj_numbers, config, base, logger):
-    gsparams = {}
-    stamp = base['stamp']
-    if 'gsparams' in stamp:
-        gsparams = galsim.gsobject.UpdateGSParams(gsparams, stamp['gsparams'], config)
-
-    for obj_num in obj_numbers:
-        galsim.config.SetupConfigObjNum(base, obj_num, logger)
-        obj = build_obj(stamp, base, logger)
-        if obj is not None:
-            yield obj
-
-def create_full_image(config, base):
-    if galsim.__version_info__ < (2,5):
-        # GalSim 2.4 required a bit more work here.
-        from galsim.config.stamp import _ParseDType
-
-        full_xsize = base['image_xsize']
-        full_ysize = base['image_ysize']
-        wcs = base['wcs']
-
-        dtype = _ParseDType(config, base)
-
-        full_image = galsim.Image(full_xsize, full_ysize, dtype=dtype)
-        full_image.setOrigin(base['image_origin'])
-        full_image.wcs = wcs
-        full_image.setZero()
-        base['current_image'] = full_image
-    else:
-        # In GalSim 2.5+, the image is already built and available as 'current_image'
-        full_image = base['current_image']
-    return full_image
-
-
-def set_config_image_pos(config, base):
-    if 'image_pos' in config and 'world_pos' in config:
-        raise galsim.config.GalSimConfigValueError(
-            "Both image_pos and world_pos specified for LSST_Image.",
-            (config['image_pos'], config['world_pos']))
-
-    if ('image_pos' not in config and 'world_pos' not in config and
-            not ('stamp' in base and
-                ('image_pos' in base['stamp'] or 'world_pos' in base['stamp']))):
-        full_xsize = base['image_xsize']
-        full_ysize = base['image_ysize']
-        xmin = base['image_origin'].x
-        xmax = xmin + full_xsize-1
-        ymin = base['image_origin'].y
-        ymax = ymin + full_ysize-1
-        config['image_pos'] = {
-            'type' : 'XY' ,
-            'x' : { 'type' : 'Random' , 'min' : xmin , 'max' : xmax },
-            'y' : { 'type' : 'Random' , 'min' : ymin , 'max' : ymax }
-        }
-
-
-def load_checkpoint(checkpoint, chk_name, base, logger):
-    saved = checkpoint.load(chk_name)
-    if saved is not None:
-        # If the checkpoint exists, get the stored information and prepare it for use.
-        full_image, all_bounds, all_vars, all_obj_nums, extra_builder, current_photon_batch_num = saved
-        if extra_builder is not None:
-            base['extra_builder'] = extra_builder
-        # Create stamps from the bounds provided by the checkpoint.
-        all_stamps = [galsim._Image(np.array([]), b, full_image.wcs) for b in all_bounds]
-        logger.warning('File %d: Loaded checkpoint data from %s.',
-                       base.get('file_num', 0), checkpoint.file_name)
-        return full_image, all_vars, all_stamps, all_obj_nums, current_photon_batch_num
-    else:
-        # Return empty objects if the checkpoint doesn't yet exist.
-        return None, [], [], [], 0
-
-def save_checkpoint(checkpoint, chk_name, base, full_image, all_stamps, all_vars, all_obj_nums, current_photon_batch_num):
-    # Don't save the full stamps.  All we need for FlattenNoiseVariance is the bounds.
-    # Everything else about the stamps has already been handled above.
-    all_bounds = [stamp.bounds for stamp in all_stamps]
-    data = (full_image, all_bounds, all_vars, all_obj_nums,
-            base.get('extra_builder',None), current_photon_batch_num)
-    checkpoint.save(chk_name, data)
-
 
 RegisterImageType('LSST_Image', LSST_ImageBuilder())
 RegisterImageType('LSST_PhotonPoolingImage', LSST_PhotonPoolingImageBuilder())
