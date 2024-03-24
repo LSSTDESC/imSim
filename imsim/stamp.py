@@ -797,16 +797,16 @@ class LSST_SiliconBuilder(StampBuilder):
                 xvals, yvals, stat_type='sigma_clip',
             )
 
-            print(
-                'shapeyx:', image.array.shape[0], image.array.shape[1],
-                'true_cen:', image.true_center.y, image.true_center.x,
-                'offset:', offset.y, offset.x,
-                'cen:', ycen, xcen,
-                'cenoff:', ycen-image.true_center.y, xcen-image.true_center.x,
-                'maxoff:',
-                np.abs(yvals-image.true_center.y).max(),
-                np.abs(xcen-image.true_center.x).max(),
-            )
+            # print(
+            #     'shapeyx:', image.array.shape[0], image.array.shape[1],
+            #     'true_cen:', image.true_center.y, image.true_center.x,
+            #     'offset:', offset.y, offset.x,
+            #     'cen:', ycen, xcen,
+            #     'cenoff:', ycen-image.true_center.y, xcen-image.true_center.x,
+            #     'maxoff:',
+            #     np.abs(yvals-image.true_center.y).max(),
+            #     np.abs(xcen-image.true_center.x).max(),
+            # )
 
             # these can be saved in the config using @xcentroid, @ycentroid
             base['xcentroid'] = xcen
@@ -848,8 +848,6 @@ def _get_photon_positions(
         offset=offset,
         rng=rng,
     )
-
-    # print('imcen:', imcen, 'bounds:', image.bounds, 'off:', xoff, yoff)
 
     photx = timage.photons.x
     photy = timage.photons.y
