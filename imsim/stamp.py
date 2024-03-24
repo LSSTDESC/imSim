@@ -758,9 +758,10 @@ class LSST_SiliconBuilder(StampBuilder):
             else:
                 bp_for_drawImage = bandpass
 
-            # Put the psfs at the start of the photon_ops.
-            # Probably a little better to put them a bit later than the start in some cases
-            # (e.g. after TimeSampler, PupilAnnulusSampler), but leave that as a todo for now.
+            # Put the psfs at the start of the photon_ops.  Probably a little
+            # better to put them a bit later than the start in some cases (e.g.
+            # after TimeSampler, PupilAnnulusSampler), but leave that as a todo
+            # for now.
             photon_ops = psfs + photon_ops
 
             if faint:
@@ -783,7 +784,7 @@ class LSST_SiliconBuilder(StampBuilder):
                                   poisson_flux=False)
             base['realized_flux'] = image.added_flux
 
-            xcen, ycen = _get_centroid_from_photons(
+            xvals, yvals = _get_photon_positions(
                 gal=gal,
                 rng=self.rng,
                 bp_for_drawImage=bp_for_drawImage,
@@ -791,6 +792,20 @@ class LSST_SiliconBuilder(StampBuilder):
                 sensor=sensor,
                 photon_ops=photon_ops,
                 offset=offset,
+            )
+            xcen, ycen = _get_robust_centroids(
+                xvals, yvals, stat_type='sigma_clip',
+            )
+
+            print(
+                'shapeyx:', image.array.shape[0], image.array.shape[1],
+                'true_cen:', image.true_center.y, image.true_center.x,
+                'offset:', offset.y, offset.x,
+                'cen:', ycen, xcen,
+                'cenoff:', ycen-image.true_center.y, xcen-image.true_center.x,
+                'maxoff:',
+                np.abs(yvals-image.true_center.y).max(),
+                np.abs(xcen-image.true_center.x).max(),
             )
 
             # these can be saved in the config using @xcentroid, @ycentroid
@@ -800,7 +815,7 @@ class LSST_SiliconBuilder(StampBuilder):
         return image
 
 
-def _get_centroid_from_photons(
+def _get_photon_positions(
     gal,
     rng,
     bp_for_drawImage,
@@ -836,15 +851,40 @@ def _get_centroid_from_photons(
 
     # print('imcen:', imcen, 'bounds:', image.bounds, 'off:', xoff, yoff)
 
+    photx = timage.photons.x
+    photy = timage.photons.y
+
+    logic = np.isnan(photx) | np.isnan(photy)
+    wnan, = np.where(logic)
+    wgood, = np.where(~logic)
+    if wnan.size > 0:
+        print(f'found {wnan.size} nan in photon positions')
+
     # location of true center, actually in big image
     imcen = image.true_center
-    xcen = imcen.x + timage.photons.x.mean()
-    ycen = imcen.y + timage.photons.y.mean()
+    # xcen = imcen.x + timage.photons.x.mean()
+    # ycen = imcen.y + timage.photons.y.mean()
+    xvals = imcen.x + photx[wgood]
+    yvals = imcen.y + photy[wgood]
+    return xvals, yvals
+
+
+def _get_robust_centroids(xvals, yvals, stat_type='sigma_clip'):
+    if stat_type == 'median':
+        xcen = np.median(xvals)
+        ycen = np.median(yvals)
+    elif stat_type == 'sigma_clip':
+        from esutil.stat import sigma_clip
+        xcen, xsig = sigma_clip(xvals)
+        ycen, ysig = sigma_clip(yvals)
+    else:
+        raise ValueError(f'Bad stat_type {stat_type}')
+
     return xcen, ycen
 
 
 # Pick the right function to be _fix_seds.
-if galsim.__version_info__ < (2,5):
+if galsim.__version_info__ < (2, 5):
     LSST_SiliconBuilder._fix_seds = LSST_SiliconBuilder._fix_seds_24
 else:
     LSST_SiliconBuilder._fix_seds = LSST_SiliconBuilder._fix_seds_25
