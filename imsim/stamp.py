@@ -805,7 +805,7 @@ class LSST_SiliconBuilder(StampBuilder):
                 'cenoff:', ycen-image.true_center.y, xcen-image.true_center.x,
                 'maxoff:',
                 np.abs(yvals-image.true_center.y).max(),
-                np.abs(xcen-image.true_center.x).max(),
+                np.abs(xvals-image.true_center.x).max(),
             )
 
             # these can be saved in the config using @xcentroid, @ycentroid
@@ -857,8 +857,6 @@ def _get_photon_positions(
     logic = np.isnan(photx) | np.isnan(photy)
     wnan, = np.where(logic)
     wgood, = np.where(~logic)
-    if wnan.size > 0:
-        print(f'found {wnan.size} nan in photon positions')
 
     # location of true center, actually in big image
     imcen = image.true_center
@@ -866,6 +864,22 @@ def _get_photon_positions(
     # ycen = imcen.y + timage.photons.y.mean()
     xvals = imcen.x + photx[wgood]
     yvals = imcen.y + photy[wgood]
+
+    ymaxoff = np.abs(photy-image.true_center.y).max()
+    xmaxoff = np.abs(photx-image.true_center.x).max()
+
+    if wnan.size > 0 or xmaxoff > 3_000_000 or ymaxoff > 3_000_000:
+        if wnan.size > 0:
+            print(f'found {wnan.size} nan in photon positions')
+        else:
+            print('maxoff:', ymaxoff, xmaxoff)
+
+        print('gal')
+        print(repr(gal))
+        # print('photon_ops')
+        # print(repr(photon_ops))
+        # import IPython; IPython.embed()
+
     return xvals, yvals
 
 
