@@ -797,17 +797,6 @@ class LSST_SiliconBuilder(StampBuilder):
                 xvals, yvals, stat_type='sigma_clip',
             )
 
-            # print(
-            #     'shapeyx:', image.array.shape[0], image.array.shape[1],
-            #     'true_cen:', image.true_center.y, image.true_center.x,
-            #     'offset:', offset.y, offset.x,
-            #     'cen:', ycen, xcen,
-            #     'cenoff:', ycen-image.true_center.y, xcen-image.true_center.x,
-            #     'maxoff:',
-            #     np.abs(yvals-image.true_center.y).max(),
-            #     np.abs(xcen-image.true_center.x).max(),
-            # )
-
             # these can be saved in the config using @xcentroid, @ycentroid
             base['xcentroid'] = xcen
             base['ycentroid'] = ycen
@@ -852,18 +841,24 @@ def _get_photon_positions(
     photx = timage.photons.x
     photy = timage.photons.y
 
+    flux = timage.photons.flux
+    wvig, = np.where(flux == 0)
+
     logic = np.isnan(photx) | np.isnan(photy)
     wnan, = np.where(logic)
-    wgood, = np.where(~logic)
-    if wnan.size > 0:
-        print(f'found {wnan.size} nan in photon positions')
+
+    # flux == 0 means it was vignetted
+    wgood, = np.where(
+        np.isfinite(photx)
+        & np.isfinite(photy)
+        & (timage.photons.flux > 0)
+    )
 
     # location of true center, actually in big image
     imcen = image.true_center
-    # xcen = imcen.x + timage.photons.x.mean()
-    # ycen = imcen.y + timage.photons.y.mean()
     xvals = imcen.x + photx[wgood]
     yvals = imcen.y + photy[wgood]
+
     return xvals, yvals
 
 
