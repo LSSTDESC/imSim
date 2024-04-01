@@ -249,6 +249,17 @@ class LSST_ImageBuilder(LSST_ImageBuilderBase):
                     logger.warning('Starting at obj_num %d', start_num)
         nobj_tot = self.nobjects - (start_num - obj_num)
 
+        # Add the Shift photon operator if it isn't already being used.
+        # Place it before RubinDiffractionOptics if present, otherwise append.
+        photon_ops = base["stamp"]["photon_ops"]
+        shift_op = {'type': 'Shift'}
+        if shift_op not in photon_ops:
+            rubin_diffraction_optics_index = next((index for (index, d) in enumerate(photon_ops) if d["type"] == "RubinDiffractionOptics"), None)
+            if rubin_diffraction_optics_index is not None:
+                photon_ops.insert(rubin_diffraction_optics_index, shift_op)
+            else:
+                photon_ops.append(shift_op)
+
         if full_image is None:
             full_image = create_full_image(config, base)
 
