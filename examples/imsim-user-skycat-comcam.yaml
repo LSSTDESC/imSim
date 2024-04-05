@@ -4,7 +4,10 @@ modules:
 
 # Get most of the configuration from the imSim config-template
 # for skyCatalogs
-template: imsim-config-skycat-comcam
+template: imsim-config-skycat
+
+# This value updates all the file names and such that are specific to ComCam
+output.camera: LsstComCamSim
 
 ################################################################
 #  Make your changes below.

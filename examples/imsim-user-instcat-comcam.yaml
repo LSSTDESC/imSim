@@ -4,7 +4,10 @@ modules:
 
 # Get most of the configuration from the imSim config-template
 # for instance catalogs.
-template: imsim-config-instcat-comcam
+template: imsim-config-instcat
+
+# This value updates all the file names and such that are specific to ComCam
+output.camera: LsstComCamSim
 
 ################################################################
 #  Make your changes below.
