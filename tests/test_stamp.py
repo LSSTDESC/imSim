@@ -571,7 +571,48 @@ def test_stamp_bandpass_airmass():
             np.testing.assert_allclose(realized_X, predict, rtol=rtol)
 
 
+def test_lsst_silicon_builder_calculates_centroid() -> None:
+    """
+    LSST_SiliconBuilder.draw passes the correct list of photon_ops to
+    prof.drawImage.
+
+    This fails because no flux is actually put in the image, but I'm
+    not sure why
+    """
+    lsst_silicon = create_test_lsst_silicon(faint=False)
+    image = galsim.Image(ncol=256, nrow=256)
+    offset = galsim.PositionD(0,0)
+    config = create_test_config()
+
+    prof = galsim.Gaussian(sigma=2) * galsim.SED('vega.txt', 'nm', 'flambda')
+    method = 'phot'
+    logger = galsim.config.LoggerWrapper(None)
+
+    if galsim.__version_info__ < (2,5):
+        phot_type = 'galsim.ChromaticTransformation'
+    else:
+        # In GalSim 2.5+, this is now a SimpleChromaticTransformation
+        phot_type = 'galsim.SimpleChromaticTransformation'
+
+    with mock.patch(phot_type+'.drawImage', return_value=image) as mock_drawImage:
+        image.added_flux = lsst_silicon.phot_flux
+        lsst_silicon.draw(
+            prof,
+            image,
+            method,
+            offset,
+            config=config["stamp"],
+            base=config,
+            logger=logger,
+        )
+        for c in ('x', 'y'):
+            for n in ('', '_err'):
+                name = f'{c}centroid{n}'
+                assert name in base
+
+
 if __name__ == "__main__":
-    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
-    for testfn in testfns:
-        testfn()
+    test_lsst_silicon_builder_calculates_centroid()
+    # testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    # for testfn in testfns:
+    #     testfn()
