@@ -92,7 +92,8 @@ class LSST_SiliconBuilder(StampBuilder):
 
         req = {}
         opt = {'camera': str, 'diffraction_fft': dict,
-               'airmass': float, 'rawSeeing': float, 'band': str}
+               'airmass': float, 'rawSeeing': float, 'band': str,
+               'centroid': dict}
         if self.vignetting:
             req['det_name'] = str
         else:
@@ -246,6 +247,9 @@ class LSST_SiliconBuilder(StampBuilder):
             world_pos = galsim.config.ParseWorldPos(config, 'world_pos', base, logger)
         else:
             world_pos = None
+
+        if 'centroid' in params and 'n_photons' not in params['centroid']:
+                raise ValueError('n_photons not found in centroid config')
 
         return xsize, ysize, image_pos, world_pos
 
@@ -824,9 +828,6 @@ def _get_photon_positions(
 
     100_000 photons should give centroid to a few miliarcsec
     """
-
-    if 'n_photons' not in config:
-        raise ValueError('n_photons must be in centroid config')
 
     timage = image.copy()
     gal.drawImage(
