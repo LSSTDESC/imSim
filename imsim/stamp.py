@@ -784,22 +784,24 @@ class LSST_SiliconBuilder(StampBuilder):
                                   poisson_flux=False)
             base['realized_flux'] = image.added_flux
 
-            xvals, yvals = _get_photon_positions(
-                gal=gal,
-                rng=self.rng,
-                bp_for_drawImage=bp_for_drawImage,
-                image=image,
-                sensor=sensor,
-                photon_ops=photon_ops,
-                offset=offset,
-            )
-            cenres = _get_robust_centroids(xvals, yvals)
+            if 'centroid' in config:
+                xvals, yvals = _get_photon_positions(
+                    gal=gal,
+                    rng=self.rng,
+                    bp_for_drawImage=bp_for_drawImage,
+                    image=image,
+                    sensor=sensor,
+                    photon_ops=photon_ops,
+                    offset=offset,
+                    config=config['centroid'],
+                )
+                cenres = _get_robust_centroids(xvals, yvals)
 
-            # these can be saved in the config using @xcentroid, @ycentroid
-            base['xcentroid'] = cenres['x']
-            base['xcentroid_err'] = cenres['xerr']
-            base['ycentroid'] = cenres['y']
-            base['ycentroid_err'] = cenres['yerr']
+                # these can be saved in the config using @xcentroid, @ycentroid
+                base['xcentroid'] = cenres['x']
+                base['xcentroid_err'] = cenres['xerr']
+                base['ycentroid'] = cenres['y']
+                base['ycentroid_err'] = cenres['yerr']
 
         return image
 
@@ -813,7 +815,7 @@ def _get_photon_positions(
     sensor,
     photon_ops,
     offset,
-    n_photons=100_000,
+    config,
 ):
     """
     draw another image with fixed number of photons
@@ -823,13 +825,16 @@ def _get_photon_positions(
     100_000 photons should give centroid to a few miliarcsec
     """
 
+    if 'n_photons' not in config:
+        raise ValueError('n_photons must be in centroid config')
+
     timage = image.copy()
     gal.drawImage(
         bp_for_drawImage,
         image=timage,
 
         method='phot',
-        n_photons=n_photons,
+        n_photons=config['n_photons'],
         sensor=sensor,
         photon_ops=photon_ops,
         poisson_flux=False,

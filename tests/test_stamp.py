@@ -583,6 +583,9 @@ def test_lsst_silicon_builder_calculates_centroid() -> None:
     image = galsim.Image(ncol=256, nrow=256)
     offset = galsim.PositionD(0,0)
     config = create_test_config()
+    config['stamp']['centroid'] = {
+        'n_photons': 1000,
+    }
 
     prof = galsim.Gaussian(sigma=2) * galsim.SED('vega.txt', 'nm', 'flambda')
     method = 'phot'
@@ -612,7 +615,7 @@ def test_lsst_silicon_builder_calculates_centroid() -> None:
 
 
 if __name__ == "__main__":
-    test_lsst_silicon_builder_calculates_centroid()
-    # testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
-    # for testfn in testfns:
-    #     testfn()
+    # test_lsst_silicon_builder_calculates_centroid()
+    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    for testfn in testfns:
+        testfn()
