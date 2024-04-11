@@ -793,13 +793,13 @@ class LSST_SiliconBuilder(StampBuilder):
                 photon_ops=photon_ops,
                 offset=offset,
             )
-            xcen, ycen = _get_robust_centroids(
-                xvals, yvals, stat_type='sigma_clip',
-            )
+            cenres = _get_robust_centroids(xvals, yvals)
 
             # these can be saved in the config using @xcentroid, @ycentroid
-            base['xcentroid'] = xcen
-            base['ycentroid'] = ycen
+            base['xcentroid'] = cenres['x']
+            base['xcentroid_err'] = cenres['xerr']
+            base['ycentroid'] = cenres['y']
+            base['ycentroid_err'] = cenres['yerr']
 
         return image
 
@@ -813,6 +813,7 @@ def _get_photon_positions(
     sensor,
     photon_ops,
     offset,
+    n_photons=100_000,
 ):
     """
     draw another image with fixed number of photons
@@ -828,7 +829,7 @@ def _get_photon_positions(
         image=timage,
 
         method='phot',
-        n_photons=100_000,
+        n_photons=n_photons,
         sensor=sensor,
         photon_ops=photon_ops,
         poisson_flux=False,
@@ -862,18 +863,73 @@ def _get_photon_positions(
     return xvals, yvals
 
 
-def _get_robust_centroids(xvals, yvals, stat_type='sigma_clip'):
-    if stat_type == 'median':
-        xcen = np.median(xvals)
-        ycen = np.median(yvals)
-    elif stat_type == 'sigma_clip':
-        from esutil.stat import sigma_clip
-        xcen, xsig = sigma_clip(xvals)
-        ycen, ysig = sigma_clip(yvals)
-    else:
-        raise ValueError(f'Bad stat_type {stat_type}')
+def _get_robust_centroids(xvals, yvals):
+    xcen, _, xerr = sigma_clip(xvals)
+    ycen, _, yerr = sigma_clip(yvals)
 
-    return xcen, ycen
+    return {
+        'x': xcen,
+        'xerr': xerr,
+        'y': ycen,
+        'yerr': yerr,
+    }
+
+
+def sigma_clip(arrin, niter=4, nsig=4):
+    """
+    Calculate the mean, sigma, error of an array with sigma clipping.
+
+    parameters
+    ----------
+    arr: array or sequence
+        A numpy array or sequence
+    niter: int, optional
+        number of iterations, defaults to 4
+    nsig: float, optional
+        number of sigma, defaults to 4
+
+    returns
+    -------
+    mean, stdev, err
+    """
+
+    arr = np.array(arrin, ndmin=1, copy=False)
+
+    if len(arr.shape) > 1:
+        raise ValueError(
+            'only 1-dimensional arrays suppored, got {arr.shape}'
+        )
+
+    indices = np.arange(arr.size)
+    nold = arr.size
+
+    mn, sig, err = _get_sigma_clip_stats(arr)
+
+    for i in range(1, niter + 1):
+
+        w, = np.where((np.abs(arr[indices] - mn)) < nsig * sig)
+
+        if w.size == 0:
+            # everything clipped, nothing to do but report latest
+            # statistics
+            break
+
+        if w.size == nold:
+            break
+
+        indices = indices[w]
+        nold = w.size
+
+        mn, sig, err = _get_sigma_clip_stats(arr[indices])
+
+    return mn, sig, err
+
+
+def _get_sigma_clip_stats(arr):
+    mn = arr.mean()
+    sig = arr.std()
+    err = sig / np.sqrt(arr.size)
+    return mn, sig, err
 
 
 # Pick the right function to be _fix_seds.
