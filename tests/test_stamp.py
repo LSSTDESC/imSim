@@ -571,51 +571,49 @@ def test_stamp_bandpass_airmass():
             np.testing.assert_allclose(realized_X, predict, rtol=rtol)
 
 
-def test_lsst_silicon_builder_calculates_centroid() -> None:
+def test_centroid_smoke() -> None:
     """
-    LSST_SiliconBuilder.draw passes the correct list of photon_ops to
-    prof.drawImage.
+    Test that centroids are calculated.
 
-    This fails because no flux is actually put in the image, but I'm
-    not sure why
+    We are not checking accuracy here
     """
     lsst_silicon = create_test_lsst_silicon(faint=False)
     image = galsim.Image(ncol=256, nrow=256)
-    offset = galsim.PositionD(0,0)
+    offset = galsim.PositionD(0, 0)
     config = create_test_config()
     config['stamp']['centroid'] = {
         'n_photons': 1000,
     }
 
+    # order matters here
+    config['stamp']['photon_ops'] = [
+        {'type': 'TimeSampler', 't0': 0.0, 'exptime': 30.0},
+        {'type': 'PupilAnnulusSampler', 'R_outer': 4.18, 'R_inner': 2.55},
+    ] + config['stamp']['photon_ops']
+
     prof = galsim.Gaussian(sigma=2) * galsim.SED('vega.txt', 'nm', 'flambda')
     method = 'phot'
     logger = galsim.config.LoggerWrapper(None)
 
-    if galsim.__version_info__ < (2,5):
-        phot_type = 'galsim.ChromaticTransformation'
-    else:
-        # In GalSim 2.5+, this is now a SimpleChromaticTransformation
-        phot_type = 'galsim.SimpleChromaticTransformation'
-
-    with mock.patch(phot_type+'.drawImage', return_value=image) as mock_drawImage:
-        image.added_flux = lsst_silicon.phot_flux
-        lsst_silicon.draw(
-            prof,
-            image,
-            method,
-            offset,
-            config=config["stamp"],
-            base=config,
-            logger=logger,
-        )
-        for c in ('x', 'y'):
-            for n in ('', '_err'):
-                name = f'{c}centroid{n}'
-                assert name in base
+    image.added_flux = lsst_silicon.phot_flux
+    lsst_silicon.draw(
+        prof,
+        image,
+        method,
+        offset,
+        config=config["stamp"],
+        base=config,
+        logger=logger,
+    )
+    for c in ('x', 'y'):
+        for n in ('', '_err'):
+            name = f'{c}centroid{n}'
+            assert name in config
 
 
 if __name__ == "__main__":
-    # test_lsst_silicon_builder_calculates_centroid()
-    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    testfns = [
+        v for k, v in vars().items() if k[:5] == 'test_' and callable(v)
+    ]
     for testfn in testfns:
         testfn()
