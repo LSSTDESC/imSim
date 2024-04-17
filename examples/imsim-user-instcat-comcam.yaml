@@ -6,6 +6,9 @@ modules:
 # for instance catalogs.
 template: imsim-config-instcat
 
+# This value updates all the file names and such that are specific to ComCam
+output.camera: LsstComCamSim
+
 ################################################################
 #  Make your changes below.
 ################################################################
@@ -16,13 +19,27 @@ template: imsim-config-instcat
 # input.tree_rings.only_dets: [R22_S11]
 # image.nobjects: 5
 
+# Disable the atmospheric PSF to run faster for testing.
+input.atm_psf: ""
+psf:
+    type: Convolve
+    items:
+        -
+           type: Gaussian
+           fwhm: 0.8
+        -
+           type: Gaussian
+           fwhm: 0.3
+
+# Turn off check pointing for this example.
+input.checkpoint: ""
+
 input.instance_catalog.file_name: $os.environ.get('IMSIM_HOME')+'/imSim/examples/example_instance_catalog.txt'
 
 input.instance_catalog.sort_mag: False
-input.tree_rings.only_dets: [R22_S11]
 image.nobjects: 10
 
-output.det_num.first: 94
-output.nfiles: 1
-
 output.dir: output
+output.det_num.first: 4
+output.nproc: 1
+output.nfiles: 1

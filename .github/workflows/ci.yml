@@ -91,3 +91,5 @@ jobs:
                 galsim flat_with_sed.yaml image.counts_per_pixel=5
                 galsim imsim-user-instcat.yaml image.nobjects=10
                 galsim imsim-user-skycat.yaml image.nobjects=10
+                galsim imsim-user-instcat-comcam.yaml
+                galsim imsim-user-skycat-comcam.yaml
