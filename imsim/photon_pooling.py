@@ -20,7 +20,7 @@ def merge_photon_arrays(arrays):
     merged = galsim.PhotonArray(n_tot)
     start = 0
     for arr in arrays:
-        merged.assignAt(start, arr)
+        merged.copyFrom(arr, slice(start, start+arr.size()))
         start += len(arr)
     return merged
 
