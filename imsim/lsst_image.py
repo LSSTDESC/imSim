@@ -10,6 +10,8 @@ from .camera import get_camera
 from .vignetting import Vignetting
 from .photon_pooling import (
     merge_photon_arrays,
+    calc_offset_adjustment,
+    offset_photon_arrays,
     accumulate_photons,
     build_stamps,
     create_full_image,
@@ -425,7 +427,8 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             phot_batches = phot_batches[current_photon_batch_num:]
         photon_ops_cfg = {"photon_ops": base.get("stamp", {}).get("photon_ops", [])}
         photon_ops = galsim.config.BuildPhotonOps(photon_ops_cfg, 'photon_ops', base, logger)
-        local_wcs = base["wcs"].local(galsim.position._PositionD(0., 0.)).shiftOrigin(galsim.position._PositionD(-0.5, -0.5))
+        offset_adjustment = calc_offset_adjustment(full_image.bounds)
+        local_wcs = base["wcs"].local(galsim.position._PositionD(0., 0.))
         base["image_pos"].x = full_image.center.x
         base["image_pos"].y = full_image.center.y
         for batch_num, batch in enumerate(phot_batches, start=current_photon_batch_num):
@@ -437,12 +440,13 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 
             base['index_key'] = 'image_num'
             stamps, current_vars = build_stamps(base, logger, batch, stamp_type="PhotonStampBuilder")
+            offset_photon_arrays(stamps, batch, offset_adjustment)
             photons = merge_photon_arrays(stamps)
             for op in photon_ops:
                 op.applyTo(photons, local_wcs, rng)
             accumulate_photons(photons, full_image, sensor, full_image.center)
 
-            # Note: in typical imsim usage, all current_vars will be 0. So this normally doens't
+            # Note: in typical imsim usage, all current_vars will be 0. So this normally doesn't
             # add much to the checkpointing data.
             nz_var = np.nonzero(current_vars)[0]
             all_vars.extend([current_vars[k] for k in nz_var])

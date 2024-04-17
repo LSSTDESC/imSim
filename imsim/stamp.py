@@ -29,6 +29,7 @@ class StellarObject:
     index: int
     gal: object
     psf: object
+    offset: object
     phot_flux: float
     fft_flux: float
     mode: ProcessingMode
@@ -99,7 +100,7 @@ def build_obj(stamp_config, base, logger):
     else:
         mode = ProcessingMode.PHOT
 
-    return StellarObject(base.get('obj_num', 0), builder.gal, psf, phot_flux=builder.phot_flux, fft_flux=builder.fft_flux, mode=mode)
+    return StellarObject(base.get('obj_num', 0), builder.gal, psf, base["stamp_offset"], phot_flux=builder.phot_flux, fft_flux=builder.fft_flux, mode=mode)
 
 
 class StampBuilderBase(StampBuilder):
