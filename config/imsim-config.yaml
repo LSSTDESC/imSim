@@ -68,7 +68,7 @@ input:
             items:
                 - $band
         rotTelPos: $rotTelPos
-        camera: $camera_info['batoid_camera_name']
+        camera: $camera_info['camera_name']
 
     sky_model:
         # Use the rubin_sim.skybrightness model to compute the sky
