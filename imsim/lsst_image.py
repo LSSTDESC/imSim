@@ -2,7 +2,7 @@ import numpy as np
 import hashlib
 import logging
 import galsim
-from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise, LoadInputObj
+from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
 from .sky_model import SkyGradient, CCD_Fringing
 from .camera import get_camera
