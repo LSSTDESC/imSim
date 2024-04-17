@@ -43,6 +43,14 @@ eval_variables:
 
     fexptime: { type: OpsimData, field: exptime }
 
+    # All camera-related data are keyed off of this value, so you can just change
+    # output.camera to switch to e.g. LsstComCamSim
+    scamera: "@output.camera"
+
+    dcamera_info: {
+        template: "$os.path.join(imsim.meta_data.data_dir, camera + '_info.yaml')"
+    }
+
     # Note: Another value we use in many eval items is det_name.  If using the LSST_CCD
     #       output type, as we do here, it's automatically added as an availble eval variable.
     #       Otherwise you should set sdet_name here manually to e.g. 'R22_S11' or whatever.
@@ -56,10 +64,11 @@ input:
     telescope:
         file_name:
             type: FormattedStr
-            format : LSST_%s.yaml
+            format: $camera_info['telescope_format']
             items:
-                - "$band"
+                - $band
         rotTelPos: $rotTelPos
+        camera: $camera_info['camera_name']
 
     sky_model:
         # Use the rubin_sim.skybrightness model to compute the sky
@@ -73,8 +82,8 @@ input:
         # The first 4 items are required.
         airmass: { type: OpsimData, field: airmass }
         rawSeeing:  { type: OpsimData, field: rawSeeing }
-        band: "$band"
-        boresight: "$boresight"
+        band: $band
+        boresight: $boresight
 
         # Optional parameters:  (Unless otherwise stated, these are the default values.)
         t0: 0               # seconds
@@ -95,7 +104,8 @@ input:
         # This enables TreeRingCenter and TreeRungFunc, which are stored as a dict here based
         # on the detector name, so the right value can be accessed for each object.
         # This file lives in the imsim repo.
-        file_name: "tree_ring_parameters_2018-04-26.txt"
+        file_name: $camera_info['tree_rings_file_name']
+
         # Can limit the detectors to read in.  This is handy while debugging, since it takes
         # half a minute or so to read all 189 detectors (the default behavior).
         # only_dets: [R22_S11]
@@ -107,11 +117,11 @@ input:
           format : checkpoint_%08d-%s-%s.hdf
           items:
               - { type: OpsimData, field: observationId }
-              - "$band"
-              - "$det_name"
+              - $band
+              - $det_name
 
     vignetting:
-        file_name: LSSTCam_vignetting_data.json
+        file_name: $camera_info['vignetting_file_name']
 
 # Define how the objects are placed on the image.  This refers to a single CCD.
 image:
@@ -136,7 +146,7 @@ image:
     nbatch: 100
     nbatch_per_checkpoint: 1
 
-    det_name: "$det_name"
+    det_name: $det_name
 
     bandpass:
         type: RubinBandpass
@@ -144,15 +154,15 @@ image:
         # You can optionally add an airmass here to incorporate into the bandpass.  If you leave
         # this out, then the fiducial bandpass with airmass = 1.2 will be used.
         airmass: { type: OpsimData, field: airmass }
-        camera: "@output.camera"
+        camera: $camera
         det_name: $det_name
 
     wcs:
         type: Batoid
 
         # These are required:
-        camera: "@output.camera"
-        boresight: "$boresight"
+        camera: $camera
+        boresight: $boresight
 
         obstime:
             type: Eval
@@ -160,7 +170,7 @@ image:
             fmjd_val: { type: OpsimData, field: mjd }
 
         det_name: $det_name
-        wavelength: "$(@image.bandpass).effective_wavelength"
+        wavelength: $(@image.bandpass).effective_wavelength
 
         # The rest can be omitted, since these are the default values, but shown here
         # for reference.
@@ -169,7 +179,7 @@ image:
         H2O_pressure: 1.0 # kPa
         order: 3          # Order of the SIP polynomial
 
-    camera: "@output.camera"
+    camera: $camera
 
     noise:
         type: CCD
@@ -182,7 +192,7 @@ image:
 
     apply_fringing: "$band == 'y'" # Only set to True if simulating y-bands images!
 
-    boresight: "$boresight"
+    boresight: $boresight
 
     use_flux_sky_areas: False   # This means don't bother with the BFE from sky flux when computing
                                 # the pixel areas for drawing the sky.
@@ -227,9 +237,9 @@ stamp:
     max_flux_simple: 100  # When to switch to simple SED
     airmass: { type: OpsimData, field: airmass }
     rawSeeing:  { type: OpsimData, field: rawSeeing }
-    band: "$band"
-    camera: "@output.camera"
-    det_name: "$det_name"  # This is automatically defined by the LSST_CCD output type.
+    band: $band
+    camera: $camera
+    det_name: $det_name  # This is automatically defined by the LSST_CCD output type.
 
     diffraction_fft:
       exptime: { type: OpsimData, field: exptime }
@@ -261,9 +271,9 @@ stamp:
                 theta: { type: OpsimData, field: HA }
         -
             type: RubinDiffractionOptics
-            det_name: "$det_name"
-            boresight: "$boresight"
-            camera: "@output.camera"
+            det_name: $det_name
+            boresight: $boresight
+            camera: $camera
             altitude: $altitude
             azimuth: $azimuth
         -
@@ -289,7 +299,7 @@ stamp:
 output:
     type: LSST_CCD
     nproc: 1    # Change this to work on multiple CCDs at once.
-    nfiles: 1   # Default is all 189 CCDs.  Set to 1 while testing.
+    #nfiles: 1   # Default is all 189 CCDs.  Set to 1 while testing.
 
     camera: LsstCam
 
@@ -299,8 +309,8 @@ output:
 
     det_num:
         type: Sequence
-        nitems: 189
-        first: 94  # Can set first to something if you want to do a specific sensor.
+        nitems: $camera_info['ndets']
+        #first: 94  # Can set first to something if you want to do a specific sensor.
 
     dir: fits
     file_name:
@@ -309,8 +319,8 @@ output:
         items:
             - { type: OpsimData, field: observationId }
             - { type: OpsimData, field: snap }
-            - "$band"
-            - "$det_name"   # A value stored in the dict by LSST_CCD
+            - $band
+            - $det_name   # A value stored in the dict by LSST_CCD
             - "@output.det_num"
 
     readout:
@@ -320,7 +330,7 @@ output:
         bias_level: 1000.
         pcti: 1.e-6
         scti: 1.e-6
-        bias_levels_file: LSSTCam_bias_levels_run_13421.json
+        bias_levels_file: $camera_info['bias_levels_file']
 
         file_name:
             type: FormattedStr
@@ -328,8 +338,8 @@ output:
             items:
                 - { type: OpsimData, field: observationId }
                 - { type: OpsimData, field: snap }
-                - "$band"
-                - "$det_name"
+                - $band
+                - $det_name
                 - "@output.det_num"
 
     truth:
@@ -340,15 +350,15 @@ output:
             items:
                 - { type: OpsimData, field: observationId }
                 - { type: OpsimData, field: snap }
-                - "$band"
-                - "$det_name"
+                - $band
+                - $det_name
                 - "@output.det_num"
         columns:
             object_id: "@object_id"
-            ra: "$sky_pos.ra.deg"
-            dec: "$sky_pos.dec.deg"
-            x: "$image_pos.x"
-            y: "$image_pos.y"
+            ra: $sky_pos.ra.deg
+            dec: $sky_pos.dec.deg
+            x: $image_pos.x
+            y: $image_pos.y
 
             # Note: these next 4 will only work if using the LSST_Silicon stamp type.
             nominal_flux: "@nominal_flux"  # The nominal "expectation value" flux.

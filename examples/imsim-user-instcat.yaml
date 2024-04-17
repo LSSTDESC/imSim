@@ -22,4 +22,7 @@ input.instance_catalog.sort_mag: False
 input.tree_rings.only_dets: [R22_S11]
 image.nobjects: 10
 
+output.det_num.first: 94
+output.nfiles: 1
+
 output.dir: output

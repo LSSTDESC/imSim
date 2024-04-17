@@ -1,0 +1,6 @@
+tree_rings_file_name: LsstComCamSim_tree_rings_2024-02-03.txt
+vignetting_file_name: LSSTComCamSim_vignetting_data.json
+telescope_format: ComCam_%s.yaml
+bias_levels_file: LSSTComCamSim_bias_levels.json
+camera_name: LsstComCamSim
+ndets: 9
