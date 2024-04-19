@@ -256,7 +256,7 @@ class LSST_ImageBuilder(LSST_ImageBuilderBase):
         photon_ops = base["stamp"]["photon_ops"]
         shift_op = {'type': 'Shift'}
         if shift_op not in photon_ops:
-            rubin_diffraction_optics_index = next((index for (index, d) in enumerate(photon_ops) if d["type"] == "RubinDiffractionOptics"), None)
+            rubin_diffraction_optics_index = next((index for (index, d) in enumerate(photon_ops) if d["type"] == "RubinDiffractionOptics" or d["type"] == "RubinOptics"), None)
             if rubin_diffraction_optics_index is not None:
                 photon_ops.insert(rubin_diffraction_optics_index, shift_op)
             else:

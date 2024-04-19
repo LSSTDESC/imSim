@@ -441,7 +441,10 @@ def deserialize_shift(config, base, _logger):
     if kwargs.get("invert"):
         img_pos.x = -img_pos.x
         img_pos.y = -img_pos.y
-    return Shift(img_pos=img_pos)
+    return Shift(
+        img_pos=img_pos,
+        **kwargs,
+    )
 
 
 
