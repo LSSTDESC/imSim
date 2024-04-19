@@ -99,7 +99,9 @@ def create_test_config(
             **alt_az,
         }
     else:
-        optics_args = {"type": "RubinOptics"}
+        optics_args = {"type": "RubinOptics",
+                       "det_name": "R22_S11",
+                       }
     config = {
         "input": {
             "telescope": {
@@ -130,6 +132,8 @@ def create_test_config(
             "bandpass": bandpass,
             "nobjects": 20,
             "nbatch": 10,
+            "nbatch_fft": 5,
+            "nbatch_photon": 5
         },
         "psf": {"type": "Convolve", "items": [{"type": "Gaussian", "fwhm": 0.3}]},
         "stamp": {
@@ -149,7 +153,6 @@ def create_test_config(
             "photon_ops": [
                 {"type": "TimeSampler", "t0": 0.0, "exptime": exptime},
                 {"type": "PupilAnnulusSampler", "R_outer": 4.18, "R_inner": 2.55},
-                # {"type": "Shift"},
                 {
                     **optics_args,
                     "boresight": boresight,
