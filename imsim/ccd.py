@@ -192,6 +192,8 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header['AMSTART'] = airmass
         image.header['AMEND'] = airmass  # wrong, does anyone care?
         image.header['FOCUSZ'] = parse('focusZ', float, 0.0)
+        image.header['ALTITUDE'] = parse('altitude', float, None)
+        image.header['AZIMUTH'] = parse('azimuth', float, None)
 
         # If there's anything left in header_vals, add it to the header.
         for k in header_vals:
