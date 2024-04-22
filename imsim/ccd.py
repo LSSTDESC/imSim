@@ -170,9 +170,9 @@ class LSST_CCDBuilder(OutputBuilder):
         # Now construct the image header
         image.header['MJD'] = mjd
         image.header['MJD-OBS'] = mjd_obs, 'Start of exposure'
-        # NOTE: Should this day be the current day,
-        # or the day at the time of the most recent noon?
-        dayobs = astropy.time.Time(mjd_obs, format='mjd').strftime('%Y%m%d')
+        # Subtract half-day offset from mjd-obs for dayobs calculation
+        # following Rubin convention.
+        dayobs = astropy.time.Time(mjd_obs - 0.5, format='mjd').strftime('%Y%m%d')
         image.header['DAYOBS'] = dayobs
         image.header['SEQNUM'] = seqnum
         image.header['CONTRLLR'] = 'S', 'simulated data'
