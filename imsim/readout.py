@@ -269,7 +269,10 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         telcode = 'CC'
     else:
         phdu.header['FILTER'] = LSSTCam_filter_map.get(band, None)
-        phdu.header['INSTRUME'] = 'LSSTCam'
+        if camera_name == 'LsstCamSim':
+            phdu.header['INSTRUME'] = 'LSSTCamSim'
+        else:
+            phdu.header['INSTRUME'] = 'LSSTCam'
         phdu.header['RAFTBAY'] = raft
         phdu.header['CCDSLOT'] = sensor
         phdu.header['RA'] = ratel

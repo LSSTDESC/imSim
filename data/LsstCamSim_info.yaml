@@ -1,0 +1,6 @@
+tree_rings_file_name: tree_ring_parameters_2018-04-26.txt
+vignetting_file_name: LSSTCam_vignetting_data.json
+telescope_format: LSST_%s.yaml
+bias_levels_file: LSSTCam_bias_levels_run_13421.json
+camera_name: LsstCam
+ndets: 189
