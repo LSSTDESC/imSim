@@ -1,0 +1,44 @@
+# Use imSim custom modules
+modules:
+    - imsim
+
+# Get most of the configuration from the imSim config-template
+# for skyCatalogs
+template: imsim-config-skycat
+
+# This value updates all the file names and such that are specific to ComCam
+output.camera: LsstComCamSim
+
+################################################################
+#  Make your changes below.
+################################################################
+
+# Restrict to galaxies to avoid bright stars
+input.sky_catalog.obj_types: [galaxy]
+
+# Disable the atmospheric PSF to run faster for testing.
+input.atm_psf: ""
+psf:
+    type: Convolve
+    items:
+        -
+           type: Gaussian
+           fwhm: 0.8
+        -
+           type: Gaussian
+           fwhm: 0.3
+
+# Turn off check pointing for this example.
+input.checkpoint: ""
+
+input.sky_catalog.file_name: ../tests/data/sky_cat_9683.yaml
+input.opsim_data.file_name: ../tests/data/small_opsim_9683.db
+input.opsim_data.visit: 449053
+image.nobjects: 10
+
+output.dir: output # default `fits`
+output.det_num.first: 4
+output.nproc: 1
+output.nfiles: 1
+
+image.random_seed: 42

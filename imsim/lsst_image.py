@@ -38,7 +38,14 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
                      image_num,image_num,obj_num)
 
         self.nobjects = self.getNObj(config, base, image_num, logger=logger)
-        logger.debug('image %d: nobj = %d',image_num,self.nobjects)
+        if 'nobjects' in config:
+            # User specified nobjects.
+            # Make sure it's not more than what any input catalog can
+            # handle (we don't want repeated objects).
+            input_nobj = galsim.config.ProcessInputNObjects(base)
+            if input_nobj is not None:
+                self.nobjects = min(self.nobjects, input_nobj)
+        logger.info('image %d: nobj = %d', image_num, self.nobjects)
 
         # These are allowed for LSST_Image, but we don't use them here.
         extra_ignore = [ 'image_pos', 'world_pos', 'stamp_size', 'stamp_xsize', 'stamp_ysize',

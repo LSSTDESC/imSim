@@ -42,7 +42,7 @@ jobs:
                 conda update -n base conda
                 conda info
                 conda list
-                conda install -y --file etc/standalone_conda_requirements.txt
+                conda install -y --file etc/standalone_conda_requirements.txt || true
                 conda info
                 conda list
 
@@ -69,7 +69,7 @@ jobs:
 
             - name: Install test deps
               run:
-                conda install -y pytest nose
+                conda install -y pytest nose || true
 
             - name: Run tests
               run: |
@@ -91,3 +91,5 @@ jobs:
                 galsim flat_with_sed.yaml image.counts_per_pixel=5
                 galsim imsim-user-instcat.yaml image.nobjects=10
                 galsim imsim-user-skycat.yaml image.nobjects=10
+                galsim imsim-user-instcat-comcam.yaml
+                galsim imsim-user-skycat-comcam.yaml

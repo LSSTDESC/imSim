@@ -1,11 +1,11 @@
-
+from astropy.io import fits
 import copy
 import warnings
 import numpy as np
 import galsim
 import pickle
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
-from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 import os
 from .meta_data import data_dir
 
@@ -111,27 +111,27 @@ class SkyGradient:
         value at the CCD center.
         """
         return (self.a*x + self.b*y + self.c)/self.sky_level_center
-    
+
 class CCD_Fringing:
     """
-    Class generates normalized fringing map. 
-    
+    Class generates normalized fringing map.
+
     The function call operator returns the normlized fringing level
-    as a function of pixel coordinates relative to the value at the 
+    as a function of pixel coordinates relative to the value at the
     CCD center.
     """
     def __init__(self, true_center, boresight, seed, spatial_vary):
         """
         Parameters
         ----------
-        true_center : 
+        true_center :
             Center of the current image.
         boresight : `CelestialCoord`
-            Boresight of the current pointing. 
-            This is projected to the true_center to get the angular offset 
+            Boresight of the current pointing.
+            This is projected to the true_center to get the angular offset
             from FoV center for each CCD.
         seed : `int`
-            Random seed number for each CCD. 
+            Random seed number for each CCD.
             This is the hash value computed for the current sensor based on
             its serial number.
         spatial_vary : `bool`
@@ -142,14 +142,14 @@ class CCD_Fringing:
         self.boresight = boresight
         self.spatial_vary = spatial_vary
         self.seed = seed
-        
+
     def generate_heightfield(self, fractal_dimension=2.5, n=4096):
         '''
         # Use the spectral sythesis method to generate a heightfield
         '''
         H = 1 - (fractal_dimension - 2)
         kpow = -(H + 1.0) / 1.2
-        
+
         A = np.zeros((n, n), complex)
 
         kvec = np.fft.fftfreq(n)
@@ -183,39 +183,44 @@ class CCD_Fringing:
         #Z  += 1
         return(Z)
 
-        
+
     def fringe_variation_level(self):
         '''
-        Function implementing temporal and spatial variation of fringing. 
-        
+        Function implementing temporal and spatial variation of fringing.
+
         The function will return a multiplicative factor that modifies
-        the fringing amplitude from sensor to sensor based on the 
+        the fringing amplitude from sensor to sensor based on the
         time (not implemented yet) and its location on the focal plane.
-        
+
         Set spatial = True to turn on spatial variation implementation.
         Otherwise, this function will return a unity value.
         '''
-        
+
         if self.spatial_vary:
             # Load 2d interpolator for OH spatial variation
-            filename = os.path.join(data_dir, 'fringing_data',
-                                        'skyline_var.pkl')
-            with open(filename, 'rb') as f:
-                interp = pickle.load(f)
-                
+            filename = os.path.join(
+                data_dir,
+                'fringing_data',
+                'skyline_var.fits'
+            )
+            hdu = fits.open(filename)[0]
+            z = hdu.data
+            nx, ny = z.shape
+            x = np.linspace(hdu.header['XMIN'], hdu.header['XMAX'], nx)
+            y = np.linspace(hdu.header['YMIN'], hdu.header['YMAX'], ny)
+            interp = RectBivariateSpline(x, y, z)
             dx, dy = self.boresight.project(self.true_center)
             # calculated OH flux level wrst the center of focal plane.
             level = interp(dx.deg,dy.deg)/interp(0,0)
             return(level)
         else:
             return 1
-        
 
     def calculate_fringe_amplitude(self,x,y,amplitude = 0.002):
         """
-        Return the normalized fringing amplitude at the desired pixel 
+        Return the normalized fringing amplitude at the desired pixel
         wrt the value at the CCD center.
-        
+
         Parameters
         ------------------------
         amplitude: `float`
@@ -229,7 +234,7 @@ class CCD_Fringing:
         xx = np.linspace(0, fringe_im.shape[-1]-1, fringe_im.shape[-1], dtype= int)
         yy = np.linspace(0, fringe_im.shape[0]-1, fringe_im.shape[0], dtype=int )
         interp_func = RegularGridInterpolator((xx, yy), fringe_im.T)
-        
+
         return (interp_func((x,y)))
 
 class SkyModelLoader(InputLoader):

@@ -169,11 +169,13 @@ class InstCatalog(object):
     # from https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _rubin_area = 0.25 * np.pi * 649**2  # cm^2
 
-    def __init__(self, file_name, wcs, xsize=4096, ysize=4096, sed_dir=None, edge_pix=100, sort_mag=True, flip_g2=True,
+    def __init__(self, file_name, wcs, xsize=4096, ysize=4096, sed_dir=None,
+                 edge_pix=100, sort_mag=True, flip_g2=True, approx_nobjects=None,
                  min_source=None, skip_invalid=True, logger=None):
         logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
         self.flip_g2 = flip_g2
+        self.approx_nobjects = approx_nobjects
         self._sed_cache = {}
 
         if sed_dir is None:
@@ -315,6 +317,9 @@ class InstCatalog(object):
     def getNObjects(self, logger=None):
         # Note: This method name is required by the config parser.
         return len(self.id)
+
+    def getApproxNObjects(self, logger=None):
+        return self.approx_nobjects or self.getNObjects()
 
     @property
     def nobjects(self):
@@ -593,6 +598,7 @@ class InstCatalogLoader(InputLoader):
                 'edge_pix' : float,
                 'sort_mag' : bool,
                 'flip_g2' : bool,
+                'approx_nobjects' : int,
                 'min_source' : int,
                 'skip_invalid' : bool,
               }
