@@ -170,12 +170,18 @@ class InstCatalog(object):
     _rubin_area = 0.25 * np.pi * 649**2  # cm^2
 
     def __init__(self, file_name, wcs, xsize=4096, ysize=4096, sed_dir=None,
-                 edge_pix=100, sort_mag=True, flip_g2=True, approx_nobjects=None,
+                 edge_pix=100, sort_mag=True, flip_g2=True,
                  min_source=None, skip_invalid=True, logger=None):
-        logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
+        self.wcs = wcs
+        self.xsize = xsize
+        self.ysize = ysize
+        self.edge_pix = edge_pix
+        self.sort_mag = sort_mag
         self.flip_g2 = flip_g2
-        self.approx_nobjects = approx_nobjects
+        self.min_source = min_source
+        self.skip_invalid = skip_invalid
+        self.logger = galsim.config.LoggerWrapper(logger)
         self._sed_cache = {}
 
         if sed_dir is None:
@@ -184,8 +190,20 @@ class InstCatalog(object):
             self.sed_dir = sed_dir
         self.inst_dir = os.path.dirname(file_name)
 
+        self._id = None  # Sentinal that _load hasn't been run yet.
+
+    @property
+    def id(self):
+        self._load()
+        return self._id
+
+    def _load(self, logger=None):
+        if self._id is not None:
+            return
+
+        logger = galsim.config.LoggerWrapper(logger or self.logger)
         min_ra, max_ra, min_dec, max_dec, min_x, min_y, max_x, max_y, ref_ra \
-            = get_radec_limits(wcs, xsize, ysize, logger, edge_pix)
+            = get_radec_limits(self.wcs, self.xsize, self.ysize, logger, self.edge_pix)
 
         # What position do the dust parameters start, based on object type.
         dust_index_dict = {
@@ -203,7 +221,7 @@ class InstCatalog(object):
         lens_list = []
         objinfo_list = []
         dust_list = []
-        g2_sign = -1 if flip_g2 else 1
+        g2_sign = -1 if self.flip_g2 else 1
         logger.warning('Reading instance catalog %s', self.file_name)
         nuse = 0
         ntot = 0
@@ -228,7 +246,7 @@ class InstCatalog(object):
                     world_pos = galsim.CelestialCoord(ra, dec)
                     #logger.debug('world_pos = %s',world_pos)
                     try:
-                        image_pos = wcs.toImage(world_pos)
+                        image_pos = self.wcs.toImage(world_pos)
                     except RuntimeError as e:
                         # Inverse direction can fail for objects off the image.
                         logger.debug('%s',e)
@@ -250,7 +268,7 @@ class InstCatalog(object):
                     objinfo = tokens[12:dust_index]
                     dust = tokens[dust_index:]
 
-                    if skip_invalid:
+                    if self.skip_invalid:
                         # Check for some reasons to skip this object.
                         object_is_valid = (magnorm < 50.0 and
                                             not (objinfo[0] == 'sersic2d' and
@@ -280,7 +298,7 @@ class InstCatalog(object):
             logger.warning("No objects found on image")
 
         # Sort the object lists by mag and convert to numpy arrays.
-        self.id = np.array(id_list, dtype=str)
+        self._id = np.array(id_list, dtype=str)
         self.world_pos = np.array(world_pos_list, dtype=object)
         self.image_pos = np.array(image_pos_list, dtype=object)
         self.magnorm = np.array(magnorm_list, dtype=float)
@@ -289,11 +307,11 @@ class InstCatalog(object):
         self.objinfo = np.array(objinfo_list, dtype=object)
         self.dust = np.array(dust_list, dtype=object)
 
-        if min_source is not None:
+        if self.min_source is not None:
             nsersic = np.sum([params[0].lower() == 'sersic2d' for params in self.objinfo])
-            if nsersic < min_source:
-                logger.warning(f"Fewer than {min_source} galaxies on sensor.  Skipping.")
-                self.id = self.id[:0]
+            if nsersic < self.min_source:
+                logger.warning(f"Fewer than {self.min_source} galaxies on sensor.  Skipping.")
+                self._id = self._id[:0]
                 self.world_pos = self.world_pos[:0]
                 self.image_pos = self.image_pos[:0]
                 self.magnorm = self.magnorm[:0]
@@ -302,9 +320,9 @@ class InstCatalog(object):
                 self.objinfo = self.objinfo[:0]
                 self.dust = self.dust[:0]
 
-        if sort_mag:
+        if self.sort_mag:
             index = np.argsort(self.magnorm)
-            self.id = self.id[index]
+            self._id = self._id[index]
             self.world_pos = self.world_pos[index]
             self.image_pos = self.image_pos[index]
             self.magnorm = self.magnorm[index]
@@ -315,11 +333,20 @@ class InstCatalog(object):
             logger.warning("Sorted objects by magnitude (brightest first).")
 
     def getNObjects(self, logger=None):
+        self._load(logger)
         # Note: This method name is required by the config parser.
-        return len(self.id)
+        return len(self._id)
 
     def getApproxNObjects(self, logger=None):
-        return self.approx_nobjects or self.getNObjects()
+        if self._id is None:
+            # If we haven't read the file yet, just (over-)estimate the number by
+            # quickly counting the lines in the file without doing any processing.
+            with fopen(self.file_name, mode='rt') as _input:
+                # generators don't implement len(); this is the tricky workaround that doesn't
+                # store all the data in memory (like len(list(_input))).
+                return sum(1 for _ in _input)
+        else:
+            return self.getNObjects(logger)
 
     @property
     def nobjects(self):
@@ -330,18 +357,23 @@ class InstCatalog(object):
     #       attribute directly.  Since input objects such as this are used via proxy in
     #       multiprocessing contexts, we need to keep the method version around.
     def getID(self, index):
-        return self.id[index]
+        self._load()
+        return self._id[index]
 
     def getWorldPos(self, index):
+        self._load()
         return self.world_pos[index]
 
     def getImagePos(self, index):
+        self._load()
         return self.image_pos[index]
 
     def getMagNorm(self, index):
+        self._load()
         return self.magnorm[index]
 
     def getSED(self, index):
+        self._load()
         # These require reading in an input file.  So cache the raw (unredshifted versions)
         # to try to minimize how much I/O we'll need for these.
         name, redshift = self.sed[index]
@@ -391,6 +423,7 @@ class InstCatalog(object):
         return sed
 
     def getLens(self, index):
+        self._load()
         # The galsim.lens(...) function wants to be passed reduced
         # shears and magnification, so convert the WL parameters as
         # defined in phosim instance catalogs to these values.  See
@@ -403,6 +436,7 @@ class InstCatalog(object):
         return g1,g2,mu
 
     def getDust(self, index):
+        self._load()
         params = self.dust[index]
         if params[0].lower() != 'none':
             internal_av = float(params[1])
@@ -422,7 +456,8 @@ class InstCatalog(object):
 
         return internal_av, internal_rv, galactic_av, galactic_rv
 
-    def getObj(self, index, gsparams=None, rng=None, exptime=30):
+    def getObj(self, index, gsparams=None, rng=None, exptime=30, logger=None):
+        self._load(logger)
         if self.objinfo.size == 0:
             raise RuntimeError("Trying to get an object from an empty instance catalog")
         params = self.objinfo[index]
@@ -530,7 +565,7 @@ def InstCatObj(config, base, ignore, gsparams, logger):
     # Setup the indexing sequence if it hasn't been specified.
     # The normal thing with a catalog is to just use each object in order,
     # so we don't require the user to specify that by hand.  We can do it for them.
-    galsim.config.SetDefaultIndex(config, inst.getNObjects())
+    galsim.config.SetDefaultIndex(config, inst.getNObjects(logger))
 
     req = { 'index' : int }
     opt = { 'num' : int }
@@ -540,7 +575,7 @@ def InstCatObj(config, base, ignore, gsparams, logger):
     rng = galsim.config.GetRNG(config, base, logger, 'InstCatObj')
     exptime = base.get('exptime', 30)
 
-    obj = inst.getObj(index, gsparams=gsparams, rng=rng, exptime=exptime)
+    obj = inst.getObj(index, gsparams=gsparams, rng=rng, exptime=exptime, logger=logger)
     base['object_id'] = inst.getID(index)
 
     return obj, safe
@@ -577,7 +612,7 @@ class InstCatSEDBuilder(galsim.config.SEDBuilder):
         """
         inst = galsim.config.GetInputObj('instance_catalog', config, base, 'InstCatWorldPos')
 
-        galsim.config.SetDefaultIndex(config, inst.getNObjects())
+        galsim.config.SetDefaultIndex(config, inst.getNObjects(logger))
 
         req = { 'index' : int }
         opt = { 'num' : int }
@@ -598,7 +633,6 @@ class InstCatalogLoader(InputLoader):
                 'edge_pix' : float,
                 'sort_mag' : bool,
                 'flip_g2' : bool,
-                'approx_nobjects' : int,
                 'min_source' : int,
                 'skip_invalid' : bool,
               }

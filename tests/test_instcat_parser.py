@@ -342,13 +342,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             cat = all_cats[det_name] = imsim.InstCatalog(galaxy_phosim_file, all_wcs[det_name],
                                                          sed_dir=sed_dir, edge_pix=0, flip_g2=False)
             print(det_name, cat.getNObjects(), cat.getApproxNObjects())
-            assert cat.getApproxNObjects() == cat.getNObjects()
-
-            cat2 = imsim.InstCatalog(galaxy_phosim_file, all_wcs[det_name],
-                                    sed_dir=sed_dir, edge_pix=0, flip_g2=False,
-                                    approx_nobjects=10**5)
-            assert cat2.getApproxNObjects() == 10**5
-            assert cat2.getNObjects() == cat.getNObjects()
+            assert cat.getApproxNObjects() >= cat.getNObjects()
 
         id_arr = np.concatenate([cat.id for cat in all_cats.values()])
         print('diff1 = ',set(truth_data['uniqueId'])-set(id_arr))
