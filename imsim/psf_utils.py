@@ -1,6 +1,7 @@
 import numpy as np
 from functools import lru_cache
 import galsim
+from lsst.afw import cameraGeom
 
 
 @lru_cache(maxsize=128)
@@ -39,7 +40,7 @@ def make_double_gaussian(fwhm1=0.6, fwhm2=0.12, wgt1=1.0, wgt2=0.1):
 
 @lru_cache(maxsize=128)
 def make_kolmogorov_and_gaussian_psf(
-    airmass=1.2, rawSeeing=0.7, band='r', gsparams=None,
+    airmass=None, rawSeeing=None, band=None, gsparams=None,
 ):
     """
     This PSF class is based on David Kirkby's presentation to the DESC Survey Simulations
@@ -51,14 +52,30 @@ def make_kolmogorov_and_gaussian_psf(
 
     Parameters
     ----------
-    airmass
+    airmass: float
+        Default 1.2
+    rawSeeing: float
+        Default 0.7
+    band: str
+        Default 'r'
+    gsparams: galsim.GSParams
+        Default None
 
     rawSeeing is the FWHM seeing at zenith at 500 nm in arc seconds
     (provided by OpSim)
 
     band is the bandpass of the observation [u,g,r,i,z,y]
+
+    This code was provided by David Kirkby in a private communication
     """
-    # This code was provided by David Kirkby in a private communication
+    if airmass is None:
+        airmass = 1.2
+
+    if rawSeeing is None:
+        rawSeeing = 0.7
+
+    if band is None:
+        band = 'r'
 
     wlen_eff = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
     # wlen_eff is from Table 2 of LSE-40 (y=y2)
@@ -130,3 +147,93 @@ def make_fft_psf(psf, logger=None):
             return atm_psf
     else:
         return psf
+
+
+def get_fft_psf_maybe(
+    obj, nominal_flux, psf, bandpass, wcs, fft_sb_thresh, pixel_scale,
+    dm_detector, vignetting=None, sky_pos=None, logger=None,
+):
+    """
+    Get the fft psf if it is deemed necessary to use fft to draw the object,
+    otherwise return the input psf
+
+    Parameters
+    ----------
+    obj: galsim object
+        The object being drawn
+    nominal_flux: float
+        The nominal flux of the object
+    psf: galsim psf object
+        The current psf
+    bandpass: imsim.bandpass.RubinBandpass
+        The bandpass for this image
+    wcs: galsim.GSFitsWCS
+        The WCS for the image
+    fft_sb_thresh: float
+        Surface brightness threshold for doing FFTs
+    pixel_scale: float
+        Pixel scale of detector
+    vignetting: vignetting object, optional
+        Must have an apply(image) method
+    dm_detector: lsst.afw.cameraGeom.Detector, optional
+        Data management detector object.  Use make_dm_detector(detnum)
+        Only needed for vignetting
+    sky_pos: obj_coord: galsim.CelestialCoord, optional
+        The sky position of the object.  Needed to get vignetting factor
+        when doing fft
+    logger: python logger, optional
+        logger
+
+    Returns
+    -------
+    psf, draw_method, flux
+        The PSF will be the input psf if it is determined that photon
+        shooting should be used.  draw_method will be 'phot' or 'fft'
+        Flux could be modified via vignetting of fft will be used
+    """
+    import galsim
+
+    fft_psf = make_fft_psf(
+        psf=psf.evaluateAtWavelength(bandpass.effective_wavelength),
+        logger=logger,
+    )
+
+    # Now this object should have a much better estimate of the real maximum
+    # surface brightness than the original psf did.  However, the max_sb
+    # feature gives an over-estimate, whereas to be conservative, we would
+    # rather an under-estimate.  For this kind of profile, dividing by 2 does a
+    # good job of giving us an underestimate of the max surface brightness.
+    # Also note that `max_sb` is in photons/arcsec^2, so multiply by
+    # pixel_scale**2 to get photons/pixel, which we compare to fft_sb_thresh.
+    gal_achrom = obj.evaluateAtWavelength(bandpass.effective_wavelength)
+    fft_obj = galsim.Convolve(gal_achrom, fft_psf).withFlux(nominal_flux)
+    max_sb = fft_obj.max_sb/2. * pixel_scale**2
+
+    if max_sb > fft_sb_thresh:
+        if logger is not None:
+            logger.info('max_sb = %s. >  %s', max_sb, fft_sb_thresh)
+        # For FFT-rendered objects, the telescope vignetting isn't
+        # emergent as it is for the ray-traced objects, so use the
+        # empirical vignetting function, if it's available, to
+        # scale the flux to use in FFTs.
+
+        if vignetting is not None:
+            if sky_pos is None:
+                raise ValueError('you must send sky_pos when using vignetting')
+            if dm_detector is None:
+                raise ValueError('you must send dm_detector when using vignetting')
+            pix_to_fp = dm_detector.getTransform(
+                cameraGeom.PIXELS,
+                cameraGeom.FOCAL_PLANE,
+            )
+            fft_flux = nominal_flux * vignetting.at_sky_coord(
+                sky_pos, wcs, pix_to_fp,
+            )
+        else:
+            fft_flux = nominal_flux
+
+        return fft_psf, 'fft', fft_flux
+    else:
+        if logger is not None:
+            logger.info('max_sb = %s. <  %s', max_sb, fft_sb_thresh)
+        return psf, 'phot', nominal_flux
