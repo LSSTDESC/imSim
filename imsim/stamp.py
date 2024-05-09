@@ -2,13 +2,12 @@ from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
 from galsim.config import StampBuilder, RegisterStampType, GetAllParams, GetInputObj
-from lsst.afw import cameraGeom
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 from .diffraction_fft import apply_diffraction_psf
 from .camera import get_camera
 from .photon_ops import BandpassRatio
-from .psf_utils import make_fft_psf
+from .psf_utils import get_fft_psf_maybe
 from .stamp_utils import get_stamp_size
 
 @dataclass
@@ -171,16 +170,16 @@ class LSST_SiliconBuilder(StampBuilder):
             noise_var = galsim.config.CalculateNoiseVariance(base)
 
             obj_achrom = obj.evaluateAtWavelength(bandpass.effective_wavelength)
+            keys = ('airmass', 'rawSeeing', 'band')
+            kwargs = { k:v for k,v in params.items() if k in keys }
             stamp_size = get_stamp_size(
                 obj_achrom=obj_achrom,
                 nominal_flux=self.nominal_flux,
                 noise_var=noise_var,
-                airmass=params['airmass'],
-                rawSeeing=params['rawSeeing'],
-                band=params['band'],
                 Nmax=self._Nmax,
                 pixel_scale=self._pixel_scale,
-                logger=logger
+                logger=logger,
+                **kwargs
             )
             xsize = ysize = stamp_size
 
@@ -229,6 +228,40 @@ class LSST_SiliconBuilder(StampBuilder):
             self.use_fft = False
             return psf
 
+        dm_detector = None if not hasattr(self, 'det') else self.det
+        fft_psf, draw_method, self.fft_flux = get_fft_psf_maybe(
+            obj=self.obj,
+            nominal_flux=self.nominal_flux,
+            psf=psf,
+            bandpass=base['bandpass'],
+            wcs=self.image.wcs,
+            fft_sb_thresh=fft_sb_thresh,
+            pixel_scale=self._pixel_scale,
+            vignetting=self.vignetting,
+            dm_detector=dm_detector,
+            # can be none when vignetting is turned off.  We need this to pass
+            # the test test_psf::test_atm_psf_fft
+            sky_pos=base.get('sky_pos', None),
+            logger=logger,
+        )
+
+        logger.info('Object %d has flux = %s.  Check if we should switch to FFT',
+                    base['obj_num'], self.nominal_flux)
+        if draw_method == 'fft':
+            logger.info('Yes. Use FFT for object %d.', base.get('obj_num'))
+
+            self.use_fft = True
+            psf = fft_psf
+
+            base['fft_flux'] = self.fft_flux
+            base['phot_flux'] = 0.  # Indicates that photon shooting wasn't done.
+        else:
+            logger.info('Yes. Use photon shooting for object %d.', base.get('obj_num'))
+            self.use_fft = False
+
+        return psf
+
+        '''
         # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
         bandpass = base['bandpass']
         fft_psf = make_fft_psf(
@@ -274,7 +307,7 @@ class LSST_SiliconBuilder(StampBuilder):
                         'max_sb = %.0f <= %.0f',
                         base.get('obj_num'), max_sb, fft_sb_thresh)
             return psf
-
+        '''
     def getDrawMethod(self, config, base, logger):
         """Determine the draw method to use.
 
