@@ -7,8 +7,15 @@ from .psf_utils import (
 
 
 def get_stamp_size(
-    obj_achrom, nominal_flux, noise_var, airmass, rawSeeing, band, Nmax,
-    pixel_scale, logger=None,
+    obj_achrom,
+    nominal_flux,
+    noise_var,
+    Nmax,
+    pixel_scale,
+    airmass=None,
+    rawSeeing=None,
+    band=None,
+    logger=None,
 ):
     """
     Get a stamp size for the input object
@@ -22,16 +29,19 @@ def get_stamp_size(
         The nominal flux of the object
     noise_var: float
         The variance of the noise in the image
-    airmass: float
-        Airmass for observation
-    rawSeeing: float
-        Raw seeing value for the observation
-    band: str
-        E.g. u, g, r, ...
     Nmax: int
         Maximum allowed stamp size
     pixel_scale: float
         The pixel scale of the image
+    airmass: float, optional
+        Airmass for observation. See defaults in
+        psf_utils.make_kolmogorov_and_gaussian_psf
+    rawSeeing: float, optional
+        Raw seeing value for the observation. See defaults in
+        psf_utils.make_kolmogorov_and_gaussian_psf
+    band: str, optional
+        E.g. u, g, r, ...  See defaults in
+        psf_utils.make_kolmogorov_and_gaussian_psf
     logger: python logger, optional
         Optional logger
 
@@ -47,11 +57,11 @@ def get_stamp_size(
             obj_achrom=obj_achrom,
             nominal_flux=nominal_flux,
             noise_var=noise_var,
+            Nmax=Nmax,
+            pixel_scale=pixel_scale,
             airmass=airmass,
             rawSeeing=rawSeeing,
             band=band,
-            Nmax=Nmax,
-            pixel_scale=pixel_scale,
             logger=logger
         )
     else:
@@ -67,7 +77,14 @@ def get_stamp_size(
 
 
 def get_star_stamp_size(
-    obj_achrom, nominal_flux, noise_var, airmass, rawSeeing, band, Nmax, pixel_scale,
+    obj_achrom,
+    nominal_flux,
+    noise_var,
+    Nmax,
+    pixel_scale,
+    airmass=None,
+    rawSeeing=None,
+    band=None,
     logger=None,
 ):
     """
@@ -121,8 +138,8 @@ def get_star_stamp_size(
         # minimize how many of these we need to do.
         folding_threshold = np.exp(np.floor(np.log(folding_threshold)))
         if logger is not None:
-            logger.debug('Using folding_threshold %s',folding_threshold)
-            logger.debug('From: noise_var = %s, flux = %s', noise_var, nominal_flux)
+            logger.info('Using folding_threshold %s',folding_threshold)
+            logger.info('From: noise_var = %s, flux = %s', noise_var, nominal_flux)
 
         gsparams = galsim.GSParams(folding_threshold=folding_threshold)
 
