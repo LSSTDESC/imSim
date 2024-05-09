@@ -182,30 +182,6 @@ class LSST_SiliconBuilder(StampBuilder):
                 pixel_scale=self._pixel_scale,
                 logger=logger
             )
-            """
-            if (hasattr(obj_achrom, 'original')
-                    and isinstance(obj_achrom.original, galsim.DeltaFunction)):
-
-                image_size = get_star_image_size(
-                    obj_achrom=obj_achrom,
-                    nominal_flux=self.nominal_flux,
-                    noise_var=noise_var,
-                    airmass=params['airmass'],
-                    rawSeeing=params['rawSeeing'],
-                    band=params['band'],
-                    Nmax=self._Nmax,
-                    pixel_scale=self._pixel_scale,
-                    logger=logger
-                )
-            else:
-                image_size = get_gal_image_size(
-                    obj_achrom=obj_achrom,
-                    nominal_flux=self.nominal_flux,
-                    noise_var=noise_var,
-                    Nmax=self._Nmax,
-                    pixel_scale=self._pixel_scale,
-                )
-            """
             xsize = ysize = stamp_size
 
         logger.info('Object %d will use stamp size = %s,%s', base.get('obj_num',0),
