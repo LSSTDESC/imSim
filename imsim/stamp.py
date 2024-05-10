@@ -261,53 +261,6 @@ class LSST_SiliconBuilder(StampBuilder):
 
         return psf
 
-        '''
-        # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
-        bandpass = base['bandpass']
-        fft_psf = make_fft_psf(
-            psf=psf.evaluateAtWavelength(bandpass.effective_wavelength),
-            logger=logger,
-        )
-        logger.info('Object %d has flux = %s.  Check if we should switch to FFT',
-                    base['obj_num'], self.nominal_flux)
-
-        # Now this object should have a much better estimate of the real maximum surface brightness
-        # than the original psf did.
-        # However, the max_sb feature gives an over-estimate, whereas to be conservative, we would
-        # rather an under-estimate.  For this kind of profile, dividing by 2 does a good job
-        # of giving us an underestimate of the max surface brightness.
-        # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
-        # to get photons/pixel, which we compare to fft_sb_thresh.
-        gal_achrom = self.obj.evaluateAtWavelength(bandpass.effective_wavelength)
-        fft_obj = galsim.Convolve(gal_achrom, fft_psf).withFlux(self.nominal_flux)
-        max_sb = fft_obj.max_sb/2. * self._pixel_scale**2
-        logger.debug('max_sb = %s. cf. %s',max_sb,fft_sb_thresh)
-        if max_sb > fft_sb_thresh:
-            self.use_fft = True
-            # For FFT-rendered objects, the telescope vignetting isn't
-            # emergent as it is for the ray-traced objects, so use the
-            # empirical vignetting function, if it's available, to
-            # scale the flux to use in FFTs.
-            if self.vignetting is not None:
-                pix_to_fp = self.det.getTransform(cameraGeom.PIXELS,
-                                                  cameraGeom.FOCAL_PLANE)
-                self.fft_flux = self.nominal_flux*self.vignetting.at_sky_coord(
-                    base['sky_pos'], self.image.wcs, pix_to_fp)
-            else:
-                self.fft_flux = self.nominal_flux
-            base['fft_flux'] = self.fft_flux
-            base['phot_flux'] = 0.  # Indicates that photon shooting wasn't done.
-
-            logger.info('Yes. Use FFT for object %d.  max_sb = %.0f > %.0f',
-                        base.get('obj_num'), max_sb, fft_sb_thresh)
-            return fft_psf
-        else:
-            self.use_fft = False
-            logger.info('No. Use photon shooting for object %d. '
-                        'max_sb = %.0f <= %.0f',
-                        base.get('obj_num'), max_sb, fft_sb_thresh)
-            return psf
-        '''
     def getDrawMethod(self, config, base, logger):
         """Determine the draw method to use.
 
