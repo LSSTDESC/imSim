@@ -157,7 +157,7 @@ def get_star_stamp_size(
 
 def get_gal_stamp_size(obj_achrom, nominal_flux, noise_var, Nmax, pixel_scale):
     """
-    Get a stamp size for a star (DeltaFunction) object
+    Get a stamp size for a non stellar (non DeltaFunction) object
 
     Parameters
     ----------
