@@ -1,8 +1,6 @@
 import os
-import copy
 import numpy as np
 import scipy
-from collections import namedtuple
 from astropy.io import fits
 from astropy.time import Time
 import galsim
@@ -23,12 +21,14 @@ _rotSkyPos_cache = {}
 
 # This mapping of band to LSSTCam filter names is obtained from
 # https://github.com/lsst/obs_lsst/blob/w.2023.26/python/lsst/obs/lsst/filters.py#L62-L72
-LSSTCam_filter_map = {'u': 'u_24',
-                      'g': 'g_6',
-                      'r': 'r_57',
-                      'i': 'i_39',
-                      'z': 'z_20',
-                      'y': 'y_10'}
+LSSTCam_filter_map = {
+    'u': 'u_24',
+    'g': 'g_6',
+    'r': 'r_57',
+    'i': 'i_39',
+    'z': 'z_20',
+    'y': 'y_10'
+}
 
 # There are multiple u, g, and z filters for ComCam.
 # See https://github.com/lsst/obs_lsst/blob/w.2023.26/python/lsst/obs/lsst/filters.py#L352-L361
@@ -52,13 +52,13 @@ def make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name,
     Parameters
     ----------
     ra0 : float
-        RA of boresight direction in degrees.
+        RA (ICRF) of boresight direction in degrees.
     dec0 : float
-        Dec of boresight direction in degrees.
+        Dec (ICRF) of boresight direction in degrees.
     rottelpos : float
         Angle of the telescope rotator with respect to the mount in degrees.
     obsmjd : float
-        MJD of the observation.
+        MJD of the observation (TAI scale).
     band : str
         One of `ugrizy`.
     camera_name : str ['LsstCam']
@@ -75,7 +75,7 @@ def make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name,
         if logger is not None:
             logger.info(f'Requested band is "{band}.  Setting it to "r"')
         band = 'r'
-    obstime = Time(obsmjd, format='mjd')
+    obstime = Time(obsmjd, format='mjd', scale='tai')
     boresight = galsim.CelestialCoord(ra0*galsim.degrees, dec0*galsim.degrees)
     telescope = load_telescope(f"LSST_{band}.yaml", rotTelPos=rottelpos*galsim.degrees)
     factory = BatoidWCSBuilder().makeWCSFactory(
@@ -129,28 +129,17 @@ def compute_rotSkyPos(ra0, dec0, rottelpos, obsmjd, band,
     if args in _rotSkyPos_cache:
         return _rotSkyPos_cache[args]
 
-    wcs = make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name)
-
-    # CCD center
-    x0, y0 = wcs.crpix
-    # Offset position towards top of CCD.
-    x1, y1 = x0, y0 + dxy
-    # Offset position towards Celestial North.
-    ra = wcs.center.ra
-    dec = wcs.center.dec + pixel_scale*dxy/3600.*galsim.degrees
-    pos = wcs.toImage(galsim.CelestialCoord(ra, dec))
-    x2, y2 = pos.x, pos.y
-    # Use law of cosines to find rotskypos:
-    a2 = (x1 - x0)**2 + (y1 - y0)**2
-    b2 = (x2 - x0)**2 + (y2 - y0)**2
-    c2 = (x1 - x2)**2 + (y2 - y1)**2
-    cos_theta = (a2 + b2 - c2)/2./np.sqrt(a2*b2)
-
-    theta = np.degrees(np.arccos(cos_theta))
-    # Define angle between focal plane y-axis and North as positive
-    # if North is counter-clockwise from y-axis.
-    if x2 < x1:
-        theta = 360 - theta
+    if band not in 'ugrizy':
+        if logger is not None:
+            logger.info(f'Requested band is "{band}.  Setting it to "r"')
+        band = 'r'
+    obstime = Time(obsmjd, format='mjd', scale='tai')
+    boresight = galsim.CelestialCoord(ra0*galsim.degrees, dec0*galsim.degrees)
+    telescope = load_telescope(f"LSST_{band}.yaml", rotTelPos=rottelpos*galsim.degrees)
+    factory = BatoidWCSBuilder().makeWCSFactory(
+        boresight, obstime, telescope, bandpass=band, camera=camera_name
+    )
+    theta = 270 - rottelpos + np.rad2deg(factory.pq)
 
     if camera_name == 'LsstCamImSim':
         # For historical reasons, the rotation angle for imSim data is
