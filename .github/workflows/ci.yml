@@ -54,14 +54,25 @@ jobs:
                 pip install -e .
                 cd ..
 
+            - name: Cache data
+              uses: actions/cache@v4
+              with:
+                path: rubin_sim_data
+                key: "2024-05-10"  # Update the key if we ever change the data.
+
             - name: Install rubin_sim_data
               run: |
-                mkdir rubin_sim_data
-                mkdir rubin_sim_data/sims_sed_library
-                # Just get the skybrightness, throughputs, and SED data for now.
-                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
-                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_2023_09_07.tgz | tar -C rubin_sim_data -xz
-                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
+                if [ ! -d rubin_sim_data ]; then
+                  echo "Data directory does not exist. Downloading data..."
+                  mkdir rubin_sim_data
+                  mkdir rubin_sim_data/sims_sed_library
+                  # Just get the skybrightness, throughputs, and SED data for now.
+                  curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
+                  curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_2023_09_07.tgz | tar -C rubin_sim_data -xz
+                  curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
+                else
+                  echo "Data found in cache. Skipping download."
+                fi
 
             - name: Install imSim
               run:
