@@ -9,7 +9,8 @@ from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 import os
 from .meta_data import data_dir
 
-RUBIN_AREA = 0.25 * np.pi * 649**2  # cm^2
+
+RUBIN_AREA = 0.25 * np.pi * 642.3**2  # cm^2
 
 
 __all__ = ['SkyModel', 'SkyGradient']
@@ -29,7 +30,7 @@ class SkyModel:
             Bandpass to use for flux calculation.
         eff_area : `float`
             Collecting area of telescope in cm^2. Default: Rubin value from
-            https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
+            ls.st/SMTN-002
         """
         from rubin_sim import skybrightness
         self.exptime = exptime
