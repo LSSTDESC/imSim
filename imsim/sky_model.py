@@ -35,7 +35,10 @@ class SkyModel:
         self.exptime = exptime
         self.mjd = mjd
         self.eff_area = eff_area
-        self.bandpass = bandpass
+        if hasattr(bandpass, "bp_hardware"):
+            self.bandpass = bandpass.bp_hardware
+        else:
+            self.bandpass = bandpass
         self._rubin_sim_sky_model = skybrightness.SkyModel()
 
     def get_sky_level(self, skyCoord):
