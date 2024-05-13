@@ -7,7 +7,7 @@ from rubin_sim import skybrightness
 import imsim
 
 
-RUBIN_AREA = 0.25 * np.pi * 649**2  # cm^2
+RUBIN_AREA = 0.25 * np.pi * 642.3**2  # cm^2
 
 ra = 54.9348753510528
 dec = -35.8385705255579
@@ -24,7 +24,7 @@ with warnings.catch_warnings():
 
 sky_levels = {}
 for band in 'ugrizy':
-    bandpass = imsim.RubinBandpass(band)
+    bandpass = imsim.RubinBandpass(band, camera='LsstCam', det_name='R22_S11').bp_hardware
     wave, spec = sky_model.return_wave_spec()
     lut = galsim.LookupTable(wave, spec[0])
     sed = galsim.SED(lut, wave_type='nm', flux_type='flambda')
