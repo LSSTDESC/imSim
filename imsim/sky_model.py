@@ -18,7 +18,7 @@ __all__ = ['SkyModel', 'SkyGradient']
 
 class SkyModel:
     """Interface to rubin_sim.skybrightness model."""
-    def __init__(self, exptime, mjd, bandpass, eff_area=RUBIN_AREA):
+    def __init__(self, exptime, mjd, bandpass, eff_area=RUBIN_AREA, logger=None):
         """
         Parameters
         ----------
@@ -31,14 +31,18 @@ class SkyModel:
         eff_area : `float`
             Collecting area of telescope in cm^2. Default: Rubin value from
             ls.st/SMTN-002
+        logger : Logger object.
         """
         from rubin_sim import skybrightness
+        logger = galsim.config.LoggerWrapper(logger)
         self.exptime = exptime
         self.mjd = mjd
         self.eff_area = eff_area
         if hasattr(bandpass, "bp_hardware"):
             self.bandpass = bandpass.bp_hardware
         else:
+            logger.info("A separate hardware bandpass is not available. "
+                        "Using the total bandpass for the sky level.")
             self.bandpass = bandpass
         self._rubin_sim_sky_model = skybrightness.SkyModel()
 
@@ -253,6 +257,7 @@ class SkyModelLoader(InputLoader):
         bandpass, safe1 = galsim.config.BuildBandpass(base['image'], 'bandpass', base, logger)
         safe = safe and safe1
         kwargs['bandpass'] = bandpass
+        kwargs['logger'] = logger
         return kwargs, safe
 
 
@@ -265,5 +270,6 @@ def SkyLevel(config, base, value_type):
     value = sky_model.get_sky_level(base['world_center'])
     return value, False
 
-RegisterInputType('sky_model', SkyModelLoader(SkyModel))
+
+RegisterInputType('sky_model', SkyModelLoader(SkyModel, takes_logger=True))
 RegisterValueType('SkyLevel', SkyLevel, [float], input_type='sky_model')
