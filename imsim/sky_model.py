@@ -3,7 +3,6 @@ import copy
 import warnings
 import numpy as np
 import galsim
-import pickle
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 import os
@@ -120,6 +119,7 @@ class SkyGradient:
         """
         return (self.a*x + self.b*y + self.c)/self.sky_level_center
 
+
 class CCD_Fringing:
     """
     Class generates normalized fringing map.
@@ -172,7 +172,6 @@ class CCD_Fringing:
 
         return np.fft.ifft2(A)
 
-
     def simulate_fringes(self, amp=0.002):
         '''
         # Generate random fringing pattern from a heightfield
@@ -190,7 +189,6 @@ class CCD_Fringing:
         # Scale up to unity
         #Z  += 1
         return(Z)
-
 
     def fringe_variation_level(self):
         '''
@@ -244,6 +242,7 @@ class CCD_Fringing:
         interp_func = RegularGridInterpolator((xx, yy), fringe_im.T)
 
         return (interp_func((x,y)))
+
 
 class SkyModelLoader(InputLoader):
     """
