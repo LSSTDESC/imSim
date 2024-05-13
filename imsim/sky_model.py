@@ -9,7 +9,7 @@ import os
 from .meta_data import data_dir
 
 
-RUBIN_AREA = 0.25 * np.pi * 642.3**2  # cm^2
+RUBIN_AREA = np.pi * (418.**2 - 255.**2)  # cm^2
 
 
 __all__ = ['SkyModel', 'SkyGradient']

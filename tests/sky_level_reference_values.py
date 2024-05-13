@@ -7,7 +7,7 @@ from rubin_sim import skybrightness
 import imsim
 
 
-RUBIN_AREA = 0.25 * np.pi * 642.3**2  # cm^2
+RUBIN_AREA = np.pi * (418.**2 - 255.**2)  # cm^2
 
 ra = 54.9348753510528
 dec = -35.8385705255579
