@@ -9,15 +9,6 @@ from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
 from skycatalogs import skyCatalogs
 from .utils import RUBIN_AREA
 
-# Hot-fix to set interpolant for 500nm magnorm bandpass in skyCatalogs.
-# Once this is fixed in a skyCatalogs release, we can remove it here.
-import skycatalogs
-import galsim
-bp500 = galsim.Bandpass(
-    galsim.LookupTable([499, 500, 501],[0, 1, 0], interpolant='linear'),
-    wave_type='nm').withZeropoint('AB')
-skycatalogs.objects.base_object.BaseObject._bp500 = bp500
-
 
 class SkyCatalogInterface:
     """Interface to skyCatalogs package."""
