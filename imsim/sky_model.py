@@ -7,9 +7,7 @@ from galsim.config import InputLoader, RegisterInputType, RegisterValueType
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 import os
 from .meta_data import data_dir
-
-
-RUBIN_AREA = np.pi * (418.**2 - 255.**2)  # cm^2
+from .utils import RUBIN_AREA
 
 
 __all__ = ['SkyModel', 'SkyGradient']
