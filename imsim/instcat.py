@@ -12,6 +12,7 @@ from galsim.config import RegisterSEDType
 from galsim import CelestialCoord
 import galsim
 import pickle
+from .utils import RUBIN_AREA
 
 
 def clarify_radec_limits(
@@ -171,11 +172,13 @@ class InstCatalog(object):
 
     def __init__(self, file_name, wcs, xsize=4096, ysize=4096, sed_dir=None,
                  edge_pix=100, sort_mag=True, flip_g2=True, approx_nobjects=None,
-                 min_source=None, skip_invalid=True, logger=None):
+                 pupil_area=RUBIN_AREA, min_source=None, skip_invalid=True,
+                 logger=None):
         logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
         self.flip_g2 = flip_g2
         self.approx_nobjects = approx_nobjects
+        self.pupil_area = pupil_area
         self._sed_cache = {}
 
         if sed_dir is None:
@@ -516,7 +519,7 @@ class InstCatalog(object):
 
         # This gives the normalization in photons/cm^2/sec.
         # Multiply by area and exptime to get photons.
-        fAt = flux * self._rubin_area * exptime
+        fAt = flux * self.pupil_area * exptime
 
         sed = self.getSED(index)
         return obj.withFlux(fAt) * sed
@@ -599,6 +602,7 @@ class InstCatalogLoader(InputLoader):
                 'sort_mag' : bool,
                 'flip_g2' : bool,
                 'approx_nobjects' : int,
+                'pupil_area' : float,
                 'min_source' : int,
                 'skip_invalid' : bool,
               }

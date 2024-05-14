@@ -7,6 +7,7 @@ import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
     RegisterObjectType
 from skycatalogs import skyCatalogs
+from .utils import RUBIN_AREA
 
 # Hot-fix to set interpolant for 500nm magnorm bandpass in skyCatalogs.
 # Once this is fixed in a skyCatalogs release, we can remove it here.
@@ -20,14 +21,10 @@ skycatalogs.objects.base_object.BaseObject._bp500 = bp500
 
 class SkyCatalogInterface:
     """Interface to skyCatalogs package."""
-    # Rubin effective area computed using numbers at
-    # https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
-    _eff_area = 0.25 * np.pi * 649**2  # cm^2
-
     def __init__(self, file_name, wcs, band, mjd, xsize=4096, ysize=4096,
                  obj_types=None, skycatalog_root=None, edge_pix=100,
-                 max_flux=None, logger=None, apply_dc2_dilation=False,
-                 approx_nobjects=None):
+                 pupil_area=RUBIN_AREA, max_flux=None, logger=None,
+                 apply_dc2_dilation=False, approx_nobjects=None):
         """
         Parameters
         ----------
@@ -53,6 +50,9 @@ class SkyCatalogInterface:
         edge_pix : float [100]
             Size in pixels of the buffer region around nominal image
             to consider objects.
+        pupil_area : float [RUBIN_AREA]
+            The area of the telescope pupil in cm**2.  The default value
+            uses R_outer=418 cm and R_inner=255 cm.
         max_flux : float [None]
             If object flux exceeds max_flux, the return None for that object.
             if max_flux == None, then don't apply a maximum flux cut.
@@ -81,6 +81,7 @@ class SkyCatalogInterface:
         else:
             self.skycatalog_root = skycatalog_root
         self.edge_pix = edge_pix
+        self.pupil_area = pupil_area
         self.max_flux = max_flux
         self.logger = galsim.config.LoggerWrapper(logger)
         self.apply_dc2_dilation = apply_dc2_dilation
@@ -190,7 +191,7 @@ class SkyCatalogInterface:
         for component in gsobjs:
             if component in seds:
                 gs_obj_list.append(gsobjs[component]*seds[component]
-                                   *exptime*self._eff_area)
+                                   *exptime*self.pupil_area)
 
         if not gs_obj_list:
             return None
@@ -202,7 +203,7 @@ class SkyCatalogInterface:
 
         # Compute the flux or get the cached value.
         gs_object.flux \
-            = skycat_obj.get_LSST_flux(self.band, mjd=self.mjd)*exptime*self._eff_area
+            = skycat_obj.get_LSST_flux(self.band, mjd=self.mjd)*exptime*self.pupil_area
 
         if ((self.max_flux is not None and gs_object.flux > self.max_flux)
             or gs_object.flux < 0):
@@ -224,6 +225,7 @@ class SkyCatalogLoader(InputLoader):
                'apply_dc2_dilation': bool,
                'approx_nobjects': int,
                'mjd': float,
+               'pupil_area': float,
               }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
