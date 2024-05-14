@@ -275,7 +275,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                 # Instead, this basically recapitulates the calculation in the InstCatalog class.
                 magnorm = cat.getMagNorm(i)
                 flux = np.exp(-0.9210340371976184 * magnorm)
-                rubin_area = 0.25 * np.pi * 649**2 # cm^2
+                rubin_area = np.pi * (418**2 - 255**2) # cm^2
                 exptime = 30
                 fAt = flux * rubin_area * exptime
                 sed = cat.getSED(i)
@@ -459,7 +459,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                 # Instead, this basically recapitulates the calculation in the InstCatalog class.
                 magnorm = cat.getMagNorm(i)
                 flux = np.exp(-0.9210340371976184 * magnorm)
-                rubin_area = 0.25 * np.pi * 649**2 # cm^2
+                rubin_area = np.pi * (418**2 - 255**2) # cm^2
                 exptime = 30
                 fAt = flux * rubin_area * exptime
                 sed = cat.getSED(i) # This applies the redshift internally.

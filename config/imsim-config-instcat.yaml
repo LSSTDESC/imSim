@@ -24,6 +24,9 @@ input.instance_catalog:
     # This should be overridden below or on the command line.
     file_name: default_catalog_file.txt
     sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
+    pupil_area:  # pupil area before vignetting in units of cm^2
+        type: Eval
+        str: "np.pi * (pupil_R_outer**2 - pupil_R_inner**2) * 100**2"
 
 input.opsim_data:
     # Read the visit meta data. By default, we use the same file as the above
