@@ -78,7 +78,7 @@ input:
         # background level.
         exptime: $exptime
         mjd: { type: OpsimData, field: mjd }
-        eff_area:
+        pupil_area:  # pupil area before vignetting in units of cm^2
             type: Eval
             str: "np.pi * (pupil_R_outer**2 - pupil_R_inner**2) * 100**2"
 
