@@ -9,6 +9,8 @@ import shutil
 import numpy as np
 import galsim
 import astropy.time
+import astropy.units as u
+import astropy.constants
 import imsim
 from lsst.afw.cameraGeom import DetectorType
 
@@ -51,6 +53,15 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
     def setUp(self):
         self.phosim_file = str(self.data_dir / 'phosim_stars.txt')
+
+        # Compute flux density at 500 nm used for normalizing cached SEDs.
+        magnorm = 0.0
+        wl = 500.0*u.nm
+        fnu = (magnorm * u.ABmag).to_value(u.erg/u.s/u.cm**2/u.Hz)
+        flambda = fnu * (astropy.constants.c/wl**2).to_value(u.Hz/u.nm)
+        hnu = (astropy.constants.h * astropy.constants.c / wl).to_value(u.erg)
+        self.flux_density_at_500nm = flambda / hnu
+
 
     def make_wcs(self, instcat_file=None, sensors=None):
         # Make a wcs to use for this instance catalog.
@@ -252,6 +263,10 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         for det_name in all_wcs:
             wcs = all_wcs[det_name]
             cat = all_cats[det_name]
+            for sed in cat._sed_cache.values():
+                # Check that the cached SEDs have the expected normalization at 500nm.
+                self.assertAlmostEqual(sed(500.), self.flux_density_at_500nm)
+
             for i in range(cat.nobjects):
                 obj = cat.getObj(i)
                 if 0:
