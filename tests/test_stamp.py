@@ -198,6 +198,9 @@ def test_stamp_sizes():
         input.atm_psf.screen_size: 40.96
         input.checkpoint: ""
         input.sky_catalog.file_name: data/sky_cat_9683.yaml
+        input.sky_catalog.pupil_area:
+            type: Eval
+            str: "0.25 * np.pi * 649**2"
         input.opsim_data.file_name: data/small_opsim_9683.db
         input.opsim_data.visit: 449053
         input.tree_rings.only_dets: [R22_S11]
@@ -463,6 +466,9 @@ def test_stamp_bandpass_airmass():
         input.atm_psf.screen_size: 40.96
         input.checkpoint: ""
         input.sky_catalog.file_name: data/sky_cat_9683.yaml
+        input.sky_catalog.pupil_area:
+            type: Eval
+            str: "0.25 * np.pi * 649**2"
         input.opsim_data.file_name: data/small_opsim_9683.db
         input.opsim_data.visit: 449053
         input.tree_rings.only_dets: [R22_S11]
