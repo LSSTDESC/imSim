@@ -4,6 +4,7 @@ import gzip
 import numpy as np
 import math
 import astropy.units as u
+import astropy.constants
 from dust_extinction.parameter_averages import F19
 
 from contextlib import contextmanager
@@ -163,9 +164,6 @@ class InstCatalog(object):
 
     The other "phosim commands" are handled by OpsimDataLoader.
     """
-    _bp500 = galsim.Bandpass(galsim.LookupTable([499,500,501],[0,1,0], interpolant='linear'),
-                             wave_type='nm').withZeropoint('AB')
-
     # Using area-weighted effective aperture over FOV
     # from https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
     _rubin_area = 0.25 * np.pi * 649**2  # cm^2
@@ -359,7 +357,16 @@ class InstCatalog(object):
                 raise OSError("Could not find file %s in either %s or %s"%(
                               name, self.sed_dir, self.inst_dir))
             sed = galsim.SED(full_name, wave_type='nm', flux_type='flambda')
-            sed = sed.withMagnitude(0, self._bp500)  # Normalize to mag 0
+
+            # Normalize the SED to magnorm=0 at 500 nm.
+            magnorm = 0.0
+            wl = 500.0*u.nm
+            fnu = (magnorm * u.ABmag).to_value(u.erg/u.s/u.cm**2/u.Hz)
+            flambda = fnu * (astropy.constants.c/wl**2).to_value(u.Hz/u.nm)
+            hnu = (astropy.constants.h * astropy.constants.c / wl).to_value(u.erg)
+            flux_density = flambda / hnu
+            sed = sed.withFluxDensity(flux_density, wl)
+
             self._sed_cache[name] = sed
 
         iAv, iRv, mwAv, mwRv = self.getDust(index)
