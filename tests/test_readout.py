@@ -20,7 +20,7 @@ class ImageSourceTestCase(unittest.TestCase):
     "TestCase class for ImageSource."
 
     def setUp(self):
-        self.eimage_file = str(DATA_DIR / 'eimage_00449053-1-r-R22_S11-det094.fits')
+        self.eimage_file = str(DATA_DIR / 'eimage_00449053-1-r-R22_S11-det094.fits.gz')
         instcat_file = str(DATA_DIR / 'tiny_instcat.txt')
         self.image = galsim.fits.read(self.eimage_file)
         self.image.header = galsim.FitsHeader(file_name=self.eimage_file)
