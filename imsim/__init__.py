@@ -36,3 +36,4 @@ from .opd import *
 from .vignetting import *
 from .sag import *
 from .process_info import *
+from .table_row import *
