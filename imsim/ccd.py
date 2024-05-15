@@ -171,7 +171,9 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header['MJD'] = mjd
         image.header['MJD-OBS'] = mjd_obs, 'Start of exposure'
         # Subtract half-day offset from mjd-obs for dayobs calculation
-        # following Rubin convention.
+        # following Rubin convention.  See
+        # https://github.com/lsst/astro_metadata_translator/blob/w.2024.19/python/astro_metadata_translator/translator.py#L1065
+        # and Appendix A of https://docushare.lsst.org/docushare/dsweb/Get/LSE-400
         dayobs = astropy.time.Time(mjd_obs - 0.5, format='mjd').strftime('%Y%m%d')
         image.header['DAYOBS'] = dayobs
         image.header['SEQNUM'] = seqnum
