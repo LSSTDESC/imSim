@@ -284,6 +284,7 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
     seqnum = eimage.header['SEQNUM']
     contrllr = eimage.header['CONTRLLR']
     phdu.header['TELESCOP'] = SIMONYI_TELESCOPE
+    phdu.header['TELCODE'] = telcode
     phdu.header['RASTART'] = ratel
     phdu.header['DECSTART'] = dectel
     phdu.header['ELSTART'] = eimage.header['ALTITUDE']
@@ -301,6 +302,7 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
     phdu.header['DATE-END'] = Time(mjd_end, format='mjd', scale='tai').to_value('isot')
     phdu.header['AMSTART'] = eimage.header['AMSTART']
     phdu.header['AMEND'] = eimage.header['AMEND']
+    phdu.header['ORIGIN'] = "imSim"
     phdu.header['IMSIMVER'] = __version__
     phdu.header['PKG00000'] = 'throughputs'
     phdu.header['VER00000'] = '1.9'
