@@ -164,6 +164,10 @@ class InstCatalog(object):
 
     The other "phosim commands" are handled by OpsimDataLoader.
     """
+    # SED normalization for magnorm=0 at 500 nm to be applied to
+    # cached SEDs.
+    fnu = (0 * u.ABmag).to(u.erg/u.s/u.cm**2/u.Hz)
+    _flux_density = fnu.to_value(u.ph/u.nm/u.s/u.cm**2, u.spectral_density(500*u.nm))
     def __init__(self, file_name, wcs, xsize=4096, ysize=4096, sed_dir=None,
                  edge_pix=100, sort_mag=True, flip_g2=True, approx_nobjects=None,
                  pupil_area=RUBIN_AREA, min_source=None, skip_invalid=True,
@@ -354,14 +358,8 @@ class InstCatalog(object):
                               name, self.sed_dir, self.inst_dir))
             sed = galsim.SED(full_name, wave_type='nm', flux_type='flambda')
 
-            # Normalize the SED to magnorm=0 at 500 nm.
-            magnorm = 0.0
-            wl = 500.0*u.nm
-            fnu = (magnorm * u.ABmag).to_value(u.erg/u.s/u.cm**2/u.Hz)
-            flambda = fnu * (astropy.constants.c/wl**2).to_value(u.Hz/u.nm)
-            hnu = (astropy.constants.h * astropy.constants.c / wl).to_value(u.erg)
-            flux_density = flambda / hnu
-            sed = sed.withFluxDensity(flux_density, wl)
+            # Normalize to magnorm=0 at 500 nm.
+            sed = sed.withFluxDensity(self._flux_density, 500.*u.nm)
 
             self._sed_cache[name] = sed
 
