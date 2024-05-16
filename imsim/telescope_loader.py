@@ -10,10 +10,16 @@ from .camera import get_camera
 
 
 def parse_xyz(xyz, base):
+    # If xyz is a dict, see if we can parse it into a list first
+    safe = True
+    if isinstance(xyz, dict):
+        xyz, safe1 = ParseValue({"xyz":xyz}, 'xyz', base, list)
+        safe &= safe1
     if not isinstance(xyz, list) or len(xyz) != 3:
         raise ValueError("Expecting a list of 3 elements")
-    parsed_xyz, safe = zip(*[ParseValue(xyz, i, base, float) for i in range(3)])
-    return parsed_xyz, all(safe)
+    parsed_xyz, safe1 = zip(*[ParseValue(xyz, i, base, float) for i in range(3)])
+    safe &= all(safe1)
+    return parsed_xyz, safe
 
 
 def apply_fea(
