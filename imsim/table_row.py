@@ -136,9 +136,7 @@ def RowData(config, base, value_type):
     return val, safe
 
 
-RegisterInputType(
-    input_type="table_row", loader=InputLoader(TableRow, file_scope=True)
-)
+RegisterInputType(input_type="table_row", loader=InputLoader(TableRow, file_scope=True))
 RegisterValueType(
     type_name="RowData",
     gen_func=RowData,
