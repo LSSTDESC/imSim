@@ -1,6 +1,7 @@
 from tempfile import TemporaryDirectory
 
 import astropy.units as u
+import batoid
 import galsim
 import imsim
 import numpy as np
@@ -32,7 +33,10 @@ def create_table():
     table["shift"] = np.array(
         [(0, 1, 2), (1, 2, 3), (2, 3, 4), (3, 4, 5)], dtype=shift_dtype
     )
-    table["shift"].unit = u.m
+    table["shift"].unit = u.mm
+    # Some more values for setting up a telescope
+    table["camera"] = ["LsstCam", "LsstCam", "LsstComCamSim", "LsstComCamSim"]
+    table["focusZ"] = [-1.0, -0.5, 0.0, 0.5] * u.mm
 
     table.pprint_all()
     return table
@@ -146,7 +150,7 @@ def check_row_data(config, idx):
     # Read the str column
     s, safe = RowData({"field": "str"}, config, str)
     assert safe == True
-    assert s == chr(ord("a") + idx)
+    assert s == "abcd"[idx]
 
     # Can't specify to_unit for str
     with np.testing.assert_raises(ValueError):
@@ -183,9 +187,9 @@ def check_row_data(config, idx):
     shift, safe = RowData({"field": "shift", "to_unit": "cm"}, config, list)
     assert safe == True
     assert len(shift) == 3
-    np.testing.assert_allclose(shift[0], idx * 100, rtol=0, atol=1e-15)
-    np.testing.assert_allclose(shift[1], (idx + 1) * 100, rtol=0, atol=1e-15)
-    np.testing.assert_allclose(shift[2], (idx + 2) * 100, rtol=0, atol=1e-15)
+    np.testing.assert_allclose(shift[0], idx / 10, rtol=0, atol=1e-15)
+    np.testing.assert_allclose(shift[1], (idx + 1) / 10, rtol=0, atol=1e-15)
+    np.testing.assert_allclose(shift[2], (idx + 2) / 10, rtol=0, atol=1e-15)
 
 
 def test_table_row():
@@ -226,6 +230,62 @@ def test_table_row():
                         galsim.config.ProcessInput(config)
                         idx = idx0 * 2 + idx1
                         check_row_data(config, idx)
+
+                # Try loading a telescope using row_data for just one idx
+                config["input"]["telescope"] = {
+                    "file_name": "LSST_r.yaml",
+                    "perturbations": {
+                        "LSSTCamera": {
+                            "shift": {
+                                "type":"RowData",
+                                "field": "shift",
+                                "to_unit": "m"
+                            },
+                            "rotX": {
+                                "type": "RowData",
+                                "field": "tilt",
+                                "subfield": "rx",
+                            }
+                        }
+                    },
+                    "rotTelPos": {
+                        "type": "RowData",
+                        "field": "angle1",
+                    },
+                }
+                galsim.config.ProcessInput(config)
+                telescope = galsim.config.GetInputObj(
+                    'telescope',
+                    config['input']['telescope'],
+                    config,
+                    'telescope'
+                ).fiducial
+
+                telescope0 = batoid.Optic.fromYaml("LSST_r.yaml")
+                telescope0 = telescope0.withGloballyShiftedOptic(
+                    "LSSTCamera",
+                    RowData({"field": "shift", "to_unit": "m"}, config, list)[0]
+                )
+                telescope0 = telescope0.withLocallyRotatedOptic(
+                    "LSSTCamera",
+                    batoid.RotX(RowData({"field": "tilt", "subfield": "rx", "to_unit":"rad"}, config, float)[0]),
+                )
+                telescope0 = telescope0.withLocallyRotatedOptic(
+                    "LSSTCamera",
+                    batoid.RotZ(RowData({"field": "angle1", "to_unit":"rad"}, config, float)[0])
+                )
+                np.testing.assert_allclose(
+                    telescope0['LSSTCamera'].coordSys.origin,
+                    telescope['LSSTCamera'].coordSys.origin,
+                    rtol=0,
+                    atol=1e-15,
+                )
+                np.testing.assert_allclose(
+                    telescope0['LSSTCamera'].coordSys.rot,
+                    telescope['LSSTCamera'].coordSys.rot,
+                    rtol=0,
+                    atol=1e-15,
+                )
 
 
 if __name__ == "__main__":
