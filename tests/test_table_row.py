@@ -3,9 +3,10 @@ from tempfile import TemporaryDirectory
 import astropy.units as u
 import batoid
 import galsim
-import imsim
 import numpy as np
 from astropy.table import QTable, Table
+
+import imsim
 from imsim.table_row import RowData
 
 
@@ -93,18 +94,12 @@ def check_row_data(config, idx):
     # Using from_unit with a unitful column will raise if the units don't
     # match.
     with np.testing.assert_raises(ValueError):
-        a, safe = RowData(
-            {"field": "angle1", "from_unit": "deg"}, config, galsim.Angle
-        )
-    a, safe = RowData(
-        {"field": "angle1", "from_unit": "arcsec"}, config, galsim.Angle
-    )
+        a, safe = RowData({"field": "angle1", "from_unit": "deg"}, config, galsim.Angle)
+    a, safe = RowData({"field": "angle1", "from_unit": "arcsec"}, config, galsim.Angle)
 
     # It's an error to try to convert an Angle to a different unit.
     with np.testing.assert_raises(ValueError):
-        a, safe = RowData(
-            {"field": "angle1", "to_unit": "deg"}, config, galsim.Angle
-        )
+        a, safe = RowData({"field": "angle1", "to_unit": "deg"}, config, galsim.Angle)
 
     # Read a structured array subfield
     rx, safe1 = RowData({"field": "tilt", "subfield": "rx"}, config, galsim.Angle)
@@ -237,15 +232,15 @@ def test_table_row():
                     "perturbations": {
                         "LSSTCamera": {
                             "shift": {
-                                "type":"RowData",
+                                "type": "RowData",
                                 "field": "shift",
-                                "to_unit": "m"
+                                "to_unit": "m",
                             },
                             "rotX": {
                                 "type": "RowData",
                                 "field": "tilt",
                                 "subfield": "rx",
-                            }
+                            },
                         }
                     },
                     "rotTelPos": {
@@ -255,40 +250,45 @@ def test_table_row():
                 }
                 galsim.config.ProcessInput(config)
                 telescope = galsim.config.GetInputObj(
-                    'telescope',
-                    config['input']['telescope'],
-                    config,
-                    'telescope'
+                    "telescope", config["input"]["telescope"], config, "telescope"
                 ).fiducial
 
                 telescope0 = batoid.Optic.fromYaml("LSST_r.yaml")
                 telescope0 = telescope0.withGloballyShiftedOptic(
                     "LSSTCamera",
-                    RowData({"field": "shift", "to_unit": "m"}, config, list)[0]
+                    RowData({"field": "shift", "to_unit": "m"}, config, list)[0],
                 )
                 telescope0 = telescope0.withLocallyRotatedOptic(
                     "LSSTCamera",
-                    batoid.RotX(RowData({"field": "tilt", "subfield": "rx", "to_unit":"rad"}, config, float)[0]),
+                    batoid.RotX(
+                        RowData(
+                            {"field": "tilt", "subfield": "rx", "to_unit": "rad"},
+                            config,
+                            float,
+                        )[0]
+                    ),
                 )
                 telescope0 = telescope0.withLocallyRotatedOptic(
                     "LSSTCamera",
-                    batoid.RotZ(RowData({"field": "angle1", "to_unit":"rad"}, config, float)[0])
+                    batoid.RotZ(
+                        RowData({"field": "angle1", "to_unit": "rad"}, config, float)[0]
+                    ),
                 )
                 np.testing.assert_allclose(
-                    telescope0['LSSTCamera'].coordSys.origin,
-                    telescope['LSSTCamera'].coordSys.origin,
+                    telescope0["LSSTCamera"].coordSys.origin,
+                    telescope["LSSTCamera"].coordSys.origin,
                     rtol=0,
                     atol=1e-15,
                 )
                 np.testing.assert_allclose(
-                    telescope0['LSSTCamera'].coordSys.rot,
-                    telescope['LSSTCamera'].coordSys.rot,
+                    telescope0["LSSTCamera"].coordSys.rot,
+                    telescope["LSSTCamera"].coordSys.rot,
                     rtol=0,
                     atol=1e-15,
                 )
 
 
 if __name__ == "__main__":
-    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    testfns = [v for k, v in vars().items() if k[:5] == "test_" and callable(v)]
     for testfn in testfns:
         testfn()
