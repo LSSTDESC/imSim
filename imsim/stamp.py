@@ -1,14 +1,14 @@
-from functools import lru_cache
 from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
 from galsim.config import StampBuilder, RegisterStampType, GetAllParams, GetInputObj
-from lsst.afw import cameraGeom
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 from .diffraction_fft import apply_diffraction_psf
 from .camera import get_camera
 from .photon_ops import BandpassRatio
+from .psf_utils import get_fft_psf_maybe
+from .stamp_utils import get_stamp_size
 
 @dataclass
 class DiffractionFFT:
@@ -102,10 +102,12 @@ class LSST_SiliconBuilder(StampBuilder):
         ignore = ['fft_sb_thresh', 'max_flux_simple'] + ignore
         params = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)[0]
 
-        gal = galsim.config.BuildGSObject(base, 'gal', logger=logger)[0]
-        if gal is None:
+        obj = galsim.config.BuildGSObject(base, 'gal', logger=logger)[0]
+
+        if obj is None:
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
-        self.gal = gal
+
+        self.obj = obj
 
         if 'diffraction_fft' in config:
             self.diffraction_fft = DiffractionFFT.from_config(config['diffraction_fft'], base)
@@ -119,7 +121,7 @@ class LSST_SiliconBuilder(StampBuilder):
         camera = get_camera(params.get('camera', 'LsstCam'))
         if self.vignetting:
             self.det = camera[params['det_name']]
-        if hasattr(gal, 'flux'):
+        if hasattr(obj, 'flux'):
             # In this case, the object flux has been precomputed.  If our
             # realized bandpass is different from the fiducial bandpass used
             # in the precomputation, then we'll need to reweight the flux.
@@ -131,13 +133,13 @@ class LSST_SiliconBuilder(StampBuilder):
                 and self.fiducial_bandpass != bandpass
             )
         else:
-            gal.flux = gal.calculateFlux(bandpass)
+            obj.flux = obj.calculateFlux(bandpass)
             self.do_reweight = False
-        self.nominal_flux = gal.flux
+        self.nominal_flux = obj.flux
 
         # For photon shooting rendering, precompute the realization of the Poisson variate.
         # Mostly so we can possibly abort early if phot_flux=0.
-        self.phot_flux = galsim.PoissonDeviate(self.rng, mean=gal.flux)()
+        self.phot_flux = galsim.PoissonDeviate(self.rng, mean=obj.flux)()
 
         # Save these later, in case needed for the output catalog.
         base['nominal_flux'] = self.nominal_flux
@@ -164,73 +166,22 @@ class LSST_SiliconBuilder(StampBuilder):
             xsize = ysize = galsim.config.ParseValue(config, 'size', base, int)[0]
 
         else:
-            gal_achrom = gal.evaluateAtWavelength(bandpass.effective_wavelength)
-            if (hasattr(gal_achrom, 'original')
-                and isinstance(gal_achrom.original, galsim.DeltaFunction)):
-                # For bright stars, set the folding threshold for the
-                # stamp size calculation.  Use a
-                # Kolmogorov_and_Gaussian_PSF since it is faster to
-                # evaluate than an AtmosphericPSF.
-                base['current_noise_image'] = base['current_image']
-                noise_var = galsim.config.CalculateNoiseVariance(base)
-                folding_threshold = noise_var/self.nominal_flux
-                if folding_threshold >= self._ft_default or folding_threshold == 0:
-                    # a) Don't gratuitously raise folding_threshold above the normal default.
-                    # b) If sky_level = 0, then folding_threshold=0.  This is bad (stepk=0 below),
-                    #    but if the user is doing this to avoid sky noise, then they probably care
-                    #    about other things than detailed large-scale behavior of very bright stars.
-                    gsparams = None
-                else:
-                    # Every different folding threshold requires a new initialization of Kolmogorov,
-                    # which takes about a second.  So round down to the nearest e folding to
-                    # minimize how many of these we need to do.
-                    folding_threshold = np.exp(np.floor(np.log(folding_threshold)))
-                    logger.debug('Using folding_threshold %s',folding_threshold)
-                    logger.debug('From: noise_var = %s, flux = %s',noise_var,self.nominal_flux)
-                    gsparams = galsim.GSParams(folding_threshold=folding_threshold)
+            base['current_noise_image'] = base['current_image']
+            noise_var = galsim.config.CalculateNoiseVariance(base)
 
-                # Grab the three parameters we need for Kolmogorov_and_Gaussian_PSF.
-                keys = ('airmass', 'rawSeeing', 'band')
-                kwargs = { k:v for k,v in params.items() if k in keys }
-                psf = self.Kolmogorov_and_Gaussian_PSF(gsparams=gsparams, **kwargs)
-                image_size = psf.getGoodImageSize(self._pixel_scale)
-                # No point in this being larger than a CCD.  Cut back to Nmax if larger than this.
-                xsize = ysize = min(image_size, self._Nmax)
-
-            else:
-                # For extended objects, recreate the object to draw, but
-                # convolved with the faster DoubleGaussian PSF.
-                psf = self.DoubleGaussian()
-                # For Chromatic objects, need to evaluate at the
-                # effective wavelength of the bandpass.
-                obj = galsim.Convolve(gal_achrom, psf).withFlux(self.nominal_flux)
-
-                # Start with GalSim's estimate of a good box size.
-                image_size = obj.getGoodImageSize(self._pixel_scale)
-
-                # For bright things, defined as having an average of at least 10 photons per
-                # pixel on average, or objects for which GalSim's estimate of the image_size is larger
-                # than self._Nmax, compute the image_size using the surface brightness limit, trying
-                # to be careful about not truncating the surface brightness
-                # at the edge of the box.
-                if (self.nominal_flux > 10 * image_size**2) or (image_size > self._Nmax):
-                    # Find a postage stamp region to draw onto.  Use (sky noise)/8. as the nominal
-                    # minimum surface brightness for rendering an extended object.
-                    base['current_noise_image'] = base['current_image']
-                    noise_var = galsim.config.CalculateNoiseVariance(base)
-                    keep_sb_level = np.sqrt(noise_var)/8.
-                    self._large_object_sb_level = 3*keep_sb_level
-                    image_size = self._getGoodPhotImageSize([gal_achrom, psf], keep_sb_level,
-                                                            pixel_scale=self._pixel_scale)
-
-                    # If the above size comes out really huge, scale back to what you get for
-                    # a somewhat brighter surface brightness limit.
-                    if image_size > self._Nmax:
-                        image_size = self._getGoodPhotImageSize([gal_achrom, psf],
-                                                                self._large_object_sb_level,
-                                                                pixel_scale=self._pixel_scale)
-                        image_size = min(image_size, self._Nmax)
-                xsize = ysize = image_size
+            obj_achrom = obj.evaluateAtWavelength(bandpass.effective_wavelength)
+            keys = ('airmass', 'rawSeeing', 'band')
+            kwargs = { k:v for k,v in params.items() if k in keys }
+            stamp_size = get_stamp_size(
+                obj_achrom=obj_achrom,
+                nominal_flux=self.nominal_flux,
+                noise_var=noise_var,
+                Nmax=self._Nmax,
+                pixel_scale=self._pixel_scale,
+                logger=logger,
+                **kwargs
+            )
+            xsize = ysize = stamp_size
 
         logger.info('Object %d will use stamp size = %s,%s', base.get('obj_num',0),
                     xsize, ysize)
@@ -248,164 +199,6 @@ class LSST_SiliconBuilder(StampBuilder):
             world_pos = None
 
         return xsize, ysize, image_pos, world_pos
-
-    def _getGoodPhotImageSize(self, obj_list, keep_sb_level, pixel_scale):
-        sizes = [self._getGoodPhotImageSize1(obj, keep_sb_level, pixel_scale)
-                 for obj in obj_list]
-        return int(np.sqrt(np.sum([size**2 for size in sizes])))
-
-    def _getGoodPhotImageSize1(self, obj, keep_sb_level, pixel_scale):
-        """
-        Get a postage stamp size (appropriate for photon-shooting) given a
-        minimum surface brightness in photons/pixel out to which to
-        extend the stamp region.
-
-        Parameters
-        ----------
-        obj: galsim.GSObject
-            The GalSim object for which we will call .drawImage.
-        keep_sb_level: float
-            The minimum surface brightness (photons/pixel) out to which to
-            extend the postage stamp, e.g., a value of
-            sqrt(sky_bg_per_pixel)/3 would be 1/3 the Poisson noise
-            per pixel from the sky background.
-        pixel_scale: float [0.2]
-            The CCD pixel scale in arcsec.
-
-        Returns
-        -------
-        int: The length N of the desired NxN postage stamp.
-
-        Notes
-        -----
-        Use of this function should be avoided with PSF implementations that
-        are costly to evaluate.  A roughly equivalent DoubleGaussian
-        could be used as a proxy.
-
-        This function was originally written by Mike Jarvis.
-        """
-        # The factor by which to adjust N in each step.
-        factor = 1.1
-
-        # Start with the normal image size from GalSim
-        N = obj.getGoodImageSize(pixel_scale)
-
-        if (isinstance(obj, galsim.Sum) and
-            any([isinstance(_.original, galsim.RandomKnots)
-                 for _ in obj.obj_list])):
-            # obj is a galsim.Sum object and contains a
-            # galsim.RandomKnots component, so make a new obj that's
-            # the sum of the non-knotty versions.
-            obj_list = []
-            for item in obj.obj_list:
-                if isinstance(item.original, galsim.RandomKnots):
-                    obj_list.append(item.original._profile)
-                else:
-                    obj_list.append(item)
-            obj = galsim.Add(obj_list)
-        elif hasattr(obj, 'original') and isinstance(obj.original, galsim.RandomKnots):
-            # Handle RandomKnots object directly
-            obj = obj.original._profile
-
-        # This can be too small for bright stars, so increase it in steps until the edges are
-        # all below the requested sb level.
-        while N < self._Nmax:
-            # Check the edges and corners of the current square
-            h = N / 2 * pixel_scale
-            xvalues = [ obj.xValue(h,0), obj.xValue(-h,0),
-                        obj.xValue(0,h), obj.xValue(0,-h),
-                        obj.xValue(h,h), obj.xValue(h,-h),
-                        obj.xValue(-h,h), obj.xValue(-h,-h) ]
-            maxval = np.max(xvalues)
-            if maxval < keep_sb_level:
-                break
-            N *= factor
-
-        N = min(N, self._Nmax)
-
-        # This can be quite huge for Devauc profiles, but we don't actually have much
-        # surface brightness way out in the wings.  So cut it back some.
-        # (Don't go below 64 though.)
-        while N >= 64 * factor:
-            # Check the edges and corners of a square smaller by a factor of N.
-            h = N / (2 * factor) * pixel_scale
-            xvalues = [ obj.xValue(h,0), obj.xValue(-h,0),
-                        obj.xValue(0,h), obj.xValue(0,-h),
-                        obj.xValue(h,h), obj.xValue(h,-h),
-                        obj.xValue(-h,h), obj.xValue(-h,-h) ]
-            maxval = np.max(xvalues)
-            if maxval > keep_sb_level:
-                break
-            N /= factor
-
-        return int(N)
-
-    @lru_cache(maxsize=128)
-    def DoubleGaussian(self, fwhm1=0.6, fwhm2=0.12, wgt1=1.0, wgt2=0.1):
-        """
-        @param [in] fwhm1 is the Full Width at Half Max of the first Gaussian in arcseconds
-
-        @param [in] fwhm2 is the Full Width at Half Max of the second Gaussian in arcseconds
-
-        @param [in] wgt1 is the dimensionless coefficient normalizing the first Gaussian
-
-        @param [in] wgt2 is the dimensionless coefficient normalizing the second Gaussian
-
-        The total PSF will be
-
-        (wgt1 * G(sig1) + wgt2 * G(sig2))/(wgt1 + wgt2)
-
-        where G(sigN) denotes a normalized Gaussian with a standard deviation that gives
-        a Full Width at Half Max of fwhmN.  (Integrating a two-dimensional Gaussian, we find
-        that sig = fwhm/2.355)
-
-        Because this PSF depends on neither position nor wavelength, this __init__ method
-        will instantiate a PSF and cache it.  It is this cached psf that will be returned
-        whenever _getPSF is called in this class.
-        """
-
-        r1 = fwhm1/2.355
-        r2 = fwhm2/2.355
-        norm = 1.0/(wgt1 + wgt2)
-
-        gaussian1 = galsim.Gaussian(sigma=r1)
-        gaussian2 = galsim.Gaussian(sigma=r2)
-
-        return norm*(wgt1*gaussian1 + wgt2*gaussian2)
-
-    @lru_cache(maxsize=128)
-    def Kolmogorov_and_Gaussian_PSF(self, airmass=1.2, rawSeeing=0.7, band='r', gsparams=None):
-        """
-        This PSF class is based on David Kirkby's presentation to the DESC Survey Simulations
-        working group on 23 March 2017.
-
-        https://confluence.slac.stanford.edu/pages/viewpage.action?spaceKey=LSSTDESC&title=SSim+2017-03-23
-
-        (you will need a SLAC Confluence account to access that link)
-
-        Parameters
-        ----------
-        airmass
-
-        rawSeeing is the FWHM seeing at zenith at 500 nm in arc seconds
-        (provided by OpSim)
-
-        band is the bandpass of the observation [u,g,r,i,z,y]
-        """
-        # This code was provided by David Kirkby in a private communication
-
-        wlen_eff = dict(u=365.49, g=480.03, r=622.20, i=754.06, z=868.21, y=991.66)[band]
-        # wlen_eff is from Table 2 of LSE-40 (y=y2)
-
-        FWHMatm = rawSeeing * (wlen_eff / 500.) ** -0.3 * airmass ** 0.6
-        # From LSST-20160 eqn (4.1)
-
-        FWHMsys = np.sqrt(0.25**2 + 0.3**2 + 0.08**2) * airmass ** 0.6
-        # From LSST-20160 eqn (4.2)
-
-        atm = galsim.Kolmogorov(fwhm=FWHMatm, gsparams=gsparams)
-        sys = galsim.Gaussian(fwhm=FWHMsys, gsparams=gsparams)
-        return galsim.Convolve((atm, sys))
 
     def buildPSF(self, config, base, gsparams, logger):
         """Build the PSF object.
@@ -435,91 +228,38 @@ class LSST_SiliconBuilder(StampBuilder):
             self.use_fft = False
             return psf
 
-        # Otherwise (high flux object), we might want to switch to fft.  So be a little careful.
-        bandpass = base['bandpass']
-        fft_psf = self.make_fft_psf(psf.evaluateAtWavelength(bandpass.effective_wavelength), logger)
+        dm_detector = None if not hasattr(self, 'det') else self.det
+        fft_psf, draw_method, self.fft_flux = get_fft_psf_maybe(
+            obj=self.obj,
+            nominal_flux=self.nominal_flux,
+            psf=psf,
+            bandpass=base['bandpass'],
+            wcs=self.image.wcs,
+            fft_sb_thresh=fft_sb_thresh,
+            pixel_scale=self._pixel_scale,
+            vignetting=self.vignetting,
+            dm_detector=dm_detector,
+            # can be none when vignetting is turned off.  We need this to pass
+            # the test test_psf::test_atm_psf_fft
+            sky_pos=base.get('sky_pos', None),
+            logger=logger,
+        )
+
         logger.info('Object %d has flux = %s.  Check if we should switch to FFT',
                     base['obj_num'], self.nominal_flux)
+        if draw_method == 'fft':
+            logger.info('Yes. Use FFT for object %d.', base.get('obj_num'))
 
-        # Now this object should have a much better estimate of the real maximum surface brightness
-        # than the original psf did.
-        # However, the max_sb feature gives an over-estimate, whereas to be conservative, we would
-        # rather an under-estimate.  For this kind of profile, dividing by 2 does a good job
-        # of giving us an underestimate of the max surface brightness.
-        # Also note that `max_sb` is in photons/arcsec^2, so multiply by pixel_scale**2
-        # to get photons/pixel, which we compare to fft_sb_thresh.
-        gal_achrom = self.gal.evaluateAtWavelength(bandpass.effective_wavelength)
-        fft_obj = galsim.Convolve(gal_achrom, fft_psf).withFlux(self.nominal_flux)
-        max_sb = fft_obj.max_sb/2. * self._pixel_scale**2
-        logger.debug('max_sb = %s. cf. %s',max_sb,fft_sb_thresh)
-        if max_sb > fft_sb_thresh:
             self.use_fft = True
-            # For FFT-rendered objects, the telescope vignetting isn't
-            # emergent as it is for the ray-traced objects, so use the
-            # empirical vignetting function, if it's available, to
-            # scale the flux to use in FFTs.
-            if self.vignetting is not None:
-                pix_to_fp = self.det.getTransform(cameraGeom.PIXELS,
-                                                  cameraGeom.FOCAL_PLANE)
-                self.fft_flux = self.nominal_flux*self.vignetting.at_sky_coord(
-                    base['sky_pos'], self.image.wcs, pix_to_fp)
-            else:
-                self.fft_flux = self.nominal_flux
+            psf = fft_psf
+
             base['fft_flux'] = self.fft_flux
             base['phot_flux'] = 0.  # Indicates that photon shooting wasn't done.
-
-            logger.info('Yes. Use FFT for object %d.  max_sb = %.0f > %.0f',
-                        base.get('obj_num'), max_sb, fft_sb_thresh)
-            return fft_psf
         else:
+            logger.info('Yes. Use photon shooting for object %d.', base.get('obj_num'))
             self.use_fft = False
-            logger.info('No. Use photon shooting for object %d. '
-                        'max_sb = %.0f <= %.0f',
-                        base.get('obj_num'), max_sb, fft_sb_thresh)
-            return psf
 
-    def make_fft_psf(self, psf, logger):
-        """Swap out any PhaseScreenPSF component with a roughly equivalent analytic approximation.
-        """
-        if isinstance(psf, galsim.Transformation):
-            return galsim.Transformation(self.make_fft_psf(psf.original, logger),
-                                         psf.jac, psf.offset, psf.flux_ratio, psf.gsparams)
-        elif isinstance(psf, galsim.Convolution):
-            obj_list = [self.make_fft_psf(p, logger) for p in psf.obj_list]
-            return galsim.Convolution(obj_list, gsparams=psf.gsparams)
-        elif isinstance(psf, galsim.SecondKick):
-            # The Kolmogorov version of the phase screen gets most of the second kick.
-            # The only bit that it missing is the Airy part, so convert the SecondKick to that.
-            return galsim.Airy(lam=psf.lam, diam=psf.diam, obscuration=psf.obscuration)
-        elif isinstance(psf, galsim.PhaseScreenPSF):
-            # If psf is a PhaseScreenPSF, then make a simpler one the just convolves
-            # a Kolmogorov profile with an OpticalPSF.
-            r0_500 = psf.screen_list.r0_500_effective
-            L0 = psf.screen_list[0].L0
-            atm_psf = galsim.VonKarman(lam=psf.lam, r0_500=r0_500, L0=L0, gsparams=psf.gsparams)
-
-            opt_screens = [s for s in psf.screen_list if isinstance(s, galsim.OpticalScreen)]
-            logger.info('opt_screens = %r',opt_screens)
-            if len(opt_screens) >= 1:
-                # Should never be more than 1, but if there weirdly is, just use the first.
-                # Note: Technically, if you have both a SecondKick and an optical screen, this
-                # will add the Airy part twice, since it's also part of the OpticalPSF.
-                # It doesn't usually matter, since we usually set doOpt=False, so we don't usually
-                # do this branch. If it is found to matter for someone, it will require a bit
-                # of extra logic to do it right.
-                opt_screen = opt_screens[0]
-                optical_psf = galsim.OpticalPSF(
-                        lam=psf.lam,
-                        diam=opt_screen.diam,
-                        aberrations=opt_screen.aberrations,
-                        annular_zernike=opt_screen.annular_zernike,
-                        obscuration=opt_screen.obscuration,
-                        gsparams=psf.gsparams)
-                return galsim.Convolve([atm_psf, optical_psf], gsparams=psf.gsparams)
-            else:
-                return atm_psf
-        else:
-            return psf
+        return psf
 
     def getDrawMethod(self, config, base, logger):
         """Determine the draw method to use.
@@ -534,7 +274,7 @@ class LSST_SiliconBuilder(StampBuilder):
         if method not in galsim.config.valid_draw_methods:
             raise galsim.GalSimConfigValueError("Invalid draw_method.", method,
                                                 galsim.config.valid_draw_methods)
-        if method  == 'auto':
+        if method == 'auto':
             if self.use_fft:
                 logger.info('Auto -> Use FFT drawing for object %d.',base['obj_num'])
                 return 'fft'
@@ -561,8 +301,9 @@ class LSST_SiliconBuilder(StampBuilder):
                 or sed._spec.interpolant != 'linear'):
                 if not cls._sed_logged:
                     logger.warning(
-                            "Warning: Chromatic drawing is most efficient when SEDs have "
-                            "interpont='linear'. Switching LookupTables to use 'linear'.")
+                        "Warning: Chromatic drawing is most efficient when SEDs have "
+                        "interpont='linear'. Switching LookupTables to use 'linear'."
+                    )
                     cls._sed_logged = True
                 # Workaround for https://github.com/GalSim-developers/GalSim/issues/1228
                 f = np.broadcast_to(sed(wave_list), wave_list.shape)
@@ -596,10 +337,10 @@ class LSST_SiliconBuilder(StampBuilder):
              or prof._flux_ratio._spec.interpolant != 'linear')):
             if not cls._sed_logged:
                 logger.warning(
-                        "Warning: Chromatic drawing is most efficient when SEDs have "
-                        "interpont='linear'. Switching LookupTables to use 'linear'.")
+                    "Warning: Chromatic drawing is most efficient when SEDs have "
+                    "interpont='linear'. Switching LookupTables to use 'linear'."
+                )
                 cls._sed_logged = True
-            original = prof._original
             sed = prof._flux_ratio
             wave_list, _, _ = galsim.utilities.combine_wave_list(sed, bandpass)
             f = np.broadcast_to(sed(wave_list), wave_list.shape)
@@ -784,6 +525,7 @@ class LSST_SiliconBuilder(StampBuilder):
             base['realized_flux'] = image.added_flux
 
         return image
+
 
 # Pick the right function to be _fix_seds.
 if galsim.__version_info__ < (2,5):

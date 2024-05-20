@@ -12,6 +12,8 @@ disable_implicit_threading()
 from ._version import *
 from .meta_data import *
 from .stamp import *
+from . import stamp_utils
+from . import psf_utils
 from .instcat import *
 from .opsim_data import *
 from .ccd import *
