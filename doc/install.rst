@@ -181,6 +181,7 @@ Set runtime environment variables for the *Conda* environment
 
 .. code-block:: sh
 
+    # e.g. if imSim is in ~/git/imSim you would set IMSIM_HOME to ~/git
     conda env config vars set IMSIM_HOME=/path/to/imSim-git-repo
     conda env config vars set RUBIN_SIM_DATA_DIR=$(pwd)/rubin_sim_data
     conda env config vars set SIMS_SED_LIBRARY_DIR=$(pwd)/rubin_sim_data/sims_sed_library
