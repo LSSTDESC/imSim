@@ -50,9 +50,10 @@ jobs:
               run: |
                 git clone https://github.com/LSSTDESC/skyCatalogs.git
                 cd skyCatalogs
-                git checkout v1.7.0rc4
+                # git checkout v1.7.0rc4
+                git checkout v1.6.0rc2
                 # turn off build isolation for newer pip
-                pip install --no-build-isolation -e .
+                pip install --no-build-isolation --no-deps -e .
                 cd ..
 
             - name: Cache data
