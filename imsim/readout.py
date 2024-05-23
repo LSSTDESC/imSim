@@ -259,7 +259,6 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         telcode = 'MC'
     elif camera_name == 'LsstComCamSim' :
         phdu.header['FILTER'] = ComCam_filter_map.get(band, None)
-        phdu.header['TELESCOP'] = SIMONYI_TELESCOPE
         phdu.header['INSTRUME'] = 'ComCamSim'
         phdu.header['RAFTBAY'] = raft
         phdu.header['CCDSLOT'] = sensor
@@ -270,16 +269,31 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         telcode = 'CC'
     else:
         phdu.header['FILTER'] = LSSTCam_filter_map.get(band, None)
-        phdu.header['INSTRUME'] = 'LSSTCam'
+        if camera_name == 'LsstCamSim':
+            phdu.header['INSTRUME'] = 'LSSTCamSim'
+        else:
+            phdu.header['INSTRUME'] = 'LSSTCam'
         phdu.header['RAFTBAY'] = raft
         phdu.header['CCDSLOT'] = sensor
         phdu.header['RA'] = ratel
         phdu.header['DEC'] = dectel
         phdu.header['ROTCOORD'] = 'sky'
+        phdu.header['ROTPA'] = rotang
         telcode = 'MC'
     dayobs = eimage.header['DAYOBS']
     seqnum = eimage.header['SEQNUM']
     contrllr = eimage.header['CONTRLLR']
+    phdu.header['TELESCOP'] = SIMONYI_TELESCOPE
+    phdu.header['TELCODE'] = telcode
+    phdu.header['RASTART'] = ratel
+    phdu.header['DECSTART'] = dectel
+    phdu.header['ELSTART'] = eimage.header['ALTITUDE']
+    phdu.header['AZSTART'] = eimage.header['AZIMUTH']
+    if eimage.header['IMGTYPE'] == 'SKYEXP':
+        phdu.header['RADESYS'] = 'ICRS'
+        phdu.header['TRACKSYS'] = 'RADEC'
+    else:
+        phdu.header['TRACKSYS'] = 'LOCAL'
     phdu.header['OBSID'] = f"{telcode}_{contrllr}_{dayobs}_{seqnum:06d}"
     phdu.header['MJD-OBS'] = mjd_obs
     phdu.header['HASTART'] = eimage.header['HASTART']
@@ -288,9 +302,10 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
     phdu.header['DATE-END'] = Time(mjd_end, format='mjd', scale='tai').to_value('isot')
     phdu.header['AMSTART'] = eimage.header['AMSTART']
     phdu.header['AMEND'] = eimage.header['AMEND']
+    phdu.header['ORIGIN'] = "imSim"
     phdu.header['IMSIMVER'] = __version__
     phdu.header['PKG00000'] = 'throughputs'
-    phdu.header['VER00000'] = '1.4'
+    phdu.header['VER00000'] = '1.9'
     phdu.header['CHIPID'] = det_name
     phdu.header['FOCUSZ'] = eimage.header['FOCUSZ']
 
