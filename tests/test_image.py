@@ -153,6 +153,7 @@ def create_test_config(
             "photon_ops": [
                 {"type": "TimeSampler", "t0": 0.0, "exptime": exptime},
                 {"type": "PupilAnnulusSampler", "R_outer": 4.18, "R_inner": 2.55},
+                {"type": "Shift"},
                 {
                     **optics_args,
                     "boresight": boresight,
@@ -256,5 +257,6 @@ if __name__ == "__main__":
     testfns = [
         v for k, v in vars().items() if k.startswith(args.test_prefix) and callable(v)
     ]
-    for testfn in testfns:
-        testfn()
+    # for testfn in testfns:
+        # testfn()
+    test_lsst_image_individual_objects()
