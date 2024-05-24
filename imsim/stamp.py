@@ -127,8 +127,9 @@ class StampBuilderBase(StampBuilder):
                 or sed._spec.interpolant != 'linear'):
                 if not cls._sed_logged:
                     logger.warning(
-                            "Warning: Chromatic drawing is most efficient when SEDs have "
-                            "interpont='linear'. Switching LookupTables to use 'linear'.")
+                        "Warning: Chromatic drawing is most efficient when SEDs have "
+                        "interpont='linear'. Switching LookupTables to use 'linear'."
+                    )
                     cls._sed_logged = True
                 # Workaround for https://github.com/GalSim-developers/GalSim/issues/1228
                 f = np.broadcast_to(sed(wave_list), wave_list.shape)
@@ -162,8 +163,9 @@ class StampBuilderBase(StampBuilder):
              or prof._flux_ratio._spec.interpolant != 'linear')):
             if not cls._sed_logged:
                 logger.warning(
-                        "Warning: Chromatic drawing is most efficient when SEDs have "
-                        "interpont='linear'. Switching LookupTables to use 'linear'.")
+                    "Warning: Chromatic drawing is most efficient when SEDs have "
+                    "interpont='linear'. Switching LookupTables to use 'linear'."
+                )
                 cls._sed_logged = True
             sed = prof._flux_ratio
             wave_list, _, _ = galsim.utilities.combine_wave_list(sed, bandpass)
@@ -184,8 +186,20 @@ class StampBuilderBase(StampBuilder):
             if hasattr(prof, 'original'):
                 cls._fix_seds_25(prof.original, bandpass, logger)
 
+
+        # Also recurse onto any components.
+        if isinstance(prof, galsim.ChromaticObject):
+            if hasattr(prof, 'obj_list'):
+                for obj in prof.obj_list:
+                    cls._fix_seds_25(obj, bandpass, logger)
+            if hasattr(prof, 'original'):
+                cls._fix_seds_25(prof.original, bandpass, logger)
+
     # Pick the right function to be _fix_seds.
-    _fix_seds = _fix_seds_24 if galsim.__version_info__ < (2,5) else _fix_seds_25
+    if galsim.__version_info__ < (2,5):
+        _fix_seds = _fix_seds_24
+    else:
+        _fix_seds = _fix_seds_25
 
 
 class PhotonStampBuilder(StampBuilderBase):
@@ -340,6 +354,7 @@ class LSST_SiliconBuilder(StampBuilderBase):
         if stellar_obj is not None:
             self.nominal_flux = stellar_obj.gal.flux
             self.phot_flux = stellar_obj.phot_flux
+            self.do_reweight = False
         else:
             if hasattr(gal, 'flux'):
                 # In this case, the object flux has been precomputed.  If our
@@ -389,7 +404,7 @@ class LSST_SiliconBuilder(StampBuilderBase):
             base['current_noise_image'] = base['current_image']
             noise_var = galsim.config.CalculateNoiseVariance(base)
 
-            obj_achrom = obj.evaluateAtWavelength(bandpass.effective_wavelength)
+            obj_achrom = gal.evaluateAtWavelength(bandpass.effective_wavelength)
             keys = ('airmass', 'rawSeeing', 'band')
             kwargs = { k:v for k,v in params.items() if k in keys }
             stamp_size = get_stamp_size(
@@ -455,16 +470,16 @@ class LSST_SiliconBuilder(StampBuilderBase):
         else:
             fft_sb_thresh = 0.
 
-        if self.nominal_flux < 1.e6 or not fft_sb_thresh or self.nominal_flux < fft_sb_thresh:
-            self.use_fft = False
-            logger.info('Use photon shooting for object %d. '
-                        'nominal flux = %.0f, FFT threshold %.0f',
-                        base.get('obj_num'), self.nominal_flux, fft_sb_thresh)
-            return psf
+        # if self.nominal_flux < 1.e6 or not fft_sb_thresh or self.nominal_flux < fft_sb_thresh:
+        #     self.use_fft = False
+        #     logger.info('Use photon shooting for object %d. '
+        #                 'nominal flux = %.0f, FFT threshold %.0f',
+        #                 base.get('obj_num'), self.nominal_flux, fft_sb_thresh)
+        #     return psf
 
         dm_detector = None if not hasattr(self, 'det') else self.det
         fft_psf, draw_method, self.fft_flux = get_fft_psf_maybe(
-            obj=self.obj,
+            obj=self.gal,
             nominal_flux=self.nominal_flux,
             psf=psf,
             bandpass=base['bandpass'],
@@ -490,13 +505,12 @@ class LSST_SiliconBuilder(StampBuilderBase):
             base['fft_flux'] = self.fft_flux
             base['phot_flux'] = 0.  # Indicates that photon shooting wasn't done.
         else:
-            logger.info('Yes. Use photon shooting for object %d.', base.get('obj_num'))
+            logger.info('No. Use photon shooting for object %d.', base.get('obj_num'))
             self.use_fft = False
-            logger.info('No. Use photon shooting for object %d. '
-                        'max_sb = %.0f <= %.0f',
-                        base.get('obj_num'), max_sb, fft_sb_thresh)
-            return psf
-
+            # logger.info('No. Use photon shooting for object %d. '
+            #             'max_sb = %.0f <= %.0f',
+            #             base.get('obj_num'), max_sb, fft_sb_thresh)
+        return psf
 
     def getDrawMethod(self, config, base, logger):
         """Determine the draw method to use.
@@ -523,79 +537,6 @@ class LSST_SiliconBuilder(StampBuilderBase):
             # then respect their wishes.
             logger.info('Use specified method=%s for object %d.',method,base['obj_num'])
             return method
-
-    @classmethod
-    def _fix_seds_24(cls, prof, bandpass, logger):
-        # If any SEDs are not currently using a LookupTable for the function or if they are
-        # using spline interpolation, then the codepath is quite slow.
-        # Better to fix them before doing WavelengthSampler.
-        if isinstance(prof, galsim.ChromaticObject):
-            wave_list, _, _ = galsim.utilities.combine_wave_list(prof.SED, bandpass)
-            sed = prof.SED
-            # TODO: This bit should probably be ported back to Galsim.
-            #       Something like sed.make_tabulated()
-            if (not isinstance(sed._spec, galsim.LookupTable)
-                or sed._spec.interpolant != 'linear'):
-                if not cls._sed_logged:
-                    logger.warning(
-                        "Warning: Chromatic drawing is most efficient when SEDs have "
-                        "interpont='linear'. Switching LookupTables to use 'linear'."
-                    )
-                    cls._sed_logged = True
-                # Workaround for https://github.com/GalSim-developers/GalSim/issues/1228
-                f = np.broadcast_to(sed(wave_list), wave_list.shape)
-                new_spec = galsim.LookupTable(wave_list, f, interpolant='linear')
-                new_sed = galsim.SED(
-                    new_spec,
-                    'nm',
-                    'fphotons' if sed.spectral else '1'
-                )
-                prof.SED = new_sed
-
-            # Also recurse onto any components.
-            if hasattr(prof, 'obj_list'):
-                for obj in prof.obj_list:
-                    cls._fix_seds_24(obj, bandpass, logger)
-            if hasattr(prof, 'original'):
-                cls._fix_seds_24(prof.original, bandpass, logger)
-
-    @classmethod
-    def _fix_seds_25(cls, prof, bandpass, logger):
-        # If any SEDs are not currently using a LookupTable for the function or if they are
-        # using spline interpolation, then the codepath is quite slow.
-        # Better to fix them before doing WavelengthSampler.
-
-        # In GalSim 2.5, SEDs are not necessarily constructed in most chromatic objects.
-        # And really the only ones we need to worry about are the ones that come from
-        # SkyCatalog, since they might not have linear interpolants.
-        # Those objects are always SimpleChromaticTransformations.  So only fix those.
-        if (isinstance(prof, galsim.SimpleChromaticTransformation) and
-            (not isinstance(prof._flux_ratio._spec, galsim.LookupTable)
-             or prof._flux_ratio._spec.interpolant != 'linear')):
-            if not cls._sed_logged:
-                logger.warning(
-                    "Warning: Chromatic drawing is most efficient when SEDs have "
-                    "interpont='linear'. Switching LookupTables to use 'linear'."
-                )
-                cls._sed_logged = True
-            sed = prof._flux_ratio
-            wave_list, _, _ = galsim.utilities.combine_wave_list(sed, bandpass)
-            f = np.broadcast_to(sed(wave_list), wave_list.shape)
-            new_spec = galsim.LookupTable(wave_list, f, interpolant='linear')
-            new_sed = galsim.SED(
-                new_spec,
-                'nm',
-                'fphotons' if sed.spectral else '1'
-            )
-            prof._flux_ratio = new_sed
-
-        # Also recurse onto any components.
-        if isinstance(prof, galsim.ChromaticObject):
-            if hasattr(prof, 'obj_list'):
-                for obj in prof.obj_list:
-                    cls._fix_seds_25(obj, bandpass, logger)
-            if hasattr(prof, 'original'):
-                cls._fix_seds_25(prof.original, bandpass, logger)
 
     def draw(self, prof, image, method, offset, config, base, logger):
         """Draw the profile on the postage stamp image.
@@ -771,13 +712,6 @@ class NullSensor(galsim.Sensor):
     image when we only want to generate photons."""
     def accumulate(self, photons, image, orig_center=None, resume=False):
         return 0.
-
-# Pick the right function to be _fix_seds.
-if galsim.__version_info__ < (2,5):
-    LSST_SiliconBuilder._fix_seds = LSST_SiliconBuilder._fix_seds_24
-else:
-    LSST_SiliconBuilder._fix_seds = LSST_SiliconBuilder._fix_seds_25
-
 
 # Register this as a valid stamp type
 RegisterStampType('LSST_Silicon', LSST_SiliconBuilder())

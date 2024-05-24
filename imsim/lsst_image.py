@@ -108,17 +108,16 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
         # Batching is also useful for memory reasons, to limit the number of stamps held
         # in memory before adding them all to the main image.  So even if not checkpointing,
         # keep the default value as 100.
+        # nbatch is used for LSST_Image runs.
         self.nbatch = params.get('nbatch', 100)
+        self.nbatch_per_checkpoint = params.get('nbatch_per_checkpoint', 1)
+        # nbatch_fft and nbatch_photon are used for LSST_PhotonPoolingImage runs.
+        # The default behaviour for photon pooling is to process all FFT objects in one pass
+        # and the photon objects in 10.
+        self.nbatch_fft = params.get('nbatch_fft', 1)
+        self.nbatch_photon = params.get('nbatch_photon', 10)
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
-            # nbatch is used for LSST_Image runs.
-            self.nbatch = params.get('nbatch', 100)
-            self.nbatch_per_checkpoint = params.get('nbatch_per_checkpoint', 1)
-            # nbatch_fft and nbatch_photon are used for LSST_PhotonPoolingImage runs.
-            # The default behaviour for photon pooling is to process all FFT objects in one pass
-            # and the photon objects in 10.
-            self.nbatch_fft = params.get('nbatch_fft', 1)
-            self.nbatch_photon = params.get('nbatch_photon', 10)
         except galsim.config.GalSimConfigError:
             self.checkpoint = None
 
