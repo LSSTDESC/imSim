@@ -61,6 +61,7 @@ def assert_objects_at_positions(image, expected_positions, expected_brightness_v
 
 
 def create_test_config(
+    image_type="LSST_PhotonPoolingImageBuilder",
     exptime: float = 30.0,
     enable_diffraction: bool = True,
     band="r",
@@ -124,8 +125,7 @@ def create_test_config(
         "bandpass": bandpass,
         "wcs": wcs,
         "image": {
-            "type": "LSST_PhotonPoolingImage",
-            # "type": "LSST_Image",
+            "type": image_type,
             "det_name": "R22_S11",
             "wcs": wcs,
             "random_seed": 12345,
@@ -165,11 +165,10 @@ def create_test_config(
     return config
 
 
-def test_lsst_image_batches_photons():
-    """Check that photon batching works.
-    Also check that the stars are rendered at the correct positions."""
+def run_lsst_image(image_type):
+    """Create an image of the given type and check that objects are batched as expected and stars at the correct positions."""
 
-    config = create_test_config()
+    config = create_test_config(image_type)
 
     n_images = 1
     n_expected_objects = 20
@@ -178,7 +177,7 @@ def test_lsst_image_batches_photons():
     with assert_no_error_logs(logger_level=logging.INFO) as logger:
         [image] = galsim.config.BuildImages(n_images, config, logger=logger)
     image.write("/tmp/tiny_instcat.fits")
-    fft_obj_indices = {n for n in range(n_expected_objects) if any(f"Yes. Use FFT for object {n}." in msg for msg in logger.messages)}
+    fft_obj_indices = {n for n in range(n_expected_objects) if any(f"Use FFT for object {n}." in msg for msg in logger.messages)}
     phot_obj_indices = {n for n in range(n_expected_objects) if any(f"Use photon shooting for object {n}." in msg for msg in logger.messages)}
     assert fft_obj_indices == expected_fft_obj_indices
     assert phot_obj_indices == all_obj_indices - expected_fft_obj_indices
@@ -232,6 +231,13 @@ def test_lsst_image_batches_photons():
     assert_objects_at_positions(image.array, expected_positions, expected_brightness_values)
 
 
+def test_lsst_image_individual_objects():
+    """Check that LSSTImage batches objects as expected and renders stars at the correct positions."""
+    run_lsst_image("LSST_Image")
+
+def test_lsst_image_batches_photon_pooling():
+    """Check that LSST_PhotonPoolingImage batches objects as expected and renders stars at the correct positions."""
+    run_lsst_image("LSST_PhotonPoolingImage")
 
 
 if __name__ == "__main__":
