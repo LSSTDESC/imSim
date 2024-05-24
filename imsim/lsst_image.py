@@ -250,16 +250,25 @@ class LSST_ImageBuilder(LSST_ImageBuilderBase):
                     logger.warning('Starting at obj_num %d', start_num)
         nobj_tot = self.nobjects - (start_num - obj_num)
 
-        # Add the Shift photon operator if it isn't already being used.
-        # Place it before RubinDiffractionOptics if present, otherwise append.
-        # photon_ops = base["stamp"]["photon_ops"]
-        # shift_op = {'type': 'Shift'}
-        # if shift_op not in photon_ops:
-        #     rubin_diffraction_optics_index = next((index for (index, d) in enumerate(photon_ops) if d["type"] == "RubinDiffractionOptics" or d["type"] == "RubinOptics"), None)
-        #     if rubin_diffraction_optics_index is not None:
-        #         photon_ops.insert(rubin_diffraction_optics_index, shift_op)
-        #     else:
-        #         photon_ops.append(shift_op)
+        # Make sure we have a Shift photon operator.
+        if "stamp" not in base:
+            base["stamp"] = {"photon_ops": []}
+        elif "photon_ops" not in base["stamp"]:
+            base["stamp"]["photon_ops"] = []
+        photon_ops = base["stamp"]["photon_ops"]
+        shift_op = {'type': 'Shift'}
+        shift_index = next((index for (index, d) in enumerate(photon_ops) if d["type"] == "Shift"), None)
+        if shift_index is not None:
+            # Replace existing Shift operator with a new uninitialised one.
+            photon_ops[shift_index] = shift_op
+        else:
+            # Add Shift operator before RubinOptics or RubinDiffractionOptics if one is
+            # present, otherwise add to the end.
+            rubin_diffraction_optics_index = next((index for (index, d) in enumerate(photon_ops) if d["type"] == "RubinDiffractionOptics" or d["type"] == "RubinOptics"), None)
+            if rubin_diffraction_optics_index is not None:
+                photon_ops.insert(rubin_diffraction_optics_index, shift_op)
+            else:
+                photon_ops.append(shift_op)
 
         if full_image is None:
             full_image = create_full_image(config, base)

@@ -69,18 +69,6 @@ class DiffractionFFT:
         kwargs, _safe = GetAllParams(config, base, req=req, opt=opt)
         return cls(**kwargs)
 
-def build_gal(base, logger):
-    gal, _ = galsim.config.BuildGSObject(base, 'gal', logger=logger)
-    if gal is None:
-        return None
-    if not hasattr(gal, 'flux'):
-        # In this case, the object flux has not been precomputed
-        # or cached by the skyCatalogs code.
-        gal.flux = gal.calculateFlux(base['bandpass'])
-    if gal.flux == 0.:
-        return None
-    return gal
-
 
 def build_obj(stamp_config, base, logger):
     """Precompute all data needed to determine the rendering mode of an
@@ -332,7 +320,10 @@ class LSST_SiliconBuilder(StampBuilderBase):
         # Use cached object, if possible.
         # The cache is currently only used in the `LSST_PhotonPoolingImageBuilder`:
         stellar_obj = base.get("_objects", {}).get(obj_num)
-        gal = build_gal(base, logger) if stellar_obj is None else stellar_obj.gal
+        if stellar_obj:
+            gal = stellar_obj.gal
+        else:
+            gal, _ = galsim.config.BuildGSObject(base, 'gal', logger=logger)
 
         if gal is None:
             raise galsim.config.SkipThisObject('gal is None (invalid parameters)')
