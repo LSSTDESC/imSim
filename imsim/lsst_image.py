@@ -306,11 +306,14 @@ class LSST_ImageBuilder(LSST_ImageBuilderBase):
                 all_bounds = [stamp.bounds for stamp in all_stamps]
                 data = (full_image, all_bounds, all_vars, end_obj_num,
                         base.get('extra_builder',None))
-                self.checkpoint.save(chk_name, data)
                 logger.warning('File %d: Completed batch %d with objects [%d, %d), and wrote '
                                'checkpoint data to %s',
                                base.get('file_num', 0), batch+1, start_obj_num, end_obj_num,
                                self.checkpoint.file_name)
+                if (batch % self.nbatch_per_checkpoint == 0
+                    or batch + 1 == nbatch):
+                    self.checkpoint.save(chk_name, data)
+                    logger.warning('Wrote checkpoint data to %s', self.checkpoint.file_name)
 
         # Bring the image so far up to a flat noise variance
         current_var = galsim.config.FlattenNoiseVariance(
