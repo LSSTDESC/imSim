@@ -153,7 +153,6 @@ def create_test_config(
             "photon_ops": [
                 {"type": "TimeSampler", "t0": 0.0, "exptime": exptime},
                 {"type": "PupilAnnulusSampler", "R_outer": 4.18, "R_inner": 2.55},
-                {"type": "Shift"},
                 {
                     **optics_args,
                     "boresight": boresight,
@@ -232,12 +231,12 @@ def run_lsst_image(image_type):
     assert_objects_at_positions(image.array, expected_positions, expected_brightness_values)
 
 
-def test_lsst_image_individual_objects():
-    """Check that LSSTImage batches objects as expected and renders stars at the correct positions."""
+def test_lsst_image_original_pipeline():
+    """Check that LSSTImage batches objects as expected and renders objects at the correct positions."""
     run_lsst_image("LSST_Image")
 
-def test_lsst_image_batches_photon_pooling():
-    """Check that LSST_PhotonPoolingImage batches objects as expected and renders stars at the correct positions."""
+def test_lsst_image_photon_pooling_pipeline():
+    """Check that LSST_PhotonPoolingImage batches objects as expected and renders objects at the correct positions."""
     run_lsst_image("LSST_PhotonPoolingImage")
 
 
@@ -257,6 +256,5 @@ if __name__ == "__main__":
     testfns = [
         v for k, v in vars().items() if k.startswith(args.test_prefix) and callable(v)
     ]
-    # for testfn in testfns:
-        # testfn()
-    test_lsst_image_individual_objects()
+    for testfn in testfns:
+        testfn()
