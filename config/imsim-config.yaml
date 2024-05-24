@@ -287,8 +287,8 @@ stamp:
             HA:
                 type: Degrees
                 theta: { type: OpsimData, field: HA }
-        # -
-        #    type: Shift
+        -
+           type: Shift
         -
             type: RubinDiffractionOptics
             det_name: $det_name
