@@ -1,17 +1,16 @@
 import os
-import logging
 from enum import Enum
-from contextlib import contextmanager
 import numpy as np
 import scipy.stats
 import galsim
 from astropy.time import Time
-from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
-from imsim import stamp, lsst_image, BatoidWCSFactory, diffraction_fft
+from imsim import BatoidWCSFactory, diffraction_fft
 from imsim.camera import get_camera
 from imsim.telescope_loader import load_telescope
-import imsim.instcat
+
+from imsim_test_helpers import assert_no_error_logs
+
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data", "fft-diffraction")
 
@@ -84,6 +83,7 @@ def create_test_config(
             "photon_ops": [
                 {"type": "TimeSampler", "t0": 0.0, "exptime": exptime},
                 {"type": "PupilAnnulusSampler", "R_outer": 4.18, "R_inner": 2.55},
+                {"type": "Shift"},
                 {
                     **optics_args,
                     "boresight": boresight,
@@ -277,7 +277,7 @@ def test_saturated_region_works_for_multiple_saturated_pixel():
 def generate_reference_data_from_raytracing(parameters):
     config = create_test_config(**parameters, mode=Mode.RAYTRACING)
     brightness = galsim.config.BuildImage(config, logger=None).array
-    [c_x, c_y] = center_of_brighness(brightness)
+    [c_x, c_y] = center_of_brightness(brightness)
     angle, angle_stddev = folded_spike_angle(brightness, c_x, c_y, r_min=10.0)
     slope, intercept, slope_stderr, intercept_stderr = radial_brightness_asymptotics(
         brightness, c_x, c_y
@@ -315,7 +315,7 @@ def test_photon_and_pixel_distributions_match():
         phot_slope_stderr,
         phot_intercept_stderr,
     ) = radial_photon_asymptotics(sensor.detected_photons())
-    [c_x, c_y] = center_of_brighness(brightness)
+    [c_x, c_y] = center_of_brightness(brightness)
     slope, intercept, slope_stderr, intercept_stderr = radial_brightness_asymptotics(
         brightness, c_x, c_y
     )
@@ -342,7 +342,7 @@ def test_spike_profile_has_correct_radial_brightness_distribution():
             alpha=0.0,
             d_alpha=d_alpha,
         )
-        [c_x, c_y] = center_of_brighness(spikes)
+        [c_x, c_y] = center_of_brightness(spikes)
         (
             slope,
             intercept,
@@ -381,7 +381,7 @@ def test_fft_diffraction_is_similar_to_raytracing_for_0_exptime():
     # image.write("/tmp/spikes.fits")
     brightness = image.array
     # Center of star:
-    [c_x, c_y] = center_of_brighness(brightness)
+    [c_x, c_y] = center_of_brightness(brightness)
     # 2 Pixel tolerance:
     np.testing.assert_allclose(
         np.array([c_x, c_y]), raytrace_data["c"], atol=2.0, rtol=0.0
@@ -447,7 +447,7 @@ def test_fft_diffraction_is_similar_to_raytracing_for_field_rotation():
     # To save the image produced here, use:
     # image.write("/tmp/spikes.fits")
     brightness = image.array
-    [c_x, c_y] = center_of_brighness(brightness)
+    [c_x, c_y] = center_of_brightness(brightness)
     # 2 Pixel tolerance:
     np.testing.assert_allclose(
         np.array([c_x, c_y]), raytrace_data["c"], atol=2.0, rtol=0.0
@@ -510,32 +510,10 @@ def test_apply_diffraction_psf_for_no_saturated_pixels():
     np.testing.assert_allclose(image, 0.)
 
 
-@contextmanager
-def assert_no_error_logs():
-    """Context manager, which provides a InMemoryLogger instance and checks,
-    that no errors have been logged on exit.
-    """
-    logger = InMemoryLogger()
-    yield logger
-    assert not logger.errors
-
-
-class InMemoryLogger(logging.Logger):
-    """Logger which buffers errors in memory."""
-
-    def __init__(self):
-        super().__init__("TestLogger")
-        self.setLevel(logging.ERROR)
-        self.errors = []
-
-    def error(self, msg, *args, **kwargs):
-        self.errors.append(msg)
-
-
 R_MIN = 5.0
 
 
-def center_of_brighness(image):
+def center_of_brightness(image):
     """Calculate the (pixel) center of brightness in the given image."""
     return np.sum(
         np.array(

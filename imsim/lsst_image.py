@@ -1,19 +1,31 @@
+import logging
 import numpy as np
 import hashlib
-import logging
 import galsim
 from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
+
 from .sky_model import SkyGradient, CCD_Fringing
 from .camera import get_camera
 from .vignetting import Vignetting
+from .photon_pooling import (
+    merge_photon_arrays,
+    calc_offset_adjustment,
+    offset_photon_arrays,
+    accumulate_photons,
+    build_stamps,
+    create_full_image,
+    load_checkpoint,
+    load_objects,
+    make_batches,
+    make_photon_batches,
+    partition_objects,
+    save_checkpoint,
+    set_config_image_pos,
+    stamp_bounds,
+)
 
-
-class LSST_ImageBuilder(ScatteredImageBuilder):
-
-    # This is mostly the same as the GalSim "Scattered" image type.
-    # So far the only change is in the sky background image.
-
+class LSST_ImageBuilderBase(ScatteredImageBuilder):
     def setup(self, config, base, image_num, obj_num, ignore, logger):
         """Do the initialization and setup for building the image.
 
@@ -54,6 +66,7 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
                  'apply_sky_gradient': bool, 'apply_fringing': bool,
                  'boresight': galsim.CelestialCoord, 'camera': str, 'nbatch': int,
+                 'nbatch_fft': int, 'nbatch_photon': int,
                  'nbatch_per_checkpoint': int}
         params = GetAllParams(config, base, req=req, opt=opt, ignore=ignore+extra_ignore)[0]
 
@@ -92,163 +105,23 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
 
         self.camera_name = params.get('camera', 'LsstCam')
 
+        # Batching is also useful for memory reasons, to limit the number of stamps held
+        # in memory before adding them all to the main image.  So even if not checkpointing,
+        # keep the default value as 100.
+        # nbatch is used for LSST_Image runs.
+        self.nbatch = params.get('nbatch', 100)
+        self.nbatch_per_checkpoint = params.get('nbatch_per_checkpoint', 1)
+        # nbatch_fft and nbatch_photon are used for LSST_PhotonPoolingImage runs.
+        # The default behaviour for photon pooling is to process all FFT objects in one pass
+        # and the photon objects in 10.
+        self.nbatch_fft = params.get('nbatch_fft', 1)
+        self.nbatch_photon = params.get('nbatch_photon', 10)
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
-            self.nbatch = params.get('nbatch', 100)
-            self.nbatch_per_checkpoint = params.get('nbatch_per_checkpoint', 1)
         except galsim.config.GalSimConfigError:
             self.checkpoint = None
-            # Batching is also useful for memory reasons, to limit the number of stamps held
-            # in memory before adding them all to the main image.  So even if not checkpointing,
-            # keep the default value as 100.
-            self.nbatch = params.get('nbatch', 100)
 
         return xsize, ysize
-
-    def buildImage(self, config, base, image_num, obj_num, logger):
-        """Build the Image.
-
-        This is largely the same as the GalSim Scattered image type.
-        The main difference is that we add checkpointing capabilities to occasionally
-        write out the image so far, so if interrupted, the process can be restarted
-        from the last checkpoint.  This feature requires an input.checkpoint object.
-        The number of batches is controlled with the nbatch option of LSST_Image.
-        (Default when checkpointing is 10 batches.)
-
-        Parameters:
-            config:     The configuration dict for the image field.
-            base:       The base configuration dict.
-            image_num:  The current image number.
-            obj_num:    The first object number in the image.
-            logger:     A logger object to log progress.
-
-        Returns:
-            the final image and the current noise variance in the image as a tuple
-        """
-        if 'image_pos' in config and 'world_pos' in config:
-            raise galsim.config.GalSimConfigValueError(
-                "Both image_pos and world_pos specified for LSST_Image.",
-                (config['image_pos'], config['world_pos']))
-
-        if ('image_pos' not in config and 'world_pos' not in config and
-                not ('stamp' in base and
-                    ('image_pos' in base['stamp'] or 'world_pos' in base['stamp']))):
-            full_xsize = base['image_xsize']
-            full_ysize = base['image_ysize']
-            xmin = base['image_origin'].x
-            xmax = xmin + full_xsize-1
-            ymin = base['image_origin'].y
-            ymax = ymin + full_ysize-1
-            config['image_pos'] = {
-                'type' : 'XY' ,
-                'x' : { 'type' : 'Random' , 'min' : xmin , 'max' : xmax },
-                'y' : { 'type' : 'Random' , 'min' : ymin , 'max' : ymax }
-            }
-
-        full_image = None
-        current_var = 0
-        start_num = obj_num
-
-        # For cases where there is noise in individual stamps, we need to keep track of the
-        # stamp bounds and their current variances.  When checkpointing, we don't need to
-        # save the pixel values for this, just the bounds and the current_var value of each.
-        all_stamps = []
-        all_vars = []
-
-        if self.checkpoint is not None:
-            chk_name = 'buildImage_%s'%(self.det_name)
-            saved = self.checkpoint.load(chk_name)
-            if saved is not None:
-                full_image, all_bounds, all_vars, delta_start_num, extra_builder = saved
-                start_num = delta_start_num + base.get('start_obj_num', 0)
-                if extra_builder is not None:
-                    base['extra_builder'] = extra_builder
-                all_stamps = [galsim._Image(np.array([]), b, full_image.wcs) for b in all_bounds]
-                logger.warning('File %d: Loaded checkpoint data from %s.',
-                               base.get('file_num', 0), self.checkpoint.file_name)
-                if start_num == obj_num + self.nobjects:
-                    logger.warning('All objects already rendered for this image.')
-                else:
-                    logger.warning("Objects %d..%d already rendered", obj_num, start_num-1)
-                    logger.warning('Starting at obj_num %d', start_num)
-        nobj_tot = self.nobjects - (start_num - obj_num)
-
-        if full_image is None:
-            if galsim.__version_info__ < (2,5):
-                # GalSim 2.4 required a bit more work here.
-                from galsim.config.stamp import _ParseDType
-
-                full_xsize = base['image_xsize']
-                full_ysize = base['image_ysize']
-                wcs = base['wcs']
-
-                dtype = _ParseDType(config, base)
-
-                full_image = galsim.Image(full_xsize, full_ysize, dtype=dtype)
-                full_image.setOrigin(base['image_origin'])
-                full_image.wcs = wcs
-                full_image.setZero()
-                base['current_image'] = full_image
-            else:
-                # In GalSim 2.5+, the image is already built and available as 'current_image'
-                full_image = base['current_image']
-            start_batch = 0
-
-        # Ensure 1 <= nbatch <= nobj_tot
-        nbatch = max(min(self.nbatch, nobj_tot), 1)
-        for batch in range(nbatch):
-            start_obj_num = start_num + (nobj_tot * batch // nbatch)
-            end_obj_num = start_num + (nobj_tot * (batch+1) // nbatch)
-            nobj_batch = end_obj_num - start_obj_num
-            if nbatch > 1:
-                logger.warning("Start batch %d/%d with %d objects [%d, %d)",
-                               batch+1, nbatch, nobj_batch, start_obj_num, end_obj_num)
-            stamps, current_vars = galsim.config.BuildStamps(
-                    nobj_batch, base, logger=logger, obj_num=start_obj_num, do_noise=False)
-            base['index_key'] = 'image_num'
-
-            for k in range(nobj_batch):
-                # This is our signal that the object was skipped.
-                if stamps[k] is None:
-                    continue
-                bounds = stamps[k].bounds & full_image.bounds
-                if not bounds.isDefined():  # pragma: no cover
-                    # These noramlly show up as stamp==None, but technically it is possible
-                    # to get a stamp that is off the main image, so check for that here to
-                    # avoid an error.  But this isn't covered in the imsim test suite.
-                    continue
-
-                logger.debug('image %d: full bounds = %s', image_num, str(full_image.bounds))
-                logger.debug('image %d: stamp %d bounds = %s',
-                        image_num, k+start_obj_num, str(stamps[k].bounds))
-                logger.debug('image %d: Overlap = %s', image_num, str(bounds))
-                full_image[bounds] += stamps[k][bounds]
-
-            # Note: in typical imsim usage, all current_vars will be 0. So this normally doens't
-            # add much to the checkpointing data.
-            nz_var = np.nonzero(current_vars)[0]
-            all_stamps.extend([stamps[k] for k in nz_var])
-            all_vars.extend([current_vars[k] for k in nz_var])
-
-            if self.checkpoint is not None:
-                # Don't save the full stamps.  All we need for FlattenNoiseVariance is the bounds.
-                # Everything else about the stamps has already been handled above.
-                all_bounds = [stamp.bounds for stamp in all_stamps]
-                delta_end_obj_num = end_obj_num - base.get('start_obj_num', 0)
-                data = (full_image, all_bounds, all_vars, delta_end_obj_num,
-                        base.get('extra_builder',None))
-                logger.warning('File %d: Completed batch %d with objects [%d, %d)',
-                               base.get('file_num', 0), batch+1, start_obj_num, end_obj_num)
-                if (batch % self.nbatch_per_checkpoint == 0
-                    or batch + 1 == nbatch):
-                    self.checkpoint.save(chk_name, data)
-                    logger.warning('Wrote checkpoint data to %s', self.checkpoint.file_name)
-
-        # Bring the image so far up to a flat noise variance
-        current_var = galsim.config.FlattenNoiseVariance(
-                base, full_image, all_stamps, tuple(all_vars), logger)
-
-        return full_image, current_var
 
     def addNoise(self, image, config, base, image_num, obj_num, current_var, logger):
         """Add the final noise and sky.
@@ -325,4 +198,278 @@ class LSST_ImageBuilder(ScatteredImageBuilder):
         AddNoise(base,image,current_var,logger)
 
 
+class LSST_ImageBuilder(LSST_ImageBuilderBase):
+    """This is mostly the same as the GalSim "Scattered" image type.
+    So far the only change is in the sky background image."""
+
+    def buildImage(self, config, base, image_num, obj_num, logger):
+        """Build the Image.
+
+        This is largely the same as the GalSim Scattered image type.
+        The main difference is that we add checkpointing capabilities to occasionally
+        write out the image so far, so if interrupted, the process can be restarted
+        from the last checkpoint.  This feature requires an input.checkpoint object.
+        The number of batches is controlled with the nbatch option of LSST_Image.
+        (Default when checkpointing is 10 batches.)
+
+        Parameters:
+            config:     The configuration dict for the image field.
+            base:       The base configuration dict.
+            image_num:  The current image number.
+            obj_num:    The first object number in the image.
+            logger:     A logger object to log progress.
+
+        Returns:
+            the final image and the current noise variance in the image as a tuple
+        """
+        set_config_image_pos(config, base)
+
+        full_image = None
+        start_num = obj_num
+
+        # For cases where there is noise in individual stamps, we need to keep track of the
+        # stamp bounds and their current variances.  When checkpointing, we don't need to
+        # save the pixel values for this, just the bounds and the current_var value of each.
+        all_stamps = []
+        all_vars = []
+
+        if self.checkpoint is not None:
+            chk_name = 'buildImage_%s'%(self.det_name)
+            saved = self.checkpoint.load(chk_name)
+            if saved is not None:
+                full_image, all_bounds, all_vars, start_num, extra_builder = saved
+                if extra_builder is not None:
+                    base['extra_builder'] = extra_builder
+                all_stamps = [galsim._Image(np.array([]), b, full_image.wcs) for b in all_bounds]
+                logger.warning('File %d: Loaded checkpoint data from %s.',
+                               base.get('file_num', 0), self.checkpoint.file_name)
+                if start_num == obj_num + self.nobjects:
+                    logger.warning('All objects already rendered for this image.')
+                else:
+                    logger.warning("Objects %d..%d already rendered", obj_num, start_num-1)
+                    logger.warning('Starting at obj_num %d', start_num)
+        nobj_tot = self.nobjects - (start_num - obj_num)
+
+        # Make sure we have a Shift photon operator.
+        if "stamp" not in base:
+            base["stamp"] = {"photon_ops": []}
+        elif "photon_ops" not in base["stamp"]:
+            base["stamp"]["photon_ops"] = []
+        photon_ops = base["stamp"]["photon_ops"]
+        shift_op = {'type': 'Shift'}
+        shift_index = next((index for (index, d) in enumerate(photon_ops) if d["type"] == "Shift"), None)
+        if shift_index is not None:
+            # Replace existing Shift operator with a new uninitialised one.
+            photon_ops[shift_index] = shift_op
+        else:
+            # Add Shift operator before RubinOptics or RubinDiffractionOptics if one is
+            # present, otherwise add to the end.
+            rubin_diffraction_optics_index = next((index for (index, d) in enumerate(photon_ops) if d["type"] == "RubinDiffractionOptics" or d["type"] == "RubinOptics"), None)
+            if rubin_diffraction_optics_index is not None:
+                photon_ops.insert(rubin_diffraction_optics_index, shift_op)
+            else:
+                photon_ops.append(shift_op)
+
+        if full_image is None:
+            full_image = create_full_image(config, base)
+
+        # Ensure 1 <= nbatch <= nobj_tot
+        nbatch = max(min(self.nbatch, nobj_tot), 1)
+        for batch in range(nbatch):
+            start_obj_num = start_num + (nobj_tot * batch // nbatch)
+            end_obj_num = start_num + (nobj_tot * (batch+1) // nbatch)
+            nobj_batch = end_obj_num - start_obj_num
+            if nbatch > 1:
+                logger.warning("Start batch %d/%d with %d objects [%d, %d)",
+                               batch+1, nbatch, nobj_batch, start_obj_num, end_obj_num)
+            stamps, current_vars = galsim.config.BuildStamps(
+                    nobj_batch, base, logger=logger, obj_num=start_obj_num, do_noise=False)
+            base['index_key'] = 'image_num'
+
+            for k in range(nobj_batch):
+                # This is our signal that the object was skipped.
+                if stamps[k] is None:
+                    continue
+                bounds = stamps[k].bounds & full_image.bounds
+                if not bounds.isDefined():  # pragma: no cover
+                    # These noramlly show up as stamp==None, but technically it is possible
+                    # to get a stamp that is off the main image, so check for that here to
+                    # avoid an error.  But this isn't covered in the imsim test suite.
+                    continue
+
+                logger.debug('image %d: full bounds = %s', image_num, str(full_image.bounds))
+                logger.debug('image %d: stamp %d bounds = %s',
+                        image_num, k+start_obj_num, str(stamps[k].bounds))
+                logger.debug('image %d: Overlap = %s', image_num, str(bounds))
+                full_image[bounds] += stamps[k][bounds]
+
+            # Note: in typical imsim usage, all current_vars will be 0. So this normally doens't
+            # add much to the checkpointing data.
+            nz_var = np.nonzero(current_vars)[0]
+            all_stamps.extend([stamps[k] for k in nz_var])
+            all_vars.extend([current_vars[k] for k in nz_var])
+
+            if self.checkpoint is not None:
+                # Don't save the full stamps.  All we need for FlattenNoiseVariance is the bounds.
+                # Everything else about the stamps has already been handled above.
+                all_bounds = [stamp.bounds for stamp in all_stamps]
+                data = (full_image, all_bounds, all_vars, end_obj_num,
+                        base.get('extra_builder',None))
+                logger.warning('File %d: Completed batch %d with objects [%d, %d), and wrote '
+                               'checkpoint data to %s',
+                               base.get('file_num', 0), batch+1, start_obj_num, end_obj_num,
+                               self.checkpoint.file_name)
+                if (batch % self.nbatch_per_checkpoint == 0
+                    or batch + 1 == nbatch):
+                    self.checkpoint.save(chk_name, data)
+                    logger.warning('Wrote checkpoint data to %s', self.checkpoint.file_name)
+
+        # Bring the image so far up to a flat noise variance
+        current_var = galsim.config.FlattenNoiseVariance(
+                base, full_image, all_stamps, tuple(all_vars), logger)
+
+        return full_image, current_var
+
+
+class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
+    """Pools photon from all objects in `nbatch` batches.
+    Photons from faint objects only appear in one of the batches randomly.
+    """
+
+    def buildImage(self, config, base, image_num, _obj_num, logger):
+        """Build the Image.
+
+        In contrast to LSST_ImageBuilder, fluxes of all objects are precomputed
+        before rendering to determine how each object is rendered (FFT / photon shooting).
+        FFT objects will be handled before the photon shooting objects.
+        Batching is done over objects for FFT objects and over photons for
+        all photon shooting objects.
+
+        Parameters:
+            config:     The configuration dict for the image field.
+            base:       The base configuration dict.
+            image_num:  The current image number.
+            obj_num:    The first object number in the image.
+            logger:     A logger object to log progress.
+
+        Returns:
+            the final image and the current noise variance in the image as a tuple
+        """
+        set_config_image_pos(config, base)
+
+        # For cases where there is noise in individual stamps, we need to keep track of the
+        # stamp bounds and their current variances.  When checkpointing, we don't need to
+        # save the pixel values for this, just the bounds and the current_var value of each.
+        all_stamps = []
+        all_vars = []
+        all_obj_nums = []
+        current_photon_batch_num = 0
+
+        full_image = None
+
+        if self.checkpoint is not None:
+            chk_name = "buildImage_photonpooling_" + self.det_name
+            full_image, all_vars, all_stamps, all_obj_nums, current_photon_batch_num = load_checkpoint(self.checkpoint, chk_name, base, logger)
+        remaining_obj_nums = sorted(frozenset(range(self.nobjects)) - frozenset(all_obj_nums))
+
+        if full_image is None:
+            full_image = create_full_image(config, base)
+
+        sensor = base.get('sensor', None)
+        rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
+        if sensor is not None:
+            sensor.updateRNG(rng)
+
+        # Create partitions each containing one of the three classes of object.
+        fft_objects, phot_objects, faint_objects = partition_objects(load_objects(remaining_obj_nums, config, base, logger))
+        logger.info("Found %d FFT objects, %d photon shooting objects and %d faint objects", len(fft_objects), len(phot_objects), len(faint_objects))
+        # Ensure 1 <= nbatch <= len(fft_objects)
+        nbatch = max(min(self.nbatch_fft, len(fft_objects)), 1)
+        if self.checkpoint is not None:
+            if not fft_objects:
+                logger.warning('All FFT objects already rendered for this image.')
+            else:
+                logger.warning("%d objects already rendered", len(all_obj_nums))
+
+        # Handle FFT objects first:
+        for batch_num, batch in enumerate(make_batches(fft_objects, nbatch), start=1):
+            if nbatch > 1:
+                logger.warning("Start FFT batch %d/%d with %d objects",
+                               batch_num, nbatch, len(batch))
+            stamps, current_vars = build_stamps(base, logger, batch, stamp_type="LSST_Silicon")
+            base['index_key'] = 'image_num'
+
+            for stamp_obj, stamp in zip(batch, stamps):
+                bounds = stamp_bounds(stamp, full_image.bounds)
+                if bounds is None:
+                    continue
+                logger.debug('image %d: full bounds = %s', image_num, str(full_image.bounds))
+                logger.debug('image %d: stamp %d bounds = %s',
+                             image_num, stamp_obj.index, str(stamp.bounds))
+                logger.debug('image %d: Overlap = %s', image_num, str(bounds))
+                full_image[bounds] += stamp[bounds]
+                all_obj_nums.append(stamp_obj.index)
+
+            # Note: in typical imsim usage, all current_vars will be 0. So this normally doens't
+            # add much to the checkpointing data.
+            nz_var = np.nonzero(current_vars)[0]
+            all_stamps.extend([stamps[k] for k in nz_var])
+            all_vars.extend([current_vars[k] for k in nz_var])
+
+            if self.checkpoint is not None:
+                save_checkpoint(self.checkpoint, chk_name, base, full_image, all_stamps, all_vars, all_obj_nums, current_photon_batch_num)
+                logger.warning('File %d: Completed batch %d, and wrote '
+                               'checkpoint data to %s',
+                               base.get('file_num', 0), batch_num,
+                               self.checkpoint.file_name)
+
+        # Ensure 1 <= nbatch <= len(phot_objects) and make batches.
+        nbatch = max(min(self.nbatch_photon, len(phot_objects)), 1)
+        phot_batches = make_photon_batches(
+                config, base, logger, phot_objects, faint_objects, nbatch
+            )
+
+        if current_photon_batch_num > 0:
+            logger.warning(
+                "Photon batches [0, %d) / %d already rendered - skipping",
+                current_photon_batch_num,
+                nbatch,
+            )
+            phot_batches = phot_batches[current_photon_batch_num:]
+        photon_ops_cfg = {"photon_ops": base.get("stamp", {}).get("photon_ops", [])}
+        photon_ops = galsim.config.BuildPhotonOps(photon_ops_cfg, 'photon_ops', base, logger)
+        offset_adjustment = calc_offset_adjustment(full_image.bounds)
+        local_wcs = base["wcs"].local(galsim.position._PositionD(0., 0.))
+        base["image_pos"].x = full_image.center.x
+        base["image_pos"].y = full_image.center.y
+        for batch_num, batch in enumerate(phot_batches, start=current_photon_batch_num):
+            if not batch:
+                continue
+            if nbatch > 1:
+                logger.warning("Starting photon batch %d/%d.",
+                               batch_num+1, nbatch)
+                
+            base['index_key'] = 'image_num'
+            stamps, current_vars = build_stamps(base, logger, batch, stamp_type="PhotonStampBuilder")
+            offset_photon_arrays(stamps, batch, offset_adjustment)
+            photons = merge_photon_arrays(stamps)
+            for op in photon_ops:
+                op.applyTo(photons, local_wcs, rng)
+            accumulate_photons(photons, full_image, sensor, full_image.center)
+
+            # Note: in typical imsim usage, all current_vars will be 0. So this normally doesn't
+            # add much to the checkpointing data.
+            nz_var = np.nonzero(current_vars)[0]
+            all_vars.extend([current_vars[k] for k in nz_var])
+
+            if self.checkpoint is not None:
+                save_checkpoint(self.checkpoint, chk_name, base, full_image, all_stamps, all_vars, all_obj_nums, batch_num+1)
+
+        # Bring the image so far up to a flat noise variance
+        current_var = galsim.config.FlattenNoiseVariance(
+                base, full_image, all_stamps, tuple(all_vars), logger)
+
+        return full_image, current_var
+
 RegisterImageType('LSST_Image', LSST_ImageBuilder())
+RegisterImageType('LSST_PhotonPoolingImage', LSST_PhotonPoolingImageBuilder())
