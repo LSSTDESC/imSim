@@ -24,7 +24,7 @@ RUN sed '/stackvana/d' imSim/etc/standalone_conda_requirements.txt > imSim/etc/d
 RUN source /opt/lsst/software/stack/loadLSST.bash &&\
     setup lsst_distrib &&\
     mamba install -y --file imSim/etc/docker_conda_requirements.txt &&\
-    python3 -m pip install batoid skyCatalogs==1.6.0-rc2 gitpython &&\
+    python3 -m pip install batoid skyCatalogs==1.7.0-rc4 gitpython &&\
     python3 -m pip install rubin_sim/ &&\
     python3 -m pip install imSim/
 
@@ -33,7 +33,7 @@ WORKDIR /opt/lsst/software/stack
 # Download Rubin Sim data.
 RUN mkdir -p rubin_sim_data/sims_sed_library
 RUN curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
-RUN curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_aug_2021.tgz | tar -C rubin_sim_data -xz
+RUN curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_2023_09_07.tgz | tar -C rubin_sim_data -xz
 RUN curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
 
 # Set location of Rubin sim data (downloaded in step above).

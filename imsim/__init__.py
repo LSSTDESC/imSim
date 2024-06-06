@@ -12,6 +12,8 @@ disable_implicit_threading()
 from ._version import *
 from .meta_data import *
 from .stamp import *
+from . import stamp_utils
+from . import psf_utils
 from .instcat import *
 from .opsim_data import *
 from .ccd import *
@@ -36,3 +38,4 @@ from .opd import *
 from .vignetting import *
 from .sag import *
 from .process_info import *
+from .table_row import *

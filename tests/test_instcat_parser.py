@@ -9,6 +9,8 @@ import shutil
 import numpy as np
 import galsim
 import astropy.time
+import astropy.units as u
+import astropy.constants
 import imsim
 from lsst.afw.cameraGeom import DetectorType
 
@@ -51,6 +53,15 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
 
     def setUp(self):
         self.phosim_file = str(self.data_dir / 'phosim_stars.txt')
+
+        # Compute flux density at 500 nm used for normalizing cached SEDs.
+        magnorm = 0.0
+        wl = 500.0*u.nm
+        fnu = (magnorm * u.ABmag).to_value(u.erg/u.s/u.cm**2/u.Hz)
+        flambda = fnu * (astropy.constants.c/wl**2).to_value(u.Hz/u.nm)
+        hnu = (astropy.constants.h * astropy.constants.c / wl).to_value(u.erg)
+        self.flux_density_at_500nm = flambda / hnu
+
 
     def make_wcs(self, instcat_file=None, sensors=None):
         # Make a wcs to use for this instance catalog.
@@ -197,26 +208,6 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         index = index[np.where(np.in1d(id_arr[index], truth_data['uniqueId']))]
         np.testing.assert_array_equal(truth_data['uniqueId'], id_arr[index])
 
-        ######## test that pupil coordinates are correct to within
-        ######## half a milliarcsecond
-        if 0:
-            # XXX: This test required lsst.sims.  Not sure if we still need it?
-
-            x_pup_test, y_pup_test = _pupilCoordsFromRaDec(truth_data['raJ2000'],
-                                                           truth_data['decJ2000'],
-                                                           pm_ra=truth_data['pmRA'],
-                                                           pm_dec=truth_data['pmDec'],
-                                                           v_rad=truth_data['v_rad'],
-                                                           parallax=truth_data['parallax'],
-                                                           obs_metadata=opsim_data)
-
-            for gs_obj in gs_object_arr:
-                i_obj = np.where(truth_data['uniqueId'] == gs_obj.uniqueId)[0][0]
-                dd = np.sqrt((x_pup_test[i_obj]-gs_obj.xPupilRadians)**2 +
-                             (y_pup_test[i_obj]-gs_obj.yPupilRadians)**2)
-                dd = arcsecFromRadians(dd)
-                self.assertLess(dd, 0.0005)
-
         ######## test that positions are consistent
 
         for det_name in all_wcs:
@@ -252,64 +243,21 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         for det_name in all_wcs:
             wcs = all_wcs[det_name]
             cat = all_cats[det_name]
+            for sed in cat._sed_cache.values():
+                # Check that the cached SEDs have the expected normalization at 500nm.
+                self.assertAlmostEqual(sed(500.), self.flux_density_at_500nm)
+
             for i in range(cat.nobjects):
                 obj = cat.getObj(i)
-                if 0:
-                    # XXX: The old test used the sims Sed class.  Circumventing this now,
-                    #      but leaving the old code in case there is a way to use it eventually.
-                    sed = Sed()
-                    i_obj = np.where(truth_data['uniqueId'] == cat.id[i])[0][0]
-                    full_sed_name = os.path.join(sed_dir, truth_data['sedFilename'][i_obj])
-                    sed.readSED_flambda(full_sed_name)
-                    fnorm = sed.calcFluxNorm(truth_data['magNorm'][i_obj], imsim_bp)
-                    sed.multiplyFluxNorm(fnorm)
-                    sed.resampleSED(wavelen_match=bp_dict.wavelenMatch)
-                    a_x, b_x = sed.setupCCM_ab()
-                    sed.addDust(a_x, b_x, A_v=truth_data['Av'][i_obj],
-                                R_v=truth_data['Rv'][i_obj])
-
-                    for bp in ('u', 'g', 'r', 'i', 'z', 'y'):
-                        flux = sed.calcADU(bp_dict[bp], phot_params)*phot_params.gain
-                        self.assertAlmostEqual(flux/gs_obj.flux(bp), 1.0, 10)
-
-                # Instead, this basically recapitulates the calculation in the InstCatalog class.
+                # This basically recapitulates the calculation in the InstCatalog class.
                 magnorm = cat.getMagNorm(i)
                 flux = np.exp(-0.9210340371976184 * magnorm)
-                rubin_area = 0.25 * np.pi * 649**2 # cm^2
+                rubin_area = np.pi * (418**2 - 255**2) # cm^2
                 exptime = 30
                 fAt = flux * rubin_area * exptime
                 sed = cat.getSED(i)
                 flux = sed.calculateFlux(bp) * fAt
                 self.assertAlmostEqual(flux, obj.calculateFlux(bp))
-
-        ######## test that objects are assigned to the right chip in
-        ######## gs_object_dict
-
-        if 0:
-            # XXX: This doesn't seem relevant anymore.  But leaving this here in case we want
-            #      to reenable it somehow.
-            unique_id_dict = {}
-            for chip_name in gs_object_dict:
-                local_unique_id_list = []
-                for gs_object in gs_object_dict[chip_name]:
-                    local_unique_id_list.append(gs_object.uniqueId)
-                local_unique_id_list = set(local_unique_id_list)
-                unique_id_dict[chip_name] = local_unique_id_list
-
-            valid = 0
-            valid_chip_names = set()
-            for unq, xpup, ypup in zip(truth_data['uniqueId'],
-                                    truth_data['x_pupil'],
-                                    truth_data['y_pupil']):
-
-                chip_name = chipNameFromPupilCoordsLSST(xpup, ypup)
-                if chip_name is not None:
-                    self.assertIn(unq, unique_id_dict[chip_name])
-                    valid_chip_names.add(chip_name)
-                    valid += 1
-
-            self.assertGreater(valid, 10)
-            self.assertGreater(len(valid_chip_names), 5)
 
     def test_object_extraction_galaxies(self):
         """
@@ -432,68 +380,17 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
                 i_obj = np.where(truth_data['uniqueId'] == cat.id[i])[0]
                 if len(i_obj) == 0: continue
                 i_obj = i_obj[0]
-                if 0:
-                    # XXX: The old test using the sims Sed class.
-                    #      Saved in case it becomes reasonable to use it again.
-                    sed = Sed()
-                    full_sed_name = os.path.join(os.environ['SIMS_SED_LIBRARY_DIR'],
-                                                truth_data['sedFilename'][i_obj])
-                    sed.readSED_flambda(full_sed_name)
-                    fnorm = sed.calcFluxNorm(truth_data['magNorm'][i_obj], imsim_bp)
-                    sed.multiplyFluxNorm(fnorm)
 
-                    a_x, b_x = sed.setupCCM_ab()
-                    sed.addDust(a_x, b_x, A_v=truth_data['internalAv'][i_obj],
-                                R_v=truth_data['internalRv'][i_obj])
-
-                    sed.redshiftSED(truth_data['redshift'][i_obj], dimming=True)
-                    sed.resampleSED(wavelen_match=bp_dict.wavelenMatch)
-                    a_x, b_x = sed.setupCCM_ab()
-                    sed.addDust(a_x, b_x, A_v=truth_data['galacticAv'][i_obj],
-                                R_v=truth_data['galacticRv'][i_obj])
-
-                    for bp in ('u', 'g', 'r', 'i', 'z', 'y'):
-                        flux = sed.calcADU(bp_dict[bp], phot_params)*phot_params.gain
-                        self.assertAlmostEqual(flux/gs_obj.flux(bp), 1.0, 6)
-
-                # Instead, this basically recapitulates the calculation in the InstCatalog class.
+                # This basically recapitulates the calculation in the InstCatalog class.
                 magnorm = cat.getMagNorm(i)
                 flux = np.exp(-0.9210340371976184 * magnorm)
-                rubin_area = 0.25 * np.pi * 649**2 # cm^2
+                rubin_area = np.pi * (418**2 - 255**2) # cm^2
                 exptime = 30
                 fAt = flux * rubin_area * exptime
                 sed = cat.getSED(i) # This applies the redshift internally.
                 # TODO: We aren't applying dust terms currently.
                 flux = sed.calculateFlux(bp) * fAt
                 self.assertAlmostEqual(flux, obj.calculateFlux(bp))
-
-        ######## test that objects are assigned to the right chip in
-        ######## gs_object_dict
-
-        if 0:
-            # XXX: Skipping this again.
-            unique_id_dict = {}
-            for chip_name in gs_object_dict:
-                local_unique_id_list = []
-                for gs_object in gs_object_dict[chip_name]:
-                    local_unique_id_list.append(gs_object.uniqueId)
-                local_unique_id_list = set(local_unique_id_list)
-                unique_id_dict[chip_name] = local_unique_id_list
-
-            valid = 0
-            valid_chip_names = set()
-            for unq, xpup, ypup in zip(truth_data['uniqueId'],
-                                    truth_data['x_pupil'],
-                                    truth_data['y_pupil']):
-
-                chip_name = chipNameFromPupilCoordsLSST(xpup, ypup)
-                if chip_name is not None:
-                    self.assertIn(unq, unique_id_dict[chip_name])
-                    valid_chip_names.add(chip_name)
-                    valid += 1
-
-            self.assertGreater(valid, 10)
-            self.assertGreater(len(valid_chip_names), 5)
 
     def test_photometricParameters(self):
         "Test the photometricParameters function."

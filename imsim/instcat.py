@@ -4,6 +4,7 @@ import gzip
 import numpy as np
 import math
 import astropy.units as u
+import astropy.constants
 from dust_extinction.parameter_averages import F19
 
 from contextlib import contextmanager
@@ -12,6 +13,7 @@ from galsim.config import RegisterSEDType
 from galsim import CelestialCoord
 import galsim
 import pickle
+from .utils import RUBIN_AREA
 
 
 def clarify_radec_limits(
@@ -162,16 +164,15 @@ class InstCatalog(object):
 
     The other "phosim commands" are handled by OpsimDataLoader.
     """
-    _bp500 = galsim.Bandpass(galsim.LookupTable([499,500,501],[0,1,0], interpolant='linear'),
-                             wave_type='nm').withZeropoint('AB')
-
-    # Using area-weighted effective aperture over FOV
-    # from https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
-    _rubin_area = 0.25 * np.pi * 649**2  # cm^2
-
+    # SED normalization for magnorm=0 at 500 nm to be applied to
+    # cached SEDs.
+    fnu = (0 * u.ABmag).to(u.erg/u.s/u.cm**2/u.Hz)
+    _flux_density = fnu.to_value(u.ph/u.nm/u.s/u.cm**2, u.spectral_density(500*u.nm))
     def __init__(self, file_name, wcs, xsize=4096, ysize=4096, sed_dir=None,
                  edge_pix=100, sort_mag=True, flip_g2=True,
-                 min_source=None, skip_invalid=True, logger=None):
+                 pupil_area=RUBIN_AREA, min_source=None, skip_invalid=True,
+                 logger=None):
+        logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
         self.wcs = wcs
         self.xsize = xsize
@@ -181,7 +182,7 @@ class InstCatalog(object):
         self.flip_g2 = flip_g2
         self.min_source = min_source
         self.skip_invalid = skip_invalid
-        self.logger = galsim.config.LoggerWrapper(logger)
+        self.pupil_area = pupil_area
         self._sed_cache = {}
 
         if sed_dir is None:
@@ -201,7 +202,7 @@ class InstCatalog(object):
         if self._id is not None:
             return
 
-        logger = galsim.config.LoggerWrapper(logger or self.logger)
+        logger = galsim.config.LoggerWrapper(logger)
         min_ra, max_ra, min_dec, max_dec, min_x, min_y, max_x, max_y, ref_ra \
             = get_radec_limits(self.wcs, self.xsize, self.ysize, logger, self.edge_pix)
 
@@ -388,7 +389,10 @@ class InstCatalog(object):
                 raise OSError("Could not find file %s in either %s or %s"%(
                               name, self.sed_dir, self.inst_dir))
             sed = galsim.SED(full_name, wave_type='nm', flux_type='flambda')
-            sed = sed.withMagnitude(0, self._bp500)  # Normalize to mag 0
+
+            # Normalize to magnorm=0 at 500 nm.
+            sed = sed.withFluxDensity(self._flux_density, 500.*u.nm)
+
             self._sed_cache[name] = sed
 
         iAv, iRv, mwAv, mwRv = self.getDust(index)
@@ -551,7 +555,7 @@ class InstCatalog(object):
 
         # This gives the normalization in photons/cm^2/sec.
         # Multiply by area and exptime to get photons.
-        fAt = flux * self._rubin_area * exptime
+        fAt = flux * self.pupil_area * exptime
 
         sed = self.getSED(index)
         return obj.withFlux(fAt) * sed
@@ -633,6 +637,7 @@ class InstCatalogLoader(InputLoader):
                 'edge_pix' : float,
                 'sort_mag' : bool,
                 'flip_g2' : bool,
+                'pupil_area' : float,
                 'min_source' : int,
                 'skip_invalid' : bool,
               }

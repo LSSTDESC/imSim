@@ -16,6 +16,8 @@ import numpy as np
 iers.conf.auto_download = False
 iers.conf.iers_degraded_accuracy = 'ignore'
 
+RUBIN_AREA = np.pi * (418.**2 - 255.**2)  # cm^2
+
 
 def ignore_erfa_warnings(func):
     @wraps(func)

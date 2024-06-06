@@ -89,13 +89,14 @@ def RubinBandpass(
     if (camera is None) != (det_name is None):
         raise ValueError("Must provide both camera and det_name if using one.")
     match camera:
-        case 'LsstCam':
+        case 'LsstCam' | 'LsstCamSim' :
             camera = 'lsstCam'
         case 'LsstComCamSim':
             camera = 'comCamSim'
         case _:
             camera = camera
     tp_path = Path(os.getenv("RUBIN_SIM_DATA_DIR")) / "throughputs"
+    bp_hardware = None
     if airmass is None and camera is None:
         file_name = tp_path / "baseline" / f"total_{band}.dat"
         if not file_name.is_file():
@@ -183,6 +184,12 @@ def RubinBandpass(
     bp = bp.truncate(relative_throughput=1.e-3)
     bp = bp.thin()
     bp = bp.withZeropoint('AB')
+    if bp_hardware is not None:
+        bp_hardware.truncate(relative_throughput=1.e-3)
+        bp_hardware.thin()
+        bp_hardware.withZeropoint('AB')
+        bp.bp_hardware = bp_hardware
+
     return bp
 
 

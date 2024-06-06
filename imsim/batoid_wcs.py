@@ -255,16 +255,57 @@ class BatoidWCSFactory:
     @galsim.utilities.lazy_property
     @ignore_erfa_warnings
     def q(self):
-        """Parallactic angle.
-        Should be equal to rotTelPos - rotSkyPos.
+        """Parallactic angle in radians.
+
+        Position angle of zenith measured from true north through east.
         """
-        # Position angle of zenith measured from _observed_ North through East
         aob, zob, hob, dob, rob, eo = self._ICRF_to_observed(
             self.boresight.ra.rad,
             self.boresight.dec.rad,
             all=True
         )
         return erfa.hd2pa(hob, dob, self.phi)
+
+    @galsim.utilities.lazy_property
+    @ignore_erfa_warnings
+    def pq(self):
+        """Pseudo parallactic angle in radians.
+
+        Position angle of zenith measured from ICRF north through east.
+        """
+        ra = self.boresight.ra.rad
+        dec = self.boresight.dec.rad
+        aob, zob, hob, dob, rob, eo = self._ICRF_to_observed(ra, dec, all=True)
+
+        # Let's work in ra/dec.  Need to find points a little bit (ICRF) north
+        # of and a little be +alt of the boresight.
+        small_angle = (10 * galsim.arcsec).rad
+
+        ddec = np.pi/2 - dec
+        if ddec >= small_angle:
+            dec_north = dec + small_angle
+            ra_north = ra
+        else:
+            # We're close to the north pole.  Could just use the pole, but for
+            # continuity, we'll travel small_angle towards the pole, passing it
+            # in the process.
+            dec_north = np.pi/2 - (small_angle - ddec)
+            ra_north = ra + np.pi
+
+        # Now the point a little closer to zenith.
+        if zob >= small_angle:
+            z_zen = zob - small_angle
+            a_zen = aob
+        else:
+            # We're close to zenith.  As above, flip past it.
+            z_zen = small_angle - zob
+            a_zen = aob + np.pi
+        ra_zen, dec_zen = self._observed_az_to_ICRF(a_zen, z_zen)
+
+        # Now compute the angle zenith - boresight - north
+        pq = erfa.pas(ra, dec, ra_zen, dec_zen)
+        pq -= erfa.pas(ra, dec, ra_north, dec_north)
+        return pq
 
     @galsim.utilities.lazy_property
     def _field_wcs(self):

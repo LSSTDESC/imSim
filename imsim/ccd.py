@@ -170,9 +170,11 @@ class LSST_CCDBuilder(OutputBuilder):
         # Now construct the image header
         image.header['MJD'] = mjd
         image.header['MJD-OBS'] = mjd_obs, 'Start of exposure'
-        # NOTE: Should this day be the current day,
-        # or the day at the time of the most recent noon?
-        dayobs = astropy.time.Time(mjd_obs, format='mjd').strftime('%Y%m%d')
+        # Subtract half-day offset from mjd-obs for dayobs calculation
+        # following Rubin convention.  See
+        # https://github.com/lsst/astro_metadata_translator/blob/w.2024.19/python/astro_metadata_translator/translator.py#L1065
+        # and Appendix A of https://docushare.lsst.org/docushare/dsweb/Get/LSE-400
+        dayobs = astropy.time.Time(mjd_obs - 0.5, format='mjd').strftime('%Y%m%d')
         image.header['DAYOBS'] = dayobs
         image.header['SEQNUM'] = seqnum
         image.header['CONTRLLR'] = 'S', 'simulated data'
@@ -192,6 +194,8 @@ class LSST_CCDBuilder(OutputBuilder):
         image.header['AMSTART'] = airmass
         image.header['AMEND'] = airmass  # wrong, does anyone care?
         image.header['FOCUSZ'] = parse('focusZ', float, 0.0)
+        image.header['ALTITUDE'] = parse('altitude', float, 'N/A')
+        image.header['AZIMUTH'] = parse('azimuth', float, 'N/A')
 
         # If there's anything left in header_vals, add it to the header.
         for k in header_vals:
