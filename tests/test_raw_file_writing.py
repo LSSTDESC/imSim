@@ -29,7 +29,7 @@ class RawFileOutputTestCase(unittest.TestCase):
         This is mostly an operational test that the raw files can be
         written from a galsim image.
         """
-        eimage_file = str(DATA_DIR / 'eimage_00449053-1-r-R22_S11-det094.fits')
+        eimage_file = str(DATA_DIR / 'eimage_00449053-1-r-R22_S11-det094.fits.gz')
         eimage = galsim.fits.read(eimage_file)
         eimage.header = galsim.FitsHeader(file_name=eimage_file)
 

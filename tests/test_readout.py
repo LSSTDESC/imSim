@@ -20,7 +20,7 @@ class ImageSourceTestCase(unittest.TestCase):
     "TestCase class for ImageSource."
 
     def setUp(self):
-        self.eimage_file = str(DATA_DIR / 'eimage_00449053-1-r-R22_S11-det094.fits')
+        self.eimage_file = str(DATA_DIR / 'eimage_00449053-1-r-R22_S11-det094.fits.gz')
         instcat_file = str(DATA_DIR / 'tiny_instcat.txt')
         self.image = galsim.fits.read(self.eimage_file)
         self.image.header = galsim.FitsHeader(file_name=self.eimage_file)
@@ -94,11 +94,31 @@ class ImageSourceTestCase(unittest.TestCase):
         "Test contents of raw file headers."
         outfile = 'raw_file_test.fits'
         self.readout.writeFile(outfile, self.readout_config, self.config, self.logger)
+        # Some required keywords that were noted as missing for OR3.
+        # See https://github.com/LSSTDESC/imSim/issues/457.
+        expected_keywords = [
+            "RA",
+            "DEC",
+            "RASTART",
+            "DECSTART",
+            "ROTPA",
+            "ROTCOORD",
+            "HASTART",
+            "ELSTART",
+            "AZSTART",
+            "AMSTART",
+            "TRACKSYS",
+            "RADESYS",
+            "ORIGIN",
+            "TELCODE"
+        ]
         with fits.open(outfile) as hdus:
             self.assertEqual(hdus[0].header['IMSIMVER'], imsim.__version__)
             # Test added_keywords are included correctly
             self.assertEqual(hdus[0].header['TESTKEY1'], 'TESTVAL1')
             self.assertEqual(hdus[0].header['SOMEMATH'], '3')
+            for keyword in expected_keywords:
+                hdus[0].header[keyword]
         os.remove(outfile)
 
     def test_no_opsim(self):

@@ -114,6 +114,9 @@ def test_output_catalog():
     assert data['realized_flux'] > 0.99 * data['phot_flux']
     # fft_flux is 0 when object was photon shot.
     assert data['fft_flux'] == 0.
+    output_dir = "fits_LsstCam"
+    if os.path.isdir(output_dir):
+        shutil.rmtree(output_dir)
 
 
 if __name__ == "__main__":

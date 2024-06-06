@@ -30,7 +30,7 @@ def test_sky_model():
         expected_sky_levels = json.load(fobj)
 
     for band in 'ugrizy':
-        bandpass = RubinBandpass(band)
+        bandpass = RubinBandpass(band, camera='LsstCam', det_name='R22_S11')
         sky_model = SkyModel(exptime, mjd, bandpass)
         sky_level = sky_model.get_sky_level(skyCoord)
         np.testing.assert_approx_equal(sky_level, expected_sky_levels[band],
@@ -41,7 +41,7 @@ def test_sky_model():
     # presumably innocuous reasons (makes a difference ~part per 10000).
     # Test still passes at significant=3.
     for band in 'ugrizy':
-        bandpass = RubinBandpass(band, airmass=1.2)
+        bandpass = RubinBandpass(band, airmass=1.2, camera='LsstCam', det_name='R22_S11')
         sky_model = SkyModel(exptime, mjd, bandpass)
         sky_level = sky_model.get_sky_level(skyCoord)
         np.testing.assert_approx_equal(sky_level, expected_sky_levels[band],

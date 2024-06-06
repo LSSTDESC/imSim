@@ -3,13 +3,11 @@ import copy
 import warnings
 import numpy as np
 import galsim
-import pickle
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 import os
 from .meta_data import data_dir
-
-RUBIN_AREA = 0.25 * np.pi * 649**2  # cm^2
+from .utils import RUBIN_AREA
 
 
 __all__ = ['SkyModel', 'SkyGradient']
@@ -17,7 +15,7 @@ __all__ = ['SkyModel', 'SkyGradient']
 
 class SkyModel:
     """Interface to rubin_sim.skybrightness model."""
-    def __init__(self, exptime, mjd, bandpass, eff_area=RUBIN_AREA):
+    def __init__(self, exptime, mjd, bandpass, pupil_area=RUBIN_AREA, logger=None):
         """
         Parameters
         ----------
@@ -27,15 +25,22 @@ class SkyModel:
             MJD of observation.
         bandpass : `galsim.Bandpass`
             Bandpass to use for flux calculation.
-        eff_area : `float`
-            Collecting area of telescope in cm^2. Default: Rubin value from
-            https://confluence.lsstcorp.org/display/LKB/LSST+Key+Numbers
+        pupil_area : `float`
+            Collecting area of telescope in cm^2.  The default value
+            uses R_outer=418 cm and R_inner=255 cm.
+        logger : Logger object.
         """
         from rubin_sim import skybrightness
+        logger = galsim.config.LoggerWrapper(logger)
         self.exptime = exptime
         self.mjd = mjd
-        self.eff_area = eff_area
-        self.bandpass = bandpass
+        self.pupil_area = pupil_area
+        if hasattr(bandpass, "bp_hardware"):
+            self.bandpass = bandpass.bp_hardware
+        else:
+            logger.info("A separate hardware bandpass is not available. "
+                        "Using the total bandpass for the sky level.")
+            self.bandpass = bandpass
         self._rubin_sim_sky_model = skybrightness.SkyModel()
 
     def get_sky_level(self, skyCoord):
@@ -76,7 +81,7 @@ class SkyModel:
         flux = sed.calculateFlux(self.bandpass)
 
         # Return photons/arcsec^2
-        value = flux * self.eff_area * self.exptime
+        value = flux * self.pupil_area * self.exptime
         return value
 
 
@@ -111,6 +116,7 @@ class SkyGradient:
         value at the CCD center.
         """
         return (self.a*x + self.b*y + self.c)/self.sky_level_center
+
 
 class CCD_Fringing:
     """
@@ -164,7 +170,6 @@ class CCD_Fringing:
 
         return np.fft.ifft2(A)
 
-
     def simulate_fringes(self, amp=0.002):
         '''
         # Generate random fringing pattern from a heightfield
@@ -182,7 +187,6 @@ class CCD_Fringing:
         # Scale up to unity
         #Z  += 1
         return(Z)
-
 
     def fringe_variation_level(self):
         '''
@@ -237,6 +241,7 @@ class CCD_Fringing:
 
         return (interp_func((x,y)))
 
+
 class SkyModelLoader(InputLoader):
     """
     Class to load a SkyModel object.
@@ -244,11 +249,12 @@ class SkyModelLoader(InputLoader):
     def getKwargs(self, config, base, logger):
         req = {'exptime': float,
                'mjd': float}
-        opt = {'eff_area': float}
+        opt = {'pupil_area': float}
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         bandpass, safe1 = galsim.config.BuildBandpass(base['image'], 'bandpass', base, logger)
         safe = safe and safe1
         kwargs['bandpass'] = bandpass
+        kwargs['logger'] = logger
         return kwargs, safe
 
 
@@ -261,5 +267,6 @@ def SkyLevel(config, base, value_type):
     value = sky_model.get_sky_level(base['world_center'])
     return value, False
 
-RegisterInputType('sky_model', SkyModelLoader(SkyModel))
+
+RegisterInputType('sky_model', SkyModelLoader(SkyModel, takes_logger=True))
 RegisterValueType('SkyLevel', SkyLevel, [float], input_type='sky_model')

@@ -50,11 +50,21 @@ jobs:
               run: |
                 git clone https://github.com/LSSTDESC/skyCatalogs.git
                 cd skyCatalogs
-                git checkout v1.6.0rc2
-                pip install -e .
+                git checkout v1.7.0rc4
+                # fix bug specifying version
+                sed -i.bak 's/\.skycatalogs/skycatalogs/' pyproject.toml
+                pip install --no-build-isolation --no-deps -e .
                 cd ..
 
+            - name: Cache data
+              id: cache-data
+              uses: actions/cache@v4
+              with:
+                path: rubin_sim_data
+                key: "2024-05-10"  # Update the key if we ever change the data.
+
             - name: Install rubin_sim_data
+              if: steps.cache-data.outputs.cache-hit != 'true'
               run: |
                 mkdir rubin_sim_data
                 mkdir rubin_sim_data/sims_sed_library
@@ -69,14 +79,14 @@ jobs:
 
             - name: Install test deps
               run:
-                conda install -y pytest nose || true
+                conda install -y pytest nose pytest-durations pytest-xdist || true
 
             - name: Run tests
               run: |
                 export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
                 eups list lsst_distrib
                 galsim --version
-                pytest
+                pytest --durations=10 -n auto
 
             - name: Check example config files
               run: |
