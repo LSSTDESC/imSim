@@ -89,7 +89,8 @@ class RubinOptics(PhotonOp):
 
         v = self.photon_velocity(photon_array, local_wcs, rng)
 
-        x, y = photon_array.pupil_u, photon_array.pupil_v
+        x = photon_array.pupil_u.copy()
+        y = photon_array.pupil_v.copy()
         z = self.telescope.stopSurface.surface.sag(x, y)
         ray_vec = batoid.RayVector._directInit(
             x,
