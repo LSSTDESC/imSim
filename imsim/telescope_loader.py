@@ -7,6 +7,10 @@ from galsim import Angle
 import batoid
 from collections.abc import Sequence
 from .camera import get_camera
+from astropy.table import Table
+from pathlib import Path
+from .meta_data import data_dir
+import numpy as np
 
 
 def parse_xyz(xyz, base):
@@ -363,6 +367,7 @@ class DetectorTelescope:
         'rotTelPos': Angle,
         'camera': str,
         'focusZ': float,
+        'fp_height_file_name': str,
     }
 
     def __init__(
@@ -374,6 +379,7 @@ class DetectorTelescope:
         builder_kwargs=None,
         fea_perturbations=None,
         focusZ=None,
+        fp_height_file_name=None,
         logger=None
     ):
         # Batoid has a different name for LsstCam than DM code.  So we need to switch it here.
@@ -396,13 +402,31 @@ class DetectorTelescope:
         self.camera = camera
         self.logger = logger
 
-    def get_telescope(self, z_offset):
+        if fp_height_file_name is not None:
+            if not Path(fp_height_file_name).is_file():
+                # Check if file is in data_dir.
+                data_file = Path(data_dir) / fp_height_file_name
+                if not data_file.is_file():
+                    raise OSError(f"Focal plane height data file {fp_height_file_name} not found.")
+            else:
+                data_file = fp_height_file_name
+            self.fp_height_table = Table.read(data_file)
+        else:
+            self.fp_height_table = None
+
+    def get_telescope(self, z_offset, height_map=None):
         """Get a potentially detector-shifted version of the telescope with the given z_offset.
         """
-        return self.fiducial.withLocallyShiftedOptic(
+        shifted = self.fiducial.withLocallyShiftedOptic(
             "Detector",
             [0, 0, -z_offset]  # batoid convention is opposite of DM
         )
+        if height_map is not None:
+            shifted = shifted.withPerturbedSurface(
+                "Detector",
+                height_map
+            )
+        return shifted
 
     def calculate_z_offset(self, det_name):
         camera = get_camera(self.camera)
@@ -413,6 +437,25 @@ class DetectorTelescope:
         else:
             z_offset = 0
         return z_offset
+
+    def calculate_height_map(self, det_name):
+        if self.fp_height_table is None:
+            return None
+        idx = np.where(self.fp_height_table['DET_NAME'] == det_name)[0]
+        if len(idx) == 0:
+            self.logger.warn(
+                f"No focal plane height data found for detector {det_name}."
+            )
+            return None
+        row = self.fp_height_table[idx[0]]
+        height_map = batoid.Zernike(
+            -row['ZK']*1e-3,   # Height map coord sys is opposite of Z_CCS
+            R_outer=row['R_OUTER']*1.0e-3,
+            x_origin=row['ORIGIN_X']*1.0e-3,
+            y_origin=row['ORIGIN_Y']*1.0e-3
+        )
+        return height_map
+
 
 class TelescopeLoader(InputLoader):
     """Load a telescope from a yaml file.
@@ -457,7 +500,8 @@ class TelescopeLoader(InputLoader):
             det_name = GetCurrentValue('image.det_name', base)
             logger.info('Setting up det_telescope for detector %s', det_name)
             z_offset = input_obj.calculate_z_offset(det_name)
-            det_telescope = input_obj.get_telescope(z_offset)
+            height_map = input_obj.calculate_height_map(det_name)
+            det_telescope = input_obj.get_telescope(z_offset, height_map)
         else:
             det_telescope = input_obj.get_telescope(0)
         base['det_telescope'] = det_telescope
