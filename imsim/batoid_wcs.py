@@ -54,7 +54,6 @@ class BatoidWCSFactory:
         Telescope instance. Should include any camera rotation.
     wavelength : float
         Nanometers
-    camera : lsst.afw.cameraGeom.Camera
     temperature : float
         Ambient temperature in Kelvin
     pressure : float
@@ -69,7 +68,6 @@ class BatoidWCSFactory:
         obstime,
         telescope,
         wavelength,
-        camera,
         temperature,
         pressure,
         H2O_pressure
@@ -78,7 +76,6 @@ class BatoidWCSFactory:
         self.obstime = obstime
         self.telescope = telescope
         self.wavelength = wavelength
-        self.camera = camera
         self.temperature = temperature
         self.pressure = pressure
         self.H2O_pressure = H2O_pressure
@@ -633,7 +630,7 @@ class BatoidWCSBuilder(WCSBuilder):
 
         # Finally, build the WCS.
         return BatoidWCSFactory(
-            boresight, obstime, telescope, wavelength, self.camera, temperature,
+            boresight, obstime, telescope, wavelength, temperature,
             pressure, H2O_pressure
         )
 

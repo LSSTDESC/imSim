@@ -23,7 +23,6 @@ def create_test_icrf_to_field(boresight, det_name):
         obstime=Time("J2020") + 0.5 * units.year,
         telescope=telescope,
         wavelength=620.0,  # nm
-        camera=camera,
         temperature=290.0,
         pressure=70.0,
         H2O_pressure=1.1,

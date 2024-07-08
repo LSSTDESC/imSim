@@ -17,13 +17,11 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "data", "fft-diffraction")
 
 
 def create_test_wcs_factory(boresight, telescope):
-    camera = get_camera()
     return BatoidWCSFactory(
         boresight,
         obstime=Time.strptime("2022-08-06 06:50:59.337600", "%Y-%m-%d %H:%M:%S.%f"),
         telescope=telescope,
         wavelength=622.3195217611445,  # nm
-        camera=camera,
         temperature=280.0,
         pressure=72.7,
         H2O_pressure=1.0,

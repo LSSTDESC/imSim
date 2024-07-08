@@ -61,6 +61,7 @@ image:
   nobjects: 0
   wcs:
     type: cbp
+    det_name: $det_name
 
 # # stamp:
 # #   type: cbp

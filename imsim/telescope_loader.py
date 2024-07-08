@@ -456,6 +456,8 @@ class DetectorTelescope:
         )
 
     def calculate_z_offset(self, det_name):
+        if self.camera == 'CBP':  # CBP optic doesn't have a "camera", so no z_offset
+            return 0.0
         camera = get_camera(self.camera)
 
         ccd_orientation = camera[det_name].getOrientation()
