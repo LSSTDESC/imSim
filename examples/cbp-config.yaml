@@ -1,0 +1,79 @@
+modules:
+  - imsim
+
+eval_variables:
+  sband: r
+  fexptime: 30.0
+  scamera: "@output.camera"
+  dcamera_info: {
+    template: "$os.path.join(imsim.meta_data.data_dir, camera + '_info.yaml')"
+  }
+  arotTelPos: 0.0 deg
+  fRubinHeight: 5.425 # height of TMA az/el axes intersection above azimuth ring
+  fM1Height: 3.53 # height of M1 above azimuth ring when zenith pointing
+  fCBPHeight: 12.135  # height of CBP az/el axes intersection above azimuth ring
+  fRubinCBPRadialDist: 12.4  # radial distance from CBP origin to Rubin origin
+  aRubinEl: $np.arctan2(CBPHeight-RubinHeight, RubinCBPRadialDist) * galsim.radians
+  aCBPEl: $-RubinEl
+  aRubinAz: 0.0 deg
+  aCBPAz: $RubinAz + 180*galsim.degrees
+
+input:
+  telescope:
+    -
+      file_name:
+        type: FormattedStr
+        format: $camera_info['telescope_format']
+        items:
+          - $band
+      rotTelPos: $rotTelPos
+      camera: $camera_info['camera_name']
+      perturbations:
+        -
+          LSST:
+            shift: $[0, 0, M1Height-RubinHeight]  # Move origin from M1 to Az/El intersection
+            rotZ: $-RubinAz
+            rot:
+              axis: x
+              angle: $90*galsim.degrees - RubinEl
+              coordSys: global
+    -
+      file_name: CBP.yaml
+      camera: "CBP"
+      perturbations:
+        -
+          CBP:
+            rotX: 180 deg
+            shift: $[0, -RubinCBPRadialDist, -(CBPHeight-RubinHeight)]
+            rotZ: 180 deg
+        -
+          CBP:
+            rotX: $90*galsim.degrees + CBPEl
+            rot:
+              axis: z
+              angle: $-CBPAz
+              coordSys: global
+              frame: global
+
+image:
+  type: LSST_Image
+  det_name: $det_name
+  nobjects: 0
+  wcs:
+    type: cbp
+
+# # stamp:
+# #   type: cbp
+
+output:
+  type: LSST_CCD
+  nproc: 1    # Change this to work on multiple CCDs at once.
+  nfiles: 1   # Default is all 189 CCDs.  Set to 1 while testing.
+  camera: LsstCam
+  exptime: $exptime
+  cosmic_ray_rate: 0.2
+  det_num:
+    type: Sequence
+    nitems: $camera_info['ndets']
+  dir: fits
+  file_name: $f"eimage_20240705-0-{band}-{det_name}-det{det_num}.fits"
