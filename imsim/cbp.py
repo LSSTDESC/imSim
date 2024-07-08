@@ -1,6 +1,6 @@
-from numpy.linalg import lstsq
-from numpy.polynomial.polynomial import polyvander2d, polyval2d
+import numpy as np
 import batoid
+from galsim.zernike import zernikeBasis, Zernike
 from galsim import CelestialCoord, degrees, UVFunction
 from galsim.config import StampBuilder, RegisterStampType
 from galsim.config import WCSBuilder, RegisterWCSType
@@ -44,7 +44,7 @@ class CBPWCS(WCSBuilder):
             self._camera = get_camera(self._camera_name)
 
         det_name = kwargs['det_name']
-        order = kwargs.get('order', 3)
+        order = kwargs.get('order', 5)
 
         # Create a BatoidWCSFactory using arbitrary conditions
         factory = BatoidWCSFactory(
@@ -80,13 +80,25 @@ class CBPWCS(WCSBuilder):
         x, y = focal_to_pixel(fpx, fpy, det)
         # Now trace backwards to CBP focal plane
         cbp.trace(rv, reverse=True)
+        cbpx, cbpy = rv.x*1e3, rv.y*1e3  # Use mm on CBP focal plane
+
         # Now fit a 2d polynomial to each of x, y
-        cbpx, cbpy = rv.x*1e6, rv.y*1e6  # Use microns on CBP focal plane
-        vander = polyvander2d(x, y, [order, order])
-        ucoefs, *_ = lstsq(vander, cbpx, rcond=None)
-        vcoefs, *_ = lstsq(vander, cbpy, rcond=None)
-        ufunc = lambda x_, y_: polyval2d(x_, y_, ucoefs)
-        vfunc = lambda x_, y_: polyval2d(x_, y_, vcoefs)
+        # We'll use the galsim zernike library for this
+        meanx = np.mean(x)
+        meany = np.mean(y)
+        maxr = np.max(np.hypot(x-meanx, y-meany))
+
+        xt = (x-meanx)/maxr
+        yt = (y-meany)/maxr
+
+        jmax = (order+1)*(order+2)//2
+        basis = zernikeBasis(jmax, x=xt, y=yt)
+        ucoefs, *_ = np.linalg.lstsq(basis.T, cbpx, rcond=None)
+        vcoefs, *_ = np.linalg.lstsq(basis.T, cbpy, rcond=None)
+
+        ufunc = lambda x_, y_: Zernike(ucoefs)((x_-meanx)/maxr, (y_-meany)/maxr)
+        vfunc = lambda x_, y_: Zernike(vcoefs)((x_-meanx)/maxr, (y_-meany)/maxr)
+
         return UVFunction(ufunc, vfunc)
 
         if False:
