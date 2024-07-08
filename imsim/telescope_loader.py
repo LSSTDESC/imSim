@@ -12,7 +12,7 @@ from .camera import get_camera
 def parse_xyz(xyz, base):
     # If xyz is a dict, see if we can parse it into a list first
     safe = True
-    if isinstance(xyz, dict):
+    if isinstance(xyz, (dict, str)):
         xyz, safe1 = ParseValue({"xyz":xyz}, 'xyz', base, list)
         safe &= safe1
     if not isinstance(xyz, list) or len(xyz) != 3:
@@ -218,15 +218,39 @@ def load_telescope(
                     telescope = telescope.withLocallyShiftedOptic(
                         optic, pval
                     )
-                elif ptype.startswith('rot'):
-                    if ptype == 'rotX':
-                        rotMat = batoid.RotX(pval)
-                    elif ptype == 'rotY':
-                        rotMat = batoid.RotY(pval)
-                    elif ptype == 'rotZ':
-                        rotMat = batoid.RotZ(pval)
+                elif ptype == 'rotX':
                     telescope = telescope.withLocallyRotatedOptic(
-                        optic, rotMat
+                        optic, batoid.RotX(pval)
+                    )
+                elif ptype == 'rotY':
+                    telescope = telescope.withLocallyRotatedOptic(
+                        optic, batoid.RotY(pval)
+                    )
+                elif ptype == 'rotZ':
+                    telescope = telescope.withLocallyRotatedOptic(
+                        optic, batoid.RotZ(pval)
+                    )
+                elif ptype == 'rot':
+                    coordSys = pval.get('coordSys', None)
+                    if coordSys == 'global':
+                        coordSys = batoid.globalCoordSys
+                    rotCenter = pval.get('rotCenter', None)
+                    if pval['axis'] == 'x':
+                        matrix = batoid.RotX(pval['angle'])
+                    elif pval['axis'] == 'y':
+                        matrix = batoid.RotY(pval['angle'])
+                    elif pval['axis'] == 'z':
+                        matrix = batoid.RotZ(pval['angle'])
+                    else:
+                        raise ValueError("Unknown axis")
+                    if pval['frame'] == 'local':
+                        method = telescope.withLocallyRotatedOptic
+                    elif pval['frame'] == 'global':
+                        method = telescope.withGloballyRotatedOptic
+                    else:
+                        raise ValueError("Unknown frame")
+                    telescope = method(
+                        optic, matrix, coordSys=coordSys, rotCenter=rotCenter
                     )
                 elif ptype == 'Zernike':
                     R_outer = pval['R_outer']
@@ -297,10 +321,37 @@ def _parse_perturbations(config, base, telescope, logger):
                     shift, safe1 = parse_xyz(pval, base)
                     safe &= safe1
                     outperturbs['shift'] = shift
-                elif ptype.startswith('rot'):
+                elif ptype in ['rotX', 'rotY', 'rotZ']:
                     angle, safe1 = ParseValue(perturbs, ptype, base, Angle)
                     safe &= safe1
                     outperturbs[ptype] = angle
+                elif ptype == 'rot':
+                    axis, safe1 = ParseValue(pval, 'axis', base, str)
+                    safe &= safe1
+                    angle, safe1 = ParseValue(pval, 'angle', base, Angle)
+                    safe &= safe1
+                    if 'coordSys' in pval:
+                        coordSys, safe1 = ParseValue(pval, 'coordSys', base, str)
+                        safe &= safe1
+                    else:
+                        coordSys = None
+                    if 'frame' in pval:
+                        frame, safe1 = ParseValue(pval, 'frame', base, str)
+                        safe &= safe1
+                    else:
+                        frame = 'local'
+                    if 'rotCenter' in pval:
+                        rotCenter, safe1 = parse_xyz(pval['rotCenter'], base)
+                        safe &= safe1
+                    else:
+                        rotCenter = None
+                    outperturbs['rot'] = {
+                        'axis': axis,
+                        'angle': angle,
+                        'coordSys': coordSys,
+                        'rotCenter': rotCenter,
+                        'frame': frame
+                    }
                 elif ptype == 'Zernike':
                     R_outer = None
                     if 'R_outer' in pval:
