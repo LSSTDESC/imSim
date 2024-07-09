@@ -17,6 +17,18 @@ eval_variables:
   aCBPEl: $-RubinEl
   aRubinAz: 0.0 deg
   aCBPAz: $RubinAz + 180*galsim.degrees
+  # The following perturb Rubin and CBP off of their nominal positions in which their
+  # boresights are aligned with the opposing telescope's az/el axis intersection.
+  # Note that the azimuth axis is parallel to zenith.  So equal motions in az and el
+  # do not produce symmetric results in mutual alignment.
+  aDeltaRubinAz: 15 deg
+  aDeltaRubinEl: 0.0 deg
+  aDeltaCBPAz: 15 deg
+  aDeltaCBPEl: 0.0 deg
+  # aDeltaRubinAz: 0.0 deg
+  # aDeltaRubinEl: 12.5 deg
+  # aDeltaCBPAz: 0.0 deg
+  # aDeltaCBPEl: -12.5 deg
 
 input:
   telescope:
@@ -37,12 +49,20 @@ input:
               axis: x
               angle: $90*galsim.degrees - RubinEl
               coordSys: global
-        -  # Adjustment relative to line connecting origins
+        -  # Elevation adjustment
           LSST:
             rot:
               axis: x
-              angle: 12.5 deg
-              coordSys: global
+              angle: $DeltaRubinEl
+              coordSys: global  # Center of rotation is global origin
+              frame: local  # Rotate parallel to local x axis
+        -  # Azimuth adjustment
+          LSST:
+            rot:
+              axis: z
+              angle: $-DeltaRubinAz
+              coordSys: global  # Center of rotation is global origin
+              frame: global  # Rotate parallel to global z axis
     -
       file_name: CBP.yaml
       camera: "CBP"
@@ -60,9 +80,16 @@ input:
               angle: $-CBPAz
               coordSys: global
               frame: global
-        -  # Adjustment relative to line connecting origins
+        -  # Elevation adjustment
           CBP:
-            rotX: 12.5 deg
+            rotX: $-DeltaCBPEl  # shortcut when frame and coordSys are both local
+        -  # Azimuth adjustment
+          CBP:
+            rot:
+              axis: z
+              angle: $-DeltaCBPAz
+              coordSys: local  # Center of rotation is local CBP origin
+              frame: global  # Rotate parallel to global z axis
 
 image:
   type: LSST_Image
@@ -74,6 +101,9 @@ image:
   image_pos:
     - $700, 700
     - $3500, 3500
+  # world_pos:
+  #   - $18000, -10000
+  #   - $16975, -8975
   bandpass:
     type: RubinBandpass
     band: $band
