@@ -37,6 +37,12 @@ input:
               axis: x
               angle: $90*galsim.degrees - RubinEl
               coordSys: global
+        -  # Adjustment relative to line connecting origins
+          LSST:
+            rot:
+              axis: x
+              angle: 12.5 deg
+              coordSys: global
     -
       file_name: CBP.yaml
       camera: "CBP"
@@ -54,17 +60,32 @@ input:
               angle: $-CBPAz
               coordSys: global
               frame: global
+        -  # Adjustment relative to line connecting origins
+          CBP:
+            rotX: 12.5 deg
 
 image:
   type: LSST_Image
   det_name: $det_name
-  nobjects: 0
+  nobjects: 2
   wcs:
     type: cbp
     det_name: $det_name
+  image_pos:
+    - $500, 500
+    - $3500, 3500
 
-# # stamp:
-# #   type: cbp
+stamp:
+  type: cbp
+  photon_ops:
+    -
+      type: CBPRubinOptics
+      camera: $camera
+
+gal:
+  type: TopHat
+  radius: $150.0/2  # micron
+  flux: 1.0e6  # photons
 
 output:
   type: LSST_CCD
