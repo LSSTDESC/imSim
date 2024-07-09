@@ -123,6 +123,21 @@ class CBPWCS(WCSBuilder):
         ufunc = lambda x_, y_: Zernike(ucoefs)((x_-meanx)/maxr, (y_-meany)/maxr)
         vfunc = lambda x_, y_: Zernike(vcoefs)((x_-meanx)/maxr, (y_-meany)/maxr)
 
+        # Fit the inverse transformation too
+        meanu = np.mean(cbpx)
+        meanv = np.mean(cbpy)
+        maxrho = np.max(np.hypot(cbpx-meanu, cbpy-meanv))
+
+        u = (cbpx-meanu)/maxrho
+        v = (cbpy-meanv)/maxrho
+
+        basis = zernikeBasis(jmax, x=u, y=v)
+        xcoefs, *_ = np.linalg.lstsq(basis.T, x, rcond=None)
+        ycoefs, *_ = np.linalg.lstsq(basis.T, y, rcond=None)
+
+        xfunc = lambda u_, v_: Zernike(xcoefs)((u_-meanu)/maxrho, (v_-meanv)/maxrho)
+        yfunc = lambda u_, v_: Zernike(ycoefs)((u_-meanu)/maxrho, (v_-meanv)/maxrho)
+
         if False:
             def colorbar(mappable):
                 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -165,6 +180,35 @@ class CBPWCS(WCSBuilder):
             fig.tight_layout()
             plt.show()
 
+            fix, axes = plt.subplots(2, 3, figsize=(12, 9))
+            ax = axes[0][0]
+            colorbar(ax.scatter(cbpx, cbpy, c=x))
+            ax.set_title("x")
+            ax = axes[1][0]
+            colorbar(ax.scatter(cbpx, cbpy, c=y))
+            ax.set_title("y")
+
+            ax = axes[0][1]
+            colorbar(ax.scatter(cbpx, cbpy, c=xfunc(cbpx, cbpy)))
+            ax.set_title("x fit")
+            ax = axes[1][1]
+            colorbar(ax.scatter(cbpx, cbpy, c=yfunc(cbpx, cbpy)))
+            ax.set_title("y fit")
+
+            ax = axes[0][2]
+            colorbar(ax.scatter(cbpx, cbpy, c=xfunc(cbpx, cbpy)-x))
+            ax.set_title("x residual")
+            ax = axes[1][2]
+            colorbar(ax.scatter(cbpx, cbpy, c=yfunc(cbpx, cbpy)-y))
+            ax.set_title("y residual")
+
+            for ax in axes.flatten():
+                ax.set_aspect('equal')
+
+            fix.tight_layout()
+            plt.show()
+
+
         if False:
             if len(thx) > 100:
                 idx = np.random.choice(len(thx), 100, replace=False)
@@ -190,7 +234,7 @@ class CBPWCS(WCSBuilder):
 
             show_cbp_trace([det_telescope, cbp], [tf, ctf], cs=cs)
 
-        return UVFunction(ufunc, vfunc)
+        return UVFunction(ufunc, vfunc, xfunc, yfunc)
 
 
 class CBPRubinOptics(PhotonOp):
