@@ -72,7 +72,7 @@ image:
     type: cbp
     det_name: $det_name
   image_pos:
-    - $500, 500
+    - $700, 700
     - $3500, 3500
 
 stamp:

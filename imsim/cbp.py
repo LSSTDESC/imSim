@@ -12,6 +12,29 @@ from .batoid_wcs import BatoidWCSFactory, det_z_offset
 from .utils import focal_to_pixel
 from .camera import get_camera
 from astropy.time import Time
+from .photon_ops import ray_vector_to_photon_array
+
+
+def show_cbp_trace(telescopes, tfs, cs=None):
+    import ipyvolume as ipv
+    import webbrowser
+    import tempfile
+
+    if cs is None:
+        cs = batoid.globalCoordSys
+
+    fig = ipv.figure(width=1600, height=1000)
+    ipv.style.set_style_dark()
+    ipv.style.box_off()
+    for telescope in telescopes:
+        telescope.draw3d(ipv, color='cyan', globalSys=cs)
+    for tf in tfs:
+        batoid.drawTrace3d(ipv, tf, color='yellow', globalSys=cs)
+    with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmpfile:
+        html_file = tmpfile.name
+        # Save the figure to the temporary HTML file
+        ipv.save(html_file)
+    webbrowser.open(f'file://{html_file}')
 
 
 class CBPWCS(WCSBuilder):
@@ -144,8 +167,12 @@ class CBPWCS(WCSBuilder):
             plt.show()
 
         if False:
+            if len(thx) > 100:
+                idx = np.random.choice(len(thx), 100, replace=False)
+            else:
+                idx = slice(None)
             rv = batoid.RayVector.fromFieldAngles(
-                thx, thy, projection='gnomonic',
+                thx[idx], thy[idx], projection='gnomonic',
                 optic=rubin, wavelength=500e-9
             )
             rv = rv.toCoordSys(cbp['stop'].coordSys)
@@ -159,25 +186,10 @@ class CBPWCS(WCSBuilder):
             for k, v in ctf.items():
                 ctf[k]['out'].vignetted[:] = False
 
-            # Shift rays and optics to CBP frame
             cs = cbp['stop'].coordSys
             # cs = batoid.globalCoordSys
 
-            import ipyvolume as ipv
-            import webbrowser
-            import tempfile
-            fig = ipv.figure(width=1600, height=1000)
-            ipv.style.set_style_dark()
-            ipv.style.box_off()
-            rubin.draw3d(ipv, color='cyan', globalSys=cs)
-            cbp.draw3d(ipv, color='magenta', globalSys=cs)
-            batoid.drawTrace3d(ipv, tf, color='red', globalSys=cs)
-            batoid.drawTrace3d(ipv, ctf, color='blue', globalSys=cs)
-            with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmpfile:
-                html_file = tmpfile.name
-                # Save the figure to the temporary HTML file
-                ipv.save(html_file)
-            webbrowser.open(f'file://{html_file}')
+            show_cbp_trace([det_telescope, cbp], [tf, ctf], cs=cs)
 
         return UVFunction(ufunc, vfunc)
 
@@ -197,28 +209,17 @@ class CBPRubinOptics(PhotonOp):
         self.det = det
 
     def applyTo(self, photon_array, local_wcs=None, rng=None):
-        print(f"{self.image_pos = } pixels")
-        print(f"{self.cbp_pos = } microns")
-        print()
-        print(f"{np.quantile(photon_array.x, [0,0.5,1]) = }")
-        print(f"{np.quantile(photon_array.y, [0,0.5,1]) = }")
-        # print(f"{local_wcs = }")
         # Use local WCS to get spot positions on the CBP focal plane
         x, y = local_wcs.toWorld(
             photon_array.x,
             photon_array.y
-            # photon_array.x+self.image_pos.x,
-            # photon_array.y+self.image_pos.y
         )
         x += self.cbp_pos.x
         y += self.cbp_pos.y
-        print("CBP focal plane coordinates [micron]:")
-        print(f"{np.quantile(x, [0,0.5,1]) = }")
-        print(f"{np.quantile(y, [0,0.5,1]) = }")
         x *= 1e-6  # micron to meters
         y *= 1e-6
-        # Now we need to make up an initial velocity distribution.
-        # I'll guess that isotropic is a good starting point.
+        # Make an initial velocity distribution.
+        # Isotropic is a good starting point.
         # Experimented to find that 15 degrees is a reasonable opening angle.
         rng = rng.np
         vz = rng.uniform(np.cos(np.deg2rad(15.0)), 1.0, size=photon_array.size())
@@ -235,7 +236,7 @@ class CBPRubinOptics(PhotonOp):
             vz=-vz,
             t=np.zeros(photon_array.size()),
             wavelength=np.full(photon_array.size(), 500e-9),
-            flux=photon_array.flux,
+            flux=photon_array.flux.copy(),
             vignetted=np.zeros(photon_array.size(), dtype=bool),
             failed=np.zeros(photon_array.size(), dtype=bool),
             coordSys=self.cbp['Detector'].coordSys
@@ -244,55 +245,22 @@ class CBPRubinOptics(PhotonOp):
             rvt = rv
             if len(rvt) > 100:
                 rvt = rvt[rng.choice(len(rv), 100, replace=False)]
-            # Show the ray trace
             tf1 = self.cbp.traceFull(rvt, reverse=True)
-            # for k, v in tf1.items():
-            #     v['out'].vignetted[:] = False
             rv2 = tf1['Schmidt_plate_entrance']['out']
             tf2 = self.rubin.traceFull(rv2)
-            # for k, v in tf2.items():
-            #     v['out'].vignetted[:] = False
 
-            print(f"{np.mean(tf2['Detector']['out'].vignetted) = }")
-            cs = batoid.globalCoordSys
-            cs = self.cbp['stop'].coordSys
+            # cs = batoid.globalCoordSys
+            cs = self.rubin['Detector'].coordSys
+            # cs = self.cbp['stop'].coordSys
 
-            import ipyvolume as ipv
-            import webbrowser
-            import tempfile
-            fig = ipv.figure(width=1600, height=1000)
-            ipv.style.set_style_dark()
-            ipv.style.box_off()
-            self.rubin.draw3d(ipv, color='cyan', globalSys=cs)
-            self.cbp.draw3d(ipv, color='magenta', globalSys=cs)
-            batoid.drawTrace3d(ipv, tf1, color='red', globalSys=cs)
-            batoid.drawTrace3d(ipv, tf2, color='blue', globalSys=cs)
-            with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmpfile:
-                html_file = tmpfile.name
-                # Save the figure to the temporary HTML file
-                ipv.save(html_file)
-            webbrowser.open(f'file://{html_file}')
+            show_cbp_trace([self.cbp, self.rubin], [tf1, tf2], cs=cs)
 
         # Now trace CBP in reverse, and then through Rubin.
         self.cbp.trace(rv, reverse=True)
         self.rubin.trace(rv)
-        # RV is back in Rubin focal plane coordinates.
-        # Need to convert to image coordinates.
-
-        # x/y transpose to convert from EDCS to DVCS
-        fpx, fpy = rv.y*1e3, rv.x*1e3
-        x, y = focal_to_pixel(fpx, fpy, self.det)
-        print("Rubin focal plane coordinates [pixels]:")
-        print(f"{np.quantile(x, [0,0.5,1]) = }")
-        print(f"{np.quantile(y, [0,0.5,1]) = }")
-        photon_array.x[:] = x - self.image_pos.x
-        photon_array.y[:] = y - self.image_pos.y
-        # photon_array.flux[:] = np.ones_like(~rv.vignetted, dtype=float)
-
-        print(f"{np.quantile(photon_array.x, [0,0.5,1]) = }")
-        print(f"{np.quantile(photon_array.y, [0,0.5,1]) = }")
-        print(f"{np.mean(photon_array.flux)}")
-        print("\n"*10)
+        ray_vector_to_photon_array(rv, self.det, photon_array)
+        photon_array.x -= self.image_pos.x
+        photon_array.y -= self.image_pos.y
 
 
 class CBPRubinOpticsBuilder(PhotonOpBuilder):
