@@ -2,7 +2,6 @@ import numpy as np
 import batoid
 from galsim.zernike import zernikeBasis, Zernike
 from galsim import CelestialCoord, degrees, UVFunction
-from galsim.config import StampBuilder, RegisterStampType
 from galsim.config import WCSBuilder, RegisterWCSType
 from galsim.config import GetAllParams
 from galsim.config.input import GetInputObj
@@ -194,12 +193,6 @@ class CBPWCS(WCSBuilder):
         return UVFunction(ufunc, vfunc)
 
 
-
-class CBPStampBuilder(StampBuilder):
-    def getDrawMethod(self, config, base, logger):
-        return 'phot'
-
-
 class CBPRubinOptics(PhotonOp):
     def __init__(self, rubin, cbp, cbp_pos, image_pos, det):
         self.rubin = rubin
@@ -284,6 +277,5 @@ class CBPRubinOpticsBuilder(PhotonOpBuilder):
         )
 
 
-RegisterStampType('cbp', CBPStampBuilder())
 RegisterWCSType('cbp', CBPWCS(), input_type="telescope")
 RegisterPhotonOpType('CBPRubinOptics', CBPRubinOpticsBuilder(), input_type='telescope')

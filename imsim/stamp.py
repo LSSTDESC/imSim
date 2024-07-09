@@ -190,11 +190,15 @@ class LSST_SiliconBuilder(StampBuilder):
         # This is the same as what the base StampBuilder does:
         if 'image_pos' in config:
             image_pos = galsim.config.ParseValue(config, 'image_pos', base, galsim.PositionD)[0]
+        elif 'image_pos' in base['image']:
+            image_pos = galsim.config.ParseValue(base['image'], 'image_pos', base, galsim.PositionD)[0]
         else:
             image_pos = None
 
         if 'world_pos' in config:
             world_pos = galsim.config.ParseWorldPos(config, 'world_pos', base, logger)
+        elif 'world_pos' in base['image']:
+            world_pos = galsim.config.ParseWorldPos(base['image'], 'world_pos', base, logger)
         else:
             world_pos = None
 

@@ -2,7 +2,7 @@ modules:
   - imsim
 
 eval_variables:
-  sband: r
+  sband: g
   fexptime: 30.0
   scamera: "@output.camera"
   dcamera_info: {
@@ -74,18 +74,32 @@ image:
   image_pos:
     - $700, 700
     - $3500, 3500
+  bandpass:
+    type: RubinBandpass
+    band: $band
 
 stamp:
-  type: cbp
+  type: LSST_Silicon
+  band: $band
   photon_ops:
     -
       type: CBPRubinOptics
       camera: $camera
+    -
+      type: FocusDepth
+      depth:
+        type: Eval
+        str: depth_dict[band]
+        ddepth_dict: {'u':0, 'g':0, 'r':0, 'i':0, 'z':0, 'y':-0.6}
+    -
+      type: Refraction
+      index_ratio: 3.9
 
 gal:
   type: TopHat
   radius: $150.0/2  # micron
-  flux: 1.0e6  # photons
+  flux: 1.0e6
+  sed: $galsim.sed.EmissionLine(wavelength=500.0).withFluxDensity(1.0, 500.0)
 
 output:
   type: LSST_CCD
