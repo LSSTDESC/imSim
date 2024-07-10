@@ -98,6 +98,7 @@ image:
   wcs:
     type: cbp
     det_name: $det_name
+    camera: $camera
   # image_pos:
   #   - $700, 700
   #   - $3500, 3500

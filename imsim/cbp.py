@@ -15,6 +15,19 @@ from .photon_ops import ray_vector_to_photon_array
 
 
 def show_cbp_trace(telescopes, tfs, cs=None):
+    """Show 3D trace of rays through CBP and Rubin telescope.
+
+    Writes output to a temporary HTML file and opens it in a web browser.
+
+    Parameters
+    ----------
+    telescopes : list of batoid.Optic
+        List of telescopes to draw.
+    tfs : list of dict
+        List of traceFull results.
+    cs : batoid.CoordSys, optional
+        Coordinate system to use for drawing.  Default is globalCoordSys.
+    """
     import ipyvolume as ipv
     import webbrowser
     import tempfile
@@ -37,6 +50,19 @@ def show_cbp_trace(telescopes, tfs, cs=None):
 
 
 class CBPWCS(WCSBuilder):
+    """Build a WCS from the CBP focal plane to the Rubin focal plane.
+
+    Uses config variables:
+
+      input.telescope[0] : The destination telescope.  In practice either Rubin or ComCam.
+      input.telescope[1] : The CBP telescope.
+      image.wcs.det_name : The detector name in the destination telescope.
+      image.wcs.camera : The camera name.  Default is 'LsstCam'.
+      image.wcs.order : The order of the 2D polynomial to fit.  Default is 5.
+
+    Builds a galsim.wcs.UVFunction that maps from the CBP focal plane (in microns) to
+    the Rubin focal plane (in detector pixels).
+    """
     def __init__(self):
         self._camera = None
 
@@ -238,6 +264,21 @@ class CBPWCS(WCSBuilder):
 
 
 class CBPRubinOptics(PhotonOp):
+    """PhotonOp that traces rays from the CBP focal plane to the Rubin focal plane.
+
+    Parameters
+    ----------
+    rubin : batoid.Optic
+        The Rubin telescope. (Or ComCam)
+    cbp : batoid.Optic
+        The CBP telescope.
+    cbp_pos : galsim.PositionD
+        The photon position offset in CBP focal plane coordinates.
+    image_pos : galsim.PositionD
+        The photon position offset in Rubin detector pixel coordinates.
+    det : lsst.afw.cameraGeom.Detector
+        The Rubin detector.
+    """
     def __init__(self, rubin, cbp, cbp_pos, image_pos, det):
         self.rubin = rubin
         self.cbp = cbp
