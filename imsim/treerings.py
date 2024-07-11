@@ -6,10 +6,49 @@ from galsim.config import InputLoader, RegisterInputType, RegisterValueType
 from .meta_data import data_dir
 import warnings
 
+
 class TreeRingsError(Exception):
     pass
 
-class TreeRings():
+
+class TreeRingRadialFunction:
+    """
+    Radial Function describing tree rings in a CCD.
+    """
+    def __init__(self, info_block):
+        """
+        Parameters
+        ----------
+        info_block : list of text lines
+            This is the block of data describing the radial tree ring profile for a
+            specific CCD.
+        """
+        items = info_block[1].split()
+        self.A = float(items[6])
+        self.B = float(items[7])
+        self.cfreqs, self.cphases, self.sfreqs, self.sphases = np.genfromtxt(info_block[3:]).T
+
+    def __call__(self, r):
+        """
+        This function defines the tree ring distortion of the pixels as
+        a radial function.
+
+        Parameters
+        ----------
+        r: float
+            Radial coordinate from the center of the tree ring structure
+            in units of pixels.
+        """
+        centroid_shift = 0.0
+        for j, fval in enumerate(self.cfreqs):
+            centroid_shift += np.sin(2*np.pi*(r/fval)+self.cphases[j]) * fval / (2.0*np.pi)
+        for j, fval in enumerate(self.sfreqs):
+            centroid_shift += -np.cos(2*np.pi*(r/fval)+self.sphases[j]) * fval / (2.0*np.pi)
+        centroid_shift *= (self.A + self.B * r**4) * .01 # 0.01 factor is because data is in percent
+        return centroid_shift
+
+
+class TreeRings:
     """
     # Craig Lage UC Davis 16-Mar-18; cslage@ucdavis.edu
     # This function returns a tree ring model drawn from an analytical function that was
@@ -20,7 +59,8 @@ class TreeRings():
     # amplitude 10X greater that the 60% of the sensors that have 'good' tree rings.
     """
     _req_params = {'file_name' : str}
-    _opt_params = {'only_dets' : list}
+    _opt_params = {'only_dets' : list,
+                   'defer_load' : bool}
 
     def __init__(self, file_name, only_dets=None, logger=None, defer_load=True):
         """
@@ -38,15 +78,12 @@ class TreeRings():
             raise OSError("TreeRing file %s not found"%file_name)
         self.only_dets = only_dets
         self.numfreqs = 20 # Number of spatial frequencies
-        self.cfreqs = np.zeros([self.numfreqs]) # Cosine frequencies
-        self.cphases = np.zeros([self.numfreqs])
-        self.sfreqs = np.zeros([self.numfreqs]) # Sine frequencies
-        self.sphases = np.zeros([self.numfreqs])
         self.r_max = 8000.0 # Maximum extent of tree ring function in pixels
         dr = 3.0 # Step size of tree ring function in pixels
         self.npoints = int(self.r_max / dr) + 1 # Number of points in tree ring function
 
         logger.warning("TreeRing file %s will be used.", self.file_name)
+        self._read_info_blocks()
         # Make a dict indexed by det_name (a string that looks like Rxx_Syy)
         self.info = {}
         if not defer_load:
@@ -54,36 +91,46 @@ class TreeRings():
                 logger.info("Reading in det_names: %s", only_dets)
             self.fill_dict(only_dets=only_dets)
 
-    def fill_dict(self, only_dets=None):
-        """Read the tree rings file and save the information therein to a dict, self.info.
+    def _read_info_blocks(self):
         """
-        with open(self.file_name, 'r') as input_:
-            lines = input_.readlines()
+        Read the tree ring data for all of the CCDs in the info file, filling a
+        dictionary keyed by detector name.
+        """
+        with open(self.file_name, 'r') as fobj:
+            lines = fobj.readlines()
+        block_size = self.numfreqs + 3
+        self.info_blocks = {}
+        num_blocks = len(lines) // block_size
+        for iblock in range(num_blocks):
+            imin = iblock*block_size
+            imax = imin + block_size
+            block = lines[imin:imax]
+            items = block[1].split()
+            det_name = "R%s%s_S%s%s" % (tuple(items[:4]))
+            self.info_blocks[det_name] = block
 
+    def fill_dict(self, only_dets=None):
+        """
+        Fill the self.info dictionary with the tree ring model for the detectors in
+        the info file, restricting to those listed in only_dets, if provided.
+        """
         xCenterPix = 2048.5
         yCenterPix = 2048.5
 
-        for i, line in enumerate(lines):
-            if not line.startswith('Rx'): continue
-            items = lines[i+1].split()
+        if only_dets is None:
+            # Process all detectors in the tree ring info file.
+            only_dets = self.info_blocks.keys()
 
-            det_name = "R%s%s_S%s%s"%(tuple(items[:4]))
-            if only_dets and det_name not in only_dets: continue
+        for det_name in only_dets:
+            info_block = self.info_blocks[det_name]
+            items = info_block[1].split()
 
             Cx = float(items[4]) + xCenterPix
             Cy = float(items[5]) + yCenterPix
             center = galsim.PositionD(Cx, Cy)
 
-            # Temporary instance variables used by tree_ring_radial_function
-            self.A = float(items[6])
-            self.B = float(items[7])
-            for j in range(self.numfreqs):
-                freqitems = lines[i + 3 + j].split()
-                self.cfreqs[j] = float(freqitems[0])
-                self.cphases[j] = float(freqitems[1])
-                self.sfreqs[j] = float(freqitems[2])
-                self.sphases[j] = float(freqitems[3])
-            func = galsim.LookupTable.from_func(self.tree_ring_radial_function,
+            tree_ring_radial_function = TreeRingRadialFunction(info_block)
+            func = galsim.LookupTable.from_func(tree_ring_radial_function,
                                                 x_min=0.0, x_max=self.r_max,
                                                 npoints=self.npoints)
             self.info[det_name] = (center, func)
@@ -105,25 +152,6 @@ class TreeRings():
         else:
             warnings.warn("No treering information available for %s.  Setting treering_func to None." % det_name)
             return None
-
-    def tree_ring_radial_function(self, r):
-        """
-        This function defines the tree ring distortion of the pixels as
-        a radial function.
-
-        Parameters
-        ----------
-        r: float
-            Radial coordinate from the center of the tree ring structure
-            in units of pixels.
-        """
-        centroid_shift = 0.0
-        for j, fval in enumerate(self.cfreqs):
-            centroid_shift += np.sin(2*np.pi*(r/fval)+self.cphases[j]) * fval / (2.0*np.pi)
-        for j, fval in enumerate(self.sfreqs):
-            centroid_shift += -np.cos(2*np.pi*(r/fval)+self.sphases[j]) * fval / (2.0*np.pi)
-        centroid_shift *= (self.A + self.B * r**4) * .01 # 0.01 factor is because data is in percent
-        return centroid_shift
 
 def TreeRingCenter(config, base, value_type):
     """Return the tree ring center for the current det_name.
