@@ -84,6 +84,12 @@ class TreeRings:
 
         logger.warning("TreeRing file %s will be used.", self.file_name)
         self._read_info_blocks()
+        # Check for entries in only_dets that are not in info_blocks:
+        if only_dets:
+            missing_dets = set(only_dets).difference(self.info_blocks)
+            if missing_dets:
+                logger.info("Requested det_names that are not in the "
+                            "tree ring info file: %s", missing_dets)
         # Make a dict indexed by det_name (a string that looks like Rxx_Syy)
         self.info = {}
         if not defer_load:
@@ -122,6 +128,8 @@ class TreeRings:
             only_dets = self.info_blocks.keys()
 
         for det_name in only_dets:
+            if det_name not in self.info_blocks:
+                continue
             info_block = self.info_blocks[det_name]
             items = info_block[1].split()
 
