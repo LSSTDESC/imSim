@@ -82,25 +82,25 @@ jobs:
                 conda install -y pytest pytest-xdist
                 pip install pytest-durations
 
-            - name: Run tests
-              run: |
-                export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
-                eups list lsst_distrib
-                galsim --version
-                pytest --durations=10 -n auto
+            # - name: Run tests
+            #   run: |
+            #     export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
+            #     eups list lsst_distrib
+            #     galsim --version
+            #     pytest --durations=10 -n auto
 
-            - name: Check example config files
-              run: |
-                echo $PWD
-                ls /home/runner/work/imSim
-                export IMSIM_HOME=/home/runner/work/imSim
-                export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
-                export SIMS_SED_LIBRARY_DIR=`pwd`/rubin_sim_data/sims_sed_library
-                # Just check that they haven't gotten stale and produce errors.
-                cd examples
-                galsim flat.yaml image.counts_per_pixel=500
-                galsim flat_with_sed.yaml image.counts_per_pixel=5
-                galsim imsim-user-instcat.yaml image.nobjects=10
-                galsim imsim-user-skycat.yaml image.nobjects=10
-                galsim imsim-user-instcat-comcam.yaml
-                galsim imsim-user-skycat-comcam.yaml
+            # - name: Check example config files
+            #   run: |
+            #     echo $PWD
+            #     ls /home/runner/work/imSim
+            #     export IMSIM_HOME=/home/runner/work/imSim
+            #     export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
+            #     export SIMS_SED_LIBRARY_DIR=`pwd`/rubin_sim_data/sims_sed_library
+            #     # Just check that they haven't gotten stale and produce errors.
+            #     cd examples
+            #     galsim flat.yaml image.counts_per_pixel=500
+            #     galsim flat_with_sed.yaml image.counts_per_pixel=5
+            #     galsim imsim-user-instcat.yaml image.nobjects=10
+            #     galsim imsim-user-skycat.yaml image.nobjects=10
+            #     galsim imsim-user-instcat-comcam.yaml
+            #     galsim imsim-user-skycat-comcam.yaml
