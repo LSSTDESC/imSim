@@ -78,8 +78,9 @@ jobs:
                 pip install .
 
             - name: Install test deps
-              run:
-                conda install -y pytest nose pytest-durations pytest-xdist || true
+              run: |
+                conda install -y pytest pytest-xdist
+                pip install pytest-durations
 
             - name: Run tests
               run: |
