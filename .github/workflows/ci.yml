@@ -65,6 +65,10 @@ jobs:
                 conda install -y pytest pytest-xdist
                 pip install pytest-durations
 
+            - name: Try newer healpy
+              run: |
+                pip install healpy>=1.17.3 --upgrade
+
             - name: Cache data
               id: cache-data
               uses: actions/cache@v4
