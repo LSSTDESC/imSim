@@ -662,6 +662,7 @@ def test_config_fea_file_num():
 
         assert configd == reference
 
+
 def test_config_focus_z():
     """Test that focusZ is properly set from configs."""
 
@@ -695,9 +696,48 @@ def test_config_focus_z():
     assert shifted_ref == focusz_shifted_config
 
 
+def test_config_fp_height():
+    """Test that focal plane height is properly set from configs."""
+
+    config = textwrap.dedent(
+            """
+            input:
+                telescope:
+                    file_name: LSST_r.yaml
+                    fp_height_file_name: fp_height_map.ecsv
+            image:
+                det_name: R11_S01
+            """
+        )
+
+    config = yaml.safe_load(config)
+    galsim.config.ProcessInput(config)
+    focusz_shifted_config = galsim.config.GetInputObj(
+        'telescope',
+        config['input']['telescope'],
+        config,
+        'telescope'
+    ).fiducial
+    galsim.config.SetupInputsForImage(config)
+    det_telescope = config['det_telescope']
+
+    assert isinstance(det_telescope['Detector'].surface, batoid.Sum)
+    assert isinstance(det_telescope['Detector'].surface.surfaces[1], batoid.Zernike)
+
+    # Sensor R11_S01 has a noticeable height offset. Check that.
+    sensor_center_CCS = (-0.16925, -0.127)
+    np.testing.assert_allclose(
+        det_telescope['Detector'].surface.sag(*sensor_center_CCS),
+        8e-6,  # ~ +8 microns
+        rtol=0, atol=1e-6
+    )
+
+
 if __name__ == "__main__":
     test_config_shift()
     test_config_rot()
     test_config_zernike_perturbation()
     test_config_fea()
     test_config_fea_file_num()
+    test_config_focus_z()
+    test_config_fp_height()
