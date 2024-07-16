@@ -8,3 +8,4 @@ batoid-rubin
 sncosmo
 palpy
 rubin-sim
+healpy>=1.17.3
