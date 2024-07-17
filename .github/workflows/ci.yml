@@ -56,6 +56,10 @@ jobs:
                 pip install --no-build-isolation --no-deps -e .
                 cd ..
 
+            - name: Try newer healpy
+              run: |
+                pip install healpy>=1.17.3 --upgrade
+
             - name: Cache data
               id: cache-data
               uses: actions/cache@v4
