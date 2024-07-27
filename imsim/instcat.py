@@ -211,6 +211,7 @@ class InstCatalog(object):
             'point' : 13,
             'sersic2d' : 17,
             'knots' : 17,
+            'streak' : 16
         }
         default_dust_index = 15  # For fits files
 
@@ -264,7 +265,10 @@ class InstCatalog(object):
                     sed = ((tokens[5], float(tokens[6])))
                     # gamma1,gamma2,kappa
                     lens = (float(tokens[7]), g2_sign*float(tokens[8]), float(tokens[9]))
-                    # what are 10,11?
+                    # Columns 10 and 11 are delta_ra, delta_dec, which
+                    # are additional offsets in RA, Dec, optionally
+                    # used by phosim.  imSim does not use these
+                    # columns.
                     dust_index = dust_index_dict.get(tokens[12].lower(), default_dust_index)
                     objinfo = tokens[12:dust_index]
                     dust = tokens[dust_index:]
@@ -479,6 +483,13 @@ class InstCatalog(object):
         # Note: params here starts at 12, so all indices are 12 less than in previous code.
         if params[0].lower() == 'point':
             obj = galsim.DeltaFunction(gsparams=gsparams)
+
+        elif params[0].lower() == 'streak':
+            length = float(params[1])
+            width = float(params[2])
+            obj = galsim.Box(length, width, gsparams=gsparams)
+            position_angle = galsim.Angle(float(params[3]), galsim.degrees)
+            obj = obj.rotate(position_angle)
 
         elif params[0].lower() == 'sersic2d':
             a = float(params[1])
