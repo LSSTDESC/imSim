@@ -485,6 +485,10 @@ class InstCatalog(object):
             obj = galsim.DeltaFunction(gsparams=gsparams)
 
         elif params[0].lower() == 'streak':
+            # Note that satellite streaks are not sources at infinity
+            # and so would be out-of-focus compared to stars or
+            # galaxies and would therefore have a different PSF.  This
+            # implementation does not account for that difference.
             length = float(params[1])
             width = float(params[2])
             obj = galsim.Box(length, width, gsparams=gsparams)
