@@ -174,7 +174,11 @@ def test_rubin_optics() -> None:
     rubin_optics = create_test_rubin_optics(rottelpos=0.0 * galsim.radians)
     photon_array = create_test_photon_array()
     local_wcs = create_test_wcs()
+    u = photon_array.pupil_u.copy()
+    v = photon_array.pupil_v.copy()
     rubin_optics.applyTo(photon_array, local_wcs=local_wcs, rng=create_test_rng())
+    np.testing.assert_array_equal(photon_array.pupil_u, u)
+    np.testing.assert_array_equal(photon_array.pupil_v, v)
     expected_x_pic_center = -989.5971378245167
     expected_y_pic_center = -3840.3512012842157
     expected_r_pic_center = 20.0
@@ -758,7 +762,7 @@ def test_bandpass_ratio():
             pa = galsim.PhotonArray(100_000, flux=1)
             pa.wavelength = sed.sampleWavelength(pa.size(), initial_bandpass, rng=rng)
             op = photon_ops.BandpassRatio(
-                target_bandpass=target_bandpass, initial_bandpass=initial_bandpass, 
+                target_bandpass=target_bandpass, initial_bandpass=initial_bandpass,
             )
             op.applyTo(pa, rng=rng)
             np.testing.assert_allclose(np.mean(pa.flux), ratio, rtol=1e-3)

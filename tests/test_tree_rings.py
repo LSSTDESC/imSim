@@ -73,6 +73,16 @@ class TreeRingsTestCase(unittest.TestCase):
         self.assertEqual(len(tree_rings.info), 2)
         self.assertIn(det_name, tree_rings.info)
 
+    def test_unhandled_det_names(self):
+        """Test that unrecognized detectors in only_dets are handled
+        without raising errors."""
+        # There is no detector named R44_S12 in LSSTCam.
+        only_dets = ['R22_S12', 'R44_S12']
+        tree_rings = imsim.TreeRings(self.tr_filename, only_dets=only_dets)
+        for det_name in only_dets:
+            _ = tree_rings.get_center(det_name)
+            _ = tree_rings.get_func(det_name)
+
 
 if __name__ == '__main__':
     unittest.main()

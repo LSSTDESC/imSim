@@ -289,14 +289,14 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             # Note: the truth catalog apparently didn't flip the g2 values, so use flip_g2=False.
             cat = all_cats[det_name] = imsim.InstCatalog(galaxy_phosim_file, all_wcs[det_name],
                                                          sed_dir=sed_dir, edge_pix=0, flip_g2=False)
-            print(det_name, cat.getNObjects(), cat.getApproxNObjects())
-            assert cat.getApproxNObjects() == cat.getNObjects()
+            approx_nobj = cat.getApproxNObjects()  # This is only different from getNObjects
+                                                   # if it is called first.
+            nobj = cat.getNObjects()
+            print(det_name, nobj, approx_nobj)
+            assert approx_nobj > nobj
 
-            cat2 = imsim.InstCatalog(galaxy_phosim_file, all_wcs[det_name],
-                                    sed_dir=sed_dir, edge_pix=0, flip_g2=False,
-                                    approx_nobjects=10**5)
-            assert cat2.getApproxNObjects() == 10**5
-            assert cat2.getNObjects() == cat.getNObjects()
+            # After loading, the two values are equal.
+            assert cat.getApproxNObjects() == cat.getNObjects()
 
         id_arr = np.concatenate([cat.id for cat in all_cats.values()])
         print('diff1 = ',set(truth_data['uniqueId'])-set(id_arr))

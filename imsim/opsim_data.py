@@ -116,7 +116,7 @@ class OpsimDataLoader(object):
             # Determine the daily sequence number for this exposure by
             # counting the number of snaps since int(observationStartMJD)
             # with a half-day offset to account for Rubin's dayobs definition.
-            t0 = int(self.meta['observationStartMJD']) - 0.5
+            t0 = int(self.meta['observationStartMJD'] - 0.5) + 0.5
             sql = f'''select numExposures from observations where
                       {t0} <= observationStartMJD and
                       observationId < {self.visit}'''
