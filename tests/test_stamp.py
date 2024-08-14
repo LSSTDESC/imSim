@@ -14,6 +14,7 @@ METHOD_FFT = "fft"
 DATA_DIR = Path(__file__).parent / 'data'
 
 def create_test_config():
+    wcs = galsim.PixelScale(0.2)
     config = {
         "input": {
             "telescope": {
@@ -52,7 +53,8 @@ def create_test_config():
             }],
         },
         "bandpass": galsim.Bandpass('LSST_r.dat', wave_type='nm'),
-        "wcs": galsim.PixelScale(0.2),
+        "wcs": wcs,
+        "current_image": galsim.Image(1024, 1024, wcs=wcs)
     }
     galsim.config.ProcessInput(config)
     galsim.config.SetupInputsForImage(config, None)
