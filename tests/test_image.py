@@ -132,8 +132,7 @@ def create_test_config(
             "bandpass": bandpass,
             "nobjects": 20,
             "nbatch": 10,
-            "nbatch_fft": 5,
-            "nbatch_photon": 5
+            "nbatch_fft": 5
         },
         "psf": {"type": "Convolve", "items": [{"type": "Gaussian", "fwhm": 0.3}]},
         "stamp": {

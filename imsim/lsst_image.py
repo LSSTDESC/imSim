@@ -66,8 +66,7 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
                  'apply_sky_gradient': bool, 'apply_fringing': bool,
                  'boresight': galsim.CelestialCoord, 'camera': str, 'nbatch': int,
-                 'nbatch_fft': int, 'nbatch_photon': int,
-                 'nbatch_per_checkpoint': int}
+                 'nbatch_fft': int, 'nbatch_per_checkpoint': int}
         params = GetAllParams(config, base, req=req, opt=opt, ignore=ignore+extra_ignore)[0]
 
         # Let the user override the image size
@@ -108,14 +107,13 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
         # Batching is also useful for memory reasons, to limit the number of stamps held
         # in memory before adding them all to the main image.  So even if not checkpointing,
         # keep the default value as 100.
-        # nbatch is used for LSST_Image runs.
+        # nbatch is used for LSST_Image and LSST_PhotonPooling runs, in the latter determining
+        # the number of batches into which to pool photons.
         self.nbatch = params.get('nbatch', 100)
         self.nbatch_per_checkpoint = params.get('nbatch_per_checkpoint', 1)
-        # nbatch_fft and nbatch_photon are used for LSST_PhotonPoolingImage runs.
-        # The default behaviour for photon pooling is to process all FFT objects in one pass
-        # and the photon objects in 10.
+        # nbatch_fft is an optional parameter only used for LSST_PhotonPoolingImage runs.
+        # The default behaviour for photon pooling is to process all FFT objects in one pass.
         self.nbatch_fft = params.get('nbatch_fft', 1)
-        self.nbatch_photon = params.get('nbatch_photon', 10)
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
         except galsim.config.GalSimConfigError:
@@ -424,7 +422,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                                self.checkpoint.file_name)
 
         # Ensure 1 <= nbatch <= len(phot_objects) and make batches.
-        nbatch = max(min(self.nbatch_photon, len(phot_objects)), 1)
+        nbatch = max(min(self.nbatch, len(phot_objects)), 1)
         phot_batches = make_photon_batches(
                 config, base, logger, phot_objects, faint_objects, nbatch
             )

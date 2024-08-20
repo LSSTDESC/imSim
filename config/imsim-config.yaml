@@ -144,24 +144,25 @@ image:
                 # a small numer of photons.
 
     # The objects are processed in batches.
+
+    # If using LSST_Image (non-photon pooling), nbatch is the overal number of batches in
+    # which to draw the objects.
+    # The default number of batches is 100, but you can change it if desired.
+    nbatch: 100
+    
+    # If using photon pooling, FFT and photon objects are batched separately.
+    # Bright photon objects are treated across nbatch batches, but at 1/nbatch of
+    # their flux. Faint photon objects are placed at their full flux in random batches.
+    # There will probably be few enough FFT objects to do in a single batch, but this
+    # can be controlled in photon pooling images with nbatch_fft if desired.
+    nbatch_fft: 1
+
     # If checkpointing is turned on, then the checkpoint file will be updated after every
     # group of nbatch_per_checkpoint batches.  This factor helps lower the overall checkpoint
     # rate when running thousands of processes concurrently; otherwise, the contention
     # from lots of concurrent checkpoint writes can overwhelm the file system.
     # Even if not checkpointing, using batches helps keep the memory down, since a bunch of
     # temporary data can be purged after each batch.
-    # This parameter only affects LSST_Image images (non-photon pooling).
-    # The default number of batches is 100, but you can change it if desired.
-    nbatch: 100
-    
-    # If using photon pooling, FFT and photon objects are batched separately.
-    # There will probably be few enough FFT objects to do in a single batch.
-    # Bright photon objects are treated in all photon batches, but at 1/nbatch_photon of
-    # their flux. Faint photonobjects are placed at their full flux in random batches.
-    # These parameters only affect LSST_PhotonPoolingImage images.
-    # The batch numbers can be changed if desired.
-    nbatch_fft: 1
-    nbatch_photon: 10
     nbatch_per_checkpoint: 1
 
     det_name: $det_name
