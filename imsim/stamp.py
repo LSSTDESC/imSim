@@ -92,7 +92,7 @@ def build_obj(stamp_config, base, logger):
 
 
 class StampBuilderBase(StampBuilder):
-    """Shared functionality between PhotonStampBuilder and LSST_SiliconBuilder."""
+    """Shared functionality between LSST_PhotonsBuilder and LSST_SiliconBuilder."""
     _ft_default = galsim.GSParams().folding_threshold
     _pixel_scale = 0.2
     _trivial_sed = galsim.SED(galsim.LookupTable([100, 2000], [1,1], interpolant='linear'),
@@ -188,80 +188,6 @@ class StampBuilderBase(StampBuilder):
         _fix_seds = _fix_seds_24
     else:
         _fix_seds = _fix_seds_25
-
-
-class PhotonStampBuilder(StampBuilderBase):
-    """StampBuilder which builds photons instead of image stamps."""
-    def setup(self, config, base, xsize, ysize, ignore, logger):
-        return LSST_SiliconBuilder().setup(config, base, xsize, ysize, ignore, logger)
-
-    def getDrawMethod(self, config, base, logger):
-        return "phot"
-
-    def updateOrigin(self, stamp, config, image):
-        return
-
-    def draw(self, prof, image, method, offset, config, base, logger):
-        """Draw the profile on the postage stamp image.
-
-        Parameters:
-            prof:       The profile to draw.
-            image:      The image onto which to draw the profile (which may be None).
-            method:     The method to use in drawImage.
-            offset:     The offset to apply when drawing.
-            config:     The configuration dict for the stamp field.
-            base:       The base configuration dict.
-            logger:     A logger object to log progress.
-
-        Returns:
-            the resulting image
-        """
-        if prof is None:
-            # If was decide to do any rejection steps, this could be set to None, in which case,
-            # don't draw anything.
-            return image
-
-        # Prof is normally a convolution here with obj_list being [gal, psf1, psf2,...]
-        # for some number of component PSFs.
-        gal, *psfs = prof.obj_list if hasattr(prof,'obj_list') else [prof]
-        obj_num = base.get('obj_num',0)
-        stellar_obj = base.get("_objects", {})[obj_num] # Use cached object
-        bandpass = base['bandpass']
-
-        faint = stellar_obj.mode == ProcessingMode.FAINT
-        if faint:
-            logger.info("Flux = %.0f  Using trivial sed", stellar_obj.gal.flux)
-            gal = gal.evaluateAtWavelength(bandpass.effective_wavelength)
-            gal = gal * self._trivial_sed
-        else:
-            self._fix_seds(gal, bandpass, logger)
-        gal = gal.withFlux(stellar_obj.phot_flux, bandpass)
-
-        # Put the psfs at the start of the photon_ops.
-        # Probably a little better to put them a bit later than the start in some cases
-        # (e.g. after TimeSampler, PupilAnnulusSampler), but leave that as a todo for now.
-        rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
-        gal.drawImage(bandpass,
-                      method='phot',
-                      offset=offset,
-                      rng=rng,
-                      maxN=None,
-                      n_photons=stellar_obj.phot_flux,
-                      image=image,
-                      wcs=base['wcs'],
-                      sensor=NullSensor(), # Prevent premature photon accumulation
-                      photon_ops=psfs,
-                      add_to_image=True,
-                      poisson_flux=False,
-                      save_photons=True)
-        img_pos = base["image_pos"]
-        image.photons.x += img_pos.x
-        image.photons.y += img_pos.y
-        return image.photons
-
-# Register this as a valid stamp type
-RegisterStampType('PhotonStampBuilder', PhotonStampBuilder())
-
 
 class LSST_SiliconBuilder(StampBuilderBase):
     """This performs the tasks necessary for building the stamp for a single object.
@@ -695,6 +621,79 @@ class LSST_SiliconBuilder(StampBuilderBase):
 
         return image
 
+# Register this as a valid stamp type
+RegisterStampType('LSST_Silicon', LSST_SiliconBuilder())
+class LSST_PhotonsBuilder(LSST_SiliconBuilder):
+    """StampBuilder which builds photons instead of image stamps."""
+
+    def getDrawMethod(self, config, base, logger):
+        return "phot"
+
+    def updateOrigin(self, stamp, config, image):
+        return
+
+    def draw(self, prof, image, method, offset, config, base, logger):
+        """Draw the profile on the postage stamp image.
+
+        Parameters:
+            prof:       The profile to draw.
+            image:      The image onto which to draw the profile (which may be None).
+            method:     The method to use in drawImage.
+            offset:     The offset to apply when drawing.
+            config:     The configuration dict for the stamp field.
+            base:       The base configuration dict.
+            logger:     A logger object to log progress.
+
+        Returns:
+            the resulting photon array
+        """
+        if prof is None:
+            # If was decide to do any rejection steps, this could be set to None, in which case,
+            # don't draw anything.
+            return image
+
+        # Prof is normally a convolution here with obj_list being [gal, psf1, psf2,...]
+        # for some number of component PSFs.
+        gal, *psfs = prof.obj_list if hasattr(prof,'obj_list') else [prof]
+        obj_num = base.get('obj_num',0)
+        stellar_obj = base.get("_objects", {})[obj_num] # Use cached object
+        bandpass = base['bandpass']
+
+        faint = stellar_obj.mode == ProcessingMode.FAINT
+        if faint:
+            logger.info("Flux = %.0f  Using trivial sed", stellar_obj.gal.flux)
+            gal = gal.evaluateAtWavelength(bandpass.effective_wavelength)
+            gal = gal * self._trivial_sed
+        else:
+            self._fix_seds(gal, bandpass, logger)
+        gal = gal.withFlux(stellar_obj.phot_flux, bandpass)
+
+        # Put the psfs at the start of the photon_ops.
+        # Probably a little better to put them a bit later than the start in some cases
+        # (e.g. after TimeSampler, PupilAnnulusSampler), but leave that as a todo for now.
+        rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
+        gal.drawImage(bandpass,
+                      method='phot',
+                      offset=offset,
+                      rng=rng,
+                      maxN=None,
+                      n_photons=stellar_obj.phot_flux,
+                      image=image,
+                      wcs=base['wcs'],
+                      sensor=NullSensor(), # Prevent premature photon accumulation
+                      photon_ops=psfs,
+                      add_to_image=True,
+                      poisson_flux=False,
+                      save_photons=True)
+        img_pos = base["image_pos"]
+        image.photons.x += img_pos.x
+        image.photons.y += img_pos.y
+        return image.photons
+
+# Register this as a valid stamp type
+RegisterStampType('LSST_Photons', LSST_PhotonsBuilder())
+
+
 class NullSensor(galsim.Sensor):
     """galsim sensor type which does nothing.
 
@@ -703,6 +702,3 @@ class NullSensor(galsim.Sensor):
     image when we only want to generate photons."""
     def accumulate(self, photons, image, orig_center=None, resume=False):
         return 0.
-
-# Register this as a valid stamp type
-RegisterStampType('LSST_Silicon', LSST_SiliconBuilder())

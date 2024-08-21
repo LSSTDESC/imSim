@@ -448,7 +448,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                                batch_num+1, nbatch)
                 
             base['index_key'] = 'image_num'
-            stamps, current_vars = build_stamps(base, logger, batch, stamp_type="PhotonStampBuilder")
+            stamps, current_vars = build_stamps(base, logger, batch, stamp_type="LSST_Photons")
             offset_photon_arrays(stamps, batch, offset_adjustment)
             photons = merge_photon_arrays(stamps)
             for op in photon_ops:
