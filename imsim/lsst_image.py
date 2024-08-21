@@ -249,25 +249,18 @@ class LSST_ImageBuilder(LSST_ImageBuilderBase):
                     logger.warning('Starting at obj_num %d', start_num)
         nobj_tot = self.nobjects - (start_num - obj_num)
 
-        # Make sure we have a Shift photon operator.
-        if "stamp" not in base:
-            base["stamp"] = {"photon_ops": []}
-        elif "photon_ops" not in base["stamp"]:
-            base["stamp"]["photon_ops"] = []
-        photon_ops = base["stamp"]["photon_ops"]
-        shift_op = {'type': 'Shift'}
-        shift_index = next((index for (index, d) in enumerate(photon_ops) if d["type"] == "Shift"), None)
-        if shift_index is not None:
-            # Replace existing Shift operator with a new uninitialised one.
-            photon_ops[shift_index] = shift_op
-        else:
-            # Add Shift operator before RubinOptics or RubinDiffractionOptics if one is
-            # present, otherwise add to the end.
-            rubin_diffraction_optics_index = next((index for (index, d) in enumerate(photon_ops) if d["type"] == "RubinDiffractionOptics" or d["type"] == "RubinOptics"), None)
-            if rubin_diffraction_optics_index is not None:
-                photon_ops.insert(rubin_diffraction_optics_index, shift_op)
-            else:
-                photon_ops.append(shift_op)
+        # If using either RubinOptics or RubinDiffractionOptics, ensure that it
+        # will shift the photons from stamp to image coordinates on entry to applyTo().
+        if "stamp" in base:
+            if "photon_ops" in base["stamp"]:
+                photon_ops = base["stamp"]["photon_ops"]
+                rubin_optics_index = next(
+                    (index for (index, op) 
+                     in enumerate(photon_ops) 
+                     if op["type"] == "RubinOptics" or op["type"] == "RubinDiffractionOptics"),
+                    None)
+                if rubin_optics_index is not None:
+                    photon_ops[rubin_optics_index]['shift_photons'] = True
 
         if full_image is None:
             full_image = create_full_image(config, base)
@@ -442,12 +435,12 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 nbatch,
             )
             phot_batches = phot_batches[current_photon_batch_num:]
+
+        base["image_pos"] = None
         photon_ops_cfg = {"photon_ops": base.get("stamp", {}).get("photon_ops", [])}
         photon_ops = galsim.config.BuildPhotonOps(photon_ops_cfg, 'photon_ops', base, logger)
         offset_adjustment = calc_offset_adjustment(full_image.bounds)
         local_wcs = base["wcs"].local(galsim.position._PositionD(0., 0.))
-        base["image_pos"].x = full_image.center.x
-        base["image_pos"].y = full_image.center.y
         for batch_num, batch in enumerate(phot_batches, start=current_photon_batch_num):
             if not batch:
                 continue
@@ -461,6 +454,9 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             photons = merge_photon_arrays(stamps)
             for op in photon_ops:
                 op.applyTo(photons, local_wcs, rng)
+            # Shift photon positions to be relative to full_image.center
+            photons.x -= full_image.center.x
+            photons.y -= full_image.center.y
             accumulate_photons(photons, full_image, sensor, full_image.center)
 
             # Note: in typical imsim usage, all current_vars will be 0. So this normally doesn't
