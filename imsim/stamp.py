@@ -3,7 +3,7 @@ from functools import lru_cache
 from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
-from galsim.config import StampBuilder, RegisterStampType, GetAllParams, GetInputObj
+from galsim.config import StampBuilder, RegisterStampType, GetAllParams, GetInputObj, valid_stamp_types
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 from .diffraction_fft import apply_diffraction_psf
@@ -73,10 +73,11 @@ class DiffractionFFT:
 def build_obj(stamp_config, base, logger):
     """Precompute all data needed to determine the rendering mode of an
     object."""
-    builder = LSST_SiliconBuilder()
+    stamp_type = stamp_config.get('type','LSST_Silicon')
+    builder = valid_stamp_types[stamp_type]
     try:
         xsize, ysize, image_pos, world_pos = builder.setup(stamp_config, base, 0.0, 0.0, galsim.config.stamp.stamp_ignore, logger)
-    except galsim.SkipThisObject:
+    except galsim.config.SkipThisObject:
         return None
     builder.locateStamp(stamp_config, base, xsize, ysize, image_pos, world_pos, logger)
     psf = builder.buildPSF(stamp_config, base, None, logger)
