@@ -7,21 +7,21 @@ from galsim.wcs import PixelScale
 from imsim.stamp import ProcessingMode, StellarObject, build_obj
 
 
-def merge_photon_arrays(arrays):
-    """Given a list of photon arrays, return a single merged array.
+def merge_photon_arrays(stamps):
+    """Given a list of stamps of photon objects, return a single merged photon array.
 
     Parameters:
-        arrays: list of galsim.PhotonArrays to be merged into one.
+        stamps: list of galsim.PhotonArrays to be merged into one.
 
     Returns:
         merged: A single PhotonArray containing all the photons.
     """
-    n_tot = sum(len(arr) for arr in arrays)
+    n_tot = sum(len(stamp.photons) for stamp in stamps)
     merged = galsim.PhotonArray(n_tot)
     start = 0
-    for arr in arrays:
-        merged.copyFrom(arr, slice(start, start+arr.size()))
-        start += len(arr)
+    for stamp in stamps:
+        merged.copyFrom(stamp.photons, slice(start, start+stamp.photons.size()))
+        start += len(stamp.photons)
     return merged
 
 def calc_offset_adjustment(bounds):
@@ -56,10 +56,10 @@ def offset_photon_arrays(stamps, batch, offset_adjustment):
         batch: a list of StellarObjects making up a batch
         offset_adjustment: a galsim.PositionD by which to adjust each object offset
     """
-    for photons, object in zip(stamps, batch):
+    for stamp, object in zip(stamps, batch):
         offset = offset_adjustment - object.offset
-        photons.x += offset.x
-        photons.y += offset.y
+        stamp.photons.x += offset.x
+        stamp.photons.y += offset.y
 
 def accumulate_photons(photons, image, sensor, center):
     """Accumulate a photon array onto a sensor.
@@ -100,21 +100,19 @@ def make_batches(objects, nbatch: int):
         yield [obj for _, obj in zip(range(per_batch), o_iter)]
 
 
-def build_stamps(base, logger, objects: list[StellarObject], stamp_type: str):
+def build_stamps(base, logger, objects: list[StellarObject]):
     """Create stamps for a list of StellarObjects.
 
     Parameters:
         base: The base configuration dictionary.
         logger: Logger object.
         objects: List of StellarObjects for which we will build stamps.
-        stamp_type: The stamp type to be used.
 
     Returns:
         images: Tuple of the output stamps. In normal PhotonPooling usage these will actually be
             PhotonArrays to be processed into images after they have been pooled following this step.
         current_vars: Tuple of variables for each stamp (noise etc).
     """
-    base["stamp"]["type"] = stamp_type
     if not objects:
         return [], []
     base["_objects"] = {obj.index: obj for obj in objects}

@@ -62,6 +62,7 @@ def assert_objects_at_positions(image, expected_positions, expected_brightness_v
 
 def create_test_config(
     image_type="LSST_PhotonPoolingImageBuilder",
+    stamp_type="LSST_Photons",
     exptime: float = 30.0,
     enable_diffraction: bool = True,
     band="r",
@@ -136,7 +137,7 @@ def create_test_config(
         },
         "psf": {"type": "Convolve", "items": [{"type": "Gaussian", "fwhm": 0.3}]},
         "stamp": {
-            "type": "LSST_Silicon",
+            "type": stamp_type,
             "fft_sb_thresh": fft_sb_thresh,
             "max_flux_simple": 100,
             "world_pos": {"type": "InstCatWorldPos"},
@@ -164,10 +165,10 @@ def create_test_config(
     return config
 
 
-def run_lsst_image(image_type):
-    """Create an image of the given type and check that objects are batched as expected and stars at the correct positions."""
+def run_lsst_image(image_type, stamp_type):
+    """Create an image using stamps of the given type and check that objects are batched as expected and stars at the correct positions."""
 
-    config = create_test_config(image_type)
+    config = create_test_config(image_type, stamp_type)
 
     n_images = 1
     n_expected_objects = 20
@@ -232,11 +233,11 @@ def run_lsst_image(image_type):
 
 def test_lsst_image_original_pipeline():
     """Check that LSSTImage batches objects as expected and renders objects at the correct positions."""
-    run_lsst_image("LSST_Image")
+    run_lsst_image("LSST_Image", "LSST_Silicon")
 
 def test_lsst_image_photon_pooling_pipeline():
     """Check that LSST_PhotonPoolingImage batches objects as expected and renders objects at the correct positions."""
-    run_lsst_image("LSST_PhotonPoolingImage")
+    run_lsst_image("LSST_PhotonPoolingImage", "LSST_Photons")
 
 
 if __name__ == "__main__":
