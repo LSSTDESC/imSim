@@ -98,7 +98,6 @@ def create_test_rubin_optics_kwargs(
     img_wcs = create_test_img_wcs(boresight, rottelpos)
     return dict(
         telescope=create_test_telescope(rottelpos),
-        boresight=boresight,
         image_pos=image_pos,
         icrf_to_field=icrf_to_field,
         det_name=det_name,
@@ -151,8 +150,8 @@ def create_test_rubin_diffraction_optics(
         **kwargs,
     )
     optics_kwargs = create_test_rubin_optics_kwargs(
-        boresight,
-        icrf_to_field,
+        boresight=boresight,
+        icrf_to_field=icrf_to_field,
         image_pos=image_pos,
         rottelpos=rottelpos,
     )
@@ -517,6 +516,7 @@ def test_config_rubin_diffraction_optics():
     """Check the config interface to RubinDiffractionOptics."""
 
     image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    boresight = galsim.CelestialCoord(1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians)
     config = {
         **deepcopy(TEST_BASE_CONFIG),
         "image_pos": image_pos,  # This would get set appropriately during normal config processing.
@@ -526,11 +526,6 @@ def test_config_rubin_diffraction_optics():
                     "type": "RubinDiffractionOptics",
                     "det_name": "R22_S11",
                     "camera": "LsstCam",
-                    "boresight": {
-                        "type": "RADec",
-                        "ra": "1.1047934165124105 radians",
-                        "dec": "-0.5261230452954583 radians",
-                    },
                     "latitude": "-30.24463 degrees",
                     **deepcopy(TEST_ALT_AZ_CONFIG)
                 }
@@ -545,7 +540,7 @@ def test_config_rubin_diffraction_optics():
         azimuth=0.0 * degrees,
         image_pos=image_pos,
         icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
-        boresight=photon_op.boresight,
+        boresight=boresight,
     )
     assert_photon_ops_act_equal(photon_op, reference_op)
 
@@ -554,6 +549,7 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
     """Check the config interface to RubinDiffractionOptics."""
 
     image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    boresight = galsim.CelestialCoord(1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians)
     config = {
         **deepcopy(TEST_BASE_CONFIG),
         "image_pos": image_pos,  # This would get set appropriately during normal config processing.
@@ -563,11 +559,6 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
                     "type": "RubinDiffractionOptics",
                     "det_name": "R22_S11",
                     "camera": "LsstCam",
-                    "boresight": {
-                        "type": "RADec",
-                        "ra": "1.1047934165124105 radians",
-                        "dec": "-0.5261230452954583 radians",
-                    },
                     "disable_field_rotation": True,
                     **deepcopy(TEST_ALT_AZ_CONFIG)
                 }
@@ -582,7 +573,7 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
         azimuth=0.0 * degrees,
         image_pos=image_pos,
         icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
-        boresight=photon_op.boresight,
+        boresight=boresight,
         disable_field_rotation=True,
     )
     assert_photon_ops_act_equal(photon_op, reference_op)
@@ -592,6 +583,7 @@ def test_config_rubin_optics():
     """Check the config interface to RubinOptics."""
 
     image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
     config = {
         **deepcopy(TEST_BASE_CONFIG),
         "image_pos": image_pos,  # This would get set appropriately during normal config processing.
@@ -601,11 +593,6 @@ def test_config_rubin_optics():
                     "type": "RubinOptics",
                     "camera": "LsstCam",
                     "det_name": "R22_S11",
-                    "boresight": {
-                        "type": "RADec",
-                        "ra": "0.543 radians",
-                        "dec": "-0.174 radians",
-                    },
                 },
             ]
         },
@@ -616,7 +603,7 @@ def test_config_rubin_optics():
     reference_op = create_test_rubin_optics(
         image_pos=image_pos,
         icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
-        boresight=photon_op.boresight,
+        boresight=boresight,
     )
     assert_photon_ops_act_equal(photon_op, reference_op)
 
@@ -686,11 +673,6 @@ def test_phase_affects_image():
                     "type": "RubinOptics",
                     "camera": "LsstCam",
                     "det_name": "R22_S11",
-                    "boresight": {
-                        "type": "RADec",
-                        "ra": "1.1047934165124105 radians",
-                        "dec": "-0.5261230452954583 radians",
-                    },
                 }
             ]
         },

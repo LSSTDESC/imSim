@@ -45,10 +45,6 @@ class RubinOptics(PhotonOp):
     ----------
     telescope : batoid.Optic
         The telescope to trace through.
-    boresight : galsim.CelestialCoord
-        The ICRF coordinate of light that reaches the boresight.  Note that this
-        is distinct from the spherical coordinates of the boresight with respect
-        to the ICRF axes.
     img_wcs : galsim.BaseWCS
     image_pos : galsim.PositionD
     icrf_to_field : galsim.GSFitsWCS
@@ -57,7 +53,6 @@ class RubinOptics(PhotonOp):
     """
 
     _req_params = {
-        "boresight": CelestialCoord,
         "camera": str,
         "det_name": str,
     }
@@ -65,7 +60,6 @@ class RubinOptics(PhotonOp):
     def __init__(
         self,
         telescope,
-        boresight,
         img_wcs,
         image_pos,
         icrf_to_field,
@@ -74,7 +68,6 @@ class RubinOptics(PhotonOp):
     ):
         self.telescope = telescope
         self.detector = camera[det_name]
-        self.boresight = boresight
         self.img_wcs = img_wcs
         self.image_pos = image_pos
         self.icrf_to_field = icrf_to_field
@@ -159,10 +152,6 @@ class RubinDiffractionOptics(RubinOptics):
     ----------
     telescope : batoid.Optic
         The telescope to trace through.
-    boresight : galsim.CelestialCoord
-        The ICRF coordinate of light that reaches the boresight.  Note that this
-        is distinct from the spherical coordinates of the boresight with respect
-        to the ICRF axes.
     img_wcs : galsim.BaseWCS
     image_pos : galsim.PositionD
     icrf_to_field : galsim.GSFitsWCS
@@ -172,7 +161,6 @@ class RubinDiffractionOptics(RubinOptics):
     """
 
     _req_params = {
-        "boresight": CelestialCoord,
         "camera": str,
         "det_name": str,
         "altitude": Angle,
@@ -188,14 +176,13 @@ class RubinDiffractionOptics(RubinOptics):
     def __init__(
         self,
         telescope,
-        boresight,
         image_pos,
         det_name,
         camera,
         rubin_diffraction: "RubinDiffraction",
     ):
         super().__init__(
-            telescope, boresight, rubin_diffraction.img_wcs, image_pos, rubin_diffraction.icrf_to_field, det_name, camera
+            telescope, rubin_diffraction.img_wcs, image_pos, rubin_diffraction.icrf_to_field, det_name, camera
         )
         self.rubin_diffraction = rubin_diffraction
 
