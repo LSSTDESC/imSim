@@ -496,7 +496,7 @@ class BatoidWCSFactory:
         rc, dc = self._observed_to_ICRF(rob, dob)
         return rc, dc
 
-    def get_icrf_to_field(self, det, order=3):
+    def get_icrf_to_field(self, det, order=2):
         thxs, thys = self.get_field_samples(det)
 
         rob, dob = self._field_to_observed(thxs, thys)
