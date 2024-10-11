@@ -7,6 +7,7 @@ import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
     RegisterObjectType
 from skycatalogs import skyCatalogs
+from skycatalogs.utils import PolygonalRegion
 from .utils import RUBIN_AREA
 
 
@@ -96,10 +97,9 @@ class SkyCatalogInterface:
                 sky_coord = self.wcs.toWorld(galsim.PositionD(x, y))
                 vertices.append((sky_coord.ra/galsim.degrees,
                                  sky_coord.dec/galsim.degrees))
-            region = skyCatalogs.PolygonalRegion(vertices)
+            region = PolygonalRegion(vertices)
             sky_cat = skyCatalogs.open_catalog(
-                self.file_name, skycatalog_root=self.skycatalog_root,
-                verbose=True)
+                self.file_name, skycatalog_root=self.skycatalog_root)
             self._objects = sky_cat.get_objects_by_region(
                 region, obj_type_set=self.obj_types, mjd=self.mjd)
             if not self._objects:
