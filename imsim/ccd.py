@@ -155,7 +155,10 @@ class LSST_CCDBuilder(OutputBuilder):
                 val = galsim.config.ParseValue(header_vals, item, base, type)[0]
                 del header_vals[item]
             else:
-                val = opsim_data.get(item, default)
+                try:
+                    val = opsim_data.get(item, default)
+                except KeyError:
+                    return default
             return val
 
         # Get a few items needed more than once first
