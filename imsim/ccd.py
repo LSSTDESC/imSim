@@ -165,7 +165,7 @@ class LSST_CCDBuilder(OutputBuilder):
         seqnum = parse('seqnum', int, 0)
         ratel = parse('fieldRA', float, 0.0)
         dectel = parse('fieldDec', float, 0.0)
-        airmass = parse('airmass', float, 'N/A')
+        airmass = parse('airmass', float, None)
 
         # Now construct the image header
         image.header['MJD'] = mjd
@@ -187,15 +187,15 @@ class LSST_CCDBuilder(OutputBuilder):
             # Silence FITS warning about long header keyword
             warnings.simplefilter('ignore')
             image.header['ROTTELPOS'] = parse('rotTelPos', float, 0.0)
-        image.header['FILTER'] = parse('band', str, 'N/A/')
+        image.header['FILTER'] = parse('band', str, None)
         image.header['CAMERA'] = ParseValue(base['output'], 'camera', base, str)
         image.header['HASTART'] = opsim_data.getHourAngle(mjd_obs, ratel)
         image.header['HAEND'] = opsim_data.getHourAngle(mjd_end, ratel)
         image.header['AMSTART'] = airmass
         image.header['AMEND'] = airmass  # wrong, does anyone care?
         image.header['FOCUSZ'] = parse('focusZ', float, 0.0)
-        image.header['ALTITUDE'] = parse('altitude', float, 'N/A')
-        image.header['AZIMUTH'] = parse('azimuth', float, 'N/A')
+        image.header['ALTITUDE'] = parse('altitude', float, None)
+        image.header['AZIMUTH'] = parse('azimuth', float, None)
 
         # If there's anything left in header_vals, add it to the header.
         for k in header_vals:
