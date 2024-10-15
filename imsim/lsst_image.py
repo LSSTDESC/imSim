@@ -4,6 +4,7 @@ import hashlib
 import galsim
 from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
+from galsim.errors import GalSimConfigValueError
 
 from .sky_model import SkyGradient, CCD_Fringing
 from .camera import get_camera
@@ -333,6 +334,13 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
     """Pools photon from all objects in `nbatch` batches.
     Photons from faint objects only appear in one of the batches randomly.
     """
+
+    def setup(self, config, base, image_num, obj_num, ignore, logger):
+        # Check we're using the correct stamp type before calling base setup method.
+        if base['stamp']['type'] != 'LSST_Photons':
+            raise GalSimConfigValueError("Must use stamp.type = LSST_Photons with LSST_PhotonPoolingImage.", base['stamp']['type'])
+        return super().setup(config, base, image_num, obj_num, ignore, logger)
+
 
     def buildImage(self, config, base, image_num, _obj_num, logger):
         """Build the Image.
