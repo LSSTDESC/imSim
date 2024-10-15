@@ -12,5 +12,6 @@ from .meta_data import config_dir
 galsim.config.RegisterTemplate('imsim-config', os.path.join(config_dir, 'imsim-config.yaml'))
 galsim.config.RegisterTemplate('imsim-config-instcat', os.path.join(config_dir, 'imsim-config-instcat.yaml'))
 galsim.config.RegisterTemplate('imsim-config-skycat', os.path.join(config_dir, 'imsim-config-skycat.yaml'))
+galsim.config.RegisterTemplate('imsim-config-photon-pooling', os.path.join(config_dir, 'imsim-config-photon-pooling.yaml'))
 galsim.config.RegisterTemplate('imsim-config-instcat-comcam', os.path.join(config_dir, 'imsim-config-instcat-comcam.yaml'))
 galsim.config.RegisterTemplate('imsim-config-skycat-comcam', os.path.join(config_dir, 'imsim-config-skycat-comcam.yaml'))

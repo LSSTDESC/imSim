@@ -133,7 +133,6 @@ input:
 # Define how the objects are placed on the image.  This refers to a single CCD.
 image:
     type: LSST_Image
-    # type: LSST_PhotonPoolingImage
 
     random_seed: { type: OpsimData, field: seed }
 
