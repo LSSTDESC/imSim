@@ -20,7 +20,7 @@ class ProcessingMode(Enum):
 
 
 @dataclass
-class StellarObject:
+class ObjectCache:
     """Cache for quantities of a single object, which need to be computed
     when determining the rendering mode of the object.
 
@@ -28,11 +28,7 @@ class StellarObject:
     `base._objects` when determining the rendering mode and reuse the data
     in the rendering stage."""
     index: int
-    gal: object
-    psf: object
-    offset: object
     phot_flux: float
-    fft_flux: float
     mode: ProcessingMode
 
 
@@ -81,7 +77,8 @@ def build_obj(stamp_config, base, logger):
     except galsim.config.SkipThisObject:
         return None
     builder.locateStamp(stamp_config, base, xsize, ysize, image_pos, world_pos, logger)
-    psf = builder.buildPSF(stamp_config, base, None, logger)
+    # Must call buildPSF() here to determine draw mode.
+    builder.buildPSF(stamp_config, base, None, logger)
     max_flux_simple = stamp_config.get('max_flux_simple', 100)
     if builder.use_fft:
         mode = ProcessingMode.FFT
@@ -89,8 +86,7 @@ def build_obj(stamp_config, base, logger):
         mode = ProcessingMode.FAINT
     else:
         mode = ProcessingMode.PHOT
-
-    return StellarObject(base.get('obj_num', 0), builder.obj, psf, base["stamp_offset"], phot_flux=builder.phot_flux, fft_flux=builder.fft_flux, mode=mode)
+    return ObjectCache(base.get('obj_num', 0), phot_flux=builder.phot_flux, mode=mode)
 
 
 class LSST_SiliconBuilder(StampBuilder):
@@ -602,9 +598,6 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
     #     #     super.updateOrigin(stamp, config, image)
     #     return
 
-    fft_flux = 0.
-    # phot_flux = 0.
-
     def draw(self, prof, image, method, offset, config, base, logger):
         """Draw the profile on the postage stamp image.
 
@@ -643,7 +636,7 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
 
         faint = stellar_obj.mode == ProcessingMode.FAINT
         if faint:
-            logger.info("Flux = %.0f  Using trivial sed", stellar_obj.gal.flux)
+            logger.info("Flux = %.0f  Using trivial sed", self.obj.flux)
             for profile_wl in (bandpass.effective_wavelength,
                                bandpass.red_limit,
                                bandpass.blue_limit):
@@ -733,8 +726,9 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
                         poisson_flux=False,
                         save_photons=True)
             img_pos = base["image_pos"]
-            image.photons.x += img_pos.x
-            image.photons.y += img_pos.y
+            obj_offset = base["stamp_offset"]
+            image.photons.x = image.photons.x + img_pos.x - obj_offset.x
+            image.photons.y = image.photons.y + img_pos.y - obj_offset.y
         return image
 
 
