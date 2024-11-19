@@ -251,10 +251,16 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         Yields:
             A single batch made up of a list of object numbers.
         """
-        per_batch = len(objects) // nbatch
+        base_per_batch = len(objects) // nbatch
+        per_batch_remainder = len(objects) % nbatch
         o_iter = iter(objects)
-        for _ in range(nbatch):
-            yield [obj for _, obj in zip(range(per_batch), o_iter)]
+        for i in range(nbatch):
+            # Add extra objects to early batches if per_batch_remainder > 0.
+            if i < per_batch_remainder:
+                nobj_per_batch = base_per_batch + 1
+            else:
+                nobj_per_batch = base_per_batch
+            yield [obj for _, obj in zip(range(nobj_per_batch), o_iter)]
 
     @staticmethod
     def build_stamps(base, logger, objects: list[ObjectCache]):
@@ -307,8 +313,16 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         batches = [
             [dataclasses.replace(obj, phot_flux=np.floor(obj.phot_flux / nbatch)) for obj in phot_objects]
         for _ in range(nbatch)]
+
+        # To ensure we conserve flux, add the modulo to the objects in random
+        # batches to spread them out.
         rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
         ud = galsim.UniformDeviate(rng)
+        remaining_flux = [int(obj.phot_flux) % nbatch for obj in phot_objects]
+        for i, flux in enumerate(remaining_flux):
+            batch_index = int(ud() * nbatch)
+            batches[batch_index][i].phot_flux += flux
+
         # Shuffle faint objects into the batches randomly:
         for obj in faint_objects:
             batch_index = int(ud() * nbatch)
