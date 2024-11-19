@@ -258,12 +258,12 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
 
     @staticmethod
     def build_stamps(base, logger, objects: list[ObjectCache]):
-        """Create stamps for a list of StellarObjects.
+        """Create stamps for a list of ObjectCaches.
 
         Parameters:
             base: The base configuration dictionary.
             logger: Logger object.
-            objects: List of StellarObjects for which we will build stamps.
+            objects: List of ObjectCaches for which we will build stamps.
 
         Returns:
             images: Tuple of the output stamps. In normal PhotonPooling usage these will actually be
@@ -294,8 +294,8 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             config: The configuration dictionary for the image field.
             base: The base configuration dictionary.
             logger: Logger to record progress.
-            phot_objects: The list of StellarObjects representing the bright photon objects to be batched.
-            faint_objects: The list of StellarObjects representing faint photon objects to be batched.
+            phot_objects: The list of ObjectCaches representing the bright photon objects to be batched.
+            faint_objects: The list of ObjectCaches representing faint photon objects to be batched.
             nbatch: The integer number of photon batches to create.
 
         Returns:
@@ -343,7 +343,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         be processed as FFT, photon or faint objects.
 
         Parameters:
-            objects: a list of StellarObjects
+            objects: a list of ObjectCaches
 
         Returns:
             A tuple of three lists respectively containing the objects to be processed
@@ -364,8 +364,8 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
 
     @staticmethod
     def load_objects(obj_numbers, config, base, logger):
-        """Convert the objects in the base configuration to StellarObjects. Their
-        fluxes are calculated at this stage and then stored in the StellarObjects
+        """Convert the objects in the base configuration to ObjectCaches. Their
+        fluxes are calculated at this stage and then stored in the ObjectCaches
         for reuse later on.
 
         Parameters:
@@ -375,7 +375,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             logger: A Logger object to track progress.
         
         Yields:
-            obj: A StellarObject caching an object to be drawn and its flux.
+            obj: An ObjectCacheobject containing the obj ID and flux.
         """
         gsparams = {}
         stamp = base['stamp']
