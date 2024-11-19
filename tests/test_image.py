@@ -15,41 +15,6 @@ INSTCAT = DATA_DIR / 'tiny_instcat.txt'
 SED_DIR = DATA_DIR / 'test_sed_library'
 STAMP_SIZE = 1000
 
-def DeltaFunctionSequence(config, base, ignore, gsparams, logger):
-    """Build multiple `galsim::DeltaFunction` objects only varying in
-    `norm_flux_density`. The values are taken from a list `fluxes`.
-    """
-    inst = galsim.config.GetInputObj('instance_catalog', config, base, 'InstCat')
-
-    # Setup the indexing sequence if it hasn't been specified.
-    # The normal thing with a catalog is to just use each object in order,
-    # so we don't require the user to specify that by hand.  We can do it for them.
-    galsim.config.SetDefaultIndex(config, inst.getNObjects())
-
-    req = { 'index' : int, 'fluxes': list }
-    opt = { 'num' : int, 'sed': dict }
-    kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)
-    index = kwargs['index']
-    fluxes = kwargs['fluxes']
-
-    delta_function_config = {
-        "type": "DeltaFunction",
-        "sed": {
-            "file_name": "vega.txt",
-            "wave_type": "nm",
-            "flux_type": "flambda",
-            "norm_wavelength": 500,
-            **kwargs.get("sed", {}),
-            "norm_flux_density": fluxes[index],
-        },
-    }
-    obj, _ = galsim.config.BuildGSObject({"gal": delta_function_config}, "gal", gsparams=gsparams, logger=logger)
-
-    return obj, safe
-
-galsim.config.RegisterObjectType('DeltaFunctions', DeltaFunctionSequence, input_type='instance_catalog')
-
-
 def assert_objects_at_positions(image, expected_positions, expected_brightness_values, pixel_radius=10, rtol=0.1):
     """Sum the brightness values of squares of side length `2*pixel_radius` centered at `expected_positions` and compare against `expected_brightness_values`."""
     brightness_values = np.empty_like(expected_brightness_values)
@@ -119,9 +84,15 @@ def create_test_config(
         "output": {"camera": "LsstCam"},
         "_icrf_to_field": wcs_factory.get_icrf_to_field(camera),
         "gal": {
-            "type": "DeltaFunctions",
-            # 10 FFT objects, 10 photon shooting objects (including 1 faint object)
-            "fluxes": [5.0e4] * 10 + [5.0e3] * 9 + [1.0],
+            "type": "DeltaFunction",
+            "sed": {
+                "file_name": "vega.txt",
+                "wave_type": "nm",
+                "flux_type": "flambda",
+                "norm_wavelength": 500,
+                # 10 FFT objects, 10 photon shooting objects (including 1 faint object)
+                "norm_flux_density": [5.0e4] * 10 + [5.0e3] * 9 + [1.0],
+            }
         },
         "bandpass": bandpass,
         "wcs": wcs,
