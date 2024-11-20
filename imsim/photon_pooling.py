@@ -126,7 +126,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         photon_ops_cfg = {"photon_ops": base.get("stamp", {}).get("photon_ops", [])}
         photon_ops = galsim.config.BuildPhotonOps(photon_ops_cfg, 'photon_ops', base, logger)
         offset_adjustment = self.calc_offset_adjustment(full_image.bounds)
-        local_wcs = base["wcs"].local(galsim.position._PositionD(0., 0.))
+        local_wcs = base['wcs'].local(full_image.true_center)
         for batch_num, batch in enumerate(phot_batches, start=current_photon_batch_num):
             if not batch:
                 continue
