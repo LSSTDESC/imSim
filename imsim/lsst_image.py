@@ -181,7 +181,7 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
         AddNoise(base,image,current_var,logger)
 
     @staticmethod
-    def create_full_image(config, base):
+    def _create_full_image(config, base):
         """Create the GalSim image on which we will place the individual
         object stamps once they are drawn.
 
@@ -213,7 +213,7 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
         return full_image
 
     @staticmethod
-    def set_config_image_pos(config, base):
+    def _set_config_image_pos(config, base):
         """Determine the image position if necessary using information
         from the base configuration.
 
@@ -267,7 +267,7 @@ class LSST_ImageBuilder(LSST_ImageBuilderBase):
         Returns:
             the final image and the current noise variance in the image as a tuple
         """
-        self.set_config_image_pos(config, base)
+        self._set_config_image_pos(config, base)
 
         full_image = None
         start_num = obj_num
@@ -309,7 +309,7 @@ class LSST_ImageBuilder(LSST_ImageBuilderBase):
                     photon_ops[rubin_optics_index]['shift_photons'] = True
 
         if full_image is None:
-            full_image = self.create_full_image(config, base)
+            full_image = self._create_full_image(config, base)
 
         # Ensure 1 <= nbatch <= nobj_tot
         nbatch = max(min(self.nbatch, nobj_tot), 1)

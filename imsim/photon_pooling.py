@@ -40,7 +40,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         Returns:
             the final image and the current noise variance in the image as a tuple
         """
-        self.set_config_image_pos(config, base)
+        self._set_config_image_pos(config, base)
 
         # For cases where there is noise in individual stamps, we need to keep track of the
         # stamp bounds and their current variances.  When checkpointing, we don't need to
@@ -58,7 +58,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         remaining_obj_nums = sorted(frozenset(range(self.nobjects)) - frozenset(all_obj_nums))
 
         if full_image is None:
-            full_image = self.create_full_image(config, base)
+            full_image = self._create_full_image(config, base)
 
         sensor = base.get('sensor', None)
         rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
