@@ -66,7 +66,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             sensor.updateRNG(rng)
 
         # Create partitions each containing one of the three classes of object.
-        fft_objects, phot_objects, faint_objects = self.partition_objects(self.load_objects(remaining_obj_nums, config, base, logger))
+        fft_objects, phot_objects, faint_objects = self.partition_objects(self.load_objects(remaining_obj_nums, config, base, logger), self.nbatch)
         logger.info("Found %d FFT objects, %d photon shooting objects and %d faint objects", len(fft_objects), len(phot_objects), len(faint_objects))
         # Ensure 1 <= nbatch <= len(fft_objects)
         nbatch = max(min(self.nbatch_fft, len(fft_objects)), 1)
@@ -352,12 +352,13 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         return bounds
 
     @staticmethod
-    def partition_objects(objects):
+    def partition_objects(objects, nbatch):
         """Given a list of objects, return three lists containing only the objects to
         be processed as FFT, photon or faint objects.
 
         Parameters:
             objects: a list of ObjectCaches
+            nbatch: the number of batches. The actual value used may differ, but crucially will not be greater than this value.
 
         Returns:
             A tuple of three lists respectively containing the objects to be processed
@@ -369,7 +370,14 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             ProcessingMode.FAINT: [],
         }
         for obj in objects:
-            objects_by_mode[obj.mode].append(obj)
+            if obj.phot_flux < nbatch and obj.mode == ProcessingMode.PHOT:
+                # In the special case of PHOT objects with fewer photons than there are batches,
+                # batch them alongside FAINT objects - i.e. draw in a single batch rather than pool.
+                mode = ProcessingMode.FAINT
+            else:
+                # Other objects dealt with as their mode indicates.
+                mode = obj.mode
+            objects_by_mode[mode].append(obj)
         return (
             objects_by_mode[ProcessingMode.FFT],
             objects_by_mode[ProcessingMode.PHOT],
