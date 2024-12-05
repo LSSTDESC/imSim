@@ -6,7 +6,7 @@ from galsim.sensor import Sensor
 from galsim.wcs import PixelScale
 from galsim.errors import GalSimConfigValueError
 
-from .stamp import ProcessingMode, ObjectCache, build_obj
+from .stamp import ProcessingMode, ObjectInfo, build_obj
 from .lsst_image import LSST_ImageBuilderBase
 
 
@@ -262,7 +262,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             yield [obj for _, obj in zip(range(nobj_per_batch), o_iter)]
 
     @staticmethod
-    def build_stamps(base, logger, objects: list[ObjectCache]):
+    def build_stamps(base, logger, objects: list[ObjectInfo]):
         """Create stamps for a list of ObjectCaches.
 
         Parameters:
@@ -290,7 +290,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         return images, current_vars
 
     @staticmethod
-    def make_photon_batches(config, base, logger, phot_objects: list[ObjectCache], faint_objects: list[ObjectCache], nbatch: int):
+    def make_photon_batches(config, base, logger, phot_objects: list[ObjectInfo], faint_objects: list[ObjectInfo], nbatch: int):
         """Create a set of nbatch batches of photon objects.
         The bright objects in phot_objects are replicated across all batches but at 1/nbatch their original
         flux, while the faint objects in faint_objects are randomly placed in batches at full flux.

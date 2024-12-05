@@ -21,7 +21,7 @@ class ProcessingMode(Enum):
 
 
 @dataclass
-class ObjectCache:
+class ObjectInfo:
     """Cache for quantities of a single object, which need to be computed
     when determining the rendering mode of the object.
 
@@ -89,7 +89,7 @@ def build_obj(stamp_config, base, logger):
         mode = ProcessingMode.FAINT
     else:
         mode = ProcessingMode.PHOT
-    return ObjectCache(base.get('obj_num', 0), phot_flux=builder.phot_flux, mode=mode)
+    return ObjectInfo(base.get('obj_num', 0), phot_flux=builder.phot_flux, mode=mode)
 
 
 class LSST_SiliconBuilder(StampBuilder):
@@ -625,7 +625,7 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
         # for some number of component PSFs.
         obj, *psfs = prof.obj_list if hasattr(prof,'obj_list') else [prof]
         obj_num = base.get('obj_num',0)
-        obj_cache = base.get("_objects", {})[obj_num] # Use cached object
+        obj_info = base.get("_objects", {})[obj_num] # Use stored object information
         bandpass = base['bandpass']
 
         max_flux_simple = config.get('max_flux_simple', 100)
@@ -637,7 +637,7 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
         else:
             initial_flux_bandpass = base['bandpass']
 
-        faint = obj_cache.mode == ProcessingMode.FAINT
+        faint = obj_info.mode == ProcessingMode.FAINT
         if faint:
             logger.info("Flux = %.0f  Using trivial sed", self.obj.flux)
             for profile_wl in (bandpass.effective_wavelength,
@@ -710,7 +710,7 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
             image += fft_image[image.bounds]
             base['realized_flux'] = fft_image.added_flux
         else:
-            obj = obj.withFlux(obj_cache.phot_flux, bandpass)
+            obj = obj.withFlux(obj_info.phot_flux, bandpass)
             # Put the psfs at the start of the photon_ops.
             # Probably a little better to put them a bit later than the start in some cases
             # (e.g. after TimeSampler, PupilAnnulusSampler), but leave that as a todo for now.
@@ -720,7 +720,7 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
                         offset=offset,
                         rng=rng,
                         maxN=None,
-                        n_photons=obj_cache.phot_flux,
+                        n_photons=obj_info.phot_flux,
                         image=image,
                         wcs=base['wcs'],
                         sensor=NullSensor(), # Prevent premature photon accumulation

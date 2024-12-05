@@ -5,16 +5,16 @@ from dataclasses import replace
 from collections import Counter
 
 from galsim.config import valid_image_types
-from imsim.stamp import ObjectCache, ProcessingMode
+from imsim.stamp import ObjectInfo, ProcessingMode
 
 def create_fft_obj_list(num_objects, flux=1e6, start_num=0):
-    return [ObjectCache(i+start_num, flux, ProcessingMode.FFT) for i in range(num_objects)]
+    return [ObjectInfo(i+start_num, flux, ProcessingMode.FFT) for i in range(num_objects)]
 
 def create_phot_obj_list(num_objects, flux=1e5, start_num=0):
-    return [ObjectCache(i+start_num, flux, ProcessingMode.PHOT) for i in range(num_objects)]
+    return [ObjectInfo(i+start_num, flux, ProcessingMode.PHOT) for i in range(num_objects)]
 
 def create_faint_obj_list(num_objects, flux=100, start_num=0):
-    return [ObjectCache(i+start_num, flux, ProcessingMode.FAINT) for i in range(num_objects)]
+    return [ObjectInfo(i+start_num, flux, ProcessingMode.FAINT) for i in range(num_objects)]
 
 def create_mixed_obj_list():
     # FFT, photon and faint photon objects.
