@@ -69,12 +69,12 @@ class RubinOptics(PhotonOp):
         self.icrf_to_field = icrf_to_field
         self.shift_photons = shift_photons
 
-    def photon_velocity(self, photon_array, local_wcs, rng) -> np.ndarray:
+    def photon_velocity(self, photon_array, rng) -> np.ndarray:
         """Computes the velocity of the photons directly."""
 
         return photon_velocity(
             photon_array,
-            XyToV(local_wcs, self.icrf_to_field, self.img_wcs),
+            XyToV(self.icrf_to_field, self.img_wcs),
             self.telescope.inMedium.getN,
         )
 
@@ -101,7 +101,7 @@ class RubinOptics(PhotonOp):
             photon_array.x += self.image_pos.x
             photon_array.y += self.image_pos.y
 
-        v = self.photon_velocity(photon_array, local_wcs, rng)
+        v = self.photon_velocity(photon_array, rng)
 
         x = photon_array.pupil_u.copy()
         y = photon_array.pupil_v.copy()
@@ -200,11 +200,11 @@ class RubinDiffractionOptics(RubinOptics):
         )
         self.rubin_diffraction = rubin_diffraction
 
-    def photon_velocity(self, photon_array, local_wcs, rng) -> np.ndarray:
+    def photon_velocity(self, photon_array, rng) -> np.ndarray:
         """Computes the velocity of the photons after applying diffraction."""
 
         return self.rubin_diffraction.photon_velocity(
-            photon_array, local_wcs=local_wcs, rng=rng
+            photon_array, rng=rng
         )
 
 
@@ -265,7 +265,7 @@ class RubinDiffraction(PhotonOp):
 
         return _rng
 
-    def photon_velocity(self, photon_array, local_wcs, rng) -> np.ndarray:
+    def photon_velocity(self, photon_array, rng) -> np.ndarray:
         """Computes the velocity of the photons after applying diffraction.
 
         This will not modify the photon array and only return the velocity.
@@ -274,13 +274,11 @@ class RubinDiffraction(PhotonOp):
         Parameters
         ----------
         photon_array:   A `PhotonArray` to apply the operator to.
-        local_wcs:      A `LocalWCS` instance defining the local WCS for the current photon
-                        bundle in case the operator needs this information.  [default: None]
         rng:            A random number generator to use if needed. [default: None]
 
-                    Returns: ndarray of shape (n, 3), where n = photon_array.pupil_u.size()
+        Returns: ndarray of shape (n, 3), where n = photon_array.pupil_u.size()
         """
-        xy_to_v = XyToV(local_wcs, self.icrf_to_field, self.img_wcs)
+        xy_to_v = XyToV(self.icrf_to_field, self.img_wcs)
         v = photon_velocity(
             photon_array,
             xy_to_v,
@@ -315,7 +313,7 @@ class RubinDiffraction(PhotonOp):
 
         assert photon_array.hasAllocatedPupil()
         assert photon_array.hasAllocatedTimes()
-        xy_to_v = XyToV(local_wcs, self.icrf_to_field, self.img_wcs)
+        xy_to_v = XyToV(self.icrf_to_field, self.img_wcs)
         # Convert xy coordinates to a cartesian 3d velocity vector of the photons
         v = xy_to_v(photon_array.x, photon_array.y)
 
@@ -446,8 +444,7 @@ class XyToV:
     a column major vector of shape (n,3).
     """
 
-    def __init__(self, local_wcs, icrf_to_field, img_wcs):
-        self.local_wcs = local_wcs
+    def __init__(self, icrf_to_field, img_wcs):
         self.icrf_to_field = icrf_to_field
         self.img_wcs = img_wcs
 

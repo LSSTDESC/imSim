@@ -412,20 +412,12 @@ def test_xy_to_v_inverse():
     """Tests if the transform photon_ops.XyToV and its inverse combine to
     the identity operation."""
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    local_wcs = galsim.AffineTransform(
-        0.168,
-        0.108,
-        -0.108,
-        0.168,
-        origin=galsim.PositionD(x=-0.349, y=-0.352),
-        world_origin=galsim.PositionD(x=0.0, y=0.0),
-    )
     icrf_to_field = create_test_icrf_to_field(
         boresight=boresight,
         det_name="R22_S11",
     )
     img_wcs = create_test_img_wcs(boresight)
-    xy_to_v = photon_ops.XyToV(local_wcs, icrf_to_field, img_wcs)
+    xy_to_v = photon_ops.XyToV(icrf_to_field, img_wcs)
 
     x, y = np.array(
         np.meshgrid(np.linspace(-10.0, 10, 20), np.linspace(-10.0, 10, 20))
@@ -439,20 +431,12 @@ def test_xy_to_v_inverse():
 def test_xy_to_v():
     """Tests if the transform photon_ops.XyToV."""
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    local_wcs = galsim.AffineTransform(
-        0.168,
-        0.108,
-        -0.108,
-        0.168,
-        origin=galsim.PositionD(x=-0.349, y=-0.352),
-        world_origin=galsim.PositionD(x=0.0, y=0.0),
-    )
     icrf_to_field = create_test_icrf_to_field(
         boresight=boresight,
         det_name="R22_S11",
     )
     img_wcs = create_test_img_wcs(boresight)
-    xy_to_v = photon_ops.XyToV(local_wcs, icrf_to_field, img_wcs)
+    xy_to_v = photon_ops.XyToV(icrf_to_field, img_wcs)
 
     x, y = np.array(
         np.meshgrid(np.linspace(-10.0, 10, 20), np.linspace(-10.0, 10, 20))
