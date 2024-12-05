@@ -618,7 +618,9 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
         """
         if prof is None:
             # If there were any rejection steps, this could be set to None, in
-            # which case don't draw anything.
+            # which case don't draw anything. Ensure that there is at least an
+            # empty photon array attached to the image.
+            image.photons = galsim.PhotonArray(0)
             return image
 
         # Prof is normally a convolution here with obj_list being [gal, psf1, psf2,...]
