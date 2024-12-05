@@ -730,10 +730,9 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
                         add_to_image=True,
                         poisson_flux=False,
                         save_photons=True)
-            img_pos = base["image_pos"]
-            obj_offset = base["stamp_offset"]
-            image.photons.x = image.photons.x + img_pos.x - obj_offset.x
-            image.photons.y = image.photons.y + img_pos.y - obj_offset.y
+            stamp_center = base['stamp_center']
+            image.photons.x = image.photons.x + stamp_center.x
+            image.photons.y = image.photons.y + stamp_center.y
         return image
 
 
