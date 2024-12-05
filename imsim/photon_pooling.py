@@ -269,24 +269,22 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         """
         if not phot_objects and not faint_objects:
             return []
-        # Each batch is a copy of the original list of objects at 1/nbatch the original flux.
-        batches = [
-            [dataclasses.replace(obj, phot_flux=np.floor(obj.phot_flux / nbatch)) for obj in phot_objects]
-        for _ in range(nbatch)]
 
-        # To ensure we conserve flux, add the modulo to the objects in random
-        # batches to spread them out.
+        # Each batch is a copy of the original list of photon objects at
+        # 1/nbatch the original flux. Total flux will conserve the original.
+        batches = [
+            [dataclasses.replace(obj,
+                                 phot_flux=(obj.phot_flux*(i+1))//nbatch - (obj.phot_flux*i)//nbatch
+                                 ) for obj in phot_objects]
+            for i in range(nbatch)]
+
+        # Shuffle whole faint objects into random batches.
         rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
         ud = galsim.UniformDeviate(rng)
-        remaining_flux = [int(obj.phot_flux) % nbatch for obj in phot_objects]
-        for i, flux in enumerate(remaining_flux):
-            batch_index = int(ud() * nbatch)
-            batches[batch_index][i].phot_flux += flux
-
-        # Shuffle faint objects into the batches randomly:
         for obj in faint_objects:
             batch_index = int(ud() * nbatch)
             batches[batch_index].append(obj)
+
         return batches
 
     @staticmethod
