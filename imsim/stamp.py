@@ -4,6 +4,7 @@ from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
 from galsim.config import StampBuilder, RegisterStampType, GetAllParams, GetInputObj, valid_stamp_types
+from galsim.errors import GalSimConfigValueError
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 from .diffraction_fft import apply_diffraction_psf
@@ -70,7 +71,9 @@ class DiffractionFFT:
 def build_obj(stamp_config, base, logger):
     """Precompute all data needed to determine the rendering mode of an
     object."""
-    stamp_type = stamp_config.get('type','LSST_Photons')
+    stamp_type = stamp_config.get('type', None)
+    if stamp_type != 'LSST_Photons':
+        raise GalSimConfigValueError("Must use stamp.type = LSST_Photons with LSST_PhotonPoolingImage.", stamp_type)
     builder = valid_stamp_types[stamp_type]
     try:
         xsize, ysize, image_pos, world_pos = builder.setup(stamp_config, base, 0.0, 0.0, galsim.config.stamp.stamp_ignore, logger)
