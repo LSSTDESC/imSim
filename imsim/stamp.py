@@ -632,7 +632,6 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
 
         max_flux_simple = config.get('max_flux_simple', 100)
         faint = self.nominal_flux < max_flux_simple
-        bandpass = base['bandpass']
 
         if self.do_reweight:
             initial_flux_bandpass = self.fiducial_bandpass
@@ -712,12 +711,28 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
             image += fft_image[image.bounds]
             base['realized_flux'] = fft_image.added_flux
         else:
-            obj = obj.withFlux(obj_info.phot_flux, bandpass)
-            # Put the psfs at the start of the photon_ops.
-            # Probably a little better to put them a bit later than the start in some cases
-            # (e.g. after TimeSampler, PupilAnnulusSampler), but leave that as a todo for now.
+            obj = obj.withFlux(obj_info.phot_flux, initial_flux_bandpass)
+
+            if not faint and 'photon_ops' in config:
+                photon_ops = galsim.config.BuildPhotonOps(config, 'photon_ops', base, logger)
+            else:
+                photon_ops = []
+
+            if self.do_reweight:
+                photon_ops.append(
+                    BandpassRatio(
+                        target_bandpass=bandpass,
+                        initial_bandpass=self.fiducial_bandpass,
+                    )
+                )
+                bp_for_drawImage = self.fiducial_bandpass
+            else:
+                bp_for_drawImage = bandpass
+
+            photon_ops = psfs + photon_ops
+            
             rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
-            obj.drawImage(bandpass,
+            obj.drawImage(bp_for_drawImage,
                         method='phot',
                         offset=offset,
                         rng=rng,
