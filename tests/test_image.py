@@ -212,20 +212,6 @@ def test_lsst_image_photon_pooling_pipeline():
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "-k",
-        dest="test_prefix",
-        help="Similar to -k of pytest / unittest: restrict tests to tests starting with the specified prefix.",
-        default="test_",
-    )
-    args = parser.parse_args()
-
-    testfns = [
-        v for k, v in vars().items() if k.startswith(args.test_prefix) and callable(v)
-    ]
+    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
     for testfn in testfns:
         testfn()
