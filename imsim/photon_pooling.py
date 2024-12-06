@@ -123,6 +123,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             phot_batches = phot_batches[current_photon_batch_num:]
 
         base["image_pos"] = None
+        base["stamp_center"] = None
         photon_ops_cfg = {"photon_ops": base.get("stamp", {}).get("photon_ops", [])}
         photon_ops = galsim.config.BuildPhotonOps(photon_ops_cfg, 'photon_ops', base, logger)
         local_wcs = base['wcs'].local(full_image.true_center)

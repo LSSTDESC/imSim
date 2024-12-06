@@ -89,7 +89,7 @@ def create_test_rubin_optics(**kwargs):
 def create_test_rubin_optics_kwargs(
     boresight=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
     icrf_to_field=None,
-    image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
+    stamp_center=galsim.PositionD(809.6510740536025, 3432.6477953336625),
     rottelpos=np.pi / 3 * galsim.radians,
 ):
     det_name = "R22_S11"
@@ -100,7 +100,7 @@ def create_test_rubin_optics_kwargs(
     return dict(
         telescope=create_test_telescope(rottelpos),
         boresight=boresight,
-        image_pos=image_pos,
+        stamp_center=stamp_center,  # Correct if we say that the stamp is the full_image.
         icrf_to_field=icrf_to_field,
         det_name=det_name,
         camera=get_camera(),
@@ -139,7 +139,7 @@ def create_test_rubin_diffraction_optics(
     altitude=89.9 * degrees,
     boresight=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
     icrf_to_field=None,
-    image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
+    stamp_center=galsim.PositionD(809.6510740536025, 3432.6477953336625),
     rottelpos=np.pi / 3 * galsim.radians,
     **kwargs
 ):
@@ -154,7 +154,7 @@ def create_test_rubin_diffraction_optics(
     optics_kwargs = create_test_rubin_optics_kwargs(
         boresight,
         icrf_to_field,
-        image_pos=image_pos,
+        stamp_center=stamp_center,
         rottelpos=rottelpos,
     )
     del optics_kwargs["icrf_to_field"]
@@ -538,10 +538,10 @@ def test_config_rubin_diffraction_without_field_rotation():
 def test_config_rubin_diffraction_optics():
     """Check the config interface to RubinDiffractionOptics."""
 
-    image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    stamp_center = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
     config = {
         **deepcopy(TEST_BASE_CONFIG),
-        "image_pos": image_pos,  # This would get set appropriately during normal config processing.
+        "stamp_center": stamp_center,  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
                 {
@@ -565,7 +565,7 @@ def test_config_rubin_diffraction_optics():
     reference_op = create_test_rubin_diffraction_optics(
         altitude=43.0 * degrees,
         azimuth=0.0 * degrees,
-        image_pos=image_pos,
+        stamp_center=stamp_center,
         icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
         boresight=photon_op.boresight,
     )
@@ -575,10 +575,10 @@ def test_config_rubin_diffraction_optics():
 def test_config_rubin_diffraction_optics_without_field_rotation():
     """Check the config interface to RubinDiffractionOptics."""
 
-    image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    stamp_center = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
     config = {
         **deepcopy(TEST_BASE_CONFIG),
-        "image_pos": image_pos,  # This would get set appropriately during normal config processing.
+        "stamp_center": stamp_center,  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
                 {
@@ -602,7 +602,7 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
     reference_op = create_test_rubin_diffraction_optics(
         altitude=43.0 * degrees,
         azimuth=0.0 * degrees,
-        image_pos=image_pos,
+        stamp_center=stamp_center,
         icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
         boresight=photon_op.boresight,
         disable_field_rotation=True,
@@ -613,11 +613,11 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
 def test_config_rubin_optics():
     """Check the config interface to RubinOptics."""
 
-    image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    stamp_center = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
     boresight = galsim.CelestialCoord(1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians)
     config = {
         **deepcopy(TEST_BASE_CONFIG),
-        "image_pos": image_pos,  # This would get set appropriately during normal config processing.
+        "stamp_center": stamp_center,  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
                 {
@@ -633,7 +633,7 @@ def test_config_rubin_optics():
     galsim.config.input.SetupInputsForImage(config, None)
     [photon_op] = galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
     reference_op = create_test_rubin_optics(
-        image_pos=image_pos,
+        stamp_center=stamp_center,
         icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
         boresight=photon_op.boresight,
     )
@@ -695,10 +695,10 @@ def test_double_optics_warning():
 
 def test_phase_affects_image():
     # Process without adding additional phase
-    image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    stamp_center = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
     config = {
         **deepcopy(TEST_BASE_CONFIG),
-        "image_pos": image_pos,  # This would get set appropriately during normal config processing.
+        "stamp_center": stamp_center,  # This would get set appropriately during normal config processing.
         "stamp": {
             "photon_ops": [
                 {

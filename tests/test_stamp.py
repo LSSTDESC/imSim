@@ -31,6 +31,7 @@ def create_test_config():
             "R22_S11",
         ),
         "image_pos": galsim.PositionD(20,20),
+        "stamp_center": galsim.PositionD(20,20),
         "sky_pos": galsim.CelestialCoord(
             1.1056660811384078 * galsim.radians, -0.5253441048502933 * galsim.radians
         ),

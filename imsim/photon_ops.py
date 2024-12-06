@@ -33,7 +33,7 @@ class RubinOptics(PhotonOp):
         is distinct from the spherical coordinates of the boresight with respect
         to the ICRF axes.
     img_wcs : galsim.BaseWCS
-    image_pos : galsim.PositionD
+    stamp_center : galsim.PositionD
     icrf_to_field : galsim.GSFitsWCS
     det_name : str
     camera : lsst.afw.cameraGeom.Camera
@@ -55,7 +55,7 @@ class RubinOptics(PhotonOp):
         telescope,
         boresight,
         img_wcs,
-        image_pos,
+        stamp_center,
         icrf_to_field,
         det_name,
         camera,
@@ -65,7 +65,7 @@ class RubinOptics(PhotonOp):
         self.detector = camera[det_name]
         self.boresight = boresight
         self.img_wcs = img_wcs
-        self.image_pos = image_pos
+        self.stamp_center = stamp_center
         self.icrf_to_field = icrf_to_field
         self.shift_photons = shift_photons
 
@@ -94,12 +94,12 @@ class RubinOptics(PhotonOp):
         rng:            A random number generator to use if needed. [default: None]
         """
 
-        # If an image_pos has been provided apply it as a shift to the photons. This will
+        # If a stamp_center has been provided apply it as a shift to the photons. This will
         # probably only ever be when using LSST_Image, as LSST_PhotonPoolingImage
         # positions the photons before they are pooled to be processed together.
-        if self.shift_photons and self.image_pos is not None:
-            photon_array.x += self.image_pos.x
-            photon_array.y += self.image_pos.y
+        if self.shift_photons and self.stamp_center is not None:
+            photon_array.x += self.stamp_center.x
+            photon_array.y += self.stamp_center.y
 
         v = self.photon_velocity(photon_array, rng)
 
@@ -122,9 +122,9 @@ class RubinOptics(PhotonOp):
         )
         traced = self.telescope.trace(ray_vec)
         ray_vector_to_photon_array(traced, detector=self.detector, out=photon_array)
-        if self.image_pos is not None:
-            photon_array.x -= self.image_pos.x
-            photon_array.y -= self.image_pos.y
+        if self.stamp_center is not None:
+            photon_array.x -= self.stamp_center.x
+            photon_array.y -= self.stamp_center.y
 
     def __str__(self):
         return f"imsim.{type(self).__name__}()"
@@ -162,7 +162,7 @@ class RubinDiffractionOptics(RubinOptics):
         is distinct from the spherical coordinates of the boresight with respect
         to the ICRF axes.
     img_wcs : galsim.BaseWCS
-    image_pos : galsim.PositionD
+    stamp_center : galsim.PositionD
     icrf_to_field : galsim.GSFitsWCS
     det_name : str
     camera : lsst.afw.cameraGeom.Camera
@@ -189,14 +189,14 @@ class RubinDiffractionOptics(RubinOptics):
         self,
         telescope,
         boresight,
-        image_pos,
+        stamp_center,
         det_name,
         camera,
         rubin_diffraction: "RubinDiffraction",
         shift_photons=False,
     ):
         super().__init__(
-            telescope, boresight, rubin_diffraction.img_wcs, image_pos, rubin_diffraction.icrf_to_field, det_name, camera, shift_photons
+            telescope, boresight, rubin_diffraction.img_wcs, stamp_center, rubin_diffraction.icrf_to_field, det_name, camera, shift_photons
         )
         self.rubin_diffraction = rubin_diffraction
 
@@ -376,7 +376,7 @@ def config_kwargs(config, base, cls, base_args=()):
     return kwargs
 
 
-_rubin_optics_base_args = ("image_pos",)
+_rubin_optics_base_args = ("stamp_center",)
 
 
 @photon_op_type("RubinOptics", input_type="telescope")
