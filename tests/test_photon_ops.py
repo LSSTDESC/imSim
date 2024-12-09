@@ -65,6 +65,22 @@ def create_test_photon_array(t=0.0, n_photons=10000):
         time=np.full(n_photons, t),
     )
 
+def create_test_img_wcs(boresight, rottelpos=np.pi / 3 * galsim.radians):
+    telescope = create_test_telescope(rottelpos)
+    wcs_factory = BatoidWCSFactory(
+        boresight,
+        obstime=Time.strptime("2022-08-06 06:50:59.337600", "%Y-%m-%d %H:%M:%S.%f"),
+        telescope=telescope,
+        wavelength=622.3195217611445,  # nm
+        camera=get_camera(),
+        temperature=280.0,
+        pressure=72.7,
+        H2O_pressure=1.0,
+    )
+    det_name = "R22_S11"
+    camera = get_camera()[det_name]
+    wcs = wcs_factory.getWCS(det=camera)
+    return wcs
 
 def create_test_rubin_optics(**kwargs):
     return photon_ops.RubinOptics(**create_test_rubin_optics_kwargs(**kwargs))
@@ -73,17 +89,17 @@ def create_test_rubin_optics(**kwargs):
 def create_test_rubin_optics_kwargs(
     boresight=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
     icrf_to_field=None,
-    sky_pos=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
     image_pos=galsim.PositionD(809.6510740536025, 3432.6477953336625),
     rottelpos=np.pi / 3 * galsim.radians,
 ):
     det_name = "R22_S11"
     if icrf_to_field is None:
         icrf_to_field = create_test_icrf_to_field(boresight, det_name=det_name)
+    img_wcs = create_test_img_wcs(boresight, rottelpos)
     return dict(
         telescope=create_test_telescope(rottelpos),
         boresight=boresight,
-        sky_pos=sky_pos,
+        sky_pos=img_wcs.toWorld(image_pos),
         image_pos=image_pos,
         icrf_to_field=icrf_to_field,
         det_name=det_name,
@@ -140,7 +156,6 @@ def create_test_rubin_diffraction_optics(
             boresight,
             icrf_to_field,
             image_pos=image_pos,
-            sky_pos=sky_pos,
             rottelpos=rottelpos,
         ),
         rubin_diffraction=rubin_diffraction,
@@ -153,17 +168,19 @@ def create_test_rng():
 
 def test_rubin_optics() -> None:
     """Check that the image of a star is contained in a disc."""
-
-    rubin_optics = create_test_rubin_optics(rottelpos=0.0 * galsim.radians)
+    boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
+    image_pos = galsim.PositionD(809.6510740536025, 3432.6477953336625)
+    rottelpos = 0.0 * galsim.radians
+    rubin_optics = create_test_rubin_optics(boresight=boresight, image_pos=image_pos, rottelpos=rottelpos)
     photon_array = create_test_photon_array()
-    local_wcs = create_test_wcs()
+    local_wcs = create_test_img_wcs(boresight, rottelpos).local(image_pos)
     u = photon_array.pupil_u.copy()
     v = photon_array.pupil_v.copy()
     rubin_optics.applyTo(photon_array, local_wcs=local_wcs, rng=create_test_rng())
     np.testing.assert_array_equal(photon_array.pupil_u, u)
     np.testing.assert_array_equal(photon_array.pupil_v, v)
-    expected_x_pic_center = 564.5
-    expected_y_pic_center = -1431.4
+    expected_x_pic_center = -960.28
+    expected_y_pic_center = -308.09
     expected_r_pic_center = 20.0
     np.testing.assert_array_less(
         np.hypot(
@@ -176,11 +193,19 @@ def test_rubin_optics() -> None:
 
 def test_rubin_diffraction_produces_spikes() -> None:
     """Checks that we have spike photons and that the spkies form a cross."""
+    boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
+    image_pos = galsim.PositionD(809.6510740536025, 3432.6477953336625)
+    rottelpos = 0.0 * galsim.radians
+    img_wcs = create_test_img_wcs(boresight, rottelpos)
+    sky_pos = img_wcs.toWorld(image_pos)
     rubin_diffraction_optics = create_test_rubin_diffraction_optics(
-        rottelpos=0.0 * galsim.radians
+        boresight=boresight,
+        sky_pos=sky_pos,
+        image_pos=image_pos,
+        rottelpos=rottelpos
     )
     photon_array = create_test_photon_array(n_photons=1000000)
-    local_wcs = create_test_wcs()
+    local_wcs = img_wcs.local(image_pos)
     rubin_diffraction_optics.applyTo(
         photon_array, local_wcs=local_wcs, rng=create_test_rng()
     )
@@ -188,8 +213,8 @@ def test_rubin_diffraction_produces_spikes() -> None:
     # The expected image is contained in a disc + spikes outside the disc:
     spike_angles = extract_spike_angles(
         photon_array,
-        x_center=564.5,
-        y_center=-1431.4,
+        x_center=-960.28,
+        y_center=-308.09,
         r=20.0,
     )
 
@@ -231,13 +256,29 @@ def test_rubin_diffraction_optics_is_same_as_diffraction_and_optics() -> None:
     """Checks that the result of applying RubinDiffraction and then RubinOptics
     is the same as applying the combined photon op RubinDiffractionOptics."""
     photon_array_combined = create_test_photon_array(n_photons=100000)
-    local_wcs = create_test_wcs()
-    rubin_diffraction_optics = create_test_rubin_diffraction_optics()
+    boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
+    image_pos = galsim.PositionD(809.6510740536025, 3432.6477953336625)
+    rottelpos = np.pi / 3 * galsim.radians
+    img_wcs = create_test_img_wcs(boresight, rottelpos)
+    local_wcs = img_wcs.local(image_pos)
+    sky_pos = img_wcs.toWorld(image_pos)
+    rubin_diffraction_optics = create_test_rubin_diffraction_optics(
+        boresight=boresight,
+        image_pos=image_pos,
+        rottelpos=rottelpos,
+        sky_pos=sky_pos
+    )
     rubin_diffraction_optics.applyTo(
         photon_array_combined, local_wcs=local_wcs, rng=create_test_rng()
     )
-    rubin_diffraction = create_test_rubin_diffraction()
-    rubin_optics = create_test_rubin_optics()
+    rubin_diffraction = create_test_rubin_diffraction(
+        sky_pos=sky_pos
+    )
+    rubin_optics = create_test_rubin_optics(
+        boresight=boresight,
+        image_pos=image_pos,
+        rottelpos=rottelpos
+    )
     photon_array_modular = create_test_photon_array(n_photons=100000)
     rubin_diffraction.applyTo(
         photon_array_modular, local_wcs=local_wcs, rng=create_test_rng()
@@ -276,13 +317,24 @@ def test_rubin_diffraction_shows_field_rotation() -> None:
     latitude = -30.24463 * degrees
     azimuth = 45.0 * degrees
     altitude = 89.9 * degrees
+    boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
+    image_pos = galsim.PositionD(809.6510740536025, 3432.6477953336625)
+    rottelpos = 0.0 * galsim.radians
+    img_wcs = create_test_img_wcs(boresight, rottelpos)
+    sky_pos = img_wcs.toWorld(image_pos)
     rubin_diffraction_optics = create_test_rubin_diffraction_optics(
-        latitude, azimuth, altitude, rottelpos=0.0 * galsim.radians
+        latitude,
+        azimuth,
+        altitude,
+        boresight=boresight,
+        sky_pos=sky_pos,
+        image_pos=image_pos,
+        rottelpos=rottelpos
     )
     dt = 1.0
     photon_array_0 = create_test_photon_array(t=0.0, n_photons=1000000)
     photon_array_1 = create_test_photon_array(t=dt, n_photons=1000000)
-    local_wcs = create_test_wcs()
+    local_wcs = img_wcs.local(image_pos)
     rubin_diffraction_optics.applyTo(
         photon_array_0, local_wcs=local_wcs, rng=create_test_rng()
     )
@@ -290,17 +342,18 @@ def test_rubin_diffraction_shows_field_rotation() -> None:
         photon_array_1, local_wcs=local_wcs, rng=create_test_rng()
     )
 
+    expected_center = np.array([-960.28, -308.09])
     # The expected image is contained in a disc + spikes outside the disc:
     spike_angles_0 = extract_spike_angles(
         photon_array_0,
-        x_center=564.5,
-        y_center=-1431.4,
+        x_center=expected_center[0],
+        y_center=expected_center[1],
         r=20.0,
     )
     spike_angles_1 = extract_spike_angles(
         photon_array_1,
-        x_center=564.5,
-        y_center=-1431.4,
+        x_center=expected_center[0],
+        y_center=expected_center[1],
         r=20.0,
     )
 
@@ -596,12 +649,15 @@ def test_config_rubin_optics():
                 },
             ]
         },
+        "sky_pos": create_test_img_wcs(
+            boresight=galsim.CelestialCoord(1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians),
+            rottelpos=np.pi / 3 * galsim.radians
+        ).toWorld(image_pos),
     }
     galsim.config.ProcessInput(config)
     galsim.config.input.SetupInputsForImage(config, None)
     [photon_op] = galsim.config.BuildPhotonOps(config["stamp"], "photon_ops", config)
     reference_op = create_test_rubin_optics(
-        sky_pos=TEST_BASE_CONFIG["sky_pos"],
         image_pos=image_pos,
         icrf_to_field=TEST_BASE_CONFIG["_icrf_to_field"],
         boresight=photon_op.boresight,
