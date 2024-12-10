@@ -4,7 +4,7 @@ from functools import lru_cache
 import numpy as np
 
 import batoid
-from galsim import Bandpass, PhotonArray, PhotonOp, GaussianDeviate
+from galsim import Bandpass, PhotonArray, PhotonOp, GaussianDeviate, PositionD
 from galsim.config import RegisterPhotonOpType, PhotonOpBuilder, GetAllParams
 from galsim.config import BuildBandpass, GalSimConfigError
 from galsim.celestial import CelestialCoord
@@ -223,10 +223,12 @@ class RubinDiffraction(PhotonOp):
         alt/az coordinates the telescope is pointing to (in rad).
     img_wcs : galsim.BaseWCS
     icrf_to_field : galsim.GSFitsWCS
+    stamp_center : Optional PositionD. [default: None]
+    shift_photons : Optional bool, whether to shift photons at start. [default: False]
     """
 
     _req_params = {"altitude": Angle, "azimuth": Angle, "latitude": Angle}
-    _opt_params = {"disable_field_rotation": bool}
+    _opt_params = {"disable_field_rotation": bool, "stamp_center": PositionD, "shift_photons": bool}
 
     def __init__(
         self,
@@ -237,10 +239,14 @@ class RubinDiffraction(PhotonOp):
         img_wcs,
         icrf_to_field,
         disable_field_rotation: bool = False,
+        stamp_center=None,
+        shift_photons=False,
     ):
         self.telescope = telescope
         self.img_wcs = img_wcs
         self.icrf_to_field = icrf_to_field
+        self.stamp_center = stamp_center
+        self.shift_photons = shift_photons
         if disable_field_rotation:
             self.apply_diffraction_delta = lambda pos, v, _t, wavelength, geometry, distribution: apply_diffraction_delta(
                 pos, v, wavelength, geometry, distribution
@@ -311,6 +317,13 @@ class RubinDiffraction(PhotonOp):
         rng:            A random number generator to use if needed. [default: None]
         """
 
+        # If a stamp_center has been provided apply it as a shift to the photons. This will
+        # probably only ever be when using LSST_Image, as LSST_PhotonPoolingImage
+        # positions the photons before they are pooled to be processed together.
+        if self.shift_photons and self.stamp_center is not None:
+            photon_array.x += self.stamp_center.x
+            photon_array.y += self.stamp_center.y
+
         assert photon_array.hasAllocatedPupil()
         assert photon_array.hasAllocatedTimes()
         xy_to_v = XyToV(self.icrf_to_field, self.img_wcs)
@@ -332,6 +345,11 @@ class RubinDiffraction(PhotonOp):
             distribution=self.diffraction_rng(rng),
         )
         photon_array.x, photon_array.y = xy_to_v.inverse(v)
+
+        # Shift photons back if they were shifted at the start.
+        if self.shift_photons and self.stamp_center is not None:
+            photon_array.x -= self.stamp_center.x
+            photon_array.y -= self.stamp_center.y
 
     def __str__(self):
         return f"imsim.{type(self).__name__}()"

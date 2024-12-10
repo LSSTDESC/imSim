@@ -105,7 +105,7 @@ def create_test_rubin_optics_kwargs(
         det_name=det_name,
         camera=get_camera(),
         img_wcs=img_wcs,
-        # shift_photons=True,
+        shift_photons=True,
     )
 
 
@@ -130,6 +130,7 @@ def create_test_rubin_diffraction(
         azimuth=azimuth,
         altitude=altitude,
         img_wcs=create_test_img_wcs(boresight, rottelpos=rottelpos),
+        shift_photons=True,
         **kwargs,
     )
 
@@ -272,7 +273,9 @@ def test_rubin_diffraction_optics_is_same_as_diffraction_and_optics() -> None:
     rubin_diffraction_optics.applyTo(
         photon_array_combined, local_wcs=local_wcs, rng=create_test_rng()
     )
-    rubin_diffraction = create_test_rubin_diffraction()
+    rubin_diffraction = create_test_rubin_diffraction(
+        stamp_center=stamp_center,
+    )
     rubin_optics = create_test_rubin_optics(
         boresight=boresight,
         stamp_center=stamp_center,
@@ -788,8 +791,6 @@ def test_bandpass_ratio():
 
 
 if __name__ == "__main__":
-    test_rubin_diffraction_optics_is_same_as_diffraction_and_optics()
-    quit()
     testfns = [v for k, v in vars().items() if k.startswith("test_") and callable(v)]
     for testfn in testfns:
         testfn()
