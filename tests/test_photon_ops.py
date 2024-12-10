@@ -105,6 +105,7 @@ def create_test_rubin_optics_kwargs(
         det_name=det_name,
         camera=get_camera(),
         img_wcs=img_wcs,
+        # shift_photons=True,
     )
 
 
@@ -171,12 +172,13 @@ def create_test_rng():
 
 def test_rubin_optics() -> None:
     """Check that the image of a star is contained in a disc."""
+
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    image_pos = galsim.PositionD(809.6510740536025, 3432.6477953336625)
+    stamp_center = galsim.PositionD(809.6510740536025, 3432.6477953336625)
     rottelpos = 0.0 * galsim.radians
-    rubin_optics = create_test_rubin_optics(boresight=boresight, image_pos=image_pos, rottelpos=rottelpos)
+    rubin_optics = create_test_rubin_optics(boresight=boresight, stamp_center=stamp_center, rottelpos=rottelpos)
     photon_array = create_test_photon_array()
-    local_wcs = create_test_img_wcs(boresight, rottelpos).local(image_pos)
+    local_wcs = create_test_img_wcs(boresight, rottelpos).local(stamp_center)
     u = photon_array.pupil_u.copy()
     v = photon_array.pupil_v.copy()
     rubin_optics.applyTo(photon_array, local_wcs=local_wcs, rng=create_test_rng())
@@ -197,23 +199,20 @@ def test_rubin_optics() -> None:
 def test_rubin_diffraction_produces_spikes() -> None:
     """Checks that we have spike photons and that the spkies form a cross."""
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    image_pos = galsim.PositionD(809.6510740536025, 3432.6477953336625)
+    stamp_center = galsim.PositionD(809.6510740536025, 3432.6477953336625)
     rottelpos = 0.0 * galsim.radians
     img_wcs = create_test_img_wcs(boresight, rottelpos)
-    sky_pos = img_wcs.toWorld(image_pos)
     rubin_diffraction_optics = create_test_rubin_diffraction_optics(
         boresight=boresight,
-        sky_pos=sky_pos,
-        image_pos=image_pos,
+        stamp_center=stamp_center,
         rottelpos=rottelpos
     )
     photon_array = create_test_photon_array(n_photons=1000000)
-    local_wcs = img_wcs.local(image_pos)
+    local_wcs = img_wcs.local(stamp_center)
     rubin_diffraction_optics.applyTo(
         photon_array, local_wcs=local_wcs, rng=create_test_rng()
     )
 
-    expected_center = np.array([-989.57, -3840.27])
     # The expected image is contained in a disc + spikes outside the disc:
     spike_angles = extract_spike_angles(
         photon_array,
@@ -261,26 +260,22 @@ def test_rubin_diffraction_optics_is_same_as_diffraction_and_optics() -> None:
     is the same as applying the combined photon op RubinDiffractionOptics."""
     photon_array_combined = create_test_photon_array(n_photons=100000)
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    image_pos = galsim.PositionD(809.6510740536025, 3432.6477953336625)
+    stamp_center = galsim.PositionD(809.6510740536025, 3432.6477953336625)
     rottelpos = np.pi / 3 * galsim.radians
     img_wcs = create_test_img_wcs(boresight, rottelpos)
-    local_wcs = img_wcs.local(image_pos)
-    sky_pos = img_wcs.toWorld(image_pos)
+    local_wcs = img_wcs.local(stamp_center)
     rubin_diffraction_optics = create_test_rubin_diffraction_optics(
         boresight=boresight,
-        image_pos=image_pos,
-        rottelpos=rottelpos,
-        sky_pos=sky_pos
+        stamp_center=stamp_center,
+        rottelpos=rottelpos
     )
     rubin_diffraction_optics.applyTo(
         photon_array_combined, local_wcs=local_wcs, rng=create_test_rng()
     )
-    rubin_diffraction = create_test_rubin_diffraction(
-        sky_pos=sky_pos
-    )
+    rubin_diffraction = create_test_rubin_diffraction()
     rubin_optics = create_test_rubin_optics(
         boresight=boresight,
-        image_pos=image_pos,
+        stamp_center=stamp_center,
         rottelpos=rottelpos
     )
     photon_array_modular = create_test_photon_array(n_photons=100000)
@@ -322,23 +317,21 @@ def test_rubin_diffraction_shows_field_rotation() -> None:
     azimuth = 45.0 * degrees
     altitude = 89.9 * degrees
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    image_pos = galsim.PositionD(809.6510740536025, 3432.6477953336625)
+    stamp_center = galsim.PositionD(809.6510740536025, 3432.6477953336625)
     rottelpos = 0.0 * galsim.radians
     img_wcs = create_test_img_wcs(boresight, rottelpos)
-    sky_pos = img_wcs.toWorld(image_pos)
     rubin_diffraction_optics = create_test_rubin_diffraction_optics(
         latitude,
         azimuth,
         altitude,
         boresight=boresight,
-        sky_pos=sky_pos,
-        image_pos=image_pos,
+        stamp_center=stamp_center,
         rottelpos=rottelpos
     )
     dt = 1.0
     photon_array_0 = create_test_photon_array(t=0.0, n_photons=1000000)
     photon_array_1 = create_test_photon_array(t=dt, n_photons=1000000)
-    local_wcs = img_wcs.local(image_pos)
+    local_wcs = img_wcs.local(stamp_center)
     rubin_diffraction_optics.applyTo(
         photon_array_0, local_wcs=local_wcs, rng=create_test_rng()
     )
@@ -554,6 +547,7 @@ def test_config_rubin_diffraction_optics():
                         "dec": "-0.5261230452954583 radians",
                     },
                     "latitude": "-30.24463 degrees",
+                    "shift_photons": True,  # In LSST_Image usage this is automatically set True
                     **deepcopy(TEST_ALT_AZ_CONFIG)
                 }
             ]
@@ -591,6 +585,7 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
                         "dec": "-0.5261230452954583 radians",
                     },
                     "disable_field_rotation": True,
+                    "shift_photons": True,  # In LSST_Image usage this is automatically set True
                     **deepcopy(TEST_ALT_AZ_CONFIG)
                 }
             ]
@@ -624,7 +619,12 @@ def test_config_rubin_optics():
                     "type": "RubinOptics",
                     "camera": "LsstCam",
                     "det_name": "R22_S11",
-                    "boresight": boresight,
+                    "boresight": {
+                        "type": "RADec",
+                        "ra": "0.543 radians",
+                        "dec": "-0.174 radians",
+                    },
+                    "shift_photons": True,  # In LSST_Image usage this is automatically set True
                 },
             ]
         },
@@ -788,6 +788,8 @@ def test_bandpass_ratio():
 
 
 if __name__ == "__main__":
+    test_rubin_diffraction_optics_is_same_as_diffraction_and_optics()
+    quit()
     testfns = [v for k, v in vars().items() if k.startswith("test_") and callable(v)]
     for testfn in testfns:
         testfn()
