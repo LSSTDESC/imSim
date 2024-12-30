@@ -632,6 +632,7 @@ def test_config_rubin_optics():
     """Check the config interface to RubinOptics."""
 
     image_pos = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    boresight = galsim.CelestialCoord(1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians)
     config = {
         **deepcopy(TEST_BASE_CONFIG),
         "image_pos": image_pos,  # This would get set appropriately during normal config processing.
@@ -641,16 +642,12 @@ def test_config_rubin_optics():
                     "type": "RubinOptics",
                     "camera": "LsstCam",
                     "det_name": "R22_S11",
-                    "boresight": {
-                        "type": "RADec",
-                        "ra": "1.1047934165124105 radians",
-                        "dec": "-0.5261230452954583 radians",
-                    },
+                    "boresight": boresight,
                 },
             ]
         },
         "sky_pos": create_test_img_wcs(
-            boresight=galsim.CelestialCoord(1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians),
+            boresight=boresight,
             rottelpos=np.pi / 3 * galsim.radians
         ).toWorld(image_pos),
     }
