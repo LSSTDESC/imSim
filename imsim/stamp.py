@@ -713,10 +713,7 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
         else:
             obj = obj.withFlux(obj_info.phot_flux, initial_flux_bandpass)
 
-            if not faint and 'photon_ops' in config:
-                photon_ops = galsim.config.BuildPhotonOps(config, 'photon_ops', base, logger)
-            else:
-                photon_ops = []
+            photon_ops = []
 
             if self.do_reweight:
                 photon_ops.append(
@@ -741,7 +738,7 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
                         image=image,
                         wcs=base['wcs'],
                         sensor=NullSensor(), # Prevent premature photon accumulation
-                        photon_ops=psfs,
+                        photon_ops=photon_ops,
                         add_to_image=True,
                         poisson_flux=False,
                         save_photons=True)
