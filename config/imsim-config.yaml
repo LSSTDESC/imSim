@@ -146,6 +146,8 @@ image:
 
     # If using LSST_Image (non-photon pooling), nbatch is the overal number of batches in
     # which to draw the objects.
+    # If using LSST_PhotonPoolingImage, FFT objects are similarly drawn across nbatch batches,
+    # while the flux of the photon objects is distributed across nbatch photon pools.
     # The default number of batches is 100, but you can change it if desired.
     nbatch: 100
     
