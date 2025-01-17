@@ -128,6 +128,12 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         photon_ops = galsim.config.BuildPhotonOps(photon_ops_cfg, 'photon_ops', base, logger)
         local_wcs = base['wcs'].local(full_image.true_center)
         resume = False  # Initial call to accumulate will need to do some setup for SiliconSensors.
+        if sensor is None:
+            sensor = Sensor()
+        # Create the image view here and reuse as we accumulate.
+        imview = full_image._view()
+        imview._shift(-full_image.center)  # equiv. to setCenter(), but faster
+        imview.wcs = PixelScale(1.0)
         for batch_num, batch in enumerate(phot_batches, start=current_photon_batch_num):
             if not batch:
                 continue
@@ -145,7 +151,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             # is no longer any way to distinguish which belong to which object.
             photons.x -= full_image.center.x
             photons.y -= full_image.center.y
-            self.accumulate_photons(photons, full_image, sensor, full_image.center, resume=resume)
+            self.accumulate_photons(photons, imview, sensor, resume=resume)
             # Later iterations can skip any setup in sensor accumulation.
             resume = True
 
@@ -182,21 +188,15 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         return merged
 
     @staticmethod
-    def accumulate_photons(photons, image, sensor, center, resume=False):
+    def accumulate_photons(photons, imview, sensor, resume=False):
         """Accumulate a photon array onto a sensor.
 
         Parameters:
             photons: A PhotonArray containing the photons to be accumulated.
-            image: The image to which we draw the accumulated photons.
+            imview: The image view to which we draw the accumulated photons.
             sensor: Sensor to use for accumulation. If None, a temporary sensor is created here.
-            center: Center of the image as galsim.PositionI.
             resume: Resume accumulating following an earlier call for some extra performance. Default False.
         """
-        if sensor is None:
-            sensor = Sensor()
-        imview = image._view()
-        imview._shift(-center)  # equiv. to setCenter(), but faster
-        imview.wcs = PixelScale(1.0)
         if imview.dtype in (np.float32, np.float64):
             sensor.accumulate(photons, imview, imview.center, resume=resume)
         else:
