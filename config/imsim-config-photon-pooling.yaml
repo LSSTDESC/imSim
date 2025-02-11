@@ -26,3 +26,32 @@ template: imsim-config
 
 image.type: LSST_PhotonPoolingImage
 stamp.type: LSST_Photons
+
+# Disable the regular GalSim truth output and instead use the photon pooling truth
+# which accumulates the flux from the photon objects across all batches. (Note though
+# that this measures the flux that was incident rather than the flux that was actually 
+# added to the image.)
+output.truth: ""
+output.photon_pooling_truth:
+    dir: output
+    file_name:
+        type: FormattedStr
+        format : centroid_%08d-%1d-%s-%s-det%03d.txt.gz
+        items:
+            - { type: OpsimData, field: observationId }
+            - { type: OpsimData, field: snap }
+            - $band
+            - $det_name
+            - "@output.det_num"
+    columns:
+        object_id: "@object_id"
+        ra: $sky_pos.ra.deg
+        dec: $sky_pos.dec.deg
+        x: $image_pos.x
+        y: $image_pos.y
+
+        # Note: these next 4 will only work if using the LSST_Photons stamp type.
+        nominal_flux: "@nominal_flux"  # The nominal "expectation value" flux.
+        phot_flux: "@phot_flux"  # The realized flux for photon shooting.
+        fft_flux: "@fft_flux"  # If FFT rendering, then the flux used, including vignetting.
+        incident_flux: "@incident_flux"  # The sum of the fluxes of all photons from the object.

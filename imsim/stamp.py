@@ -591,15 +591,10 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
     image. Photons are created for photon objects, but their drawing is deferred
     until later on in the image builder after they have been pooled."""
 
-    # Use LSST_Silicon getDrawMethod().
-    # def getDrawMethod(self, config, base, logger):
-    #     return "phot"
-
-    # def updateOrigin(self, stamp, config, image):
-    #     # Only recentre the stamp if it's an FFT object.
-    #     # if self.getDrawMethod(stamp, config, image) == 'fft':
-    #     #     super.updateOrigin(stamp, config, image)
-    #     return
+    def setup(self, config, base, xsize, ysize, ignore, logger):
+        xsize, ysize, image_pos, world_pos = super().setup(config, base, xsize, ysize, ignore, logger)
+        base['incident_flux'] = 0.
+        return xsize, ysize, image_pos, world_pos
 
     def draw(self, prof, image, method, offset, config, base, logger):
         """Draw the profile on the postage stamp image.
@@ -709,7 +704,7 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
             fft_image.addNoise(galsim.PoissonNoise(rng=self.rng))
             # In case we had to make a bigger image, just copy the part we need.
             image += fft_image[image.bounds]
-            base['realized_flux'] = fft_image.added_flux
+            base['incident_flux'] = fft_image.added_flux
         else:
             obj = obj.withFlux(obj_info.phot_flux, initial_flux_bandpass)
 
@@ -745,6 +740,7 @@ class LSST_PhotonsBuilder(LSST_SiliconBuilder):
             stamp_center = base['stamp_center']
             image.photons.x = image.photons.x + stamp_center.x
             image.photons.y = image.photons.y + stamp_center.y
+            base['incident_flux'] = np.sum(image.photons.flux)
         return image
 
 
