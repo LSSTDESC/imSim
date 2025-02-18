@@ -40,3 +40,4 @@ from .sag import *
 from .process_info import *
 from .table_row import *
 from .photon_pooling import *
+from .photon_scattering import *

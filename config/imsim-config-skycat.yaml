@@ -13,7 +13,7 @@
 # Get most of the configuration from the base imSim config template.
 modules:
     - imsim
-template: imsim-config
+template: imsim-config-photon-pooling
 
 ####################################################################
 #  The following entires are added to the base configuration above.
