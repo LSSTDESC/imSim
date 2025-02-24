@@ -169,7 +169,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                         base['scattered_photons'].append(scattered_photons)
 
                 del photons  # As with the stamps above, let the garbage collector know we don't need the photons anymore.
-            
+
                 # Note: in typical imsim usage, all current_vars will be 0. So this normally doesn't
                 # add much to the checkpointing data.
                 nz_var = np.nonzero(current_vars)[0]
