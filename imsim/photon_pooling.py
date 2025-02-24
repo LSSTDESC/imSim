@@ -5,7 +5,7 @@ from galsim.config import RegisterImageType
 from galsim.config.extra import RegisterExtraOutput
 from galsim.config.extra_truth import TruthBuilder
 from galsim.config.value import ParseValue, GetCurrentValue
-from galsim.sensor import Sensor
+from galsim.sensor import Sensor, SiliconSensor
 from galsim.wcs import PixelScale
 from galsim.errors import GalSimConfigValueError, GalSimConfigError
 from galsim.utilities import basestring
@@ -131,7 +131,6 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         photon_ops_cfg = {"photon_ops": base.get("stamp", {}).get("photon_ops", [])}
         photon_ops = galsim.config.BuildPhotonOps(photon_ops_cfg, 'photon_ops', base, logger)
         local_wcs = base['wcs'].local(full_image.true_center)
-        resume = False  # Initial call to accumulate will need to do some setup for SiliconSensors.
         if sensor is None:
             sensor = Sensor()
         # Create the image view here and reuse as we accumulate.
@@ -155,9 +154,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             # is no longer any way to distinguish which belong to which object.
             photons.x -= full_image.center.x
             photons.y -= full_image.center.y
-            self.accumulate_photons(photons, imview, sensor, resume=resume)
-            # Later iterations can skip any setup in sensor accumulation.
-            resume = True
+            self.accumulate_photons(photons, imview, sensor, resume=(batch_num > current_photon_batch_num))
 
             # Note: in typical imsim usage, all current_vars will be 0. So this normally doesn't
             # add much to the checkpointing data.
@@ -198,15 +195,24 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         Parameters:
             photons: A PhotonArray containing the photons to be accumulated.
             imview: The image view to which we draw the accumulated photons.
-            sensor: Sensor to use for accumulation. If None, a temporary sensor is created here.
+            sensor: Sensor to use for accumulation.
             resume: Resume accumulating following an earlier call for some extra performance. Default False.
         """
+        # Below we check whether sensor is a SiliconSensor. If it is, use the
+        # recalc argument to update pixel boundaries at the start of the call.
+        # Regular Sensors don't simulate this so don't accept recalc.
         if imview.dtype in (np.float32, np.float64):
-            sensor.accumulate(photons, imview, imview.center, resume=resume)
+            if isinstance(sensor, SiliconSensor):
+                sensor.accumulate(photons, imview, imview.center, resume=resume, recalc=True)
+            else:
+                sensor.accumulate(photons, imview, imview.center, resume=resume)
         else:
-            # Need a temporary
+            # Create a temporary ImageD to work in.
             im1 = galsim.image.ImageD(bounds=imview.bounds)
-            sensor.accumulate(photons, im1, imview.center)
+            if isinstance(sensor, SiliconSensor):
+                sensor.accumulate(photons, im1, imview.center, resume=resume, recalc=True)
+            else:
+                sensor.accumulate(photons, im1, imview.center, resume=resume)
             imview += im1
 
     @staticmethod
