@@ -147,6 +147,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             base['index_key'] = 'image_num'
             stamps, current_vars = self.build_stamps(base, logger, batch)
             photons = self.merge_photon_arrays(stamps)
+            del stamps  # We don't want to keep the stamps longer than we need, so let the garbage collector know it's safe to delete them from now.
             for op in photon_ops:
                 op.applyTo(photons, local_wcs, rng)
             # Shift photon positions to be relative to full_image.center.
@@ -155,6 +156,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             photons.x -= full_image.center.x
             photons.y -= full_image.center.y
             self.accumulate_photons(photons, imview, sensor, resume=(batch_num > current_photon_batch_num))
+            del photons  # As with the stamps above, let the garbage collector know we don't need the photons anymore.
 
             # Note: in typical imsim usage, all current_vars will be 0. So this normally doesn't
             # add much to the checkpointing data.
@@ -263,6 +265,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 for obj in objects
             )
         )
+        images = [image for image in images if image is not None]
         return images, current_vars
 
     @staticmethod
