@@ -1,6 +1,7 @@
 import galsim
 import numpy as np
 import dataclasses
+import itertools
 from galsim.config import RegisterImageType
 from galsim.config.extra import RegisterExtraOutput
 from galsim.config.extra_truth import TruthBuilder
@@ -99,7 +100,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 full_image[bounds] += stamp[bounds]
                 all_obj_nums.append(stamp_obj.index)
 
-            # Note: in typical imsim usage, all current_vars will be 0. So this normally doens't
+            # Note: in typical imsim usage, all current_vars will be 0. So this normally doesn't
             # add much to the checkpointing data.
             nz_var = np.nonzero(current_vars)[0]
             all_stamps.extend([stamps[k] for k in nz_var])
@@ -114,9 +115,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
 
         # Ensure 1 <= nbatch <= len(phot_objects) and make batches.
         nbatch = max(min(self.nbatch, len(phot_objects)), 1)
-        phot_batches = self.make_photon_batches(
-                config, base, logger, phot_objects, faint_objects, nbatch
-            )
+        phot_batches = self.make_photon_batches(config, base, logger, phot_objects, faint_objects, nbatch)
 
         if current_photon_batch_num > 0:
             logger.warning(
@@ -125,6 +124,12 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 nbatch,
             )
             phot_batches = phot_batches[current_photon_batch_num:]
+
+        # Make sure we have a valid number of subbatches. It must
+        # be >= 1 and also <= the length of the smallest photon batch.
+        len_smallest_batch = min(len(batch) for batch in phot_batches)
+        nsubbatch = max(min(self.nsubbatch, len_smallest_batch), 1)
+        logger.warning("Splitting photon batches into %d subbatches.", nsubbatch)
 
         base["image_pos"] = None
         base["stamp_center"] = None
@@ -145,23 +150,27 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                                batch_num+1, nbatch)
 
             base['index_key'] = 'image_num'
-            stamps, current_vars = self.build_stamps(base, logger, batch)
-            photons = self.merge_photon_arrays(stamps)
-            del stamps  # We don't want to keep the stamps longer than we need, so let the garbage collector know it's safe to delete them from now.
-            for op in photon_ops:
-                op.applyTo(photons, local_wcs, rng)
-            # Shift photon positions to be relative to full_image.center.
-            # This is necessary as all photons will now be in the pool together, and there
-            # is no longer any way to distinguish which belong to which object.
-            photons.x -= full_image.center.x
-            photons.y -= full_image.center.y
-            self.accumulate_photons(photons, imview, sensor, resume=(batch_num > current_photon_batch_num))
-            del photons  # As with the stamps above, let the garbage collector know we don't need the photons anymore.
+            subbatches = self.make_photon_subbatches(batch, nsubbatch)
+            for subbatch_num, subbatch in enumerate(subbatches):
+                stamps, current_vars = self.build_stamps(base, logger, subbatch)
+                photons = self.merge_photon_arrays(stamps)
+                del stamps  # We don't want to keep the stamps longer than we need, so let the garbage collector know it's safe to delete them from now.
+                for op in photon_ops:
+                    op.applyTo(photons, local_wcs, rng)
+                # Shift photon positions to be relative to full_image.center.
+                # This is necessary as all photons will now be in the pool together, and there
+                # is no longer any way to distinguish which belong to which object.
+                photons.x -= full_image.center.x
+                photons.y -= full_image.center.y
+                # Now accumulate the photons onto the sensor. Resume is true for all calls but the first. Recalculate the pixel
+                # boundaries on the first subbatch of each full batch.
+                self.accumulate_photons(photons, imview, sensor, resume=(batch_num > current_photon_batch_num or subbatch_num > 0), recalc=(subbatch_num == 0))
+                del photons  # As with the stamps above, let the garbage collector know we don't need the photons anymore.
 
-            # Note: in typical imsim usage, all current_vars will be 0. So this normally doesn't
-            # add much to the checkpointing data.
-            nz_var = np.nonzero(current_vars)[0]
-            all_vars.extend([current_vars[k] for k in nz_var])
+                # Note: in typical imsim usage, all current_vars will be 0. So this normally doesn't
+                # add much to the checkpointing data.
+                nz_var = np.nonzero(current_vars)[0]
+                all_vars.extend([current_vars[k] for k in nz_var])
 
             if self.checkpoint is not None:
                 self.save_checkpoint(self.checkpoint, chk_name, base, full_image, all_stamps, all_vars, all_obj_nums, batch_num+1)
@@ -191,7 +200,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         return merged
 
     @staticmethod
-    def accumulate_photons(photons, imview, sensor, resume=False):
+    def accumulate_photons(photons, imview, sensor, resume=False, recalc=True):
         """Accumulate a photon array onto a sensor.
 
         Parameters:
@@ -199,13 +208,14 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             imview: The image view to which we draw the accumulated photons.
             sensor: Sensor to use for accumulation.
             resume: Resume accumulating following an earlier call for some extra performance. Default False.
+            recalc: Recalculate the pixel boundaries for the sensor. Default True.
         """
         # Below we check whether sensor is a SiliconSensor. If it is, use the
         # recalc argument to update pixel boundaries at the start of the call.
         # Regular Sensors don't simulate this so don't accept recalc.
         if imview.dtype in (np.float32, np.float64):
             if isinstance(sensor, SiliconSensor):
-                sensor.accumulate(photons, imview, imview.center, resume=resume, recalc=True)
+                sensor.accumulate(photons, imview, imview.center, resume=resume, recalc=recalc)
             else:
                 sensor.accumulate(photons, imview, imview.center, resume=resume)
         else:
@@ -304,6 +314,24 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
             batches[batch_index].append(obj)
 
         return batches
+
+    @staticmethod
+    def make_photon_subbatches(batch, nsubbatch):
+        """
+        Divide a batch of objects into a list of smaller subbatches of approximately the same size.
+
+        Parameters:
+            batch: A list making a batch of objects to be divided into subbatches.
+            nsubbatch: The number of subbatches to create from the batch. Must be a positive integer.
+        Returns:
+            subbatches: A list of subbatches, each a valid batch in its own right, together containing all objects in the original batch.
+        """
+        nobj = len(batch)
+        nobj_per_subbatch, nobj_extra = divmod(nobj, nsubbatch)
+        section_sizes = nobj_extra * [nobj_per_subbatch + 1] + (nsubbatch - nobj_extra) * [nobj_per_subbatch]
+        section_indices = [0] + list(itertools.accumulate(section_sizes))
+        subbatches = [batch[section_indices[i]:section_indices[i+1]] for i in range(nsubbatch)]
+        return subbatches
 
     @staticmethod
     def stamp_bounds(stamp, full_image_bounds):

@@ -29,6 +29,8 @@ template: imsim-config
 
 image.type: LSST_PhotonPoolingImage
 image.sensor.nrecalc: 0
+image.nbatch: 10
+image.nsubbatch: 10
 stamp.type: LSST_Photons
 
 # Disable the regular GalSim truth output and instead use the photon pooling truth

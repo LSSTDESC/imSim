@@ -51,7 +51,7 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
         opt = { 'size': int , 'xsize': int , 'ysize': int, 'dtype': None,
                  'apply_sky_gradient': bool, 'apply_fringing': bool,
                  'boresight': galsim.CelestialCoord, 'camera': str, 'nbatch': int,
-                 'nbatch_fft': int, 'nbatch_per_checkpoint': int}
+                 'nsubbatch': int, 'nbatch_fft': int, 'nbatch_per_checkpoint': int}
         params = GetAllParams(config, base, req=req, opt=opt, ignore=ignore+extra_ignore)[0]
 
         # Let the user override the image size
@@ -92,12 +92,17 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
         # Batching is also useful for memory reasons, to limit the number of stamps held
         # in memory before adding them all to the main image.  So even if not checkpointing,
         # keep the default value as 100.
-        # nbatch is used for LSST_Image and LSST_PhotonPooling runs, in the latter determining
-        # the number of batches into which to pool photons.
+        # nbatch is used for LSST_Image and LSST_PhotonPooling runs. In the former it determines
+        # the number of batches into which to all objects are placed, while in the latter it is
+        # used only with photon objects (bright and faint).
         self.nbatch = params.get('nbatch', 100)
         self.nbatch_per_checkpoint = params.get('nbatch_per_checkpoint', 1)
+        # nsubbatch is an optional parameter only used for LSST_PhotonPoolingImage runs, where
+        # it determines the number of sub-batches into which each batch of photon objects is split.
+        self.nsubbatch = params.get('nsubbatch', 10)
         # nbatch_fft is an optional parameter only used for LSST_PhotonPoolingImage runs.
-        # The default behaviour for photon pooling is to process all FFT objects in one pass.
+        # The default behaviour for photon pooling is to process all FFT objects in one batch,
+        # as there will likely only be a few.
         self.nbatch_fft = params.get('nbatch_fft', 1)
         try:
             self.checkpoint = galsim.config.GetInputObj('checkpoint', config, base, 'LSST_Image')
