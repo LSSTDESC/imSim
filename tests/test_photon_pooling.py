@@ -177,6 +177,10 @@ def test_make_batches():
     return
 
 def test_make_photon_batches():
+    """
+    Ensure that the photon batching method correctly handles PHOT and FAINT
+    object types and their fluxes are distributed correctly across the batches.
+    """
     builder = valid_image_types["LSST_PhotonPoolingImage"]
     n_obj_phot = 15
     n_obj_faint = 5
@@ -194,13 +198,11 @@ def test_make_photon_batches():
 
     # Count how many times the objects appear in the batches and sum their total
     # flux across all batches.
-    count = [0] * nobjects
-    total_flux = np.zeros(nobjects)#, dtype="i8")
+    count = Counter(object.index for batch in batches for object in batch)
+    total_flux = np.zeros(nobjects)
     for batch in batches:
         for object in batch:
-            count[object.index] += 1
             total_flux[object.index] += object.phot_flux
-    
 
     # Assert that the PHOT objects appear in all batches (This may not be
     # correct in the future if PHOT objects are spread across subsets of batches
@@ -214,6 +216,55 @@ def test_make_photon_batches():
 
     # Assert the summed flux across the objects in the batches is correct.
     np.testing.assert_array_almost_equal(total_flux, orig_flux)
+
+def assert_subbatches(batch, expected_subbatch_len, subbatches):
+    # Assert that the length of the full batch is equal to the sum of the sub-batches.
+    assert len(batch) == sum(len(subbatch) for subbatch in subbatches)
+    # Assert that the flattened list of sub-batches is equal to the original batch,
+    # including ordering of the objects.
+    assert batch == [object for subbatch in subbatches for object in subbatch]
+    # Assert that all objects in the original batch only once only in all the sub-batches.
+    counts = Counter(object.index for subbatch in subbatches for object in subbatch)
+    assert all([counts[obj.index] == 1 for obj in batch])
+    # Assert that the sub-batches are the expected lengths.
+    assert all([len(subbatch) == expected_subbatch_len[i] for i, subbatch in enumerate(subbatches)])
+
+def test_make_photon_subbatches():
+    """
+    Test the sub-batching method for photon objects, which should evenly or
+    almost evenly distribute the objects in a batch across nsubbatch sub-batches.
+    """
+    # Create a batch containing 90 photon objects + 10 faint objects.
+    # The different object types should be treated equivalently by sub-batching.
+    n_obj_phot = 90
+    n_obj_faint = 10
+    phot_objects = create_phot_obj_list(n_obj_phot, start_num=0)
+    faint_objects = create_faint_obj_list(n_obj_faint, start_num=n_obj_phot)
+    batch = phot_objects + faint_objects
+
+    # Test a few different cases of sub-batching, easy and nasty. In particular,
+    # assert that the sub-batches are a split representation of the original
+    # batch, and also that we're splitting them up as close to evenly as
+    # possible. When it can't be exactly even, we want one extra 1 object in the
+    # first nobj%nsubbatch sub-batches.
+
+    # Split into 10 sub-batches.
+    nsubbatch = 10
+    subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_photon_subbatches(batch, nsubbatch)
+    expected_subbatch_len = 10 * [10]
+    assert_subbatches(batch, expected_subbatch_len, subbatches)
+
+    # Split into 8 sub-batches.
+    nsubbatch = 8
+    subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_photon_subbatches(batch, nsubbatch)
+    expected_subbatch_len = 4 * [13] + 4 * [12]
+    assert_subbatches(batch, expected_subbatch_len, subbatches)
+
+    # Split into 3 sub-batches.
+    nsubbatch = 3
+    subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_photon_subbatches(batch, nsubbatch)
+    expected_subbatch_len = [34] + 2 * [33]
+    assert_subbatches(batch, expected_subbatch_len, subbatches)
 
 if __name__ == "__main__":
     testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
