@@ -31,9 +31,8 @@ jobs:
 
         steps:
             - uses: actions/checkout@v2
-
+            - uses: cvmfs-contrib/github-action-cvmfs@v4
             - name: Set up /cvmfs/sw.lsst.eu/alma-linux-x86_64/lsst_distrib
-              uses: cvmfs-contrib/github-action-cvmfs@v4
               run: |
                 curl -OL https://github.com/airnandez/sw-lsst-eu/releases/download/v0.7/cvmfs-config-lsst_0.7_all.deb
                 sudo dpkg -i cvmfs-config-lsst_0.7_all.deb
