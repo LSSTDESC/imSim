@@ -32,14 +32,10 @@ jobs:
         steps:
             - uses: actions/checkout@v2
             - uses: cvmfs-contrib/github-action-cvmfs@v4
-            - name: Set up /cvmfs/sw.lsst.eu/alma-linux-x86_64/lsst_distrib
+            - name: Set up /cvmfs/sw.lsst.eu
               run: |
                 curl -OL https://github.com/airnandez/sw-lsst-eu/releases/download/v0.7/cvmfs-config-lsst_0.7_all.deb
                 sudo dpkg -i cvmfs-config-lsst_0.7_all.deb
-                LSST_DISTRIB_ROOT=/cvmfs/sw.lsst.eu/almalinux-x86_64/lsst_distrib
-                LATEST_VERSION=`/usr/bin/ls -rt ${LSST_DISTRIB_ROOT} | grep w_20 | tail -n 1`
-                source ${LSST_DISTRIB_ROOT}/${LATEST_VERSION}/loadLSST-ext.bash
-                setup lsst_distrib
 
             - name: Install skyCatalogs from source
               run: |
@@ -76,12 +72,13 @@ jobs:
               run:
                 pip install .
 
-            - name: Install test deps
-              run:
-                conda install -y pytest nose pytest-durations pytest-xdist || true
-
             - name: Run tests
               run: |
+                LSST_DISTRIB_ROOT=/cvmfs/sw.lsst.eu/almalinux-x86_64/lsst_distrib
+                LATEST_VERSION=`/usr/bin/ls -rt ${LSST_DISTRIB_ROOT} | grep w_20 | tail -n 1`
+                source ${LSST_DISTRIB_ROOT}/${LATEST_VERSION}/loadLSST-ext.bash
+                setup lsst_distrib
+                eups list lsst_distrib
                 export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
                 eups list lsst_distrib
                 galsim --version
