@@ -11,7 +11,7 @@ on:
             - main
             - releases/*
 
-    workflow_dispatch:
+    workflow_dispatch: null
 
 jobs:
     build:
