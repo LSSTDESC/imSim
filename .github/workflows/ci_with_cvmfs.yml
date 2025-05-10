@@ -52,6 +52,10 @@ jobs:
                 path: rubin_sim_data
                 key: "2024-05-10"  # Update the key if we ever change the data.
 
+            - name: Install a local copy of batoid_rubin to enable fea updates
+              run:
+                pip install rubin_batoid --no-deps
+
             - name: Install rubin_sim_data
               if: steps.cache-data.outputs.cache-hit != 'true'
               run: |
