@@ -85,6 +85,10 @@ jobs:
 
             - name: Check example config files
               run: |
+                LSST_DISTRIB_ROOT=/cvmfs/sw.lsst.eu/almalinux-x86_64/lsst_distrib
+                LATEST_VERSION=`/usr/bin/ls -rt ${LSST_DISTRIB_ROOT} | grep w_20 | tail -n 1`
+                source ${LSST_DISTRIB_ROOT}/${LATEST_VERSION}/loadLSST-ext.bash
+                setup lsst_distrib
                 echo $PWD
                 ls /home/runner/work/imSim
                 export IMSIM_HOME=/home/runner/work/imSim
