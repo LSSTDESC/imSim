@@ -79,7 +79,7 @@ jobs:
                 eups list lsst_distrib
                 export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
                 galsim --version
-                #pytest --durations=10 -n auto
+                pytest --durations=10 -n auto
 
             - name: Check example config files
               run: |
