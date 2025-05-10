@@ -54,7 +54,7 @@ jobs:
 
             - name: Install a local copy of batoid_rubin to enable fea updates
               run:
-                pip install rubin_batoid --no-deps
+                pip install batoid_rubin --user --no-deps
 
             - name: Install rubin_sim_data
               if: steps.cache-data.outputs.cache-hit != 'true'
