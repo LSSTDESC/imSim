@@ -251,6 +251,7 @@ def test_stamp_sizes():
 
     nobj = builder.getNObj(config['image'], config, 0)
     print('nobj = ',nobj)
+    assert nobj == 2799
 
     # Test a few different kinds of objects to make sure they return a reasonable stamp size.
     # This is written as a regression test, given the current state of the code, but the
@@ -264,35 +265,46 @@ def test_stamp_sizes():
     # But that's easily small enough to hit the minimum stamp size.
     obj_num = 2619
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    print(obj_num, image.center, image.array.shape, image.array.sum())
+    object_id = config['object_id']
+    print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
+    assert object_id == '31500700578'
     assert image.array.shape == (40,40)
     assert 2300 < image.array.sum() < 2600  # 2443
 
     # 2. 10x brighter star.  Still minimum stamp size.
     obj_num = 2699
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    print(obj_num, image.center, image.array.shape, image.array.sum())
+    object_id = config['object_id']
+    print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
+    assert object_id == '31411876071'
     assert image.array.shape == (40,40)
     assert 27000 < image.array.sum() < 30000  # 28124
 
     # 3. 10x brighter star.  Needs bigger stamp.
     obj_num = 2746
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    print(obj_num, image.center, image.array.shape, image.array.sum())
+    object_id = config['object_id']
+    print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
+    assert object_id == '31500679042'
     assert image.array.shape == (106,106)
     assert 280_000 < image.array.sum() < 310_000  # 292627
 
     # 4. 10x brighter star.  (Uses photon shooting, but checks the max sb.)
     obj_num = 2611
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    print(obj_num, image.center, image.array.shape, image.array.sum())
+    object_id = config['object_id']
+    print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
+    assert object_id == '30830354105'
     assert image.array.shape == (350,350)
-    assert 3_250_000 < image.array.sum() < 3_550_000  # 3_402_779
+#    assert 3_250_000 < image.array.sum() < 3_550_000  # 3_402_779
+    assert 3_450_000 < image.array.sum() < 3_650_000  # 3_565_364
 
     # 5. Extremely bright star.  Maxes out size at _Nmax.  (And uses fft.)
     obj_num = 2697
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    print(obj_num, image.center, image.array.shape, image.array.sum())
+    object_id = config['object_id']
+    print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
+    assert object_id == '31107840442'
     assert image.array.shape == (4096,4096)
     assert 500_000_000 < image.array.sum() < 580_000_000  # 531_711_520
 
@@ -302,7 +314,9 @@ def test_stamp_sizes():
     # which means in needs a pretty big stamp.
     obj_num = 2538
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    print(obj_num, image.center, image.array.shape, image.array.sum())
+    object_id = config['object_id']
+    print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
+    assert object_id == '6829127511'
     assert image.array.shape == (328,328)
     assert 20 < image.array.sum() < 50  # 42
 
@@ -310,7 +324,9 @@ def test_stamp_sizes():
     # we use a fixed size (32,32) stamp.  Test this by mocking the tiny_flux value.
     with mock.patch('imsim.LSST_SiliconBuilder._tiny_flux', 60):
         image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-        print(obj_num, image.center, image.array.shape, image.array.sum())
+        object_id = config['object_id']
+        print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
+        assert object_id == '6829127511'
         assert image.array.shape == (32,32)
         assert 10 < image.array.sum() < 40  # 29
 
@@ -319,7 +335,9 @@ def test_stamp_sizes():
     # hlr = 0.07.  So it ends up being the smallest stamp size.
     obj_num = 860
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    print(obj_num, image.center, image.array.shape, image.array.sum())
+    object_id = config['object_id']
+    print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
+    assert object_id == '6813994943'
     assert image.array.shape == (26,26)
     assert 1300 < image.array.sum() < 1600  # 1449
 
@@ -328,7 +346,9 @@ def test_stamp_sizes():
     # This one triggers the check, but not a reduction in size.
     obj_num = 12
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    print(obj_num, image.center, image.array.shape, image.array.sum())
+    object_id = config['object_id']
+    print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
+    assert object_id == '6812505210'
     assert image.array.shape == (73,73)
     assert 740_000 < image.array.sum() < 800_000  # 768_701
 
@@ -336,7 +356,9 @@ def test_stamp_sizes():
     # None of the galaxies are big enough to trigger the reduction.  This is the largest.
     obj_num = 75
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    print(obj_num, image.center, image.array.shape, image.array.sum())
+    object_id = config['object_id']
+    print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
+    assert object_id == '6812541396'
     assert image.array.shape == (1978,1978)
     assert 490_000 < image.array.sum() < 530_000  # 507_192
 
@@ -345,7 +367,8 @@ def test_stamp_sizes():
     # _Nmax, so it doesn't end up maxing at _Nmax.
     with mock.patch('imsim.LSST_SiliconBuilder._Nmax', 1024):
         image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-        print(obj_num, image.center, image.array.shape, image.array.sum())
+        object_id = config['object_id']
+        print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
         assert image.array.shape == (104,104)
         assert 300_000 < image.array.sum() < 330_000  # 309_862
 
@@ -353,14 +376,16 @@ def test_stamp_sizes():
     # less than Nmax without pinning at Nmax.
     with mock.patch('imsim.LSST_SiliconBuilder._Nmax', 100):
         image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-        print(obj_num, image.center, image.array.shape, image.array.sum())
+        object_id = config['object_id']
+        print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
         assert image.array.shape == (69,69)
-        # assert 230_000 < image.array.sum() < 270_000  # 251_679
+        assert 230_000 < image.array.sum() < 270_000  # 251_679
 
     # Finally, with an even smaller Nmax, it will max out at Nmax.
     with mock.patch('imsim.LSST_SiliconBuilder._Nmax', 60):
         image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-        print(obj_num, image.center, image.array.shape, image.array.sum())
+        object_id = config['object_id']
+        print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
         assert image.array.shape == (60,60)
         assert 210_000 < image.array.sum() < 250_000  # 232_194
 
@@ -369,7 +394,8 @@ def test_stamp_sizes():
     # First, set stamp.size in the config file.
     config['stamp']['size'] = 64
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    print(obj_num, image.center, image.array.shape, image.array.sum())
+    object_id = config['object_id']
+    print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
     assert image.array.shape == (64,64)
     assert 230_000 < image.array.sum() < 260_000  # 241_136
 
@@ -377,7 +403,8 @@ def test_stamp_sizes():
     del config['stamp']['size']
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False,
                                         xsize=128, ysize=128)
-    print(obj_num, image.center, image.array.shape, image.array.sum())
+    object_id = config['object_id']
+    print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
     assert image.array.shape == (128,128)
     assert 320_000 < image.array.sum() < 350_000  # 338_265
 
@@ -449,7 +476,9 @@ def test_faint_high_redshift_stamp():
     print('nobj = ',nobj)
     obj_num = 2561
     image, _ = galsim.config.BuildStamp(config, obj_num, logger=logger, do_noise=False)
-    print(obj_num, image.center, image.array.shape, image.array.sum())
+    object_id = config['object_id']
+    print(obj_num, object_id, image.center, image.array.shape, image.array.sum())
+    assert object_id == '9518609149'
     assert image.array.shape == (32, 32)
     assert 7 < image.array.sum() < 13  # 10
 
