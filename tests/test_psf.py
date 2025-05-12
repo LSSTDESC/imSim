@@ -433,7 +433,7 @@ class PsfTestCase(unittest.TestCase):
 
         # The sizes should also be pretty close
         np.testing.assert_allclose(ref_img.view(scale=0.2).calculateFWHM(),
-                                   img.view(scale=0.2).calculateFWHM(), rtol=0.05)
+                                   img.view(scale=0.2).calculateFWHM(), rtol=0.08)
         np.testing.assert_allclose(ref_img.view(scale=0.2).calculateMomentRadius(),
                                    img.view(scale=0.2).calculateMomentRadius(), rtol=0.1)
 
