@@ -1,0 +1,102 @@
+name: imSim CI using /cvmfs/sw.lsst.eu
+
+on:
+    push:
+        branches:
+            - main
+            - releases/*
+
+    pull_request:
+        branches:
+            - main
+            - releases/*
+
+    workflow_dispatch: null
+
+jobs:
+    build:
+        runs-on: ${{ matrix.os }}
+
+        strategy:
+            matrix:
+                os: [ ubuntu-latest ]
+                py: [ "3.12" ]
+                CC: [ gcc ]
+                CXX: [ g++ ]
+
+        defaults:
+            run:
+                # cf. https://github.com/conda-incubator/setup-miniconda#important
+                shell: bash -l {0}
+
+        steps:
+            - uses: actions/checkout@v2
+            - uses: cvmfs-contrib/github-action-cvmfs@v4
+            - name: Set up /cvmfs/sw.lsst.eu
+              run: |
+                curl -OL https://github.com/airnandez/sw-lsst-eu/releases/download/v0.7/cvmfs-config-lsst_0.7_all.deb
+                sudo dpkg -i cvmfs-config-lsst_0.7_all.deb
+
+            - name: Install skyCatalogs from source
+              run: |
+                git clone https://github.com/LSSTDESC/skyCatalogs.git
+                cd skyCatalogs
+                git checkout v2.0.1
+                pip install --no-build-isolation --no-deps -e .
+                cd ..
+
+            - name: Cache data
+              id: cache-data
+              uses: actions/cache@v4
+              with:
+                path: rubin_sim_data
+                key: "2024-05-10"  # Update the key if we ever change the data.
+
+            - name: Install a local copy of batoid_rubin to enable fea updates
+              run:
+                pip install batoid_rubin --user --no-deps
+
+            - name: Install rubin_sim_data
+              if: steps.cache-data.outputs.cache-hit != 'true'
+              run: |
+                mkdir rubin_sim_data
+                mkdir rubin_sim_data/sims_sed_library
+                # Just get the skybrightness, throughputs, and SED data for now.
+                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
+                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_2023_09_07.tgz | tar -C rubin_sim_data -xz
+                curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
+
+            - name: Install imSim
+              run:
+                pip install .
+
+            - name: Run tests
+              run: |
+                LSST_DISTRIB_ROOT=/cvmfs/sw.lsst.eu/almalinux-x86_64/lsst_distrib
+                LATEST_VERSION=`/usr/bin/ls -rt ${LSST_DISTRIB_ROOT} | grep w_20 | tail -n 1`
+                source ${LSST_DISTRIB_ROOT}/${LATEST_VERSION}/loadLSST-ext.bash
+                setup lsst_distrib
+                eups list lsst_distrib
+                export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
+                galsim --version
+                pytest --durations=10 -n auto
+
+            - name: Check example config files
+              run: |
+                LSST_DISTRIB_ROOT=/cvmfs/sw.lsst.eu/almalinux-x86_64/lsst_distrib
+                LATEST_VERSION=`/usr/bin/ls -rt ${LSST_DISTRIB_ROOT} | grep w_20 | tail -n 1`
+                source ${LSST_DISTRIB_ROOT}/${LATEST_VERSION}/loadLSST-ext.bash
+                setup lsst_distrib
+                echo $PWD
+                ls /home/runner/work/imSim
+                export IMSIM_HOME=/home/runner/work/imSim
+                export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
+                export SIMS_SED_LIBRARY_DIR=`pwd`/rubin_sim_data/sims_sed_library
+                # Just check that they haven't gotten stale and produce errors.
+                cd examples
+                galsim flat.yaml image.counts_per_pixel=500
+                galsim flat_with_sed.yaml image.counts_per_pixel=5
+                galsim imsim-user-instcat.yaml image.nobjects=10
+                galsim imsim-user-skycat.yaml image.nobjects=10
+                galsim imsim-user-instcat-comcam.yaml
+                galsim imsim-user-skycat-comcam.yaml

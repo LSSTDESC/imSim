@@ -1,12 +1,12 @@
 import os
+import warnings
 from pathlib import Path
 import numpy as np
 import json
 import logging
 import galsim
+from rubin_sim import skybrightness
 from imsim import SkyModel, SkyGradient, make_batoid_wcs, RubinBandpass
-
-DATA_DIR = Path(__file__).parent / 'data'
 
 
 def test_sky_model():
@@ -15,6 +15,8 @@ def test_sky_model():
     sky background values computed by hand using the
     rubin_sim.skybrightness code.
     """
+    RUBIN_AREA = np.pi * (418.**2 - 255.**2)  # cm^2
+
     # Pointing info for observationId=11873 from the
     # baseline_v2.0_10yrs.db cadence file at
     # http://astro-lsst-01.astro.washington.edu:8080/
@@ -24,11 +26,21 @@ def test_sky_model():
     mjd = 60232.3635999295
     exptime = 30.
 
-    # Load expected sky bg values obtained from running the
-    # rubin_sim.skybrightness code using sky_level_reference_values.py script.
-    with open(os.path.join(DATA_DIR, 'reference_sky_levels.json')) as fobj:
-        expected_sky_levels = json.load(fobj)
+    # Generate expected sky levels by running skybrightness code directly.
+    sky_model = skybrightness.SkyModel()
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        sky_model.set_ra_dec_mjd(ra, dec, mjd, degrees=True)
 
+    expected_sky_levels = {}
+    for band in 'ugrizy':
+        bandpass = RubinBandpass(band, camera='LsstCam', det_name='R22_S11').bp_hardware
+        wave, spec = sky_model.return_wave_spec()
+        lut = galsim.LookupTable(wave, spec[0])
+        sed = galsim.SED(lut, wave_type='nm', flux_type='flambda')
+        expected_sky_levels[band] = sed.calculateFlux(bandpass)*RUBIN_AREA*exptime
+
+    # Compare to SkyModel results
     for band in 'ugrizy':
         bandpass = RubinBandpass(band, camera='LsstCam', det_name='R22_S11')
         sky_model = SkyModel(exptime, mjd, bandpass)
