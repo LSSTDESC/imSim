@@ -89,7 +89,7 @@ def create_test_rubin_optics(**kwargs):
 def create_test_rubin_optics_kwargs(
     boresight=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
     icrf_to_field=None,
-    stamp_center=galsim.PositionD(809.6510740536025, 3432.6477953336625),
+    stamp_center=galsim.PositionD(809.5, 3432.5),
     rottelpos=np.pi / 3 * galsim.radians,
 ):
     det_name = "R22_S11"
@@ -140,7 +140,7 @@ def create_test_rubin_diffraction_optics(
     altitude=89.9 * degrees,
     boresight=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
     icrf_to_field=None,
-    stamp_center=galsim.PositionD(809.6510740536025, 3432.6477953336625),
+    stamp_center=galsim.PositionD(809.5, 3432.5),
     rottelpos=np.pi / 3 * galsim.radians,
     **kwargs
 ):
@@ -174,7 +174,7 @@ def test_rubin_optics() -> None:
     """Check that the image of a star is contained in a disc."""
 
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    stamp_center = galsim.PositionD(809.6510740536025, 3432.6477953336625)
+    stamp_center = galsim.PositionD(809.5, 3432.5)
     rottelpos = 0.0 * galsim.radians
     rubin_optics = create_test_rubin_optics(boresight=boresight, stamp_center=stamp_center, rottelpos=rottelpos)
     photon_array = create_test_photon_array()
@@ -199,7 +199,7 @@ def test_rubin_optics() -> None:
 def test_rubin_diffraction_produces_spikes() -> None:
     """Checks that we have spike photons and that the spkies form a cross."""
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    stamp_center = galsim.PositionD(809.6510740536025, 3432.6477953336625)
+    stamp_center = galsim.PositionD(809.5, 3432.5)
     rottelpos = 0.0 * galsim.radians
     img_wcs = create_test_img_wcs(boresight, rottelpos)
     rubin_diffraction_optics = create_test_rubin_diffraction_optics(
@@ -260,7 +260,7 @@ def test_rubin_diffraction_optics_is_same_as_diffraction_and_optics() -> None:
     is the same as applying the combined photon op RubinDiffractionOptics."""
     photon_array_combined = create_test_photon_array(n_photons=100000)
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    stamp_center = galsim.PositionD(809.6510740536025, 3432.6477953336625)
+    stamp_center = galsim.PositionD(809.5, 3432.5)
     rottelpos = np.pi / 3 * galsim.radians
     img_wcs = create_test_img_wcs(boresight, rottelpos)
     local_wcs = img_wcs.local(stamp_center)
@@ -319,7 +319,7 @@ def test_rubin_diffraction_shows_field_rotation() -> None:
     azimuth = 45.0 * degrees
     altitude = 89.9 * degrees
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
-    stamp_center = galsim.PositionD(809.6510740536025, 3432.6477953336625)
+    stamp_center = galsim.PositionD(809.5, 3432.5)
     rottelpos = 0.0 * galsim.radians
     img_wcs = create_test_img_wcs(boresight, rottelpos)
     rubin_diffraction_optics = create_test_rubin_diffraction_optics(
@@ -533,7 +533,7 @@ def test_config_rubin_diffraction_without_field_rotation():
 def test_config_rubin_diffraction_optics():
     """Check the config interface to RubinDiffractionOptics."""
 
-    stamp_center = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    stamp_center = galsim.PositionD(3076.5, 1566.5)
     config = {
         **deepcopy(TEST_BASE_CONFIG),
         "stamp_center": stamp_center,  # This would get set appropriately during normal config processing.
@@ -571,7 +571,7 @@ def test_config_rubin_diffraction_optics():
 def test_config_rubin_diffraction_optics_without_field_rotation():
     """Check the config interface to RubinDiffractionOptics."""
 
-    stamp_center = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    stamp_center = galsim.PositionD(3076.5, 1566.5)
     config = {
         **deepcopy(TEST_BASE_CONFIG),
         "stamp_center": stamp_center,  # This would get set appropriately during normal config processing.
@@ -610,7 +610,7 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
 def test_config_rubin_optics():
     """Check the config interface to RubinOptics."""
 
-    stamp_center = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    stamp_center = galsim.PositionD(3076.5, 1566.5)
     boresight = galsim.CelestialCoord(1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians)
     config = {
         **deepcopy(TEST_BASE_CONFIG),
@@ -697,7 +697,7 @@ def test_double_optics_warning():
 
 def test_phase_affects_image():
     # Process without adding additional phase
-    stamp_center = galsim.PositionD(3076.4462608524213, 1566.4896702703757)
+    stamp_center = galsim.PositionD(3076.5, 1566.5)
     config = {
         **deepcopy(TEST_BASE_CONFIG),
         "stamp_center": stamp_center,  # This would get set appropriately during normal config processing.
