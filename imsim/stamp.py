@@ -1,7 +1,10 @@
+from enum import Enum, auto
+from functools import lru_cache
 from dataclasses import dataclass, fields, MISSING
 import numpy as np
 import galsim
-from galsim.config import StampBuilder, RegisterStampType, GetAllParams, GetInputObj
+from galsim.config import StampBuilder, RegisterStampType, GetAllParams, GetInputObj, valid_stamp_types
+from galsim.errors import GalSimConfigValueError
 from lsst.obs.lsst.translators.lsst import SIMONYI_LOCATION as RUBIN_LOC
 
 from .diffraction_fft import apply_diffraction_psf
@@ -10,8 +13,29 @@ from .photon_ops import BandpassRatio
 from .psf_utils import get_fft_psf_maybe
 from .stamp_utils import get_stamp_size
 
+
+class ProcessingMode(Enum):
+    FFT = auto()
+    PHOT = auto()
+    FAINT = auto()
+
+
+@dataclass
+class ObjectInfo:
+    """Cache for quantities of a single object, which need to be computed
+    when determining the rendering mode of the object.
+
+    `LSST_PhotonPoolingImage` will store `ObjectCache` instances in
+    `base._objects` when determining the rendering mode and reuse the data
+    in the rendering stage."""
+    index: int
+    phot_flux: float
+    mode: ProcessingMode
+
+
 @dataclass
 class DiffractionFFT:
+    """Config subsection to enable diffraction in FFT mode."""
     exptime: float
     azimuth: galsim.Angle
     altitude: galsim.Angle
@@ -42,6 +66,30 @@ class DiffractionFFT:
         opt = {f.name: f.type for f in fields(cls) if f.default is not MISSING}
         kwargs, _safe = GetAllParams(config, base, req=req, opt=opt)
         return cls(**kwargs)
+
+
+def build_obj(stamp_config, base, logger):
+    """Precompute all data needed to determine the rendering mode of an
+    object."""
+    stamp_type = stamp_config.get('type', None)
+    if stamp_type != 'LSST_Photons':
+        raise GalSimConfigValueError("Must use stamp.type = LSST_Photons with LSST_PhotonPoolingImage.", stamp_type)
+    builder = valid_stamp_types[stamp_type]
+    try:
+        xsize, ysize, image_pos, world_pos = builder.setup(stamp_config, base, 0.0, 0.0, galsim.config.stamp.stamp_ignore, logger)
+    except galsim.config.SkipThisObject:
+        return None
+    builder.locateStamp(stamp_config, base, xsize, ysize, image_pos, world_pos, logger)
+    # Must call buildPSF() here to determine draw mode.
+    builder.buildPSF(stamp_config, base, None, logger)
+    max_flux_simple = stamp_config.get('max_flux_simple', 100)
+    if builder.use_fft:
+        mode = ProcessingMode.FFT
+    elif builder.nominal_flux < max_flux_simple:
+        mode = ProcessingMode.FAINT
+    else:
+        mode = ProcessingMode.PHOT
+    return ObjectInfo(base.get('obj_num', 0), phot_flux=builder.phot_flux, mode=mode)
 
 
 class LSST_SiliconBuilder(StampBuilder):
@@ -536,3 +584,174 @@ else:
 
 # Register this as a valid stamp type
 RegisterStampType('LSST_Silicon', LSST_SiliconBuilder())
+
+
+class LSST_PhotonsBuilder(LSST_SiliconBuilder):
+    """Stamp to use when photon pooling. FFT objects are drawn directly to the
+    image. Photons are created for photon objects, but their drawing is deferred
+    until later on in the image builder after they have been pooled."""
+
+    def setup(self, config, base, xsize, ysize, ignore, logger):
+        xsize, ysize, image_pos, world_pos = super().setup(config, base, xsize, ysize, ignore, logger)
+        base['incident_flux'] = 0.
+        return xsize, ysize, image_pos, world_pos
+
+    def draw(self, prof, image, method, offset, config, base, logger):
+        """Draw the profile on the postage stamp image.
+
+        Parameters:
+            prof:       The profile to draw.
+            image:      The image onto which to draw the profile (which may be None).
+            method:     The method to use in drawImage.
+            offset:     The offset to apply when drawing.
+            config:     The configuration dict for the stamp field.
+            base:       The base configuration dict.
+            logger:     A logger object to log progress.
+
+        Returns:
+            the resulting photon array
+        """
+        if prof is None:
+            # If there were any rejection steps, this could be set to None, in
+            # which case don't draw anything. Ensure that there is at least an
+            # empty photon array attached to the image.
+            image.photons = galsim.PhotonArray(0)
+            return image
+
+        # Prof is normally a convolution here with obj_list being [gal, psf1, psf2,...]
+        # for some number of component PSFs.
+        obj, *psfs = prof.obj_list if hasattr(prof,'obj_list') else [prof]
+        obj_num = base.get('obj_num',0)
+        obj_info = base.get("_objects", {})[obj_num] # Use stored object information
+        bandpass = base['bandpass']
+
+        max_flux_simple = config.get('max_flux_simple', 100)
+        faint = self.nominal_flux < max_flux_simple
+
+        if self.do_reweight:
+            initial_flux_bandpass = self.fiducial_bandpass
+        else:
+            initial_flux_bandpass = base['bandpass']
+
+        faint = obj_info.mode == ProcessingMode.FAINT
+        if faint:
+            logger.info("Flux = %.0f  Using trivial sed", self.obj.flux)
+            for profile_wl in (bandpass.effective_wavelength,
+                               bandpass.red_limit,
+                               bandpass.blue_limit):
+                sed_value = obj.sed(profile_wl)
+                if sed_value != 0:
+                    break
+            if sed_value == 0:
+                # We can't evaluate the profile for this object, so skip it.
+                obj_num = base.get('obj_num')
+                object_id = base.get('object_id')
+                logger.warning("Zero-valued SED for faint object %d, "
+                               "object_id %s.  Skipping.", obj_num, object_id)
+                return image
+            obj = obj.evaluateAtWavelength(profile_wl)
+            obj = obj * self._trivial_sed
+        else:
+            self._fix_seds(obj, bandpass, logger)
+
+        # Normally, wcs is provided as an argument, rather than setting it directly here.
+        # However, there is a subtle bug in the ChromaticSum class where it can fail to
+        # apply the wcs correctly if the first component has zero realized flux in the band.
+        # This line sidesteps that bug.  And it never hurts, so even once we fix this in
+        # GalSim, it doesn't hurt to keep this here.
+        image.wcs = base['wcs']
+
+        if method == 'fft':
+            if self.fft_flux != self.nominal_flux:
+                obj = obj.withFlux(self.fft_flux, initial_flux_bandpass)
+
+            fft_image = image.copy()
+            fft_offset = offset
+            kwargs = dict(
+                method='fft',
+                offset=fft_offset,
+                image=fft_image,
+            )
+            if not faint and config.get('fft_photon_ops'):
+                kwargs.update({
+                    "photon_ops": galsim.config.BuildPhotonOps(config, 'fft_photon_ops', base, logger),
+                    "maxN": maxN,
+                    "rng": self.rng,
+                    "n_subsample": 1,
+                })
+
+            # Go back to a combined convolution for fft drawing.
+            prof = galsim.Convolve([obj] + psfs)
+            try:
+                fft_image = prof.drawImage(bandpass, **kwargs)
+            except galsim.errors.GalSimFFTSizeError as e:
+                # I think this shouldn't happen with the updates I made to how the image size
+                # is calculated, even for extremely bright things.  So it should be ok to
+                # just report what happened, give some extra information to diagonose the problem
+                # and raise the error.
+                logger.error('Caught error trying to draw using FFT:')
+                logger.error('%s',e)
+                logger.error('You may need to add a gsparams field with maximum_fft_size to')
+                logger.error('either the psf or gal field to allow larger FFTs.')
+                logger.info('prof = %r',prof)
+                logger.info('fft_image = %s',fft_image)
+                logger.info('offset = %r',offset)
+                raise
+            # Some pixels can end up negative from FFT numerics.  Just set them to 0.
+            fft_image.array[fft_image.array < 0] = 0.
+            if self.diffraction_fft:
+                self.diffraction_fft.apply(fft_image, bandpass.effective_wavelength)
+            fft_image.addNoise(galsim.PoissonNoise(rng=self.rng))
+            # In case we had to make a bigger image, just copy the part we need.
+            image += fft_image[image.bounds]
+            base['incident_flux'] = fft_image.added_flux
+        else:
+            obj = obj.withFlux(obj_info.phot_flux, initial_flux_bandpass)
+
+            photon_ops = []
+
+            if self.do_reweight:
+                photon_ops.append(
+                    BandpassRatio(
+                        target_bandpass=bandpass,
+                        initial_bandpass=self.fiducial_bandpass,
+                    )
+                )
+                bp_for_drawImage = self.fiducial_bandpass
+            else:
+                bp_for_drawImage = bandpass
+
+            photon_ops = psfs + photon_ops
+            
+            rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
+            obj.drawImage(bp_for_drawImage,
+                        method='phot',
+                        offset=offset,
+                        rng=rng,
+                        maxN=None,
+                        n_photons=obj_info.phot_flux,
+                        image=image,
+                        wcs=base['wcs'],
+                        sensor=NullSensor(), # Prevent premature photon accumulation
+                        photon_ops=photon_ops,
+                        add_to_image=True,
+                        poisson_flux=False,
+                        save_photons=True)
+            stamp_center = base['stamp_center']
+            image.photons.x = image.photons.x + stamp_center.x
+            image.photons.y = image.photons.y + stamp_center.y
+            base['incident_flux'] = np.sum(image.photons.flux)
+        return image
+
+
+RegisterStampType('LSST_Photons', LSST_PhotonsBuilder())
+
+
+class NullSensor(galsim.Sensor):
+    """galsim sensor type which does nothing.
+
+    It is used in the photon pooling workflow (`LSST_PhotonPoolingImage`) to
+    prevent rendering an image when we only want to generate photons.
+    """
+    def accumulate(self, photons, image, orig_center=None, resume=False):
+        return 0.
