@@ -96,7 +96,6 @@ def create_test_rubin_optics_kwargs(
     if icrf_to_field is None:
         icrf_to_field = create_test_icrf_to_field(boresight, det_name=det_name)
     img_wcs = create_test_img_wcs(boresight, rottelpos)
-    img_wcs = create_test_img_wcs(boresight, rottelpos)
     return dict(
         telescope=create_test_telescope(rottelpos),
         boresight=boresight,
