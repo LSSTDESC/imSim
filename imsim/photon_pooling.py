@@ -138,10 +138,6 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         local_wcs = base['wcs'].local(full_image.true_center)
         if sensor is None:
             sensor = Sensor()
-        # Create the image view here and reuse as we accumulate.
-        imview = full_image._view()
-        imview._shift(-full_image.center)  # equiv. to setCenter(), but faster
-        imview.wcs = PixelScale(1.0)
         for batch_num, batch in enumerate(phot_batches, start=current_photon_batch_num):
             if not batch:
                 continue
@@ -157,14 +153,10 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 del stamps  # We don't want to keep the stamps longer than we need, so let the garbage collector know it's safe to delete them from now.
                 for op in photon_ops:
                     op.applyTo(photons, local_wcs, rng)
-                # Shift photon positions to be relative to full_image.center.
-                # This is necessary as all photons will now be in the pool together, and there
-                # is no longer any way to distinguish which belong to which object.
-                photons.x -= full_image.center.x
-                photons.y -= full_image.center.y
+
                 # Now accumulate the photons onto the sensor. Resume is true for all calls but the first. Recalculate the pixel
                 # boundaries on the first subbatch of each full batch.
-                self.accumulate_photons(photons, imview, sensor, resume=(batch_num > current_photon_batch_num or subbatch_num > 0), recalc=(subbatch_num == 0))
+                self.accumulate_photons(photons, full_image, sensor, resume=(batch_num > current_photon_batch_num or subbatch_num > 0), recalc=(subbatch_num == 0))
                 del photons  # As with the stamps above, let the garbage collector know we don't need the photons anymore.
 
                 # Note: in typical imsim usage, all current_vars will be 0. So this normally doesn't
@@ -215,16 +207,16 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         # Regular Sensors don't simulate this so don't accept recalc.
         if imview.dtype in (np.float32, np.float64):
             if isinstance(sensor, SiliconSensor):
-                sensor.accumulate(photons, imview, imview.center, resume=resume, recalc=recalc)
+                sensor.accumulate(photons, imview, resume=resume, recalc=recalc)
             else:
-                sensor.accumulate(photons, imview, imview.center, resume=resume)
+                sensor.accumulate(photons, imview, resume=resume)
         else:
             # Create a temporary ImageD to work in.
             im1 = galsim.image.ImageD(bounds=imview.bounds)
             if isinstance(sensor, SiliconSensor):
-                sensor.accumulate(photons, im1, imview.center, resume=resume, recalc=True)
+                sensor.accumulate(photons, im1, resume=resume, recalc=True)
             else:
-                sensor.accumulate(photons, im1, imview.center, resume=resume)
+                sensor.accumulate(photons, im1, resume=resume)
             imview += im1
 
     @staticmethod
