@@ -11,7 +11,7 @@ from imsim.telescope_loader import load_telescope
 from imsim.bandpass import RubinBandpass
 
 
-def create_test_telescope(rottelpos=np.pi / 3 * galsim.radians):
+def create_test_telescope(rottelpos=60 * galsim.degrees):
     return load_telescope("LSST_r.yaml", rotTelPos=rottelpos)
 
 
@@ -65,7 +65,7 @@ def create_test_photon_array(t=0.0, n_photons=10000):
         time=np.full(n_photons, t),
     )
 
-def create_test_img_wcs(boresight, rottelpos=np.pi / 3 * galsim.radians):
+def create_test_img_wcs(boresight, rottelpos=60 * galsim.degrees):
     telescope = create_test_telescope(rottelpos)
     wcs_factory = BatoidWCSFactory(
         boresight,
@@ -90,7 +90,7 @@ def create_test_rubin_optics_kwargs(
     boresight=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
     icrf_to_field=None,
     stamp_center=galsim.PositionD(809.5, 3432.5),
-    rottelpos=np.pi / 3 * galsim.radians,
+    rottelpos=60 * galsim.degrees,
 ):
     det_name = "R22_S11"
     if icrf_to_field is None:
@@ -113,7 +113,7 @@ def create_test_rubin_diffraction(
     azimuth=45.0 * degrees,
     altitude=89.9 * degrees,
     icrf_to_field=None,
-    rottelpos=np.pi / 3 * galsim.radians,
+    rottelpos=60 * galsim.degrees,
     **kwargs
 ):
     boresight = galsim.CelestialCoord(
@@ -141,7 +141,7 @@ def create_test_rubin_diffraction_optics(
     boresight=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians),
     icrf_to_field=None,
     stamp_center=galsim.PositionD(809.5, 3432.5),
-    rottelpos=np.pi / 3 * galsim.radians,
+    rottelpos=60 * galsim.degrees,
     **kwargs
 ):
     rubin_diffraction = create_test_rubin_diffraction(
@@ -261,7 +261,7 @@ def test_rubin_diffraction_optics_is_same_as_diffraction_and_optics() -> None:
     photon_array_combined = create_test_photon_array(n_photons=100000)
     boresight = galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians)
     stamp_center = galsim.PositionD(809.5, 3432.5)
-    rottelpos = np.pi / 3 * galsim.radians
+    rottelpos = 60 * galsim.degrees
     img_wcs = create_test_img_wcs(boresight, rottelpos)
     local_wcs = img_wcs.local(stamp_center)
     rubin_diffraction_optics = create_test_rubin_diffraction_optics(
@@ -461,7 +461,7 @@ TEST_BASE_CONFIG = {
     "input": {
         "telescope": {
             "file_name": "LSST_r.yaml",
-            "rotTelPos": np.pi / 3 * galsim.radians,
+            "rotTelPos": 60 * galsim.degrees,
         }
     },
     "output": {"camera": "LsstCam"},
