@@ -91,15 +91,16 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
 
         # Batching is also useful for memory reasons, to limit the number of stamps held
         # in memory before adding them all to the main image.  So even if not checkpointing,
-        # keep the default value as 100.
+        # keep the default value as 10, which is used for photon pooling runs.
+        # If used, imsim-config.yaml will override to 100 for LSST_Image runs.
         # nbatch is used for LSST_Image and LSST_PhotonPooling runs. In the former it determines
         # the number of batches into which to all objects are placed, while in the latter it is
         # used only with photon objects (bright and faint).
-        self.nbatch = params.get('nbatch', 100)
+        self.nbatch = params.get('nbatch', 10)
         self.nbatch_per_checkpoint = params.get('nbatch_per_checkpoint', 1)
         # nsubbatch is an optional parameter only used for LSST_PhotonPoolingImage runs, where
         # it determines the number of sub-batches into which each batch of photon objects is split.
-        self.nsubbatch = params.get('nsubbatch', 10)
+        self.nsubbatch = params.get('nsubbatch', 50)
         # nbatch_fft is an optional parameter only used for LSST_PhotonPoolingImage runs.
         # The default behaviour for photon pooling is to process all FFT objects in one batch,
         # as there will likely only be a few.
