@@ -481,57 +481,24 @@ class PhotonPoolingTruthBuilder(TruthBuilder):
     """
     # The function to call at the end of building each stamp
     def processStamp(self, obj_num, config, base, logger):
-        cols = config['columns']
-        row = []
-        types = []
         # Most of the row information can be created on the first call for each
         # object and then left alone. Only the incident_flux, if it's to be
         # written, should be updated on subsequent calls. Determine this by
         # checking if obj_num is already in scratch -- it will only be absent on
         # the first call for this object.
         if obj_num not in self.scratch:
-            for i, name in enumerate(cols):
-                key = cols[name]
-                if isinstance(key, dict):
-                    # Then the "key" is actually something to be parsed in the normal way.
-                    # Caveat: We don't know the value_type here, so we give None.  This allows
-                    # only a limited subset of the parsing.  Usually enough for truth items, but
-                    # not fully featured.
-                    value = ParseValue(cols,name,base,None)[0]
-                elif not isinstance(key,basestring):
-                    # The item can just be a constant value.
-                    value = key
-                elif key[0] == '$':
-                    # This can also be handled by ParseValue
-                    value = ParseValue(cols,name,base,None)[0]
-                elif key[0] == '@':
-                    # Pop off an initial @ if there is one.
-                    value = GetCurrentValue(str(key[1:]), base)
-                else:
-                    # str(key) handles the possibility of unicode.  In particular, this happens with
-                    # JSON files.
-                    value = GetCurrentValue(str(key), base)
-                row.append(value)
-                types.append(self._type(value))
-                if name == 'incident_flux' and 'incident_flux_index' not in self.scratch:
-                    # Remember which column the incident_flux is added to.
-                    self.scratch['incident_flux_index'] = i
-            if 'types' not in self.scratch:
-                self.scratch['types'] = types
-            elif self.scratch['types'] != types:
-                logger.error("Type mismatch found when building truth catalog at object %d",
-                             base['obj_num'])
-                for name, t1, t2 in zip(cols, types, self.scratch['types']):
-                    if t1 != t2:
-                        logger.error("%s has type %s, but previously had type %s"%(
-                            name,t1.__name__,t2.__name__))
-                raise GalSimConfigError("Type mismatch found when building truth catalog.")
-            self.scratch[obj_num] = row
+            cols = config['columns']
+            if 'incident_flux_index' not in self.scratch:
+                self.scratch['incident_flux_index'] = list(cols).index('incident_flux') if 'incident_flux' in cols else None
+            # Now follow the regular TruthBuilder.
+            super().processStamp(obj_num, config, base, logger)
         else:
-            # It's a later call for this object, so we already know
-            # incident_flux_index. Update it within the row. FFT batches process
-            # each object once anyway so don't need any special handling.
-            self.scratch[obj_num][self.scratch['incident_flux_index']] += base['incident_flux']
+            # It's a later call for this object, so we already know most of its
+            # details. Just update the incident_flux, if it was present
+            # previously in the columns list. FFT batches process each object
+            # once anyway so don't need any special handling.
+            if self.scratch['incident_flux_index'] is not None:
+                self.scratch[obj_num][self.scratch['incident_flux_index']] += base['incident_flux']
 
     def finalize(self, config, base, main_data, logger):
         # Remove the incident_flux_index from scratch, if this is being output, then
