@@ -69,6 +69,25 @@ def create_test_config(
         optics_args = {"type": "RubinOptics",
                        "det_name": "R22_S11",
                        }
+    if stamp_type == "LSST_Photons":
+        output_config = {
+            "camera": "LsstCam",
+            "photon_pooling_truth": {
+                "dir": "output",
+                "file_name": "test-truth.txt",
+                "columns": {
+                    "object_id": "obj_num",
+                    "x": "$image_pos.x",
+                    "y": "$image_pos.y",
+                    "nominal_flux": "@nominal_flux",
+                    "phot_flux": "@phot_flux",
+                    "fft_flux": "@fft_flux",
+                    "incident_flux": "@incident_flux",
+                },
+            },
+        }
+    else:
+        output_config = {"camera": "LsstCam"}
     config = {
         "input": {
             "telescope": {
@@ -81,7 +100,7 @@ def create_test_config(
             }
         },
         "det_name": det_name,
-        "output": {"camera": "LsstCam"},
+        "output": {**output_config},
         "_icrf_to_field": wcs_factory.get_icrf_to_field(camera),
         "gal": {
             "type": "DeltaFunction",
@@ -201,6 +220,9 @@ def run_lsst_image(image_type, stamp_type):
     ])
     assert_objects_at_positions(image.array, expected_positions, expected_brightness_values)
 
+    # Return the config and image for further tests if needed.
+    return config, image
+
 
 def test_lsst_image_original_pipeline():
     """Check that LSSTImage batches objects as expected and renders objects at the correct positions."""
@@ -208,7 +230,14 @@ def test_lsst_image_original_pipeline():
 
 def test_lsst_image_photon_pooling_pipeline():
     """Check that LSST_PhotonPoolingImage batches objects as expected and renders objects at the correct positions."""
-    run_lsst_image("LSST_PhotonPoolingImage", "LSST_Photons")
+    config, image = run_lsst_image("LSST_PhotonPoolingImage", "LSST_Photons")
+    # We also check that we get reasonable truth outputs when using the photon
+    # pooling truth. So, write to file, read from file, then compare the
+    # recorded nominal flux and incident flux. Assume otherwise that the GalSim
+    # tests cover the base truth output.
+    galsim.config.extra.WriteExtraOutputs(config, image)
+    nominal_flux, incident_flux = np.loadtxt('output/test-truth.txt', usecols=(3,6), unpack=True)
+    np.testing.assert_allclose(nominal_flux, incident_flux, rtol=0.1)
 
 
 if __name__ == "__main__":
