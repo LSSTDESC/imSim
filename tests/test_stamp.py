@@ -14,6 +14,7 @@ METHOD_FFT = "fft"
 DATA_DIR = Path(__file__).parent / 'data'
 
 def create_test_config():
+    wcs = galsim.PixelScale(0.2)
     config = {
         "input": {
             "telescope": {
@@ -30,6 +31,7 @@ def create_test_config():
             "R22_S11",
         ),
         "image_pos": galsim.PositionD(20,20),
+        "stamp_center": galsim.PositionD(20,20),
         "sky_pos": galsim.CelestialCoord(
             1.1056660811384078 * galsim.radians, -0.5253441048502933 * galsim.radians
         ),
@@ -52,7 +54,8 @@ def create_test_config():
             }],
         },
         "bandpass": galsim.Bandpass('LSST_r.dat', wave_type='nm'),
-        "wcs": galsim.PixelScale(0.2),
+        "wcs": wcs,
+        "current_image": galsim.Image(1024, 1024, wcs=wcs)
     }
     galsim.config.ProcessInput(config)
     galsim.config.SetupInputsForImage(config, None)
