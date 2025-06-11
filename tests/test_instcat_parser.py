@@ -205,7 +205,7 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         #      in the galaxy test below.)
         assert len(set(id_arr)^set(truth_data['uniqueId'])) <= 1
         index = np.argsort(id_arr)
-        index = index[np.where(np.in1d(id_arr[index], truth_data['uniqueId']))]
+        index = index[np.where(np.isin(id_arr[index], truth_data['uniqueId']))]
         np.testing.assert_array_equal(truth_data['uniqueId'], id_arr[index])
 
         ######## test that positions are consistent
@@ -308,8 +308,8 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
         #      cf. Issue #262
         assert len(set(id_arr)^set(truth_data['uniqueId'])) <= 10
         index = np.argsort(id_arr)
-        index1 = np.where(np.in1d(truth_data['uniqueId'], id_arr[index]))
-        index2 = index[np.where(np.in1d(id_arr[index], truth_data['uniqueId']))]
+        index1 = np.where(np.isin(truth_data['uniqueId'], id_arr[index]))
+        index2 = index[np.where(np.isin(id_arr[index], truth_data['uniqueId']))]
         np.testing.assert_array_equal(truth_data['uniqueId'][index1], id_arr[index2])
 
         ######## test that galaxy parameters are correctly read in
