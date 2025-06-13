@@ -165,7 +165,12 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                     scattered_indices = [i for i in range(len(photons)) if not imview.bounds.includes(photons.x[i], photons.y[i])]
                     if len(scattered_indices) > 0:
                         scattered_photons = galsim.PhotonArray(len(scattered_indices))
-                        scattered_photons.copyFrom(photons, target_indices=slice(len(scattered_indices)), source_indices=scattered_indices)
+                        scattered_photons.copyFrom(photons, 
+                                                   target_indices=slice(len(scattered_indices)), 
+                                                   source_indices=scattered_indices, 
+                                                   do_xy=True,
+                                                   do_flux=True,
+                                                   do_other=False)
                         base['scattered_photons'].append(scattered_photons)
 
                 del photons  # As with the stamps above, let the garbage collector know we don't need the photons anymore.

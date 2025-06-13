@@ -48,22 +48,23 @@ class ScatteredPhotonsBuilder(ExtraOutputBuilder):
         return BinTableHDU(data=None)
 
 
-class ScatteredPhotonsInput(object):
-    """A class to read in the scattered photons that were written to file
-    during an earlier first pass.
+class ScatteredPhotons(object):
+    """A class to hold the photons which fell outside the sensor being drawn
+    by the task that createed them during the first pass. They were saved to file
+    then, and will now be read in this second pass to be accumulated on other sensors.
     """
 
-    def __init__(self, file_name, wcs, det, xsize=4096, ysize=4096, logger=None):
+    def __init__(self, file_name, camera, det_name, xsize=4096, ysize=4096, logger=None):
         """
         Initialize the scattered photons input class.
 
         Parameters:
             file_name: str
                 The name of the file to read.
-            wcs: galsim.WCS
-                The WCS object to use for the image.
-            det: lsst.afw.cameraGeom.Detector
-                The detector for the current sensor.
+            camera: str
+                The name of the camera containing the detector.
+            det_name: str
+                The name of the detector to use for photon coordinate transformations.
             xsize: int
                 The x size in pixels of the CCD. (default: 4096)
             ysize: int
@@ -72,28 +73,21 @@ class ScatteredPhotonsInput(object):
                 A logger object. (default: None)
         """
         self.file_name = file_name
-        self.wcs = wcs
-        self.det = det
+        self.det = get_camera(camera)[det_name]
         self.xsize = xsize
         self.ysize = ysize
         self.logger = logger
         self._photons = None
+        self._photons = galsim.PhotonArray.read(self.file_name)
+        self._photons.x, self._photons.y = focal_to_pixel(self._photons.x, self._photons.y, self.det)
 
     def read_photons(self):
         """Read the scattered photons from the file.
         """
-        # Read the scattered photons from the file then convert them from
-        # focal plane coordinates to pixel coordinates.
-        self.photons = galsim.PhotonArray.read(self.file_name)
-        self.photons.x, self.photons.y = focal_to_pixel(self.photons.x, self.photons.y, self.det)
-
-    @property
-    def photons(self):
-        """Get the scattered photons.
-        """
-        if self._photons is None:
-            self.read_photons()
-        return self._photons
+        # Read the scattered photons from the file then transform them from
+        # focal plane coordinates to this detector's pixel coordinates.
+        self._photons = galsim.PhotonArray.read(self.file_name)
+        self._photons.x, self._photons.y = focal_to_pixel(self._photons.x, self._photons.y, self.det)
 
 
 class ScatteredPhotonsLoader(InputLoader):
@@ -101,12 +95,10 @@ class ScatteredPhotonsLoader(InputLoader):
     Class to load scattered photons from file.
     """
     def getKwargs(self, config, base, logger):
-        req = {'file_name': str}
+        req = {'file_name': str, 'camera': str, 'det_name': str}
         opt = {}
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
-        wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
-        kwargs['wcs'] = wcs
         kwargs['xsize'] = base.get('det_xsize', 4096)
         kwargs['ysize'] = base.get('det_ysize', 4096)
         kwargs['logger'] = logger
@@ -142,5 +134,5 @@ class ScatteredPhotonsLoader(InputLoader):
 
 
 RegisterExtraOutput('scattered_photons', ScatteredPhotonsBuilder())
-RegisterInputType('scattered_photons', ScatteredPhotonsLoader())
+RegisterInputType('scattered_photons', ScatteredPhotonsLoader(ScatteredPhotons))
 # RegisterImageType('LSST_ScatteredPhotonsImage', LSST_ScatteredPhotonsImageBuilder)
