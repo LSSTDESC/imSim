@@ -1,0 +1,22 @@
+rightascension 53.00913847303155535
+declination -27.43894880881512321
+mjd 59580.13974597222113516
+altitude 66.34657337061349835
+azimuth 270.27655488919378968
+filter 2
+rotskypos 256.75075318193080420
+dist2moon 124.2838277
+moonalt -36.1323801
+moondec -23.4960252
+moonphase 3.8193650
+moonra 256.4036553
+nsnap 2
+seqnum 0
+obshistid 230
+rottelpos 0.0000000
+seed 230
+seeing 0.8662850
+sunalt -32.7358290
+vistime 33.0000000
+# object id ra dec magnorm SED_file redshift gamma1 gamma2 kappa delta_ra delta_dec source_type length(arcsec) width(arcsec) position_angle(degrees)
+object 0 53.00913847303155535 -27.43894880881512321 16.0 starSED/phoSimMLT/lte034-4.5-1.0a+0.4.BT-Settl.spec.gz 0 0 0 0 0 0 streak 600 1e-6 0 none none
