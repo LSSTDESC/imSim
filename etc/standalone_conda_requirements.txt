@@ -5,6 +5,5 @@ gitpython
 dust_extinction
 batoid
 batoid-rubin
-sncosmo
 palpy
 rubin-sim
