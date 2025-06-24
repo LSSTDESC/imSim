@@ -14,9 +14,6 @@ WORKDIR /home/lsst
 RUN git clone https://github.com/LSSTDESC/imSim.git &&\
     git clone https://github.com/lsst/rubin_sim.git
 
-# Pull out conda requirements for imSim (excluding stackvana)
-RUN sed '/stackvana/d' imSim/etc/standalone_conda_requirements.txt > imSim/etc/docker_conda_requirements.txt
-
 # 1) Install imSim Conda requirements
 # 2) Install imSim pip requirements
 # 3) Install rubin_sim
