@@ -31,7 +31,6 @@ class ScatteredPhotonsBuilder(ExtraOutputBuilder):
             self.data[index].x, self.data[index].y = pixel_to_focal(self.data[index].x, self.data[index].y, detector)
         else:
             self.data[index] = galsim.PhotonArray(N=0)
-        print("PLACEHOLDER! Seems to be done.")
 
     def finalize(self, config, base, main_data, logger):
         return self.data
@@ -141,6 +140,7 @@ class LSST_ScatteredPhotonsImageBuilder(LSST_ImageBuilderBase):
             # They should already have been transformed to pixel coordinates when they
             # were read in from file, so go ahead and accumulate them.
 
+            # Just for testing!
             scattered_photons.flux *= 1.e3
 
             sensor = base.get('sensor', Sensor())
