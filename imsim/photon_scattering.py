@@ -1,9 +1,10 @@
 import galsim
 from galsim.config.extra import ExtraOutputBuilder, RegisterExtraOutput
 from galsim.config import ImageBuilder, RegisterImageType, InputLoader, RegisterInputType
+from galsim.sensor import Sensor, SiliconSensor
 from astropy.io.fits import BinTableHDU
 
-# from .lsst_image import LSST_ImageBuilderBase
+from .lsst_image import LSST_ImageBuilderBase
 from .utils import pixel_to_focal, focal_to_pixel
 from .camera import get_camera
 
@@ -30,6 +31,7 @@ class ScatteredPhotonsBuilder(ExtraOutputBuilder):
             self.data[index].x, self.data[index].y = pixel_to_focal(self.data[index].x, self.data[index].y, detector)
         else:
             self.data[index] = galsim.PhotonArray(N=0)
+        print("PLACEHOLDER! Seems to be done.")
 
     def finalize(self, config, base, main_data, logger):
         return self.data
@@ -77,17 +79,17 @@ class ScatteredPhotons(object):
         self.xsize = xsize
         self.ysize = ysize
         self.logger = logger
-        self._photons = None
-        self._photons = galsim.PhotonArray.read(self.file_name)
-        self._photons.x, self._photons.y = focal_to_pixel(self._photons.x, self._photons.y, self.det)
+        self.photons = None
+        self.photons = galsim.PhotonArray.read(self.file_name)
+        self.photons.x, self.photons.y = focal_to_pixel(self.photons.x, self.photons.y, self.det)
 
     def read_photons(self):
         """Read the scattered photons from the file.
         """
         # Read the scattered photons from the file then transform them from
         # focal plane coordinates to this detector's pixel coordinates.
-        self._photons = galsim.PhotonArray.read(self.file_name)
-        self._photons.x, self._photons.y = focal_to_pixel(self._photons.x, self._photons.y, self.det)
+        self.photons = galsim.PhotonArray.read(self.file_name)
+        self.photons.x, self.photons.y = focal_to_pixel(self.photons.x, self.photons.y, self.det)
 
 
 class ScatteredPhotonsLoader(InputLoader):
@@ -108,31 +110,46 @@ class ScatteredPhotonsLoader(InputLoader):
         return kwargs, safe
 
 
-# class LSST_ScatteredPhotonsImageBuilder(LSST_ImageBuilderBase):
+class LSST_ScatteredPhotonsImageBuilder(LSST_ImageBuilderBase):
 
-#     def setup(self, config, base, logger):
-#         """Set up the scattered photons image type.
-#         """
-#         # We need to set the pixel scale to be the same as the camera's pixel scale
-#         # so that we can convert between focal plane coordinates and pixel coordinates.
-#         self.pixel_scale = base['output']['pixel_scale']
-#         self.camera = get_camera(base['output']['camera'])[base['det_name']]
-#         self.focal_plane = self.camera.get_focal_plane()
-#         self.focal_plane.set_pixel_scale(self.pixel_scale)
+    # def setup(self, config, base, image_num, obj_num, ignore, logger):
+    #     """Set up the scattered photons image type.
+    #     """
+    #     # We need to set the pixel scale to be the same as the camera's pixel scale
+    #     # so that we can convert between focal plane coordinates and pixel coordinates.
+    #     self.pixel_scale = base['output']['pixel_scale']
+    #     self.camera = get_camera(base['output']['camera'])[base['det_name']]
+    #     self.focal_plane = self.camera.get_focal_plane()
+    #     self.focal_plane.set_pixel_scale(self.pixel_scale)
 
-#     def draw(self, config, base, logger):
-#         """Draw the scattered photons to the image.
-#         """
-#         # Get the scattered photons from the base config.
-#         if 'scattered_photons' in base and len(base['scattered_photons']) > 1:
-#             self.data = PhotonArray.concatenate(base['scattered_photons'])
-#             # We need to convert the focal plane coordinates to pixel coordinates
-#             # so that we can draw them on the image.
-#             self.data.x, self.data.y = self.focal_plane.focal_to_pixel(self.data.x, self.data.y)
-#         else:
-#             self.data = PhotonArray(N=0)
+    def buildImage(self, config, base, image_num, _obj_num, logger):
+        """Draw the scattered photons to the image.
+        """
+        # Make sure we have an input image on which to draw.
+        image = base['current_image']
+
+        # Make sure we have a scattered_photons input.
+        if not isinstance(base['_input_objs']['scattered_photons'][0], ScatteredPhotons):
+            raise galsim.config.GalSimConfigError(
+                "When using LSST_ScatteredPhotonsImage, you must provide a scattered_photons input.",)
+
+        # Get the scattered photons from the base config.
+        scattered_photons = base['_input_objs']['scattered_photons'][0].photons
+
+        if len(scattered_photons) > 0:
+            # There are photons to be accumulated.
+            # They should already have been transformed to pixel coordinates when they
+            # were read in from file, so go ahead and accumulate them.
+
+            scattered_photons.flux *= 1.e3
+
+            sensor = base.get('sensor', Sensor())
+
+            sensor.accumulate(scattered_photons, image)
+
+        return image, []
 
 
 RegisterExtraOutput('scattered_photons', ScatteredPhotonsBuilder())
 RegisterInputType('scattered_photons', ScatteredPhotonsLoader(ScatteredPhotons))
-# RegisterImageType('LSST_ScatteredPhotonsImage', LSST_ScatteredPhotonsImageBuilder)
+RegisterImageType('LSST_ScatteredPhotonsImage', LSST_ScatteredPhotonsImageBuilder())

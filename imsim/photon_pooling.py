@@ -156,13 +156,9 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 for op in photon_ops:
                     op.applyTo(photons, local_wcs, rng)
 
-                # Now accumulate the photons onto the sensor. Resume is true for all calls but the first. Recalculate the pixel
-                # boundaries on the first subbatch of each full batch.
-                self.accumulate_photons(photons, full_image, sensor, resume=(batch_num > current_photon_batch_num or subbatch_num > 0), recalc=(subbatch_num == 0))
-
                 # Gather non-accumulated photons if we're going to be outputting them.
                 if 'scattered_photons' in base['output']:
-                    scattered_indices = [i for i in range(len(photons)) if not imview.bounds.includes(photons.x[i], photons.y[i])]
+                    scattered_indices = [i for i in range(len(photons)) if not full_image.bounds.includes(photons.x[i], photons.y[i])]
                     if len(scattered_indices) > 0:
                         scattered_photons = galsim.PhotonArray(len(scattered_indices))
                         scattered_photons.copyFrom(photons, 
@@ -172,6 +168,10 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                                                    do_flux=True,
                                                    do_other=False)
                         base['scattered_photons'].append(scattered_photons)
+
+                # Now accumulate the photons onto the sensor. Resume is true for all calls but the first. Recalculate the pixel
+                # boundaries on the first subbatch of each full batch.
+                self.accumulate_photons(photons, full_image, sensor, resume=(batch_num > current_photon_batch_num or subbatch_num > 0), recalc=(subbatch_num == 0))
 
                 del photons  # As with the stamps above, let the garbage collector know we don't need the photons anymore.
 
