@@ -1,0 +1,8 @@
+# conda install --file etc/docker_conda_requirements should install all required dependencies of imSim except the Rubin pipelines code
+
+gitpython
+dust_extinction
+batoid
+batoid-rubin
+palpy
+rubin-sim

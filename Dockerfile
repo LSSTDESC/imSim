@@ -1,5 +1,5 @@
 # Start from the latest release LSST stack image.
-FROM lsstsqre/centos:7-stack-lsst_distrib-w_latest
+FROM ghcr.io/lsst/scipipe:al9-w_latest
 
 # Information about image.
 ARG BUILD_DATE
@@ -14,9 +14,6 @@ WORKDIR /home/lsst
 RUN git clone https://github.com/LSSTDESC/imSim.git &&\
     git clone https://github.com/lsst/rubin_sim.git
 
-# Pull out conda requirements for imSim (excluding stackvana)
-RUN sed '/stackvana/d' imSim/etc/standalone_conda_requirements.txt > imSim/etc/docker_conda_requirements.txt
-
 # 1) Install imSim Conda requirements
 # 2) Install imSim pip requirements
 # 3) Install rubin_sim
@@ -24,7 +21,7 @@ RUN sed '/stackvana/d' imSim/etc/standalone_conda_requirements.txt > imSim/etc/d
 RUN source /opt/lsst/software/stack/loadLSST.bash &&\
     setup lsst_distrib &&\
     mamba install -y --file imSim/etc/docker_conda_requirements.txt &&\
-    python3 -m pip install batoid skyCatalogs==1.7.0-rc4 gitpython &&\
+    python3 -m pip install batoid skyCatalogs==2.0.1 gitpython &&\
     python3 -m pip install rubin_sim/ &&\
     python3 -m pip install imSim/
 
@@ -37,10 +34,10 @@ RUN curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_d
 RUN curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
 
 # Set location of Rubin sim data (downloaded in step above).
-ENV RUBIN_SIM_DATA_DIR /opt/lsst/software/stack/rubin_sim_data
+ENV RUBIN_SIM_DATA_DIR=/opt/lsst/software/stack/rubin_sim_data
 
 # Set location of SED library (downloaded in step above).
-ENV SIMS_SED_LIBRARY_DIR /opt/lsst/software/stack/rubin_sim_data/sims_sed_library
+ENV SIMS_SED_LIBRARY_DIR=/opt/lsst/software/stack/rubin_sim_data/sims_sed_library
 
 WORKDIR /home/lsst
 
