@@ -3,6 +3,7 @@
 import warnings
 import requests
 from functools import wraps
+from astropy.utils import iers
 import erfa
 
 # These need conda (via stackvana).  Not pip-installable
@@ -16,13 +17,11 @@ import numpy as np
 # auto_age_max to None.  See
 # https://docs.astropy.org/en/stable/utils/iers.html#configuration-parameters
 try:
-    response = requests.get("https://maia.usno.navy.mil/ser7/finals2000A.all",
-                            timeout=5)
+    response = requests.get(iers.conf.iers_auto_url, timeout=5)
     iers_accessible = (response.status_code == 200)
 except requests.exceptions.RequestException:
     iers_accessible = False
 if not iers_accessible:
-    from astropy.utils import iers
     iers.conf.auto_download = False
     iers.conf.iers_degraded_accuracy = 'ignore'
     iers.conf.auto_max_age = None
