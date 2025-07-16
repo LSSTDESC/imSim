@@ -18,7 +18,7 @@ jobs:
         strategy:
             matrix:
                 os: [ ubuntu-latest ]
-                py: [ "3.11" ]
+                py: [ "3.12" ]
                 CC: [ gcc ]
                 CXX: [ g++ ]
 
