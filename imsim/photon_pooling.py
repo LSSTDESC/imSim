@@ -13,6 +13,7 @@ from galsim.utilities import basestring
 
 from .stamp import ProcessingMode, ObjectInfo, build_obj
 from .lsst_image import LSST_ImageBuilderBase
+from .photon_scattering import gather_scattered_photons
 
 
 class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
@@ -158,16 +159,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
 
                 # Gather non-accumulated photons if we're going to be outputting them.
                 if 'scattered_photons' in base['output']:
-                    scattered_indices = [i for i in range(len(photons)) if not full_image.bounds.includes(photons.x[i], photons.y[i])]
-                    if len(scattered_indices) > 0:
-                        scattered_photons = galsim.PhotonArray(len(scattered_indices))
-                        scattered_photons.copyFrom(photons, 
-                                                   target_indices=slice(len(scattered_indices)), 
-                                                   source_indices=scattered_indices, 
-                                                   do_xy=True,
-                                                   do_flux=True,
-                                                   do_other=False)
-                        base['scattered_photons'].append(scattered_photons)
+                    base['scattered_photons'].append(gather_scattered_photons(full_image.bounds, photons))
 
                 # Now accumulate the photons onto the sensor. Resume is true for all calls but the first. Recalculate the pixel
                 # boundaries on the first subbatch of each full batch.
