@@ -8,6 +8,33 @@ from .lsst_image import LSST_ImageBuilderBase
 from .utils import pixel_to_focal, focal_to_pixel
 from .camera import get_camera
 
+def gather_scattered_photons(image_bounds, photons):
+    """ Given image bounds and list of photons, gather the photons
+    that fall outside the bounds, copy them into a new PhotonArray,
+    and return them.
+
+    Parameters:
+        image_bounds: galsim.Bounds
+            The bounds used to determine which photons fall within the image area.
+
+    Returns:
+        scattered_photons: galsim.PhotonArray
+            A new PhotonArray containing the photons falling outside the image.
+            If no photons are found to fall outside, the PhotonArray will be empty.
+    """
+    scattered_indices = [i for i in range(len(photons)) if not image_bounds.includes(photons.x[i], photons.y[i])]
+    if len(scattered_indices) > 0:
+        scattered_photons = galsim.PhotonArray(len(scattered_indices))
+        scattered_photons.copyFrom(photons,
+                                   target_indices=slice(len(scattered_indices)),
+                                   source_indices=scattered_indices,
+                                   do_xy=True,
+                                   do_flux=True,
+                                   do_other=False)
+    else:
+        scattered_photons = galsim.PhotonArray(N=0)
+    return scattered_photons
+
 # An extra output type to enable two-pass photon scattering.
 # This output should be used in the first pass to write scattered photons to file,
 # while the second pass will read the scattered photons then go over all the images
@@ -23,7 +50,7 @@ class ScatteredPhotonsBuilder(ExtraOutputBuilder):
         """
         # If scattered photons have been stored in the base config, concatenate these
         # photon arrays to a single one and store in data, indexing by image number.
-        if 'scattered_photons' in base and len(base['scattered_photons']) > 1:
+        if 'scattered_photons' in base and len(base['scattered_photons']) > 0:
             self.data[index] = galsim.PhotonArray.concatenate(base['scattered_photons'])
             # We need to store the photons using focal plane coordinates so they
             # can be accumulated in the second pass on an arbitrary sensor.
@@ -82,14 +109,6 @@ class ScatteredPhotons(object):
         self.photons = galsim.PhotonArray.read(self.file_name)
         self.photons.x, self.photons.y = focal_to_pixel(self.photons.x, self.photons.y, self.det)
 
-    def read_photons(self):
-        """Read the scattered photons from the file.
-        """
-        # Read the scattered photons from the file then transform them from
-        # focal plane coordinates to this detector's pixel coordinates.
-        self.photons = galsim.PhotonArray.read(self.file_name)
-        self.photons.x, self.photons.y = focal_to_pixel(self.photons.x, self.photons.y, self.det)
-
 
 class ScatteredPhotonsLoader(InputLoader):
     """
@@ -110,16 +129,6 @@ class ScatteredPhotonsLoader(InputLoader):
 
 
 class LSST_ScatteredPhotonsImageBuilder(LSST_ImageBuilderBase):
-
-    # def setup(self, config, base, image_num, obj_num, ignore, logger):
-    #     """Set up the scattered photons image type.
-    #     """
-    #     # We need to set the pixel scale to be the same as the camera's pixel scale
-    #     # so that we can convert between focal plane coordinates and pixel coordinates.
-    #     self.pixel_scale = base['output']['pixel_scale']
-    #     self.camera = get_camera(base['output']['camera'])[base['det_name']]
-    #     self.focal_plane = self.camera.get_focal_plane()
-    #     self.focal_plane.set_pixel_scale(self.pixel_scale)
 
     def buildImage(self, config, base, image_num, _obj_num, logger):
         """Draw the scattered photons to the image.
