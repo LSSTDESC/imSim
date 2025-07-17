@@ -41,7 +41,7 @@ jobs:
               run: |
                 git clone https://github.com/LSSTDESC/skyCatalogs.git
                 cd skyCatalogs
-                git checkout v2.1
+                git checkout v2.1.0
                 pip install --no-build-isolation --no-deps -e .
                 cd ..
 
