@@ -5,9 +5,9 @@ Installation Instructions
 
    **Pre-requisites**:
 
-   To use **imSim 2.1** at least versions
+   To use **imSim 2.1.0** at least versions
 
-   **GalSim 2.7.2** and **skyCatalogs v2.1**
+   **GalSim 2.7.2** and **skyCatalogs v2.1.0**
 
    are required. The instructions below for the cvmfs and stackvana installations should automatically fulfill the galsim requirement for you.  If you are using a different installation method, please ensure that you have met these requirements.
 
@@ -71,9 +71,9 @@ Next, clone copies of both the imSim and skyCatalog software packages from  GitH
 
    git clone https://github.com/LSSTDESC/imSim.git
    git clone https://github.com/LSSTDESC/skyCatalogs
-   cd skyCatalogs; git checkout v2.1
+   cd skyCatalogs; git checkout v2.1.0
 
-at this point if you would only like to use *imSim* you can ``pip install imSim/`` and ``pip install skyCatalog==2.1`` however we instead suggest using the *eups* tool to simply setup the packages for use without installing them. This will allow you to edit the packages in place, use multiple versions, change branches etc. You should definitely do this if you plan to do any *imSim* development.
+at this point if you would only like to use *imSim* you can ``pip install imSim/`` and ``pip install skyCatalogs==2.1.0`` however we instead suggest using the *eups* tool to simply setup the packages for use without installing them. This will allow you to edit the packages in place, use multiple versions, change branches etc. You should definitely do this if you plan to do any *imSim* development.
 
 
 .. code-block:: sh
@@ -157,7 +157,7 @@ Now we are ready to install *imSim*. First go to the directory where you would l
    # Install imSim:
    pip install --no-deps imSim/
    # turn off build isolation for newer pip
-   pip install --no-build-isolation --no-deps skyCatalogs==2.1
+   pip install --no-build-isolation --no-deps skyCatalogs==2.1.0
 
 Install *rubin_sim_data*
 ~~~~~~~~~~~~~~~~~~~~~~~~
