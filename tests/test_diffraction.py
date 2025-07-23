@@ -155,7 +155,7 @@ def test_field_rotation_matrix_is_correct_near_zenith() -> None:
     az_t = np.arctan2(e_star[:, 0], e_star[:, 1])
     rate = diffraction.OMEGA_EARTH * np.cos(lat) * np.cos(az_t) / np.cos(alt_t)
     # Expected field rotation angle is the integral over the rate:
-    expected_angle = np.trapz(rate, t)
+    expected_angle = np.trapezoid(rate, t)
 
     alpha = np.arctan2(rot[0, 0, 1], rot[0, 0, 0])
     np.testing.assert_allclose(alpha, expected_angle, rtol=1.0e-7)
