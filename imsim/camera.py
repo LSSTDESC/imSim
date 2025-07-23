@@ -1,6 +1,8 @@
 import os
+import re
 import json
 from collections import defaultdict
+import numpy as np
 import galsim
 import lsst.utils
 from .meta_data import data_dir
@@ -214,3 +216,39 @@ class Camera(dict):
     def __getattr__(self, attr):
         """Provide access to the attributes of the underlying lsst_camera."""
         return getattr(self.lsst_camera, attr)
+
+    def get_adjacent_detectors(self, det_name):
+        """
+        Given a science detector's name, return a list of the names of science
+        detectors within the 3x3 grid around it, including itself.
+        """
+        if det_name not in self:
+            raise galsim.GalSimValueError("Detector is not in camera", det_name)
+        match = re.match(r"R(\d{2})_S(\d{2})", det_name)
+        if not match:
+            # If the given detector is in the list but couldn't be matched, then
+            # it's a wavefront or guide detector.
+            raise galsim.GalSimValueError("Arg must be a science detector, not wavefront or guide", det_name)
+        r00 = (int(match.group(1)[0]), int(match.group(1)[1]))
+        s00 = (int(match.group(2)[0]), int(match.group(2)[1]))
+
+        # The S indices aren't too bad. We'll always have a full set of the nine
+        # index pairs, but they need to be permuted to match the position within
+        # the raft.
+        s_rows = np.roll(np.array([0, 1, 2]), -s00[0] + 1)
+        s_cols = np.roll(np.array([0, 1, 2]), -s00[1] + 1)
+
+        # The R indices are more complex. If det_name is positioned to one side
+        # of the raft, we'll need to decrement the lowest index or increment the
+        # highest (and never both) for either or both of the row or column
+        # indices. This integer arithmatic makes it work.
+        r_rows = np.array([r00[0]-s_rows[0]//2, r00[0], r00[0]+(2-s_rows[2])//2])
+        r_cols = np.array([r00[1]-s_cols[0]//2, r00[1], r00[1]+(2-s_cols[2])//2])
+        
+        # That out of the way, loop through all index combinations and add to the
+        # the list if they exist in the camera.
+        adjacent_detectors = [f"R{ri}{rj}_S{si}{sj}"
+                              for ri, si in zip(r_rows, s_rows)
+                              for rj, sj in zip(r_cols, s_cols)
+                              if f"R{ri}{rj}_S{si}{sj}" in self]
+        return adjacent_detectors
