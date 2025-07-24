@@ -118,20 +118,12 @@ Method 2: *Conda* and the *Stackvana* package
 
 If using the *cvmfs* distribution is not an appropriate solution, you can install a standalone pre-built conda distribution from conda-forge  instead. With this method, you will install a version of lsst_distrib which has been compiled for conda along with extra needed dependencies.
 
-Install *Conda*
-~~~~~~~~~~~~~~~
+Create a *Conda* environment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-First install conda from  `Miniforge <https://github.com/conda-forge/miniforge>`_.   You need to download an installer and run the script.
+First install conda from  `Miniforge <https://github.com/conda-forge/miniforge>`_ following `these instructions <https://github.com/conda-forge/miniforge?tab=readme-ov-file#unix-like-platforms-macos-linux--wsl>`_.
 
-.. code-block:: sh
-
-   curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
-   bash Mambaforge-$(uname)-$(uname -m).sh
-
-
-.. note::
-
-   If you prefer you can use  `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`_  or your own conda installation but, in that case, be careful to specify that you want to use the conda-forge channel.
+If you prefer you can use  `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`_  or your own conda installation but, in that case, be careful to specify that you want to use the conda-forge channel.
 
 Next, create a *Conda* environment and activate it.
 
