@@ -5,13 +5,13 @@ Installation Instructions
 
    **Pre-requisites**:
 
-   To use **imSim 2.0** at least versions
+   To use **imSim 2.1.0** at least versions
 
-   **GalSim 2.4.11** and **skyCatalogs v1.6.0rc2**
+   **GalSim 2.7.2** and **skyCatalogs v2.1.0**
 
-   are required. The instructions below for the cvmfs and stackvana installations should automatically fulfill these requirements for you.  If you are using a different installation method, please ensure that you have met these requirements.
+   are required. The instructions below for the cvmfs and stackvana installations should automatically fulfill the galsim requirement for you.  If you are using a different installation method, please ensure that you have met these requirements.
 
-   These instructions were last updated September of 2023. If you find that parts of this document are out of date or are incorrect, please submit a bug report `here <https://github.com/LSSTDESC/imSim/issues>`_.
+   These instructions were last updated July of 2025. If you find that parts of this document are out of date or are incorrect, please submit a bug report `here <https://github.com/LSSTDESC/imSim/issues>`_.
 
 
 .. warning::
@@ -37,15 +37,15 @@ First you need to setup the science pipelines.  This involves sourcing a setup f
 
 .. note::
 
-   You will need at least version  ``w_2023_32`` of the science pipelines to complete these instructions.
+   You will need at least version  ``w_2025_08`` of the science pipelines to complete these instructions.
 
    Also note: the cvmfs distribution is a read-only distribution.  This means you cannot add packages to the included conda environment and packages you install via *pip* will be installed in the user area.  If you need a *conda*  environment you can modify while running *imSim*, then you may consider :ref:`method_2` below.
 
-Source the appropriate setup script (note the -ext in the name) and then setup the distribution (if you are on MacOS use darwin-x86_64 instead of linux-x86_64).
+Source the appropriate setup script (note the -ext in the name) and then setup the distribution (if you are on MacOS use darwin-x86_64 instead of almalinux-x86_64).
 
 .. code-block:: sh
 
-   source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_distrib/w_2023_21-dev/loadLSST-ext.bash
+   source /cvmfs/sw.lsst.eu/almalinux-x86_64/lsst_distrib/w_2025_08/loadLSST-ext.bash
    setup lsst_distrib
 
 
@@ -71,8 +71,9 @@ Next, clone copies of both the imSim and skyCatalog software packages from  GitH
 
    git clone https://github.com/LSSTDESC/imSim.git
    git clone https://github.com/LSSTDESC/skyCatalogs
+   cd skyCatalogs; git checkout v2.1.0
 
-at this point if you would only like to use *imSim* you can ``pip install imSim/`` and ``pip install skyCatalog/`` however we instead suggest using the *eups* tool to simply setup the packages for use without installing them. This will allow you to edit the packages in place, use multiple versions, change branches etc. You should definitely do this if you plan to do any *imSim* development.
+at this point if you would only like to use *imSim* you can ``pip install imSim/`` and ``pip install skyCatalogs==2.1.0`` however we instead suggest using the *eups* tool to simply setup the packages for use without installing them. This will allow you to edit the packages in place, use multiple versions, change branches etc. You should definitely do this if you plan to do any *imSim* development.
 
 
 .. code-block:: sh
@@ -117,20 +118,12 @@ Method 2: *Conda* and the *Stackvana* package
 
 If using the *cvmfs* distribution is not an appropriate solution, you can install a standalone pre-built conda distribution from conda-forge  instead. With this method, you will install a version of lsst_distrib which has been compiled for conda along with extra needed dependencies.
 
-Install *Conda*
-~~~~~~~~~~~~~~~
+Create a *Conda* environment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-First install conda from  `Miniforge <https://github.com/conda-forge/miniforge>`_.   You need to download an installer and run the script.
+First install conda from  `Miniforge <https://github.com/conda-forge/miniforge>`_ following `these instructions <https://github.com/conda-forge/miniforge?tab=readme-ov-file#unix-like-platforms-macos-linux--wsl>`_.
 
-.. code-block:: sh
-
-   curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
-   bash Mambaforge-$(uname)-$(uname -m).sh
-
-
-.. note::
-
-   If you prefer you can use  `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`_  or your own conda installation but, in that case, be careful to specify that you want to use the conda-forge channel.
+If you prefer you can use  `MiniConda <https://docs.conda.io/en/latest/miniconda.html>`_  or your own conda installation but, in that case, be careful to specify that you want to use the conda-forge channel.
 
 Next, create a *Conda* environment and activate it.
 
@@ -156,7 +149,7 @@ Now we are ready to install *imSim*. First go to the directory where you would l
    # Install imSim:
    pip install --no-deps imSim/
    # turn off build isolation for newer pip
-   pip install --no-build-isolation --no-deps skyCatalogs/
+   pip install --no-build-isolation --no-deps skyCatalogs==2.1.0
 
 Install *rubin_sim_data*
 ~~~~~~~~~~~~~~~~~~~~~~~~

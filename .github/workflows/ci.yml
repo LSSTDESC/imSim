@@ -50,7 +50,7 @@ jobs:
               run: |
                 git clone https://github.com/LSSTDESC/skyCatalogs.git
                 cd skyCatalogs
-                git checkout v2.0.1
+                git checkout v2.1.0
                 # fix bug specifying version
                 sed -i.bak 's/\.skycatalogs/skycatalogs/' pyproject.toml
                 pip install --no-build-isolation --no-deps -e .
