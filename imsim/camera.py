@@ -230,8 +230,8 @@ class Camera(dict):
             # it's a wavefront or guide detector.
             raise galsim.GalSimValueError(
                 "Arg must be a science detector, not wavefront or guide", det_name)
-        r00 = (int(match.group(1)[0]), int(match.group(1)[1]))
-        s00 = (int(match.group(2)[0]), int(match.group(2)[1]))
+        r_det = (int(match.group(1)[0]), int(match.group(1)[1]))
+        s_det = (int(match.group(2)[0]), int(match.group(2)[1]))
 
         # The following method of manipulating the indices in the detector name
         # is about 5000 times faster than using lsst.afw.cameraGeom to find the
@@ -240,13 +240,13 @@ class Camera(dict):
 
         # We'll always have a full set of the nine S index pairs, but they need
         # to be permuted to match the position within the raft.
-        s_rows = np.roll(np.array([0, 1, 2]), 1 - s00[0])
-        s_cols = np.roll(np.array([0, 1, 2]), 1 - s00[1])
+        s_rows = np.roll(np.array([0, 1, 2]), 1 - s_det[0])
+        s_cols = np.roll(np.array([0, 1, 2]), 1 - s_det[1])
 
-        # Use some integer arithmetic to increment or decrement the raft indices
-        # if the detector is positioned on an edge of the raft.
-        r_rows = np.array([r00[0]-s_rows[0]//2, r00[0], r00[0]+(2-s_rows[2])//2])
-        r_cols = np.array([r00[1]-s_cols[0]//2, r00[1], r00[1]+(2-s_cols[2])//2])
+        # A little integer arithmetic is used to increment or decrement the raft
+        # indices if the detector is positioned on an edge of the raft.
+        r_rows = np.array([r_det[0]-s_rows[0]//2, r_det[0], r_det[0]+(2-s_rows[2])//2])
+        r_cols = np.array([r_det[1]-s_cols[0]//2, r_det[1], r_det[1]+(2-s_cols[2])//2])
 
         adjacent_detectors = [f"R{ri}{rj}_S{si}{sj}"
                               for ri, si in zip(r_rows, s_rows)
