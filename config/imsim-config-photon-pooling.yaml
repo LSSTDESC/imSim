@@ -66,14 +66,3 @@ output.photon_pooling_truth:
         phot_flux: "@phot_flux"  # The realized flux for photon shooting.
         fft_flux: "@fft_flux"  # If FFT rendering, then the flux used, including vignetting.
         incident_flux: "@incident_flux"  # The sum of the fluxes of all photons from the object.
-output.scattered_photons:
-    dir: output
-    file_name:
-        type: FormattedStr
-        format : scattered_%08d-%1d-%s-%s-det%03d.fits
-        items:
-            - { type: OpsimData, field: observationId }
-            - { type: OpsimData, field: snap }
-            - $band
-            - $det_name
-            - "@output.det_num"

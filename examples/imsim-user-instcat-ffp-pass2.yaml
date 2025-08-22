@@ -29,8 +29,8 @@ input.initial_image:
     file_name: "eimage_00398414-0-r-R22_S12-det095.fits"
     dir: "output"
 
-input.scattered_photons:
-    file_name: "output/scattered_00398414-0-r-R22_S11-det094.fits"
+input.off_detector_photons:
+    file_name: "output/off_det_00398414-0-r-R22_S11-det094.fits"
     camera: $camera
     det_name: $det_name
 
@@ -43,12 +43,12 @@ psf:
 
 stamp: ""
 
-image.type: LSST_ScatteredPhotonsImage
+image.type: LSST_FocalPlaneImage
 image.sensor.treering_center: ""
 image.sensor.treering_func: ""
 
 output.det_num.first: 95
 output.nfiles: 1
-output.file_name.format: "eimage_final_%08d-%1d-%s-%s-det%03d.fits"
+output.file_name.format: "eimage_full_focal_%08d-%1d-%s-%s-det%03d.fits"
 
 output.dir: output
