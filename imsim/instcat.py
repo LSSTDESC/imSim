@@ -13,7 +13,11 @@ from galsim.config import RegisterSEDType
 from galsim import CelestialCoord
 import galsim
 import pickle
-from .utils import RUBIN_AREA
+from .camera import Camera
+from .utils import RUBIN_AREA, focal_to_pixel
+import lsst.afw.cameraGeom as cameraGeom
+
+from copy import deepcopy
 
 
 def clarify_radec_limits(
@@ -168,8 +172,9 @@ class InstCatalog(object):
     # cached SEDs.
     fnu = (0 * u.ABmag).to(u.erg/u.s/u.cm**2/u.Hz)
     _flux_density = fnu.to_value(u.ph/u.nm/u.s/u.cm**2, u.spectral_density(500*u.nm))
-    def __init__(self, file_name, wcs, xsize=4096, ysize=4096, sed_dir=None,
-                 edge_pix=100, sort_mag=True, flip_g2=True,
+    def __init__(self, file_name, wcs, fiducial_wcs=None, xsize=4096, ysize=4096, sed_dir=None,
+                 edge_pix=200, camera=None, det_name=None,
+                 sort_mag=True, flip_g2=True,
                  pupil_area=RUBIN_AREA, min_source=None, skip_invalid=True,
                  logger=None):
         logger = galsim.config.LoggerWrapper(logger)
@@ -178,6 +183,22 @@ class InstCatalog(object):
         self.xsize = xsize
         self.ysize = ysize
         self.edge_pix = edge_pix
+        if camera is not None and det_name is not None and fiducial_wcs is not None:
+            self.multi_det = True
+            self.camera = Camera(camera_class=camera)
+            self.det_name = det_name
+            self.fiducial_wcs = fiducial_wcs
+        elif camera is None and det_name is None and fiducial_wcs is None:
+            # Fine, just set everything to None and move on.
+            self.multi_det = False
+            self.camera = None
+            self.det_name = None
+            self.fiducial_wcs = None
+        else:
+            # We're in a bad state where we have some but not all of the
+            # information needd for a multi-detector run.
+            # I don't think this should be possible, but just in case...
+            raise galsim.GalSimNotImplementedError("For multi-detector runs, the camera, detector name, and fiducial_wcs must all be provided to InstCatalog.")
         self.sort_mag = sort_mag
         self.flip_g2 = flip_g2
         self.min_source = min_source
@@ -227,6 +248,19 @@ class InstCatalog(object):
         nuse = 0
         ntot = 0
 
+        if self.multi_det:
+            # Get adjacent detectors; then their centers in pixel coordinates, then
+            # store after converting to RA and dec.
+            adjacent_detectors = self.camera.get_adjacent_detectors(self.det_name)
+            detector_centers = {}
+            transform_mapping = self.camera.lsst_camera[self.det_name].getTransform(cameraGeom.FOCAL_PLANE, cameraGeom.PIXELS).getMapping()
+
+            # Get the focal plane centers for each detector in the list.
+            for detector in adjacent_detectors:
+                focal_plane_center = self.camera.lsst_camera[detector].getCenter(cameraGeom.FOCAL_PLANE)
+                pixel_center = galsim.PositionD(transform_mapping.applyForward(focal_plane_center))
+                detector_centers[detector] = self.wcs.toWorld(pixel_center)
+
         with fopen(self.file_name, mode='rt') as _input:
             for line in _input:
                 if ' inf ' in line: continue
@@ -244,6 +278,21 @@ class InstCatalog(object):
                         and min_dec <= dec <= max_dec
                     ):
                         continue
+
+                    # # Next check is whether the object is closer to this detector's center
+                    # # than any of the adjacent detectors. If not, then skip it.
+                    # if self.multi_det:
+                    #     obj_dist = {}
+                    #     for detector in adjacent_detectors:
+                    #         det_center = detector_centers[detector]
+                    #         obj_dist[detector] = math.sqrt(
+                    #             (ra - det_center.ra)**2 +
+                    #             (dec - det_center.dec)**2
+                    #         )
+                    #     closest_detector = min(obj_dist, key=obj_dist.get)
+                    #     if closest_detector != self.det_name:
+                    #         continue
+
                     world_pos = galsim.CelestialCoord(ra, dec)
                     #logger.debug('world_pos = %s',world_pos)
                     try:
@@ -642,10 +691,42 @@ class InstCatalogLoader(InputLoader):
                 'skip_invalid' : bool,
               }
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
-        wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
-        kwargs['wcs'] = wcs
+
         kwargs['xsize'] = base.get('det_xsize', 4096)
         kwargs['ysize'] = base.get('det_ysize', 4096)
+        kwargs['camera'] = base['output'].get('camera', None)
+        kwargs['det_name'] = base.get('det_name', None)
+
+        if kwargs['camera'] is not None and kwargs['det_name'] is not None:
+            # A horrible hack to get the Batoid WCS for R22_S11.
+            # Need a nicer way to do this, and if possible only
+            # calculated once pre multiprocessing then inherited
+            # by all the processes.
+            # orig_det_name = base.get('det_name', None)
+            # base['det_name'] = 'R22_S11'
+            # base['image']['det_name'] = 'R22_S11'
+            if base['image']['wcs'].wcs_type == 'Batoid':
+                base['image']['wcs']['det_name'] = 'R22_S11'
+            central_wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
+            # Now we have the TAN-SIP WCS for the central detector,
+            # as determined by batoid, pull out the CD matrix and use
+            # it to make a new TAN WCS (ie. without the SIP
+            # distortion terms).
+            central_affine = galsim.AffineTransform(central_wcs.cd[0,0],
+                                                    central_wcs.cd[0,1],
+                                                    central_wcs.cd[1,0],
+                                                    central_wcs.cd[1,1],
+                                                    origin=central_wcs.origin)
+            fiducial_wcs = galsim.TanWCS(central_affine, central_wcs.center)
+            kwargs['fiducial_wcs'] = fiducial_wcs
+            del base['image']['wcs']['current']
+            # base['det_name'] = orig_det_name
+            # base['image']['det_name'] = orig_det_name
+            base['image']['wcs']['det_name'] = '$det_name'
+
+        wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
+
+        kwargs['wcs'] = wcs
         kwargs['logger'] = logger
         return kwargs, False
 
