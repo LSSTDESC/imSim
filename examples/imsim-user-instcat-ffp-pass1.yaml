@@ -42,3 +42,15 @@ output.nfiles: 2
 output.nproc: 1
 
 output.dir: output
+
+output.off_detector_photons:
+    dir: output
+    file_name:
+        type: FormattedStr
+        format : off_det_%08d-%1d-%s-%s-det%03d.fits
+        items:
+            - { type: OpsimData, field: observationId }
+            - { type: OpsimData, field: snap }
+            - $band
+            - $det_name
+            - "@output.det_num"
