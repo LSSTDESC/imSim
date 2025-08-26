@@ -198,7 +198,7 @@ class InstCatalog(object):
             # We're in a bad state where we have some but not all of the
             # information needd for a multi-detector run.
             # I don't think this should be possible, but just in case...
-            raise galsim.GalSimNotImplementedError("For multi-detector runs, the camera, detector name, and fiducial_wcs must all be provided to InstCatalog.")
+            raise galsim.GalSimNotImplementedError("For multi-detector runs, the camera, det_name, and fiducial_wcs must all be available to InstCatalog.")
         self.sort_mag = sort_mag
         self.flip_g2 = flip_g2
         self.min_source = min_source
@@ -690,43 +690,30 @@ class InstCatalogLoader(InputLoader):
                 'min_source' : int,
                 'skip_invalid' : bool,
               }
-        kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
-
+        ignore = ['fiducial_wcs']  # Handled separately.
+        kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)
+        wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
+        kwargs['wcs'] = wcs
+        if config.get('fiducial_wcs', None) is not None:
+            fiducial_wcs = galsim.config.BuildWCS(config, 'fiducial_wcs', base, logger=logger)
+            if fiducial_wcs.wcs_type == "TAN-SIP":
+                # If it's a TAN-SIP WCS (such as from Batoid) then we use it to
+                # create a TAN WCS without the SIP distortions, since we'll
+                # potentially use this WCS a long way from the det where the
+                # polynomial was fitted.
+                fiducial_affine = galsim.AffineTransform(fiducial_wcs.cd[0,0],
+                                                         fiducial_wcs.cd[0,1],
+                                                         fiducial_wcs.cd[1,0],
+                                                         fiducial_wcs.cd[1,1],
+                                                         origin=fiducial_wcs.origin)
+                fiducial_wcs = galsim.TanWCS(fiducial_affine, fiducial_wcs.center)
+            kwargs['fiducial_wcs'] = fiducial_wcs
+        else:
+            kwargs['fiducial_wcs'] = None
         kwargs['xsize'] = base.get('det_xsize', 4096)
         kwargs['ysize'] = base.get('det_ysize', 4096)
         kwargs['camera'] = base['output'].get('camera', None)
         kwargs['det_name'] = base.get('det_name', None)
-
-        if kwargs['camera'] is not None and kwargs['det_name'] is not None:
-            # A horrible hack to get the Batoid WCS for R22_S11.
-            # Need a nicer way to do this, and if possible only
-            # calculated once pre multiprocessing then inherited
-            # by all the processes.
-            # orig_det_name = base.get('det_name', None)
-            # base['det_name'] = 'R22_S11'
-            # base['image']['det_name'] = 'R22_S11'
-            if base['image']['wcs'].wcs_type == 'Batoid':
-                base['image']['wcs']['det_name'] = 'R22_S11'
-            central_wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
-            # Now we have the TAN-SIP WCS for the central detector,
-            # as determined by batoid, pull out the CD matrix and use
-            # it to make a new TAN WCS (ie. without the SIP
-            # distortion terms).
-            central_affine = galsim.AffineTransform(central_wcs.cd[0,0],
-                                                    central_wcs.cd[0,1],
-                                                    central_wcs.cd[1,0],
-                                                    central_wcs.cd[1,1],
-                                                    origin=central_wcs.origin)
-            fiducial_wcs = galsim.TanWCS(central_affine, central_wcs.center)
-            kwargs['fiducial_wcs'] = fiducial_wcs
-            del base['image']['wcs']['current']
-            # base['det_name'] = orig_det_name
-            # base['image']['det_name'] = orig_det_name
-            base['image']['wcs']['det_name'] = '$det_name'
-
-        wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
-
-        kwargs['wcs'] = wcs
         kwargs['logger'] = logger
         return kwargs, False
 
