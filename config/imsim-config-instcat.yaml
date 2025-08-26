@@ -25,6 +25,33 @@ input.instance_catalog:
     file_name: default_catalog_file.txt
     sed_dir: $os.environ.get('SIMS_SED_LIBRARY_DIR')
     pupil_area: $pupil_area
+    # A single WCS calculated used when determining which objects are to be drawn
+    # by which detector. We could in principle use any WCS. Here we start from the
+    # same Batoid WCS as in the image. In the code, any SIP components of the
+    # fiducial WCS, once it's been calculated, are removed.
+    fiducial_wcs:
+        type: Batoid
+
+        # These are required:
+        camera: $camera
+        boresight: $boresight
+
+        obstime:
+            type: Eval
+            str: "astropy.time.Time(mjd_val, format='mjd', scale='tai')"
+            fmjd_val: { type: OpsimData, field: mjd }
+
+        # The fiducial WCS will use this detector. We default here to the
+        # central detector, but it can be overrdden if needed.
+        det_name: "R22_S11"
+        wavelength: $(@image.bandpass).effective_wavelength
+
+        # The rest can be omitted, since these are the default values, but shown here
+        # for reference.
+        temperature: 280  # Kelvin
+        pressure: 72.7    # kPa
+        H2O_pressure: 1.0 # kPa
+        order: 3          # Order of the SIP polynomial
 
 input.opsim_data:
     # Read the visit meta data. By default, we use the same file as the above
