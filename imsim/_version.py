@@ -13,7 +13,7 @@
 __all__ = ['__version__', '__version_info__']
 
 # This should be updated before a release.
-__version__ = '2.0'
+__version__ = '2.1.1'
 
 # This will work if the version has end tags like 2.0.0-rc.1
 __version_info__ = tuple(map(lambda x:int(x.split('-')[0]), __version__.split('.')))[:3]
