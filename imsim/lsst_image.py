@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 import hashlib
+import os
 import galsim
 from galsim.config import RegisterImageType, GetAllParams, GetSky, AddNoise
 from galsim.config.image_scattered import ScatteredImageBuilder
@@ -8,7 +9,7 @@ from galsim.config.image_scattered import ScatteredImageBuilder
 from .sky_model import SkyGradient, CCD_Fringing
 from .camera import get_camera
 from .vignetting import Vignetting
-
+from .meta_data import data_dir
 
 class LSST_ImageBuilderBase(ScatteredImageBuilder):
     def setup(self, config, base, image_num, obj_num, ignore, logger):
@@ -88,6 +89,18 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
                 self.boresight = params.get('boresight')
 
         self.camera_name = params.get('camera', 'LsstCam')
+
+        # If using a SiliconSensor and not overridden in config, determine sensor type to use.
+        if (
+            'sensor' in config and
+            config['sensor'].get('type', 'None') == 'Silicon' and
+            config['sensor'].get('name', None) is None
+        ):
+            det_type = camera[self.det_name].getPhysicalType()
+            if det_type == 'ITL':
+                config['sensor']['name'] = os.path.join(data_dir, 'sensor_models', 'lsst_itl_50_4')
+            elif det_type == 'E2V':
+                config['sensor']['name'] = os.path.join(data_dir, 'sensor_models', 'lsst_e2v_50_4')
 
         # Batching is also useful for memory reasons, to limit the number of stamps held
         # in memory before adding them all to the main image.  So even if not checkpointing,
