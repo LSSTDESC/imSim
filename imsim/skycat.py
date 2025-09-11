@@ -137,6 +137,16 @@ class SkyCatalogInterface:
                 self.file_name, skycatalog_root=self.skycatalog_root)
             self._objects = sky_cat.get_objects_by_region(
                 region, obj_type_set=self.obj_types, mjd=self.mjd)
+            if self.multi_det:
+                # Work out the which of the adjacent detectors are closest
+                # to each object found in the region.
+                closest_detector = {}
+                for obj in self._objects:
+                    world_pos = galsim.CelestialCoord(obj.ra*galsim.degrees,
+                                                      obj.dec*galsim.degrees)
+                    obj_dist = {det: detector_centers[det].distanceTo(world_pos) for det in adjacent_detectors}
+                    closest_detector[obj] = min(obj_dist, key=obj_dist.get)
+                self._objects = filter(lambda object: closest_detector[object] == self.det_name, self._objects)
             if not self._objects:
                 self.logger.warning("No objects found on image.")
         return self._objects
