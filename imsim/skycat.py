@@ -105,6 +105,7 @@ class SkyCatalogInterface:
             self.logger.info(f'Object types restricted to {obj_types}')
         self.ccd_center = wcs.toWorld(galsim.PositionD(xsize/2.0, ysize/2.0))
         self._objects = None
+        self._objects_to_skip = set()
 
     @property
     def objects(self):
@@ -139,14 +140,18 @@ class SkyCatalogInterface:
                 region, obj_type_set=self.obj_types, mjd=self.mjd)
             if self.multi_det:
                 # Work out the which of the adjacent detectors are closest
-                # to each object found in the region.
-                closest_detector = {}
+                # to each object found in the region.  Add the object to the
+                # set of objects to skip if the current detector isn't the
+                # closest one.
                 for obj in self._objects:
                     world_pos = galsim.CelestialCoord(obj.ra*galsim.degrees,
                                                       obj.dec*galsim.degrees)
                     obj_dist = {det: detector_centers[det].distanceTo(world_pos) for det in adjacent_detectors}
-                    closest_detector[obj] = min(obj_dist, key=obj_dist.get)
-                self._objects = filter(lambda object: closest_detector[object] == self.det_name, self._objects)
+                    closest_detector = min(obj_dist, key=obj_dist.get)
+                    if closest_detector != self.det_name:
+                        self._objects_to_skip.add(obj.id)
+                self.logger.info("Skipping {len(self._objects_to_skip)} "
+                                 "objects for this detector.")
             if not self._objects:
                 self.logger.warning("No objects found on image.")
         return self._objects
@@ -210,6 +215,8 @@ class SkyCatalogInterface:
             raise RuntimeError("Trying to get an object from an empty sky catalog")
 
         skycat_obj = self.objects[index]
+        if skycat_obj.id in self._objects_to_skip:
+            return None
         gsobjs = skycat_obj.get_gsobject_components(gsparams)
 
         if self.apply_dc2_dilation and skycat_obj.object_type == 'galaxy':
