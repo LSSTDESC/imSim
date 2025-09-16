@@ -150,7 +150,7 @@ class SkyCatalogInterface:
                     closest_detector = min(obj_dist, key=obj_dist.get)
                     if closest_detector != self.det_name:
                         self._objects_to_skip.add(obj.id)
-                self.logger.info("Skipping {len(self._objects_to_skip)} "
+                self.logger.info(f"Skipping {len(self._objects_to_skip)} "
                                  "objects for this detector.")
             if not self._objects:
                 self.logger.warning("No objects found on image.")
