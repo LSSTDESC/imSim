@@ -137,6 +137,14 @@ class OffDetectorPhotonsLoader(InputLoader):
 # photons which fell off-detector.
 class LSST_FocalPlaneImageBuilder(LSST_ImageBuilderBase):
 
+    def setup(self, config, base, image_num, obj_num, ignore, logger):
+        xsize, ysize = super().setup(config, base, image_num, obj_num, ignore, logger)
+        # Disable application of the addNoise function in
+        # LSST_ImageBuilderBase.addNoise since it was already applied
+        # in pass1 and not needed for the added off-detector photons
+        self.add_noise = False
+        return xsize, ysize
+
     def buildImage(self, config, base, image_num, _obj_num, logger):
         """Draw the off-detector photons to the image.
         """

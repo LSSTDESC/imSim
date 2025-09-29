@@ -87,6 +87,8 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
             else:
                 self.boresight = params.get('boresight')
 
+        self.add_noise = True
+
         self.camera_name = params.get('camera', 'LsstCam')
 
         # Batching is also useful for memory reasons, to limit the number of stamps held
@@ -184,7 +186,8 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
                 sky.array[:] *= fringing_map
 
         image += sky
-        AddNoise(base,image,current_var,logger)
+        if self.add_noise:
+            AddNoise(base,image,current_var,logger)
 
     @staticmethod
     def _create_full_image(config, base):
