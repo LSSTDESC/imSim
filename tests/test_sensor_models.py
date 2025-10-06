@@ -77,14 +77,13 @@ def run_sensor_tests(sensor_type):
     sensor4 = galsim.SiliconSensor(rng=rng4, name=sensor_path('lsst_' + sensor_type + '_50_32'))
     image4 = draw_obj_with_sensor(obj, sensor4, rng4)
 
-    # The max flux in the images using a SiliconSensor model should always be
-    # less than or equal to the flux when not using a sensor or using the simple Sensor.
+    # The max flux in the images using no sensor or a simple Sensor should be
+    # the same. Then we'd expect that the max in the different SiliconSensor
+    # models should always be less than or equal to that.
+    assert image0.array.max() == image1.array.max()
     assert image2.array.max() <= image0.array.max()
     assert image3.array.max() <= image0.array.max()
     assert image4.array.max() <= image0.array.max()
-    assert image2.array.max() <= image1.array.max()
-    assert image3.array.max() <= image1.array.max()
-    assert image4.array.max() <= image1.array.max()
 
     # Calculate the radii of the spots in each image.
 
