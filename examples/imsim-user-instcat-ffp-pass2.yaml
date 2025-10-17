@@ -26,11 +26,39 @@ input.tree_rings: ""
 input.atm_psf: ""
 
 input.initial_image:
-    file_name: "eimage_00398414-0-r-R22_S12-det095.fits"
-    dir: "output"
+    dir: output
+    file_name:
+        type: FormattedStr
+        format : eimage_%08d-%1d-%s-%s-det%03d.fits
+        items:
+            - { type: OpsimData, field: observationId }
+            - { type: OpsimData, field: snap }
+            - $band
+            - $det_name
+            - "@output.det_num"
 
+# Simple off detector photon input reading one file.
+# input.off_detector_photons:
+#     file_name: "output/off_det_00398414-0-r-R22_S11-det094.fits"
+#     camera: $camera
+#     det_name: $det_name
+
+# If we're doing the preprocessing step then we've already reorganised the
+# photons so they live in one file per destination detector, so we only need to
+# read that one. But, we might feasibly also wish to directly specify a list of
+# off-detector photon files, which presumably haven't been preprocessed, so I
+# might want to add the capability to work from a file list too.
 input.off_detector_photons:
-    file_name: "output/off_det_00398414-0-r-R22_S11-det094.fits"
+    dir: output
+    file_name:
+        type: FormattedStr
+        format : off_det_%08d-%1d-%s-%s-det%03d.fits
+        items:
+            - { type: OpsimData, field: observationId }
+            - { type: OpsimData, field: snap }
+            - $band
+            - $det_name
+            - "@output.det_num"
     camera: $camera
     det_name: $det_name
 

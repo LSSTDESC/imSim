@@ -1,3 +1,5 @@
+import os
+
 import galsim
 from galsim.config.extra import ExtraOutputBuilder, RegisterExtraOutput
 from galsim.config import RegisterImageType, InputLoader, RegisterInputType
@@ -85,7 +87,7 @@ class OffDetectorPhotons(object):
     then, and will now be read in this second pass to be accumulated on other sensors.
     """
 
-    def __init__(self, file_name, camera, det_name, xsize=4096, ysize=4096, logger=None):
+    def __init__(self, file_name, camera, det_name, dir=None, xsize=4096, ysize=4096, logger=None):
         """
         Initialize the off-detector photons input class.
 
@@ -96,6 +98,8 @@ class OffDetectorPhotons(object):
                 The name of the camera containing the detector.
             det_name: str
                 The name of the detector to use for photon coordinate transformations.
+            dir: str
+                The directory where the file is. (default: None)
             xsize: int
                 The x size in pixels of the CCD. (default: 4096)
             ysize: int
@@ -104,6 +108,8 @@ class OffDetectorPhotons(object):
                 A logger object. (default: None)
         """
         self.file_name = file_name
+        if dir is not None:
+            self.file_name = os.path.join(dir, self.file_name)
         self.det = get_camera(camera)[det_name]
         self.xsize = xsize
         self.ysize = ysize
@@ -119,7 +125,7 @@ class OffDetectorPhotonsLoader(InputLoader):
     """
     def getKwargs(self, config, base, logger):
         req = {'file_name': str, 'camera': str, 'det_name': str}
-        opt = {}
+        opt = {'dir': str}
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
         kwargs['xsize'] = base.get('det_xsize', 4096)
@@ -128,7 +134,9 @@ class OffDetectorPhotonsLoader(InputLoader):
 
         # For now assume the off-detector photons on file can be used for
         # all detectors.
-        safe = True
+        # Change assumption, so now we consider that we have a per-detector
+        # input file that cannot be reused for other detectors.
+        safe = False
         return kwargs, safe
 
 
