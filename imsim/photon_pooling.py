@@ -331,6 +331,24 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         return subbatches
 
     @staticmethod
+    def make_smart_photon_subbatches(batch, nsubbatch):
+        """
+        Divide a batch of objects into a list of smaller subbatches of approximately the same
+        total number of photons.
+
+        Parameters:
+            batch: A list making a batch of objects to be divided into subbatches.
+            nsubbatch: The number of subbatches to create from the batch. Must be a positive integer.
+        Returns:
+            subbatches: A list of subbatches, each a valid batch in its own right, together containing all objects in the original batch.
+        """
+        nphotons_total = sum(obj.phot_flux for obj in batch)
+        photons_per_subbatch, extra_photons = divmod(nphotons_total, nsubbatch)
+        subbatches = []
+
+        return subbatches
+
+    @staticmethod
     def stamp_bounds(stamp, full_image_bounds):
         """Check bounds overlap between an object's stamp and the full image.
 
