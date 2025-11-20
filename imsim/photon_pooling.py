@@ -342,9 +342,68 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         Returns:
             subbatches: A list of subbatches, each a valid batch in its own right, together containing all objects in the original batch.
         """
+        # This is going to be a bin-packing with fragmentation problem.
+        # Fragmentation is required because the range of fluxes in the objects
+        # is huge; it would be impossible to get roughly even workloads across
+        # the subbatches without splitting some objects.
+        # Our goal is also to reduce the number of object lookups; that means
+        # that we want to minimize the number of object splits.
+
         nphotons_total = sum(obj.phot_flux for obj in batch)
         photons_per_subbatch, extra_photons = divmod(nphotons_total, nsubbatch)
-        subbatches = []
+
+        # We aren't asking for a perfectly equal distribution of photons; just
+        # something close. So we set a loose constraint.
+        loose_photons_per_subbatch = round(1.1 * photons_per_subbatch)
+
+        # We need the order of objects in the batch from brightest to faintest.
+        sorted_objects = sorted(batch, key=lambda obj: obj.phot_flux, reverse=True)
+
+        # Implementation goal: (at the moment have something like 1 -5)
+        # 0. Sort objects brightest to faintest.
+        # 1. Loop first through objects and then while object's remaining flux > 0.
+        # 2. Does this object's remaining flux fit entirely into the current sub-batch? If yes, put it in.
+        # 3. If not, are there are still any empty sub-batches AND would we expect it to fit into one?
+        #   4. If yes, move to the next empty sub-batch and put it in. Decrement the number of empty sub-batches.
+        #   5. If not, then we now need to place the objects in partially full sub-batches and potentially fragment them. Exit the loop, noting current object.
+        # 6. Loop through the remaining objects.
+        #   7. Loop while the object's remaining flux > 0.
+        #   8. Find the least full sub-batch. (Store total flux in each somewhere instead?)
+        #   9. Add the object up to max(1.1 * its current flux, 1.1 * photons_per_subbatch), or some other tolerance.
+
+        subbatches = [[] for _ in range(nsubbatch)]
+        current_subbatch = 0
+        for obj in sorted_objects:
+            remaining_flux = obj.phot_flux
+            while remaining_flux > 0:
+                # Calculate current sub-batch flux.
+                # It would be nicer to store rather then recalculate.
+                subbatch = subbatches[current_subbatch]
+                subbatch_flux = sum(sb_obj.phot_flux for sb_obj in subbatch)
+                available_flux = photons_per_subbatch - subbatch_flux
+                if remaining_flux < available_flux:
+                    # There's still space for more in this sub-batch.
+                    # Place entirety of remaining object flux here.
+                    subbatches[current_subbatch].append(
+                        dataclasses.replace(obj, phot_flux=remaining_flux)
+                    )
+                    remaining_flux = 0
+                elif remaining_flux == available_flux:
+                    # The object will also fit in here, but will fill it up entirely.
+                    # Add the object, then advance subbatch.
+                    subbatches[current_subbatch].append(
+                        dataclasses.replace(obj, phot_flux=remaining_flux)
+                    )
+                    remaining_flux = 0
+                    current_subbatch = (1 + current_subbatch) % nsubbatch
+                else:
+                    # The object is too bright to fit entirely in the current sub-batch.
+                    # Fill to the top, then advance to next sub-batch.
+                    subbatches[current_subbatch].append(
+                        dataclasses.replace(obj, phot_flux=available_flux)
+                    )
+                    remaining_flux -= available_flux
+                    current_subbatch = (1 + current_subbatch) % nsubbatch
 
         return subbatches
 
