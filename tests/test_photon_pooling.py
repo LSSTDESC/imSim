@@ -274,6 +274,10 @@ def test_make_smart_photon_subbatches():
     """
     Test the newer smart sub-batching method which attempts to spread the batch
     flux equally across the sub-batches.
+    Some of these tests may be too restrictive, in particular those which specify
+    the exact sub-batch contents. It may be better to set those aside on only
+    check that the sub-batches balance flux and contain all the objects with the
+    correct total flux.
     """
     # Create a batch with a 'large' number of objects with varying fluxes, but
     # with none dominating the total. We should end up with them being spread
@@ -292,14 +296,23 @@ def test_make_smart_photon_subbatches():
     total_original_flux = sum(object.phot_flux for object in batch)
     nsubbatch = 4
     subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_smart_photon_subbatches(batch, nsubbatch)
-    
     # There are multiple ways to split the batch. Assert that each object
-    # appears once only across the full set of sub-batches, with its original
-    # flux, and that the total flux of each sub-batch is equal to 2e4 photons.
+    # appears with its original flux across however many sub-batches it appears
+    # in, that the total flux across all sub-batches equals the total batch
+    # flux, and that the most full batch contains <= 1.1 * the least full.
+    print("Subbatches:")
+    for i, subbatch in enumerate(subbatches):
+        print(f" Subbatch {i}: {[ (obj.index, obj.phot_flux) for obj in subbatch ]}")
     assert len(subbatches) == nsubbatch
-    counts = Counter(object.index for subbatch in subbatches for object in subbatch)
-    assert all([counts[obj.index] == 1 for obj in batch])
-    assert all([sum(object.phot_flux for object in subbatch) == total_original_flux for subbatch in subbatches])
+    # Equivalent to commented out assert all, but much more readable!
+    for object in batch:
+        total_obj_flux = sum(sum(obj.phot_flux for obj in subbatch if obj.index == object.index) for subbatch in subbatches)
+        assert object.phot_flux == total_obj_flux
+    # assert all(sum(sb_obj.phot_flux for subbatch in subbatches for sb_obj in subbatch if sb_obj.index == obj.index) == obj.phot_flux for obj in batch)
+    assert sum([sum(object.phot_flux for object in subbatch) for subbatch in subbatches]) == total_original_flux
+    # assert all([sum(object.phot_flux for object in subbatch) == 2e4 for subbatch in subbatches])
+    total_subbatch_fluxes = [sum(object.phot_flux for object in subbatch) for subbatch in subbatches]
+    assert max(total_subbatch_fluxes) <= 1.1 * min(total_subbatch_fluxes)
 
     # Create a batch with a total flux of 1e6 photons. We should end up with 10
     # sub-batches of 1e5 photons each. The majority of the flux is in a few very
@@ -320,7 +333,6 @@ def test_make_smart_photon_subbatches():
              ObjectInfo(9, 5e3, ProcessingMode.PHOT),
              ]
     total_original_flux = sum(object.phot_flux for object in batch)
-
     nsubbatch = 10
     subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_smart_photon_subbatches(batch, nsubbatch)
     expected_subbatches = [[ObjectInfo(0, 1e5, ProcessingMode.PHOT)],
@@ -341,19 +353,83 @@ def test_make_smart_photon_subbatches():
                             ObjectInfo(9, 5e3, ProcessingMode.PHOT),
                             ],
                            ]
-
+    print("Subbatches:")
+    for i, subbatch in enumerate(subbatches):
+        print(f" Subbatch {i}: {[ (obj.index, obj.phot_flux) for obj in subbatch ]}")
     # Assert that every object in the original batch appears at least once in
     # the sub-batches, and that the sum of the fluxes across the sub-batches is
     # equal to the original flux of each object.
     assert len(subbatches) == nsubbatch
-    counts = Counter(sb_obj.index for subbatch in subbatches for sb_obj in subbatch)
-    counts_expected = Counter(obj.index for subbatch in subbatches for obj in subbatch)
-    assert all([counts[obj.index] >= 1 for obj in batch])
-    assert all(sum(sb_obj.phot_flux for subbatch in subbatches for sb_obj in subbatch if sb_obj.index == obj.index) == obj.phot_flux for obj in batch)
-    assert all([sum(object.phot_flux for object in subbatch) == total_original_flux for subbatch in subbatches])
+    # Equivalent to commented out assert all, but much more readable!
+    for object in batch:
+        total_obj_flux = sum(sum(obj.phot_flux for obj in subbatch if obj.index == object.index) for subbatch in subbatches)
+        assert object.phot_flux == total_obj_flux
+    assert all([sum(object.phot_flux for object in subbatch) == 1e5 for subbatch in subbatches])
     # Though the sub-batch ordering as returned may differ, there is only one
     # way to split these objects across them.
+    # In general, I think this could be relaxed.
     assert all(subbatch in expected_subbatches for subbatch in subbatches)
+
+    # Here there's still one very bright object, but it leaves a little bit of
+    # space in the eighth subbatch for something else to go in. The other faint
+    # objects pack into the second one.
+    batch = [ObjectInfo(0, 8e5, ProcessingMode.PHOT),
+             ObjectInfo(1, 3e5, ProcessingMode.PHOT),
+             ObjectInfo(2, 6e5, ProcessingMode.PHOT),
+             ObjectInfo(3, 3e5, ProcessingMode.PHOT),
+             ]
+    total_original_flux = sum(object.phot_flux for object in batch)
+    # Request two subbatches. Should receive two with 1e6 photons each.
+    nsubbatch = 2
+    subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_smart_photon_subbatches(batch, nsubbatch)
+    expected_subbatches = [[ObjectInfo(0, 8e5, ProcessingMode.PHOT),
+                            ObjectInfo(2, 2e5, ProcessingMode.PHOT),
+                            ],
+                           [ObjectInfo(2, 4e5, ProcessingMode.PHOT),
+                            ObjectInfo(1, 3e5, ProcessingMode.PHOT),
+                            ObjectInfo(3, 3e5, ProcessingMode.PHOT),
+                            ],
+                           ]
+    print("Subbatches:")
+    for i, subbatch in enumerate(subbatches):
+        print(f" Subbatch {i}: {[ (obj.index, obj.phot_flux) for obj in subbatch ]}")
+    # Same assertions as previously. And as before, checking the expected subbatches
+    # may be too restrictive on any potential future development.
+    assert len(subbatches) == nsubbatch
+    assert all(sum(sb_obj.phot_flux for subbatch in subbatches for sb_obj in subbatch if sb_obj.index == obj.index) == obj.phot_flux for obj in batch)
+    assert all([sum(object.phot_flux for object in subbatch) == 1e6 for subbatch in subbatches])
+    assert all(subbatch in expected_subbatches for subbatch in subbatches)
+    
+    # Make sure the sub-batcher can go backwards (i.e. assign to subbatches
+    # earlier then the one just filled). This would be important for best fit
+    # type implementations.
+    batch = [ObjectInfo(0, 8e4, ProcessingMode.PHOT),
+             ObjectInfo(1, 8e4, ProcessingMode.PHOT),
+             ObjectInfo(2, 4e4, ProcessingMode.PHOT),
+             ]
+    total_original_flux = sum(object.phot_flux for object in batch)
+    nsubbatch = 2
+    subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_smart_photon_subbatches(batch, nsubbatch)
+    assert len(subbatches) == nsubbatch
+    assert all(sum(sb_obj.phot_flux for subbatch in subbatches for sb_obj in subbatch if sb_obj.index == obj.index) == obj.phot_flux for obj in batch)
+    assert all([sum(object.phot_flux for object in subbatch) == 1e5 for subbatch in subbatches])
+
+    # Need a test for which division of flux across sub-batches is nasty. E.g.
+    # total flux of 1.1e6 photons across 31 sub-batches: 35438 photons per
+    # sub-batch with remainder 27 photons.
+    batch = [ObjectInfo(0, 1e5, ProcessingMode.PHOT),
+             ObjectInfo(1, 5e5, ProcessingMode.PHOT),
+             ObjectInfo(2, 5e5, ProcessingMode.PHOT),
+             ]
+    total_original_flux = sum(object.phot_flux for object in batch)
+    nsubbatch = 31
+    subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_smart_photon_subbatches(batch, nsubbatch)
+    print("Subbatches:")
+    for i, subbatch in enumerate(subbatches):
+        print(f" Subbatch {i}: {[ (obj.index, obj.phot_flux) for obj in subbatch ]}")
+    assert len(subbatches) == nsubbatch
+    assert all(sum(sb_obj.phot_flux for subbatch in subbatches for sb_obj in subbatch if sb_obj.index == obj.index) == obj.phot_flux for obj in batch)
+    assert all([sum(object.phot_flux for object in subbatch) == 1e5 for subbatch in subbatches])
 
 if __name__ == "__main__":
     testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
