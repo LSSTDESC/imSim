@@ -20,7 +20,7 @@ jobs:
         strategy:
             matrix:
                 os: [ ubuntu-latest ]
-                py: [ "3.12" ]
+                py: [ "3.13" ]
                 CC: [ gcc ]
                 CXX: [ g++ ]
 
@@ -30,7 +30,18 @@ jobs:
                 shell: bash -l {0}
 
         steps:
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@v4
+
+            - name: Set up Python ${{ matrix.py }}
+              uses: actions/setup-python@v5
+              with:
+                python-version: ${{ matrix.py }}
+
+            - name: Verify python and pip versions
+              run: |
+                python --version
+                pip --version
+
             - uses: cvmfs-contrib/github-action-cvmfs@v4
             - name: Set up /cvmfs/sw.lsst.eu
               run: |
@@ -77,6 +88,11 @@ jobs:
                 source ${LSST_DISTRIB_ROOT}/${LATEST_VERSION}/loadLSST-ext.bash
                 setup lsst_distrib
                 eups list lsst_distrib
+                setup -r . -j
+                setup -r skyCatalogs -j
+                eups list | grep LOCAL
+                ls -d /home/runner/.local/lib/*/site-packages/batoid_rubin
+                export PYTHONPATH=/home/runner/.local/lib/python3.13/site-packages:${PYTHONPATH}
                 export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
                 galsim --version
                 pytest --durations=10 -n auto
@@ -87,8 +103,12 @@ jobs:
                 LATEST_VERSION=`/usr/bin/ls -rt ${LSST_DISTRIB_ROOT} | grep w_20 | tail -n 1`
                 source ${LSST_DISTRIB_ROOT}/${LATEST_VERSION}/loadLSST-ext.bash
                 setup lsst_distrib
-                echo $PWD
-                ls /home/runner/work/imSim
+                eups list lsst_distrib
+                setup -r . -j
+                setup -r skyCatalogs -j
+                eups list | grep LOCAL
+                ls -d /home/runner/.local/lib/*/site-packages/batoid_rubin
+                export PYTHONPATH=/home/runner/.local/lib/python3.13/site-packages:${PYTHONPATH}
                 export IMSIM_HOME=/home/runner/work/imSim
                 export RUBIN_SIM_DATA_DIR=`pwd`/rubin_sim_data
                 export SIMS_SED_LIBRARY_DIR=`pwd`/rubin_sim_data/sims_sed_library
