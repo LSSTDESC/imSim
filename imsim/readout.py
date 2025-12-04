@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import subprocess
 import scipy
 from astropy.io import fits
 from astropy.time import Time
@@ -325,6 +326,14 @@ def write_package_versions(header, index=1):
         version = eval(f"{package}.__version__")
         header[f"PKG{i:05d}"] = package
         header[f"VER{i:05d}"] = version
+
+    # Use eups for lsst_distrib version.
+    i += 1
+    package = "lsst_distrib"
+    version = subprocess.check_output(f"eups list --version {package}",
+                                      shell=True, encoding="utf-8").strip()
+    header[f"PKG{i:05d}"] = package
+    header[f"VER{i:05d}"] = version
     return header
 
 
