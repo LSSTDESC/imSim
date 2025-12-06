@@ -47,6 +47,7 @@ jobs:
               run: |
                 sudo rm -rf /usr/lib/jvm
                 sudo rm -rf /usr/share/dotnet
+                sudo rm -rf /usr/local/.ghcup
                 sudo rm -rf /usr/local/lib/android
                 sudo rm -rf /usr/local/chromium
                 df -h
