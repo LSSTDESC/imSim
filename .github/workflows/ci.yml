@@ -43,9 +43,6 @@ jobs:
             - name: Show disk usage
               run: df -h
 
-            - name: Top-level directories
-              run: du -h -d1 / | sort -hr | head -n 20
-
             - name: Clean-up
               run: |
                 sudo rm -rf /usr/lib/jvm
@@ -78,10 +75,12 @@ jobs:
                 git checkout v2.1.0
                 pip install --no-build-isolation --no-deps -e .
                 cd ..
+                df -h
 
             - name: Try newer healpy
               run: |
                 pip install healpy>=1.17.3 --upgrade
+                df -h
 
             - name: Cache data
               id: cache-data
@@ -99,14 +98,17 @@ jobs:
                 curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/skybrightness_may_2021.tgz | tar -C rubin_sim_data -xz
                 curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/rubin_sim_data/throughputs_2023_09_07.tgz | tar -C rubin_sim_data -xz
                 curl https://s3df.slac.stanford.edu/groups/rubin/static/sim-data/sed_library/seds_170124.tar.gz  | tar -C rubin_sim_data/sims_sed_library -xz
+                df -h
 
             - name: Install imSim
               run:
                 pip install .
+                df -h
 
             - name: Install test deps
               run:
                 conda install -y pytest nose pytest-durations pytest-xdist || true
+                df -h
 
             - name: Run tests
               run: |
@@ -114,6 +116,7 @@ jobs:
                 eups list lsst_distrib
                 galsim --version
                 pytest --durations=10 -n auto
+                df -h
 
             - name: Check example config files
               run: |
@@ -130,3 +133,4 @@ jobs:
                 galsim imsim-user-skycat.yaml image.nobjects=10
                 galsim imsim-user-instcat-comcam.yaml
                 galsim imsim-user-skycat-comcam.yaml
+                df -h
