@@ -101,12 +101,12 @@ jobs:
                 df -h
 
             - name: Install imSim
-              run:
+              run: |
                 pip install .
                 df -h
 
             - name: Install test deps
-              run:
+              run: |
                 conda install -y pytest nose pytest-durations pytest-xdist || true
                 df -h
 
