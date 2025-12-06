@@ -41,10 +41,10 @@ jobs:
                 pip --version
 
             - name: Show disk usage
-              run: dh -h
+              run: df -h
 
             - name: Top-level directories
-              run: dh -h -d1 / | sort -hr | head -n 20
+              run: du -h -d1 / | sort -hr | head -n 20
 
             - name: Setup conda
               uses: conda-incubator/setup-miniconda@v2
@@ -61,7 +61,7 @@ jobs:
                 conda install -y --file etc/standalone_conda_requirements.txt || true
                 conda info
                 conda list
-                dh -h
+                df -h
 
             - name: Install skyCatalogs from source
               run: |
