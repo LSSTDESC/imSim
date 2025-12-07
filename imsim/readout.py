@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import subprocess
 import scipy
 from astropy.io import fits
 from astropy.time import Time
@@ -306,11 +307,34 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
     phdu.header['IMSIMVER'] = __version__
     phdu.header['PKG00000'] = 'throughputs'
     phdu.header['VER00000'] = '1.9'
+    write_package_versions(phdu.header)
     phdu.header['CHIPID'] = det_name
     phdu.header['FOCUSZ'] = eimage.header['FOCUSZ']
 
     phdu.header.update(added_keywords)
     return phdu
+
+
+def write_package_versions(header, index=1):
+    import galsim, batoid, batoid_rubin, skycatalogs, rubin_sim
+    packages = ["galsim",
+                "batoid",
+                "batoid_rubin",
+                "skycatalogs",
+                "rubin_sim"]
+    for i, package in enumerate(packages, index):
+        version = eval(f"{package}.__version__")
+        header[f"PKG{i:05d}"] = package
+        header[f"VER{i:05d}"] = version
+
+    # Use eups for lsst_distrib version.
+    i += 1
+    package = "lsst_distrib"
+    version = subprocess.check_output(f"eups list --version {package}",
+                                      shell=True, encoding="utf-8").strip()
+    header[f"PKG{i:05d}"] = package
+    header[f"VER{i:05d}"] = version
+    return header
 
 
 class CcdReadout:
