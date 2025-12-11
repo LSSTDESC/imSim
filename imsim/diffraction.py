@@ -197,26 +197,36 @@ def directed_dist(
 
     Parameters
     ----------
-    geometry: Geometry containing cirlces and thick lines.
+    geometry: Geometry containing circles and thick lines.
     points: Numpy array of shape (2,n)
 
     Returns:
-        Numpy array of shape (3,n), where each line is of the form [d, nx, ny],
-        d being the distance and [nx, ny] the direction to the minimizing point.
+    dist: Numpy array of shape (n,) with the minimal distance to the closest
+     of the objects defined in the geometry.
+    n: Numpy array of shape (3,n), where each line is of the form [d, nx, ny],
+     d being the distance and [nx, ny] the direction to the minimizing point.
     """
+    # Calculate distance from each point to each line and circle.
     dist_lines = dist_thick_line(geometry.thick_lines, points)
     dist_circles = dist_circle(geometry.circles, points)
     n_points = points.shape[0]
     col_idx = np.arange(n_points, dtype=np.intp)
+    # Determine which line and circle are closest to each point,
     min_line_idx = np.argmin(dist_lines, axis=0)
     min_circle_idx = np.argmin(dist_circles, axis=0)
+    # and the values of those minimum distances.
     min_dist_lines = dist_lines[min_line_idx, col_idx]
     min_dist_circles = dist_circles[min_circle_idx, col_idx]
+    # Initialize min distance at this point to the minimum distance to a line.
     dist = min_dist_lines
     n = np.empty((n_points, 2))
-    # mask for points which are closer to some line than to any circle:
+    # For points which are closer to some line than to any circle, direction to
+    # line for points closer to a line to its normal.
     line_mask = min_dist_lines < min_dist_circles
     n[line_mask] = geometry.thick_lines[min_line_idx[line_mask]][..., :2]
+    # For points closer to a circle than to a line, overwrite dist with min
+    # distance to circle, then compute vector from point to circle center and
+    # normalize it.
     dist[~line_mask] = min_dist_circles[~line_mask]
     d = geometry.circles[min_circle_idx[~line_mask]][..., :2] - points[~line_mask]
     n[~line_mask] = d / np.linalg.norm(d)
