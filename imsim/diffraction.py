@@ -216,13 +216,10 @@ def directed_dist(
         if idx < nlines:
             # Structure is a thick line.
             thick_line = geometry.thick_lines[idx, :]
-            # Does thick_line need to be extended with thick_line[None, :]?
             distance = dist_thick_line(thick_line[:], points)
         else:
             # Structure is a circle.
-            circle_idx = idx - nlines
-            circle = geometry.circles[circle_idx, :]
-            # Does circle need to be extended with circle[None, :]?
+            circle = geometry.circles[idx-nlines, :]
             distance = dist_circle(circle, points)
         # Update minimum distances and structure IDs.
         dist_mask = distance < min_dist
