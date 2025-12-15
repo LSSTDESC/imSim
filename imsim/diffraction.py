@@ -216,7 +216,7 @@ def directed_dist(
         if idx < nlines:
             # Structure is a thick line.
             thick_line = geometry.thick_lines[idx, :]
-            distance = dist_thick_line(thick_line[:], points)
+            distance = dist_thick_line(thick_line, points)
         else:
             # Structure is a circle.
             circle = geometry.circles[idx-nlines, :]
@@ -228,14 +228,21 @@ def directed_dist(
     # At this point, we know which structure is closest to each point, and what
     # the minimum distance between them is. We need the directions to those structures.
     n = np.empty((points.shape[0], 2))
-    # For points which are closer to some line than to any circle, the directions to
-    # those lines are their normals.
-    line_mask = min_idx < nlines
-    n[line_mask] = geometry.thick_lines[min_idx[line_mask]][..., :2]
-    # For points closer to a circle than to a line, compute vector from point to
-    # circle center and normalize it.
-    d = geometry.circles[min_idx[~line_mask]-nlines][..., :2] - points[~line_mask]
-    n[~line_mask] = d / np.linalg.norm(d)
+    # While it's possible to vectorize the copy/computation of the directions
+    # (and we originally did), this needs a *lot* of memory for large
+    # intermediate array allocations. Instead, loop through and do for each
+    # point in turn.
+    for i in range(points.shape[0]):
+        if min_idx[i] < nlines:
+            # For points which are closer to some line than to any circle, the
+            # directions to those lines are their normals.
+            n[i] = geometry.thick_lines[min_idx[i], :2]
+        else:
+            # For points closer to a circle than to a line, compute vector from
+            # point to circle center and normalize it.
+            d = geometry.circles[min_idx[i]-nlines, :2] - points[i]
+            n[i] = d / np.linalg.norm(d)
+
     return min_dist, n
 
 
