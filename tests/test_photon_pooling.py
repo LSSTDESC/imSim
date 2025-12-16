@@ -301,6 +301,7 @@ def run_smart_subbatch_test(name, batch, nsubbatch):
         assert object.phot_flux == total_obj_flux
     # assert all(sum(sb_obj.phot_flux for subbatch in subbatches for sb_obj in subbatch if sb_obj.index == obj.index) == obj.phot_flux for obj in batch)
     assert sum([sum(object.phot_flux for object in subbatch) for subbatch in subbatches]) == total_original_flux
+    assert all(object.phot_flux > 0 for subbatch in subbatches for object in subbatch)
     # assert all([sum(object.phot_flux for object in subbatch) == 2e4 for subbatch in subbatches])
     total_subbatch_fluxes = [sum(object.phot_flux for object in subbatch) for subbatch in subbatches]
     assert max(total_subbatch_fluxes) <= 1.1 * min(total_subbatch_fluxes)
@@ -375,14 +376,14 @@ def test_make_smart_photon_subbatches():
 def test_make_smart_photon_subbatches_non_simple():
     # Need a test for which division of flux across sub-batches is not even,
     # requiring non-trivial fragmentation of objects.
-    
+
     # The first test places a total of 1e6 photons across 7 sub-batches,
     # i.e. 1e6 mod 7 = 142857 photons per sub-batch with remainder 1.
     batch = [ObjectInfo(0, 5e5, ProcessingMode.PHOT),
              ObjectInfo(1, 5e5, ProcessingMode.PHOT),
              ]
     run_smart_subbatch_test("small non-simple fragmentation", batch, 7)
-    
+
     # Then place 3 objects with total flux 1.1e6 in 31 sub-batches,
     # i.e. 35483 photons per sub-batch with remainder 27.
     batch = [ObjectInfo(0, 1e5, ProcessingMode.PHOT),
@@ -396,4 +397,5 @@ if __name__ == "__main__":
     # testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
     # for testfn in testfns:
     #     testfn()
-    test_make_smart_photon_subbatches_non_simple()
+    # test_make_smart_photon_subbatches_non_simple()
+    test_make_smart_photon_subbatches()
