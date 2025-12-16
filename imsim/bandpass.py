@@ -89,7 +89,7 @@ def RubinBandpass(
     if (camera is None) != (det_name is None):
         raise ValueError("Must provide both camera and det_name if using one.")
     match camera:
-        case 'LsstCam' | 'LsstCamSim' :
+        case 'LsstCamSim' :
             camera = 'lsstCam'
         case 'LsstComCamSim':
             camera = 'comCamSim'

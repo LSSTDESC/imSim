@@ -464,7 +464,7 @@ TEST_BASE_CONFIG = {
             "rotTelPos": 60 * galsim.degrees,
         }
     },
-    "output": {"camera": "LsstCam"},
+    "output": {"camera": "LsstCamSim"},
     "current_image": galsim.Image(1024, 1024, wcs=create_test_img_wcs(boresight=galsim.CelestialCoord(0.543 * galsim.radians, -0.174 * galsim.radians))),
     "_icrf_to_field": create_test_icrf_to_field(
         galsim.CelestialCoord(
@@ -542,7 +542,7 @@ def test_config_rubin_diffraction_optics():
                 {
                     "type": "RubinDiffractionOptics",
                     "det_name": "R22_S11",
-                    "camera": "LsstCam",
+                    "camera": "LsstCamSim",
                     "boresight": {
                         "type": "RADec",
                         "ra": "1.1047934165124105 radians",
@@ -580,7 +580,7 @@ def test_config_rubin_diffraction_optics_without_field_rotation():
                 {
                     "type": "RubinDiffractionOptics",
                     "det_name": "R22_S11",
-                    "camera": "LsstCam",
+                    "camera": "LsstCamSim",
                     "boresight": {
                         "type": "RADec",
                         "ra": "1.1047934165124105 radians",
@@ -619,7 +619,7 @@ def test_config_rubin_optics():
             "photon_ops": [
                 {
                     "type": "RubinOptics",
-                    "camera": "LsstCam",
+                    "camera": "LsstCamSim",
                     "det_name": "R22_S11",
                     "boresight": {
                         "type": "RADec",
@@ -705,7 +705,7 @@ def test_phase_affects_image():
             "photon_ops": [
                 {
                     "type": "RubinOptics",
-                    "camera": "LsstCam",
+                    "camera": "LsstCamSim",
                     "det_name": "R22_S11",
                     "boresight": {
                         "type": "RADec",

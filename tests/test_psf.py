@@ -446,7 +446,7 @@ def test_doopt_true():
             'telescope': {
                 'file_name': 'LSST_r.yaml',
                 'rotTelPos': np.pi / 3 * galsim.radians,
-                'camera': 'LsstCam',
+                'camera': 'LsstCamSim',
             },
             'atm_psf': {
                 'airmass': 1.1,

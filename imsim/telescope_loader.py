@@ -370,7 +370,7 @@ class DetectorTelescope:
         file_name,
         perturbations=(),
         rotTelPos=None,
-        camera='LsstCam',
+        camera='LsstCamSim',
         builder_kwargs=None,
         fea_perturbations=None,
         focusZ=None,
@@ -378,7 +378,7 @@ class DetectorTelescope:
     ):
         # Batoid has a different name for LsstCam than DM code.  So we need to switch it here.
         match camera:
-            case 'LsstCam':
+            case 'LsstCamSim':
                 cameraName = 'LSSTCamera'
             case 'LsstComCamSim':
                 cameraName = 'ComCam'

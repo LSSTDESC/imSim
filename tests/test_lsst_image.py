@@ -25,7 +25,7 @@ def test_image_nobjects():
         logger.addHandler(logging.StreamHandler(sys.stdout))
         logger.setLevel(logging.CRITICAL)  # silence the log messages
 
-    camera = "LsstCam"
+    camera = "LsstCamSim"
     output_dir = f"fits_{camera}"
 
     # Loop over values of image.nobjects that bracket the expected number

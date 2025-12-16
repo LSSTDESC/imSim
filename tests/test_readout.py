@@ -229,7 +229,7 @@ def test_compute_rotSkyPos():
     rottelpos = 341.776422048124
     obsmjd = 60232.3635999295
     band = 'i'
-    camera_name = 'LsstCamImSim'
+    camera_name = 'LsstCamSim'
     detector = 94
 
     batoid_wcs = imsim.readout.make_batoid_wcs(ra0, dec0, rottelpos, obsmjd,

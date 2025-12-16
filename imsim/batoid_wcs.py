@@ -550,7 +550,7 @@ class BatoidWCSBuilder(WCSBuilder):
 
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         kwargs['bandpass'] = base.get('bandpass', None)
-        kwargs['camera'] = kwargs.pop('camera', 'LsstCam')
+        kwargs['camera'] = kwargs.pop('camera', 'LsstCamSim')
         if (self._camera is not None and self._camera_name != kwargs['camera']):
             self._camera_name = kwargs['camera']
             self._camera = get_camera(self._camera_name)
@@ -567,7 +567,7 @@ class BatoidWCSBuilder(WCSBuilder):
 
     def makeWCSFactory(
         self, boresight, obstime, telescope,
-        camera='LsstCam',
+        camera='LsstCamSim',
         temperature=None, pressure=None, H2O_pressure=None,
         wavelength=None, bandpass=None
     ):

@@ -60,7 +60,7 @@ def run_imsim(camera):
 
 
 def test_header_keywords():
-    run_imsim('LsstCam')
+    run_imsim('LsstCamSim')
     fits_dir = 'fits_header_test'
     eimage_file = glob.glob(os.path.join(fits_dir, 'eimage*.fits'))[0]
     with fits.open(eimage_file) as hdus:
