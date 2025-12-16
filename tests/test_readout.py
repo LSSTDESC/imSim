@@ -235,12 +235,9 @@ def test_compute_rotSkyPos():
     batoid_wcs = imsim.readout.make_batoid_wcs(ra0, dec0, rottelpos, obsmjd,
                                                band, camera_name)
 
-    # Compute rotSkyPos and undo the sign change and 90 deg rotation
-    # needed for compatibility with the imsim config in
-    # astro_metadata_translator.
-    rotSkyPos = 90 - imsim.readout.compute_rotSkyPos(ra0, dec0, rottelpos,
-                                                     obsmjd, band,
-                                                     camera_name=camera_name)
+    rotSkyPos = imsim.readout.compute_rotSkyPos(ra0, dec0, rottelpos,
+                                                obsmjd, band,
+                                                camera_name=camera_name)
 
     # Create an initial WCS using the LSST code, given the boresight
     # direction and computed rotSkyPos value.
