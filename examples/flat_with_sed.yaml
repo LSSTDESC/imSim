@@ -91,7 +91,7 @@ output:
     nproc: 1    # Change this to work on multiple CCDs at once.
     nfiles: 1   # Default is all 189 CCDs.  Set to 1 while testing.
 
-    camera: LsstCam
+    camera: LsstCamSim
 
     exptime: 30
 
