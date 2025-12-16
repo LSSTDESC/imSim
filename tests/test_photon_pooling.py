@@ -291,7 +291,7 @@ def run_smart_subbatch_test(name, batch, nsubbatch):
     # appears in, that the total flux across all sub-batches equals the total
     # batch flux, and that the most full batch contains <= 1.1 * the flux in the
     # least full.
-    print("Subbatches in test:", name)
+    print("Smart subbatches in test:", name)
     for i, subbatch in enumerate(subbatches):
         print(f" Subbatch {i}: {[ (obj.index, obj.phot_flux) for obj in subbatch ]}")
     assert len(subbatches) == nsubbatch
@@ -316,8 +316,8 @@ def test_make_smart_photon_subbatches():
     correct total flux.
     """
     # Create a batch with a 'large' number of objects with varying fluxes, but
-    # with none dominating the total. We should end up with them being spread
-    # across the sub-batches s.t. each has a flux of 2e4.
+    # with none dominating the total. We want them to be spread across the
+    # sub-batches s.t. each has a flux of 2e4.
     batch = [ObjectInfo(0, 1e4, ProcessingMode.PHOT),
              ObjectInfo(1, 5e3, ProcessingMode.PHOT),
              ObjectInfo(2, 2e3, ProcessingMode.PHOT),
@@ -360,7 +360,7 @@ def test_make_smart_photon_subbatches():
              ObjectInfo(3, 3e5, ProcessingMode.PHOT),
              ]
     run_smart_subbatch_test("fragmentation in first sub-batch", batch, 2)
-    
+
     # Make sure the sub-batcher can go backwards (i.e. assign to subbatches
     # earlier then the one just filled). This would be important for best fit
     # type implementations, but in other implementations like first fit might be
@@ -373,17 +373,27 @@ def test_make_smart_photon_subbatches():
 
 
 def test_make_smart_photon_subbatches_non_simple():
-    # Need a test for which division of flux across sub-batches is nasty. E.g.
-    # total flux of 1.1e6 photons across 31 sub-batches: 35438 photons per
-    # sub-batch with remainder 27 photons.
+    # Need a test for which division of flux across sub-batches is not even,
+    # requiring non-trivial fragmentation of objects.
+    
+    # The first test places a total of 1e6 photons across 7 sub-batches,
+    # i.e. 1e6 mod 7 = 142857 photons per sub-batch with remainder 1.
+    batch = [ObjectInfo(0, 5e5, ProcessingMode.PHOT),
+             ObjectInfo(1, 5e5, ProcessingMode.PHOT),
+             ]
+    run_smart_subbatch_test("small non-simple fragmentation", batch, 7)
+    
+    # Then place 3 objects with total flux 1.1e6 in 31 sub-batches,
+    # i.e. 35483 photons per sub-batch with remainder 27.
     batch = [ObjectInfo(0, 1e5, ProcessingMode.PHOT),
              ObjectInfo(1, 5e5, ProcessingMode.PHOT),
              ObjectInfo(2, 5e5, ProcessingMode.PHOT),
              ]
-    run_smart_subbatch_test("non-simple fragmentation", batch, 31)
+    run_smart_subbatch_test("large non-simple fragmentation", batch, 31)
 
 
 if __name__ == "__main__":
-    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
-    for testfn in testfns:
-        testfn()
+    # testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    # for testfn in testfns:
+    #     testfn()
+    test_make_smart_photon_subbatches_non_simple()
