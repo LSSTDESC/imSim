@@ -146,7 +146,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                                batch_num+1, nbatch)
 
             base['index_key'] = 'image_num'
-            subbatches = self.make_photon_subbatches(batch, nsubbatch)
+            subbatches = self.make_smart_photon_subbatches(batch, nsubbatch)
             for subbatch_num, subbatch in enumerate(subbatches):
                 stamps, current_vars = self.build_stamps(base, logger, subbatch)
                 photons = self.merge_photon_arrays(stamps)
@@ -356,7 +356,10 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         # something close. So we set a loose constraint.
         loose_photons_per_subbatch = round(1.1 * photons_per_subbatch)
 
-        # We need the order of objects in the batch from brightest to faintest.
+        # We want the order of objects in the batch from brightest to faintest.
+        # This helps ensure that we minimize fragmentation by placing the
+        # largest objects (i.e. most difficult to fit) first, while the
+        # sub-batches are empty.
         sorted_objects = sorted(batch, key=lambda obj: obj.phot_flux, reverse=True)
 
         # Implementation goal: (at the moment have something like 1 -5)
@@ -381,29 +384,41 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 subbatch = subbatches[current_subbatch]
                 subbatch_flux = sum(sb_obj.phot_flux for sb_obj in subbatch)
                 available_flux = photons_per_subbatch - subbatch_flux
-                if remaining_flux < available_flux:
-                    # There's still space for more in this sub-batch.
-                    # Place entirety of remaining object flux here.
+                if remaining_flux <= available_flux:
+                    # This sub-batch can contain the entirety of the remaining
+                    # object flux. Place entirety it all in here, the continue
+                    # without advancing in case more can go in.
                     subbatches[current_subbatch].append(
                         dataclasses.replace(obj, phot_flux=remaining_flux)
                     )
+                    # If it was an exact fit, move to the next sub-batch.
+                    if remaining_flux == available_flux:
+                        current_subbatch = (1 + current_subbatch) % nsubbatch
                     remaining_flux = 0
-                elif remaining_flux == available_flux:
-                    # The object will also fit in here, but will fill it up entirely.
-                    # Add the object, then advance subbatch.
-                    subbatches[current_subbatch].append(
-                        dataclasses.replace(obj, phot_flux=remaining_flux)
-                    )
-                    remaining_flux = 0
-                    current_subbatch = (1 + current_subbatch) % nsubbatch
                 else:
                     # The object is too bright to fit entirely in the current sub-batch.
-                    # Fill to the top, then advance to next sub-batch.
-                    subbatches[current_subbatch].append(
-                        dataclasses.replace(obj, phot_flux=available_flux)
-                    )
-                    remaining_flux -= available_flux
-                    current_subbatch = (1 + current_subbatch) % nsubbatch
+                    # See if we can fit it in with the loose fitting criterion.
+                    available_flux_loose = loose_photons_per_subbatch - subbatch_flux
+                    if remaining_flux <= available_flux_loose:
+                        # Place the entirety of the remaining object in this sub-batch.
+                        subbatches[current_subbatch].append(
+                            dataclasses.replace(obj, phot_flux=remaining_flux)
+                        )
+                        remaining_flux = 0
+                        # Advance to the next sub-batch. Do this no matter what
+                        # in an attempt to prevent too much bunching up in one
+                        # sub-batch and unnecessary fragmentation of objects.
+                        # (It's more likely that the next sub-batch will have
+                        # space if we do this.)
+                        current_subbatch = (1 + current_subbatch) % nsubbatch
+                    else:
+                        # If even the loose criterion isn't enough, then fill to
+                        # the top and advance to next sub-batch.
+                        subbatches[current_subbatch].append(
+                            dataclasses.replace(obj, phot_flux=available_flux)
+                        )
+                        remaining_flux -= available_flux
+                        current_subbatch = (1 + current_subbatch) % nsubbatch
 
         return subbatches
 
