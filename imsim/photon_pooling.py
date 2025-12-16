@@ -391,10 +391,10 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                     subbatches[current_subbatch].append(
                         dataclasses.replace(obj, phot_flux=remaining_flux)
                     )
-                    remaining_flux = 0
                     # If it was an exact fit, move to the next sub-batch.
                     if remaining_flux == available_flux:
                         current_subbatch = (1 + current_subbatch) % nsubbatch
+                    remaining_flux = 0
                 else:
                     # The object is too bright to fit entirely in the current sub-batch.
                     # See if we can fit it in with the loose fitting criterion.
