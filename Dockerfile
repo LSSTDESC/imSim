@@ -20,7 +20,7 @@ RUN git clone https://github.com/LSSTDESC/imSim.git &&\
 RUN source /opt/lsst/software/stack/loadLSST.bash &&\
     setup lsst_distrib &&\
     mamba install -y --file imSim/etc/docker_conda_requirements.txt &&\
-    python3 -m pip install skyCatalogs==2.4.0 &&\
+    python3 -m pip install skyCatalogs==2.4.0 --no-deps &&\
     python3 -m pip install imSim/
 
 WORKDIR /opt/lsst/software/stack
