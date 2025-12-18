@@ -2,7 +2,5 @@
 
 gitpython
 dust_extinction
-batoid
-batoid-rubin
 palpy
 rubin-sim
