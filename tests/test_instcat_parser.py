@@ -492,6 +492,19 @@ class InstanceCatalogParserTestCase(unittest.TestCase):
             ]
         )
 
+    def test_satellite_streaks(self):
+        """Test satellite streak modeling."""
+        cat_file = os.path.join(self.data_dir, "satellite_streak.txt")
+        sed_dir = os.path.join(self.data_dir, 'test_sed_library')
+        det_name = "R22_S11"
+        wcs = self.make_wcs(instcat_file=cat_file,
+                            sensors=[det_name])[det_name]
+        cat = imsim.InstCatalog(cat_file, wcs, sed_dir=sed_dir)
+        self.assertEqual(cat.getNObjects(), 1)
+        self.assertTrue((cat.objinfo == np.array(['streak', '600', '1e-6', '0'])).all())
+        obj = cat.getObj(0)
+        self.assertTrue(isinstance(obj.original.original, galsim.Box))
+
 
 if __name__ == '__main__':
     unittest.main()
