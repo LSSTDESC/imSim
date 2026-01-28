@@ -192,106 +192,16 @@ def test_make_batches():
 
     return
 
-def test_make_photon_batches():
-    """
-    Ensure that the photon batching method correctly handles PHOT and FAINT
-    object types and their fluxes are distributed correctly across the batches.
-    """
-    builder = valid_image_types["LSST_PhotonPoolingImage"]
-    n_obj_phot = 15
-    n_obj_faint = 5
-    nobjects = n_obj_phot + n_obj_faint
-    phot_objects = create_phot_obj_list(n_obj_phot, start_num=0)
-    faint_objects = create_faint_obj_list(n_obj_faint, start_num=n_obj_phot)
-    objects = phot_objects + faint_objects
-    orig_flux = np.empty(nobjects)
-    for i, object in enumerate(objects):
-        orig_flux[i] = object.phot_flux
 
-    # Create 11 batches to ensure things don't divide nicely.
-    nbatch = 11
-    batches = builder.make_photon_batches({}, {}, None, phot_objects, faint_objects, nbatch)
-
-    # Count how many times the objects appear in the batches and sum their total
-    # flux across all batches.
-    count = Counter(object.index for batch in batches for object in batch)
-    total_flux = np.zeros(nobjects)
-    for batch in batches:
-        for object in batch:
-            total_flux[object.index] += object.phot_flux
-
-    # Assert that the PHOT objects appear in all batches (This may not be
-    # correct in the future if PHOT objects are spread across subsets of batches
-    # rather than all of them.)
-    # Also assert that FAINT objects appear once and only once.
-    for i, object in enumerate(objects):
-        if object.mode == ProcessingMode.PHOT:
-            assert count[i] == nbatch
-        elif object.mode == ProcessingMode.FAINT:
-            assert count[i] == 1
-
-    # Assert the summed flux across the objects in the batches is correct.
-    np.testing.assert_array_almost_equal(total_flux, orig_flux)
-
-def assert_subbatches(batch, expected_subbatch_len, subbatches):
-    # Assert that the length of the full batch is equal to the sum of the sub-batches.
-    assert len(batch) == sum(len(subbatch) for subbatch in subbatches)
-    # Assert that the flattened list of sub-batches is equal to the original batch,
-    # including ordering of the objects.
-    assert batch == [object for subbatch in subbatches for object in subbatch]
-    # Assert that all objects in the original batch only once only in all the sub-batches.
-    counts = Counter(object.index for subbatch in subbatches for object in subbatch)
-    assert all([counts[obj.index] == 1 for obj in batch])
-    # Assert that the sub-batches are the expected lengths.
-    assert all([len(subbatch) == expected_subbatch_len[i] for i, subbatch in enumerate(subbatches)])
-
-def test_make_photon_subbatches():
-    """
-    Test the sub-batching method for photon objects, which should evenly or
-    almost evenly distribute the objects in a batch across nsubbatch sub-batches.
-    """
-    # Create a batch containing 90 photon objects + 10 faint objects.
-    # The different object types should be treated equivalently by sub-batching.
-    n_obj_phot = 90
-    n_obj_faint = 10
-    phot_objects = create_phot_obj_list(n_obj_phot, start_num=0)
-    faint_objects = create_faint_obj_list(n_obj_faint, start_num=n_obj_phot)
-    batch = phot_objects + faint_objects
-
-    # Test a few different cases of sub-batching, easy and nasty. In particular,
-    # assert that the sub-batches are a split representation of the original
-    # batch, and also that we're splitting them up as close to evenly as
-    # possible. When it can't be exactly even, we want one extra 1 object in the
-    # first nobj%nsubbatch sub-batches.
-
-    # Split into 10 sub-batches.
-    nsubbatch = 10
-    subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_photon_subbatches(batch, nsubbatch)
-    expected_subbatch_len = 10 * [10]
-    assert_subbatches(batch, expected_subbatch_len, subbatches)
-
-    # Split into 8 sub-batches.
-    nsubbatch = 8
-    subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_photon_subbatches(batch, nsubbatch)
-    expected_subbatch_len = 4 * [13] + 4 * [12]
-    assert_subbatches(batch, expected_subbatch_len, subbatches)
-
-    # Split into 3 sub-batches.
-    nsubbatch = 3
-    subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_photon_subbatches(batch, nsubbatch)
-    expected_subbatch_len = [34] + 2 * [33]
-    assert_subbatches(batch, expected_subbatch_len, subbatches)
-
-
-def run_smart_subbatch_test(name, batch, nsubbatch):
+def run_subbatch_test(name, batch, nsubbatch):
     total_original_flux = sum(object.phot_flux for object in batch)
-    subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_smart_photon_subbatches(batch, nsubbatch)
+    subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_photon_subbatches(batch, nsubbatch)
     # In general there are multiple ways to split the batch. Assert that each
     # object appears with its original flux across however many sub-batches it
     # appears in, that the total flux across all sub-batches equals the total
     # batch flux, and that the most full batch contains <= 1.1 * the flux in the
     # least full.
-    print("Smart subbatches in test:", name)
+    print("Subbatches in test:", name)
     for i, subbatch in enumerate(subbatches):
         print(f" Subbatch {i}: {[ (obj.index, obj.phot_flux) for obj in subbatch ]}")
     assert len(subbatches) == nsubbatch
@@ -307,9 +217,9 @@ def run_smart_subbatch_test(name, batch, nsubbatch):
     assert max(total_subbatch_fluxes) <= 1.1 * min(total_subbatch_fluxes)
 
 
-def test_make_smart_photon_subbatches():
+def test_make_photon_subbatches():
     """
-    Test the newer smart sub-batching method which attempts to spread the batch
+    Test the newer sub-batching method which attempts to spread the batch
     flux equally across the sub-batches.
     Some of these tests may be too restrictive, in particular those which specify
     the exact sub-batch contents. It may be better to set those aside on only
@@ -330,7 +240,7 @@ def test_make_smart_photon_subbatches():
              ObjectInfo(8, 1e4, ProcessingMode.PHOT),
              ObjectInfo(9, 8e3, ProcessingMode.PHOT),
              ]
-    run_smart_subbatch_test("equal distribution", batch, 4)
+    run_subbatch_test("equal distribution", batch, 4)
 
     # Create a batch with a total flux of 1e6 photons. We should end up with 10
     # sub-batches of 1e5 photons each. The majority of the flux is in a few very
@@ -350,7 +260,7 @@ def test_make_smart_photon_subbatches():
              ObjectInfo(8, 5e3, ProcessingMode.PHOT),
              ObjectInfo(9, 5e3, ProcessingMode.PHOT),
              ]
-    run_smart_subbatch_test("bright object fragmentation", batch, 10)
+    run_subbatch_test("bright object fragmentation", batch, 10)
 
     # Here there's still one very bright object, but it leaves a little bit of
     # space in the first subbatch for something else to go in. The other faint
@@ -360,7 +270,7 @@ def test_make_smart_photon_subbatches():
              ObjectInfo(2, 6e5, ProcessingMode.PHOT),
              ObjectInfo(3, 3e5, ProcessingMode.PHOT),
              ]
-    run_smart_subbatch_test("fragmentation in first sub-batch", batch, 2)
+    run_subbatch_test("fragmentation in first sub-batch", batch, 2)
 
     # Make sure the sub-batcher can go backwards (i.e. assign to subbatches
     # earlier then the one just filled). This would be important for best fit
@@ -370,10 +280,10 @@ def test_make_smart_photon_subbatches():
              ObjectInfo(1, 8e4, ProcessingMode.PHOT),
              ObjectInfo(2, 4e4, ProcessingMode.PHOT),
              ]
-    run_smart_subbatch_test("filling early sub-batches", batch, 2)
+    run_subbatch_test("filling early sub-batches", batch, 2)
 
 
-def test_make_smart_photon_subbatches_non_simple():
+def test_make_photon_subbatches_non_simple():
     # Need a test for which division of flux across sub-batches is not even,
     # requiring non-trivial fragmentation of objects.
 
@@ -382,7 +292,7 @@ def test_make_smart_photon_subbatches_non_simple():
     batch = [ObjectInfo(0, 5e5, ProcessingMode.PHOT),
              ObjectInfo(1, 5e5, ProcessingMode.PHOT),
              ]
-    run_smart_subbatch_test("small non-simple fragmentation", batch, 7)
+    run_subbatch_test("small non-simple fragmentation", batch, 7)
 
     # Then place 3 objects with total flux 1.1e6 in 31 sub-batches,
     # i.e. 35483 photons per sub-batch with remainder 27.
@@ -390,12 +300,10 @@ def test_make_smart_photon_subbatches_non_simple():
              ObjectInfo(1, 5e5, ProcessingMode.PHOT),
              ObjectInfo(2, 5e5, ProcessingMode.PHOT),
              ]
-    run_smart_subbatch_test("large non-simple fragmentation", batch, 31)
+    run_subbatch_test("large non-simple fragmentation", batch, 31)
 
 
 if __name__ == "__main__":
-    # testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
-    # for testfn in testfns:
-    #     testfn()
-    # test_make_smart_photon_subbatches_non_simple()
-    test_make_smart_photon_subbatches()
+    testfns = [v for k, v in vars().items() if k[:5] == 'test_' and callable(v)]
+    for testfn in testfns:
+        testfn()
