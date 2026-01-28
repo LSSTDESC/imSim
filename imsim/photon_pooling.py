@@ -146,7 +146,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                                batch_num+1, nbatch)
 
             base['index_key'] = 'image_num'
-            subbatches = self.make_smart_photon_subbatches(batch, nsubbatch)
+            subbatches = self.make_photon_subbatches(batch, nsubbatch)
             for subbatch_num, subbatch in enumerate(subbatches):
                 stamps, current_vars = self.build_stamps(base, logger, subbatch)
                 photons = self.merge_photon_arrays(stamps)
@@ -315,24 +315,6 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
     @staticmethod
     def make_photon_subbatches(batch, nsubbatch):
         """
-        Divide a batch of objects into a list of smaller subbatches of approximately the same size.
-
-        Parameters:
-            batch: A list making a batch of objects to be divided into subbatches.
-            nsubbatch: The number of subbatches to create from the batch. Must be a positive integer.
-        Returns:
-            subbatches: A list of subbatches, each a valid batch in its own right, together containing all objects in the original batch.
-        """
-        nobj = len(batch)
-        nobj_per_subbatch, nobj_extra = divmod(nobj, nsubbatch)
-        section_sizes = nobj_extra * [nobj_per_subbatch + 1] + (nsubbatch - nobj_extra) * [nobj_per_subbatch]
-        section_indices = [0] + list(itertools.accumulate(section_sizes))
-        subbatches = [batch[section_indices[i]:section_indices[i+1]] for i in range(nsubbatch)]
-        return subbatches
-
-    @staticmethod
-    def make_smart_photon_subbatches(batch, nsubbatch):
-        """
         Divide a batch of objects into a list of smaller subbatches of approximately the same
         total number of photons.
 
@@ -354,7 +336,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
 
         # We aren't asking for a perfectly equal distribution of photons; just
         # something close. So we set a loose constraint.
-        loose_photons_per_subbatch = round(1.1 * photons_per_subbatch)
+        loose_photons_per_subbatch = round(1.05 * photons_per_subbatch)
 
         # We want the order of objects in the batch from brightest to faintest.
         # This helps ensure that we minimize fragmentation by placing the
