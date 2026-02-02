@@ -219,7 +219,8 @@ def directed_dist(
     n[line_mask] = geometry.thick_lines[min_line_idx[line_mask]][..., :2]
     dist[~line_mask] = min_dist_circles[~line_mask]
     d = geometry.circles[min_circle_idx[~line_mask]][..., :2] - points[~line_mask]
-    n[~line_mask] = d / np.linalg.norm(d)
+    norm = np.linalg.norm(d, axis=1)
+    n[~line_mask] = d / np.column_stack((norm, norm))
     return dist, n
 
 
