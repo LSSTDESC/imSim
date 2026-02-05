@@ -226,6 +226,11 @@ def test_rubin_diffraction_produces_spikes() -> None:
 
     # Define a tolerance for the spike width in rad:
     spike_angle_tolerance = np.pi / 6.0
+    # Determine the total fraction of a circle taken up by all regions of this
+    # size, and regions outside of the spikes:
+    spike_fraction = 2. * spike_angle_tolerance / np.pi
+    non_spike_fraction = 1. - spike_fraction
+    weight = spike_fraction / non_spike_fraction
 
     delta_angles = spike_angles - cross_rot_angle
     delta_angles[delta_angles < 0.0] += 2.0 * np.pi
@@ -248,11 +253,29 @@ def test_rubin_diffraction_produces_spikes() -> None:
     # Merge last and first bin:
     h[0] += h[-1]
     h = h[:-1]
+    # Weight the non-spike counts in h to account for the different bin sizes.
+    h[1::2] = h[1::2] * weight
 
-    # Check that there less than 0.5% of the spike photons outside of the spike regions:
-    np.testing.assert_array_less(h[1::2], spike_angles.size // 200)
-    # Check that there are photons in all spike regions:
-    np.testing.assert_array_less(0, h[0::2])
+    # The min and max counts we might expect in a bin of size
+    # spike_angle_tolerance if there were only non-spike photons, with some
+    # amount of Poisson noise.
+    bg_level_min = np.mean(h[1::2]) - 2. * np.sqrt(np.mean(h[1::2]))
+    bg_level_max = np.mean(h[1::2]) + 2. * np.sqrt(np.mean(h[1::2]))
+
+    # Assert all out-of-spike regions are within that range.
+    np.testing.assert_array_less(bg_level_min, h[1::2])
+    np.testing.assert_array_less(h[1::2], bg_level_max)
+
+    # Perform the same checks on spike regions.
+    spike_level_min = np.mean(h[0::2]) - 2. * np.sqrt(np.mean(h[0::2]))
+    spike_level_max = np.mean(h[0::2]) + 2. * np.sqrt(np.mean(h[0::2]))
+    np.testing.assert_array_less(spike_level_min, h[0::2])
+    np.testing.assert_array_less(h[0::2], spike_level_max)
+
+    # Check that each of the spike bins are measured above the non-spike
+    # level + an appreciable noise level.
+    high_bg = np.mean(h[1::2]) + 10. * np.sqrt(np.mean(h[1::2]))
+    np.testing.assert_array_less(high_bg, h[0::2])
 
 
 def test_rubin_diffraction_optics_is_same_as_diffraction_and_optics() -> None:
