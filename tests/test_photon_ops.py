@@ -380,8 +380,8 @@ def test_rubin_diffraction_shows_field_rotation() -> None:
     )
 
     # Find the angle, the cross is rotated relative to the axis cross:
-    cross_rot_angle_0 = np.mean(spike_angles_0 % (np.pi / 2.0))
-    cross_rot_angle_1 = np.mean(spike_angles_1 % (np.pi / 2.0))
+    cross_rot_angle_0 = np.median(spike_angles_0 % (np.pi / 2.0))
+    cross_rot_angle_1 = np.median(spike_angles_1 % (np.pi / 2.0))
 
     # Check that the angle of the crosses are rotated relative to each other:
     expected_angle_difference = field_rotation_angle(latitude, altitude, azimuth, dt)
