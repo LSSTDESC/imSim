@@ -8,13 +8,17 @@ from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
     RegisterObjectType
 from skycatalogs import skyCatalogs
 from skycatalogs.utils import PolygonalRegion
+from .camera import Camera
 from .utils import RUBIN_AREA
+import lsst.afw.cameraGeom as cameraGeom
 
 
 class SkyCatalogInterface:
     """Interface to skyCatalogs package."""
-    def __init__(self, file_name, wcs, band, mjd, xsize=4096, ysize=4096,
-                 obj_types=None, skycatalog_root=None, edge_pix=100,
+    def __init__(self, file_name, wcs, band, mjd, fiducial_wcs=None,
+                 fiducial_det_name=None, xsize=4096, ysize=4096,
+                 obj_types=None, skycatalog_root=None, edge_pix=200,
+                 camera=None, det_name=None,
                  pupil_area=RUBIN_AREA, max_flux=None, logger=None,
                  apply_dc2_dilation=False, approx_nobjects=None):
         """
@@ -28,6 +32,11 @@ class SkyCatalogInterface:
             LSST band, one of ugrizy
         mjd : float
             MJD of the midpoint of the exposure.
+        fiducial_wcs : galsim.WCS [None]
+            The fiducial WCS, used across all detectors to determine which
+            should handle which objects.
+        fiducial_det_name : str [None]
+            The name of the detector used to create the fiducial WCS.
         xsize : int
             Size in pixels of CCD in x-direction.
         ysize : int
@@ -39,9 +48,13 @@ class SkyCatalogInterface:
             Root directory containing skyCatalogs files.  If None,
             then set skycatalog_root to the same directory containing
             the yaml config file.
-        edge_pix : float [100]
+        edge_pix : float [200]
             Size in pixels of the buffer region around nominal image
             to consider objects.
+        camera : str [None]
+            Name of the imSim camera to use for a multi-detector run.
+        det_name : str [None]
+            Name of the current detector.
         pupil_area : float [RUBIN_AREA]
             The area of the telescope pupil in cm**2.  The default value
             uses R_outer=418 cm and R_inner=255 cm.
@@ -73,6 +86,15 @@ class SkyCatalogInterface:
         else:
             self.skycatalog_root = skycatalog_root
         self.edge_pix = edge_pix
+        if camera is not None and det_name is not None and fiducial_wcs is not None:
+            self.multi_det = True
+            self.camera = Camera(camera_class=camera)
+            self.det_name = det_name
+            self.fiducial_wcs = fiducial_wcs
+            self.fiducial_det_name = fiducial_det_name
+        else:
+            # Set multi_det to False and move on.
+            self.multi_det = False
         self.pupil_area = pupil_area
         self.max_flux = max_flux
         self.logger = galsim.config.LoggerWrapper(logger)
@@ -83,10 +105,24 @@ class SkyCatalogInterface:
             self.logger.info(f'Object types restricted to {obj_types}')
         self.ccd_center = wcs.toWorld(galsim.PositionD(xsize/2.0, ysize/2.0))
         self._objects = None
+        self._objects_to_skip = set()
 
     @property
     def objects(self):
         if self._objects is None:
+            if self.multi_det:
+                # Get adjacent detectors; then their centers in pixel coordinates, then
+                # store after converting to RA and dec.
+                adjacent_detectors = self.camera.get_adjacent_detectors(self.det_name)
+                detector_centers = {}
+                transform_mapping = self.camera.lsst_camera[self.fiducial_det_name].getTransform(cameraGeom.FOCAL_PLANE, cameraGeom.PIXELS).getMapping()
+
+                # Get the focal plane centers for each detector in the list.
+                for detector in adjacent_detectors:
+                    focal_plane_center = self.camera.lsst_camera[detector].getCenter(cameraGeom.FOCAL_PLANE)
+                    pixel_center = galsim.PositionD(transform_mapping.applyForward(focal_plane_center))
+                    detector_centers[detector] = self.fiducial_wcs.toWorld(pixel_center)
+
             # Select objects from polygonal region bounded by CCD edges
             corners = ((-self.edge_pix, -self.edge_pix),
                        (self.xsize + self.edge_pix, -self.edge_pix),
@@ -102,6 +138,20 @@ class SkyCatalogInterface:
                 self.file_name, skycatalog_root=self.skycatalog_root)
             self._objects = sky_cat.get_objects_by_region(
                 region, obj_type_set=self.obj_types, mjd=self.mjd)
+            if self.multi_det:
+                # Work out the which of the adjacent detectors are closest
+                # to each object found in the region.  Add the object to the
+                # set of objects to skip if the current detector isn't the
+                # closest one.
+                for obj in self._objects:
+                    world_pos = galsim.CelestialCoord(obj.ra*galsim.degrees,
+                                                      obj.dec*galsim.degrees)
+                    obj_dist = {det: detector_centers[det].distanceTo(world_pos) for det in adjacent_detectors}
+                    closest_detector = min(obj_dist, key=obj_dist.get)
+                    if closest_detector != self.det_name:
+                        self._objects_to_skip.add(obj.id)
+                self.logger.info(f"Skipping {len(self._objects_to_skip)} "
+                                 "objects for this detector.")
             if not self._objects:
                 self.logger.warning("No objects found on image.")
         return self._objects
@@ -165,6 +215,8 @@ class SkyCatalogInterface:
             raise RuntimeError("Trying to get an object from an empty sky catalog")
 
         skycat_obj = self.objects[index]
+        if skycat_obj.id in self._objects_to_skip:
+            return None
         gsobjs = skycat_obj.get_gsobject_components(gsparams)
 
         if self.apply_dc2_dilation and skycat_obj.object_type == 'galaxy':
@@ -218,12 +270,26 @@ class SkyCatalogLoader(InputLoader):
                'mjd': float,
                'pupil_area': float,
               }
+        ignore = ['fiducial_wcs']  # Handled separately.
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
-                                                  opt=opt)
+                                                  opt=opt, ignore=ignore)
         wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
         kwargs['wcs'] = wcs
+        if config.get('fiducial_wcs', None) is not None:
+            fiducial_wcs = galsim.config.BuildWCS(config, 'fiducial_wcs', base, logger=logger)
+            if fiducial_wcs.wcs_type == "TAN-SIP":
+                # If it's a TAN-SIP WCS (such as from Batoid) then disable the
+                # SIP distortions, since we'll potentially use this WCS a long
+                # way from the detector where the polynomial was fitted.
+                fiducial_wcs.ab = None
+            kwargs['fiducial_wcs'] = fiducial_wcs
+            kwargs['fiducial_det_name'] = config['fiducial_wcs']['det_name']
+        else:
+            kwargs['fiducial_wcs'] = None
         kwargs['xsize'] = base.get('det_xsize', 4096)
         kwargs['ysize'] = base.get('det_ysize', 4096)
+        kwargs['camera'] = base['output'].get('camera', None)
+        kwargs['det_name'] = base.get('det_name', None)
         kwargs['logger'] = logger
 
         # Sky catalog object lists are created per CCD, so they are

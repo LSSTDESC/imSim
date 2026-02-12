@@ -88,6 +88,8 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
             else:
                 self.boresight = params.get('boresight')
 
+        self.add_noise = True
+
         self.camera_name = params.get('camera', 'LsstCam')
 
         # If using a SiliconSensor and not overridden in config, determine sensor type to use.
@@ -197,7 +199,8 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
                 sky.array[:] *= fringing_map
 
         image += sky
-        AddNoise(base,image,current_var,logger)
+        if self.add_noise:
+            AddNoise(base,image,current_var,logger)
 
     @staticmethod
     def _create_full_image(config, base):
