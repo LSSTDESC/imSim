@@ -148,7 +148,7 @@ class CCD(dict):
 
 
 _camera_cache = {}
-def get_camera(camera='LsstCam'):
+def get_camera(camera='LsstCamSim'):
     """
     Return an lsst camera object.
 
@@ -162,7 +162,7 @@ def get_camera(camera='LsstCam'):
     -------
     lsst.afw.cameraGeom.Camera
     """
-    valid_cameras = ('LsstCam', 'LsstCamSim', 'LsstCamImSim', 'LsstComCamSim')
+    valid_cameras = ('LsstCamSim', 'LsstComCamSim')
     if camera not in valid_cameras:
         raise ValueError('Invalid camera: %s', camera)
     if camera not in _camera_cache:
@@ -175,7 +175,7 @@ class Camera(dict):
     Class to represent the LSST Camera as a dictionary of CCD objects,
     keyed by the CCD name in the focal plane, e.g., 'R01_S00'.
     """
-    def __init__(self, camera_class='LsstCam', bias_levels_file=None,
+    def __init__(self, camera_class='LsstCamSim', bias_levels_file=None,
                  bias_level=1000.0):
         """
         Initialize a Camera object from the lsst instrument class.

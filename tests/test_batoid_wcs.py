@@ -492,7 +492,7 @@ def test_config():
             'wcs': {
                 'type': 'Batoid',
                 'boresight': boresight,
-                'camera': 'LsstCam',
+                'camera': 'LsstCamSim',
                 'obstime': obstime,
                 'wavelength': wavelength,
                 'temperature': temperature,

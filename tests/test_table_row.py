@@ -36,7 +36,7 @@ def create_table():
     )
     table["shift"].unit = u.mm
     # Some more values for setting up a telescope
-    table["camera"] = ["LsstCam", "LsstCam", "LsstComCamSim", "LsstComCamSim"]
+    table["camera"] = ["LsstCamSim", "LsstCamSim", "LsstComCamSim", "LsstComCamSim"]
     table["focusZ"] = [-1.0, -0.5, 0.0, 0.5] * u.mm
 
     table.pprint_all()

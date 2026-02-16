@@ -34,7 +34,7 @@ def test_sky_model():
 
     expected_sky_levels = {}
     for band in 'ugrizy':
-        bandpass = RubinBandpass(band, camera='LsstCam', det_name='R22_S11').bp_hardware
+        bandpass = RubinBandpass(band, camera='LsstCamSim', det_name='R22_S11').bp_hardware
         wave, spec = sky_model.return_wave_spec()
         lut = galsim.LookupTable(wave, spec[0])
         sed = galsim.SED(lut, wave_type='nm', flux_type='flambda')
@@ -42,7 +42,7 @@ def test_sky_model():
 
     # Compare to SkyModel results
     for band in 'ugrizy':
-        bandpass = RubinBandpass(band, camera='LsstCam', det_name='R22_S11')
+        bandpass = RubinBandpass(band, camera='LsstCamSim', det_name='R22_S11')
         sky_model = SkyModel(exptime, mjd, bandpass)
         sky_level = sky_model.get_sky_level(skyCoord)
         np.testing.assert_approx_equal(sky_level, expected_sky_levels[band],
@@ -53,7 +53,7 @@ def test_sky_model():
     # presumably innocuous reasons (makes a difference ~part per 10000).
     # Test still passes at significant=3.
     for band in 'ugrizy':
-        bandpass = RubinBandpass(band, airmass=1.2, camera='LsstCam', det_name='R22_S11')
+        bandpass = RubinBandpass(band, airmass=1.2, camera='LsstCamSim', det_name='R22_S11')
         sky_model = SkyModel(exptime, mjd, bandpass)
         sky_level = sky_model.get_sky_level(skyCoord)
         np.testing.assert_approx_equal(sky_level, expected_sky_levels[band],
@@ -74,7 +74,7 @@ def test_sky_gradient():
     bandpass = RubinBandpass(band)
     sky_model = SkyModel(exptime, mjd, bandpass)
 
-    wcs = make_batoid_wcs(ra, dec, rottelpos, mjd, band, 'LsstCam')
+    wcs = make_batoid_wcs(ra, dec, rottelpos, mjd, band, 'LsstCamSim')
 
     world_center = galsim.CelestialCoord(ra*galsim.degrees, dec*galsim.degrees)
     image_xsize = 4096  # Size in pixels of R22_S11 in x-direction

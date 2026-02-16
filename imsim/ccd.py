@@ -38,7 +38,7 @@ class LSST_CCDBuilder(OutputBuilder):
         if 'camera' in config:
             camera_name = galsim.config.ParseValue(config, 'camera', base, str)[0]
         else:
-            camera_name = 'LsstCam'
+            camera_name = 'LsstCamSim'
         camera = get_camera(camera_name)
         if 'only_dets' in config:
             only_dets = config['only_dets']

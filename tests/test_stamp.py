@@ -43,7 +43,7 @@ def create_test_config():
                 "azimuth": 0 * galsim.degrees,
                 "latitude": -30.24463 * galsim.degrees,
                 "boresight": galsim.CelestialCoord(0*galsim.degrees, 0*galsim.degrees),
-                "camera": 'LsstCam',
+                "camera": 'LsstCamSim',
                 "det_name": 'R22_S11',
             }],
             'fft_photon_ops': [{
@@ -577,7 +577,7 @@ def test_stamp_bandpass_airmass():
         print("\n"*3)
         return np.array(ref_fluxes), np.array(realized_fluxes)
 
-    ref_QE, realized_QE = get_fluxes(None, 'LsstCam', 'R22_S11')
+    ref_QE, realized_QE = get_fluxes(None, 'LsstCamSim', 'R22_S11')
     ref_X_None, realized_X_None = get_fluxes(None, None, None)
     ref_X10, realized_X10 = get_fluxes(1.0, None, None)
     ref_X12, realized_X12 = get_fluxes(1.2, None, None)

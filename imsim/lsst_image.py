@@ -61,7 +61,7 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
         ysize = params.get('ysize',size)
 
         self.det_name = params['det_name']
-        self.camera_name = params.get('camera', 'LsstCam')
+        self.camera_name = params.get('camera', 'LsstCamSim')
 
         # If not overridden, then get size from the camera.
         camera = get_camera(self.camera_name)
@@ -88,7 +88,7 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
             else:
                 self.boresight = params.get('boresight')
 
-        self.camera_name = params.get('camera', 'LsstCam')
+        self.camera_name = params.get('camera', 'LsstCamSim')
 
         # If using a SiliconSensor and not overridden in config, determine sensor type to use.
         if (

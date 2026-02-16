@@ -52,10 +52,6 @@ def run_imsim(camera, nfiles=None):
               'output.truth.file_name.format': 'centroid_%08d-%1d-%s-%s-det%03d.txt',
             }
 
-    # Override until LsstCamImSim exists in obs_lsst_data
-    if camera == 'LsstCamImSim':
-        config['image.bandpass.camera'] = 'LsstCam'
-
     galsim.config.Process(config, logger=logger)
     return config
 
@@ -82,7 +78,7 @@ def compute_pixel_offset(eimage_file):
     return np.sqrt((x_avg - data['x'])**2 + (y_avg - data['y'])**2)
 
 def test_object_positions():
-    for camera in ('LsstCam', 'LsstCamImSim'):
+    for camera in ('LsstCamSim',):
         print(camera)
         run_imsim(camera)
         eimage_files = glob.glob(f'fits_{camera}/eimage*')
@@ -95,8 +91,8 @@ def test_object_positions():
             shutil.rmtree(output_dir)
 
 def test_output_catalog():
-    config = run_imsim('LsstCam', nfiles=1)
-    centroid_file = 'fits_LsstCam/centroid_00182850-0-i-R22_S11-det000.txt'
+    config = run_imsim('LsstCamSim', nfiles=1)
+    centroid_file = 'fits_LsstCamSim/centroid_00182850-0-i-R22_S11-det000.txt'
     print(centroid_file)
     data = np.genfromtxt(centroid_file, names=True)
     print(data)
@@ -114,7 +110,7 @@ def test_output_catalog():
     assert data['realized_flux'] > 0.99 * data['phot_flux']
     # fft_flux is 0 when object was photon shot.
     assert data['fft_flux'] == 0.
-    output_dir = "fits_LsstCam"
+    output_dir = "fits_LsstCamSim"
     if os.path.isdir(output_dir):
         shutil.rmtree(output_dir)
 

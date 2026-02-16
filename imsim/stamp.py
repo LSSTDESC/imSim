@@ -166,7 +166,7 @@ class LSST_SiliconBuilder(StampBuilder):
         self.rng = galsim.config.GetRNG(config, base, logger, "LSST_Silicon")
         bandpass = base['bandpass']
         self.image = base['current_image']
-        camera = get_camera(params.get('camera', 'LsstCam'))
+        camera = get_camera(params.get('camera', 'LsstCamSim'))
         if self.vignetting:
             self.det = camera[params['det_name']]
         if hasattr(obj, 'flux'):

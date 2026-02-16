@@ -62,7 +62,7 @@ def create_test_config(
             }
         },
         "det_name": det_name,
-        "output": {"camera": "LsstCam"},
+        "output": {"camera": "LsstCamSim"},
         "_icrf_to_field": wcs_factory.get_icrf_to_field(camera),
     }
     alt_az = {
@@ -86,7 +86,7 @@ def create_test_config(
                 {
                     **optics_args,
                     "boresight": boresight,
-                    "camera": "LsstCam",
+                    "camera": "LsstCamSim",
                 },
             ]
         }

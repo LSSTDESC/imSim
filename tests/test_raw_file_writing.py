@@ -45,12 +45,8 @@ class RawFileOutputTestCase(unittest.TestCase):
         hdr = hdu.header
 
         # Test some keywords.
-        if hdr.get('TESTTYPE', None) == 'IMSIM':
-            self.assertAlmostEqual(hdr['RATEL'], eimage.header['RATEL'])
-            self.assertAlmostEqual(hdr['DECTEL'], eimage.header['DECTEL'])
-        else:  # All other cameras, e.g., LsstCam, LsstComCam, etc..
-            self.assertAlmostEqual(hdr['RA'], eimage.header['RATEL'])
-            self.assertAlmostEqual(hdr['DEC'], eimage.header['DECTEL'])
+        self.assertAlmostEqual(hdr['RA'], eimage.header['RATEL'])
+        self.assertAlmostEqual(hdr['DEC'], eimage.header['DECTEL'])
 
         self.assertTrue(hdr["OBSID"].startswith('MC_S'))
 

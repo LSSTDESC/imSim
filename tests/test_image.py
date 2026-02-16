@@ -71,7 +71,7 @@ def create_test_config(
                        }
     if stamp_type == "LSST_Photons":
         output_config = {
-            "camera": "LsstCam",
+            "camera": "LsstCamSim",
             "photon_pooling_truth": {
                 "dir": "output",
                 "file_name": "test-truth.txt",
@@ -87,7 +87,7 @@ def create_test_config(
             },
         }
     else:
-        output_config = {"camera": "LsstCam"}
+        output_config = {"camera": "LsstCamSim"}
     config = {
         "input": {
             "telescope": {
@@ -146,7 +146,7 @@ def create_test_config(
                 {
                     **optics_args,
                     "boresight": boresight,
-                    "camera": "LsstCam",
+                    "camera": "LsstCamSim",
                 },
             ]
         },

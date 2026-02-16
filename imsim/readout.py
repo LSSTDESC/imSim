@@ -62,9 +62,9 @@ def make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name,
         MJD of the observation (TAI scale).
     band : str
         One of `ugrizy`.
-    camera_name : str ['LsstCam']
+    camera_name : str ['LsstCamSim']
         Class name of the camera to be simulated.  Valid values are
-        'LsstCam', 'LsstCamImSim', 'LsstComCamSim'.
+        'LsstCamSim', 'LsstComCamSim'.
     logger : logger.Logger [None]
         Logger object.
 
@@ -92,7 +92,7 @@ def make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name,
 
 
 def compute_rotSkyPos(ra0, dec0, rottelpos, obsmjd, band,
-                      camera_name='LsstCam', dxy=100, pixel_scale=0.2,
+                      camera_name='LsstCamSim', dxy=100, pixel_scale=0.2,
                       logger=None):
     """
     Compute the nominal rotation angle of the focal plane wrt
@@ -111,9 +111,9 @@ def compute_rotSkyPos(ra0, dec0, rottelpos, obsmjd, band,
         MJD of the observation.
     band : str
         One of `ugrizy`.
-    camera_name : str ['LsstCam']
+    camera_name : str ['LsstCamSim']
         Class name of the camera to be simulated.  Valid values are
-        'LsstCam', 'LsstCamImSim', 'LsstComCamSim'.
+        'LsstCamSim', 'LsstComCamSim'.
     dxy : float [100]
         Size (in pixels) of legs of the triangle to use for computing the
         angle between North and the +y direction in the focal plane.
@@ -142,12 +142,6 @@ def compute_rotSkyPos(ra0, dec0, rottelpos, obsmjd, band,
     )
     theta = 270 - rottelpos + np.rad2deg(factory.pq)
 
-    if camera_name == 'LsstCamImSim':
-        # For historical reasons, the rotation angle for imSim data is
-        # assumed by the LSST code to have a sign change and 90
-        # rotation.  See
-        # https://github.com/lsst/obs_lsst/blob/main/python/lsst/obs/lsst/translators/imsim.py#L104
-        theta = 90 - theta
     if theta < 0:
         theta += 360
     _rotSkyPos_cache[args] = theta
@@ -250,15 +244,7 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         logger=logger
     )
     phdu.header['ROTANGLE'] = rotang
-    if camera_name == 'LsstCamImSim':
-        phdu.header['FILTER'] = band
-        phdu.header['TESTTYPE'] = 'IMSIM'
-        phdu.header['RAFTNAME'] = raft
-        phdu.header['SENSNAME'] = sensor
-        phdu.header['RATEL'] = ratel
-        phdu.header['DECTEL'] = dectel
-        telcode = 'MC'
-    elif camera_name == 'LsstComCamSim' :
+    if camera_name == 'LsstComCamSim' :
         phdu.header['FILTER'] = ComCam_filter_map.get(band, None)
         phdu.header['INSTRUME'] = 'ComCamSim'
         phdu.header['RAFTBAY'] = raft
@@ -270,10 +256,7 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
         telcode = 'CC'
     else:
         phdu.header['FILTER'] = LSSTCam_filter_map.get(band, None)
-        if camera_name == 'LsstCamSim':
-            phdu.header['INSTRUME'] = 'LSSTCamSim'
-        else:
-            phdu.header['INSTRUME'] = 'LSSTCam'
+        phdu.header['INSTRUME'] = 'LSSTCamSim'
         phdu.header['RAFTBAY'] = raft
         phdu.header['CCDSLOT'] = sensor
         phdu.header['RA'] = ratel
@@ -353,7 +336,7 @@ class CcdReadout:
             The eimage with the rendered scene, wcs, and header information.
         logger : logging.Logger
             Logger object
-        camera : str, Camera class to use, e.g., 'LsstCam', 'LsstCamImSim'.
+        camera : str, Camera class to use, e.g., 'LsstCamSim', 'LsstComCamSim'.
             [default: use the camera from the eimage header]
         readout_time: float (seconds) [default: 2.0]
         dark_current: float (e-/s) [default: 0.02]
@@ -505,12 +488,8 @@ class CcdReadout:
         # Build HDUs.
         channels = '10 11 12 13 14 15 16 17 07 06 05 04 03 02 01 00'.split()
         x_seg_offset = (1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1)
-        if self.camera_name == 'LsstCamImSim':
-            y_seg_offset = (0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2)
-            cd_matrix_sign = -1
-        else:
-            y_seg_offset = (2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0)
-            cd_matrix_sign = 1
+        y_seg_offset = (2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0)
+        cd_matrix_sign = 1
         wcs = self.eimage.wcs
         crpix1, crpix2 = wcs.crpix
 

@@ -26,7 +26,7 @@ def test_fringing():
     # Testing a CCD with an arbitrary location on the focal plane.
     ra = 54.86
     dec = -35.76
-    wcs = make_batoid_wcs(ra, dec, rottelpos, mjd, band, 'LsstCam')
+    wcs = make_batoid_wcs(ra, dec, rottelpos, mjd, band, 'LsstCamSim')
 
     config = {
         'image': {
@@ -99,7 +99,7 @@ def test_fringing():
     # Try another random location on the focal plane.
     ra = 58.86
     dec = -38.76
-    wcs = make_batoid_wcs(ra, dec, rottelpos, mjd, band, 'LsstCam')
+    wcs = make_batoid_wcs(ra, dec, rottelpos, mjd, band, 'LsstCamSim')
 
     ccd_fringing_2 = CCD_Fringing(true_center=image.wcs.toWorld(image.true_center),
                                 boresight=world_center,
