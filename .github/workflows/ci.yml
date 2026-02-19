@@ -53,13 +53,15 @@ jobs:
             - name: Setup conda
               uses: conda-incubator/setup-miniconda@v2
               with:
+                  auto-update-conda: false
+                  conda-version: "25.11.1"
                   activate-environment: stack
                   python-version: ${{ matrix.py }}
                   condarc-file: etc/.condarc
 
             - name: Install conda deps
               run: |
-                conda update -n base conda
+                # conda update -n base conda
                 conda info
                 conda list
                 conda install -y --file etc/standalone_conda_requirements.txt || true
