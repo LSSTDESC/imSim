@@ -177,6 +177,7 @@ class InstCatalog(object):
                  edge_pix=200, camera=None, det_name=None,
                  sort_mag=True, flip_g2=True,
                  pupil_area=RUBIN_AREA, min_source=None, skip_invalid=True,
+                 full_focal_plane=False,
                  logger=None):
         logger = galsim.config.LoggerWrapper(logger)
         self.file_name = file_name
@@ -184,15 +185,16 @@ class InstCatalog(object):
         self.xsize = xsize
         self.ysize = ysize
         self.edge_pix = edge_pix
-        if camera is not None and det_name is not None and fiducial_wcs is not None:
-            self.multi_det = True
+        if full_focal_plane:
+            if camera is None or det_name is None or fiducial_wcs is None:
+                raise galsim.GalSimConfigValueError("full_focal_plane is set to True: camera, det_name and fiducial_wcs must be provided.")
+            self.full_focal_plane = True
             self.camera = Camera(camera_class=camera)
             self.det_name = det_name
             self.fiducial_wcs = fiducial_wcs
             self.fiducial_det_name = fiducial_det_name
         else:
-            # Set multi_det to False and move on.
-            self.multi_det = False
+            self.full_focal_plane = False
         self.sort_mag = sort_mag
         self.flip_g2 = flip_g2
         self.min_source = min_source
@@ -242,7 +244,7 @@ class InstCatalog(object):
         nuse = 0
         ntot = 0
 
-        if self.multi_det:
+        if self.full_focal_plane:
             # Get adjacent detectors; then their centers in pixel coordinates, then
             # store after converting to RA and dec.
             adjacent_detectors = self.camera.get_adjacent_detectors(self.det_name)
@@ -275,7 +277,7 @@ class InstCatalog(object):
 
                     world_pos = galsim.CelestialCoord(ra, dec)
                     #logger.debug('world_pos = %s',world_pos)
-                    if self.multi_det:
+                    if self.full_focal_plane:
                         # Check whether the object is closer to this detector's center
                         # than any of the adjacent detectors. If not, then skip it.
                         obj_dist = {det: detector_centers[det].distanceTo(world_pos) for det in adjacent_detectors}
@@ -676,6 +678,7 @@ class InstCatalogLoader(InputLoader):
                 'pupil_area' : float,
                 'min_source' : int,
                 'skip_invalid' : bool,
+                'full_focal_plane' : bool,
               }
         ignore = ['fiducial_wcs']  # Handled separately.
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)
