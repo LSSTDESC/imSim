@@ -6,6 +6,7 @@ from astropy.io import fits
 from astropy.time import Time
 import galsim
 from galsim.config import ExtraOutputBuilder, RegisterExtraOutput, GetAllParams, ParseValue
+import eups
 from lsst.afw import cameraGeom
 import lsst.obs.lsst
 from lsst.obs.lsst.translators.lsst import SIMONYI_TELESCOPE
@@ -313,8 +314,7 @@ def write_package_versions(header, index=1):
     # Use eups for lsst_distrib version.
     i += 1
     package = "lsst_distrib"
-    version = subprocess.check_output(f"eups list --version {package}",
-                                      shell=True, encoding="utf-8").strip()
+    version = eups.getSetupVersion(package)
     header[f"PKG{i:05d}"] = package
     header[f"VER{i:05d}"] = version
     return header
