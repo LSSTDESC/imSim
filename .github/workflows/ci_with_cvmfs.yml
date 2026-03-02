@@ -1,16 +1,6 @@
 name: imSim CI using /cvmfs/sw.lsst.eu
 
 on:
-    push:
-        branches:
-            - main
-            - releases/*
-
-    pull_request:
-        branches:
-            - main
-            - releases/*
-
     workflow_dispatch: null
 
 jobs:
