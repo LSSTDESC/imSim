@@ -682,8 +682,6 @@ class InstCatalogLoader(InputLoader):
               }
         ignore = ['fiducial_wcs']  # Handled separately.
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)
-        wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
-        kwargs['wcs'] = wcs
         if config.get('fiducial_wcs', None) is not None:
             fiducial_wcs = galsim.config.BuildWCS(config, 'fiducial_wcs', base, logger=logger)
             if fiducial_wcs.wcs_type == "TAN-SIP":
@@ -695,6 +693,10 @@ class InstCatalogLoader(InputLoader):
             kwargs['fiducial_det_name'] = config['fiducial_wcs']['det_name']
         else:
             kwargs['fiducial_wcs'] = None
+        # Must build the 'real' WCS after the fiducial WCS as BatoidWCSBuilder.buildWCS()
+        # stores base['_icrf_to_field'], and we want that to be the 'real' one.
+        wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
+        kwargs['wcs'] = wcs
         kwargs['xsize'] = base.get('det_xsize', 4096)
         kwargs['ysize'] = base.get('det_ysize', 4096)
         kwargs['camera'] = base['output'].get('camera', None)
