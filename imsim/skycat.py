@@ -20,7 +20,8 @@ class SkyCatalogInterface:
                  obj_types=None, skycatalog_root=None, edge_pix=200,
                  camera=None, det_name=None,
                  pupil_area=RUBIN_AREA, max_flux=None, logger=None,
-                 apply_dc2_dilation=False, approx_nobjects=None):
+                 apply_dc2_dilation=False, approx_nobjects=None,
+                 full_focal_plane=False):
         """
         Parameters
         ----------
@@ -52,7 +53,7 @@ class SkyCatalogInterface:
             Size in pixels of the buffer region around nominal image
             to consider objects.
         camera : str [None]
-            Name of the imSim camera to use for a multi-detector run.
+            Name of the imSim camera to use for a full_focal_plane run.
         det_name : str [None]
             Name of the current detector.
         pupil_area : float [RUBIN_AREA]
@@ -73,6 +74,8 @@ class SkyCatalogInterface:
             Approximate number of objects per CCD used by galsim to
             set up the image processing.  If None, then the actual number
             of objects found by skyCatalogs, via .getNObjects, will be used.
+        full_focal_plane : bool [False]
+            Enables or disables two-pass full focal plane processing.
         """
         self.file_name = file_name
         self.wcs = wcs
@@ -86,15 +89,16 @@ class SkyCatalogInterface:
         else:
             self.skycatalog_root = skycatalog_root
         self.edge_pix = edge_pix
-        if camera is not None and det_name is not None and fiducial_wcs is not None:
-            self.multi_det = True
+        if full_focal_plane:
+            if camera is None or det_name is None or fiducial_wcs is None:
+                raise galsim.GalSimConfigValueError("full_focal_plane is set to True: camera, det_name and fiducial_wcs must be provided.")
+            self.full_focal_plane = True
             self.camera = Camera(camera_class=camera)
             self.det_name = det_name
             self.fiducial_wcs = fiducial_wcs
             self.fiducial_det_name = fiducial_det_name
         else:
-            # Set multi_det to False and move on.
-            self.multi_det = False
+            self.full_focal_plane = False
         self.pupil_area = pupil_area
         self.max_flux = max_flux
         self.logger = galsim.config.LoggerWrapper(logger)
@@ -110,7 +114,7 @@ class SkyCatalogInterface:
     @property
     def objects(self):
         if self._objects is None:
-            if self.multi_det:
+            if self.full_focal_plane:
                 # Get adjacent detectors; then their centers in pixel coordinates, then
                 # store after converting to RA and dec.
                 adjacent_detectors = self.camera.get_adjacent_detectors(self.det_name)
@@ -138,7 +142,7 @@ class SkyCatalogInterface:
                 self.file_name, skycatalog_root=self.skycatalog_root)
             self._objects = sky_cat.get_objects_by_region(
                 region, obj_type_set=self.obj_types, mjd=self.mjd)
-            if self.multi_det:
+            if self.full_focal_plane:
                 # Work out the which of the adjacent detectors are closest
                 # to each object found in the region.  Add the object to the
                 # set of objects to skip if the current detector isn't the
@@ -269,12 +273,11 @@ class SkyCatalogLoader(InputLoader):
                'approx_nobjects': int,
                'mjd': float,
                'pupil_area': float,
+               'full_focal_plane': bool,
               }
         ignore = ['fiducial_wcs']  # Handled separately.
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt, ignore=ignore)
-        wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
-        kwargs['wcs'] = wcs
         if config.get('fiducial_wcs', None) is not None:
             fiducial_wcs = galsim.config.BuildWCS(config, 'fiducial_wcs', base, logger=logger)
             if fiducial_wcs.wcs_type == "TAN-SIP":
@@ -286,6 +289,10 @@ class SkyCatalogLoader(InputLoader):
             kwargs['fiducial_det_name'] = config['fiducial_wcs']['det_name']
         else:
             kwargs['fiducial_wcs'] = None
+        # Must build the 'real' WCS after the fiducial WCS as BatoidWCSBuilder.buildWCS()
+        # stores base['_icrf_to_field'], and we want that to be the 'real' one.
+        wcs = galsim.config.BuildWCS(base['image'], 'wcs', base, logger=logger)
+        kwargs['wcs'] = wcs
         kwargs['xsize'] = base.get('det_xsize', 4096)
         kwargs['ysize'] = base.get('det_ysize', 4096)
         kwargs['camera'] = base['output'].get('camera', None)
