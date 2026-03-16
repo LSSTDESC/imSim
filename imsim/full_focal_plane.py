@@ -87,55 +87,73 @@ class OffDetectorPhotons(object):
     then, and will now be read in this second pass to be accumulated on other sensors.
     """
 
-    def __init__(self, file_name, camera, det_name, dir=None, xsize=4096, ysize=4096, logger=None):
+    def __init__(self, camera, det_name, file_name=None, file_pattern=None, dir=None, logger=None):
         """
         Initialize the off-detector photons input class.
 
         Parameters:
-            file_name: str
-                The name of the file to read.
             camera: str
                 The name of the camera containing the detector.
             det_name: str
                 The name of the detector to use for photon coordinate transformations.
+            file_name: str
+                The name of the file to read. (default: None)
+            file_pattern: str
+                The file pattern to use if up to 189 are to be read. (default: None)
             dir: str
                 The directory where the file is. (default: None)
-            xsize: int
-                The x size in pixels of the CCD. (default: 4096)
-            ysize: int
-                The y size in pixels of the CCD. (default: 4096)
             logger: logging.logger
                 A logger object. (default: None)
         """
-        self.file_name = file_name
-        if dir is not None:
-            self.file_name = os.path.join(dir, self.file_name)
-        self.det = get_camera(camera)[det_name]
-        self.xsize = xsize
-        self.ysize = ysize
         self.logger = logger
-        # self.photons = None
-        self.photons = galsim.PhotonArray.read(self.file_name)
+        camera = get_camera(camera)
+        self.det = camera[det_name]
+        # The Loader should have ensured we have one but not both of file_name or file_pattern.
+        if file_name is not None:
+            # Only have a single file to read.
+            file_names = [file_name]
+        elif file_pattern is not None:
+            # We want to read up to 188 files: potentially photons from every
+            # detector except this one (as those photons were drawn normally in
+            # the first pass). We may want to allow det_num_start and
+            # det_num_end to be set in the config in a similar way to output
+            # where it's controlled with det_num.first, nfiles and only_dets.
+            det_num_start = 0
+            det_num_end = 189
+            file_names = [file_pattern.replace("DETNAME", camera[i].getName()).replace("DETNUM", "{:03d}".format(i))
+                          for i in range(det_num_start, det_num_end)
+                          if camera[i].getName() != det_name
+                          ]
+        if dir is not None:
+            file_names = [os.path.join(dir, fname) for fname in file_names]
+        # Allow for the possibility that not all the 188 files exist.
+        self.file_names = [fname for fname in file_names if os.path.isfile(fname)]
+        if len(self.file_names) == 0:
+            raise galsim.GalSimConfigValueError(f"Detector {det_name} did not find any expected off detector photon files: {file_names}.")
+        logger.info(f"Detector {det_name} reading {len(self.file_names)} files for off-detector photons.")
+        # Would it be better to make photons a @property and read lazily when
+        # first accessed?
+        photon_storage = []
+        for file_name in self.file_names:
+            photon_storage.append(galsim.PhotonArray.read(file_name))
+        self.photons = galsim.PhotonArray.concatenate(photon_storage)
         self.photons.x, self.photons.y = focal_to_pixel(self.photons.x, self.photons.y, self.det)
 
 
 class OffDetectorPhotonsLoader(InputLoader):
-    """
-    Class to load off-detector photons from file.
+    """Class to load off-detector photons from file.
     """
     def getKwargs(self, config, base, logger):
-        req = {'file_name': str, 'camera': str, 'det_name': str}
-        opt = {'dir': str}
+        req = {'camera': str, 'det_name': str}
+        opt = {'file_name': str, 'file_pattern': str, 'dir': str}
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
-        kwargs['xsize'] = base.get('det_xsize', 4096)
-        kwargs['ysize'] = base.get('det_ysize', 4096)
+        if ('file_name' in kwargs) == ('file_pattern' in kwargs):
+            raise galsim.GalSimConfigValueError('off_detector_photons must contain one of either file_name or file_pattern')
         kwargs['logger'] = logger
 
-        # For now assume the off-detector photons on file can be used for
-        # all detectors.
-        # Change assumption, so now we consider that we have a per-detector
-        # input file that cannot be reused for other detectors.
+        # Base assumption (for now) is that we have a per-detector set of inputs
+        # that cannot be reused for other detectors.
         safe = False
         return kwargs, safe
 
@@ -162,16 +180,14 @@ class LSST_FocalPlaneImageBuilder(LSST_ImageBuilderBase):
         if not isinstance(base['_input_objs']['off_detector_photons'][0], OffDetectorPhotons):
             raise galsim.config.GalSimConfigError(
                 "When using LSST_FocalPlaneImage, you must provide an off_detector_photons input.",)
-        
+
         off_detector_photons = base['_input_objs']['off_detector_photons'][0].photons
 
         if len(off_detector_photons) > 0:
             # There are photons to be accumulated. They should already have been
             # transformed to pixel coordinates when they were read from file, so
             # go ahead and accumulate them.
-
             sensor = base.get('sensor', Sensor())
-
             sensor.accumulate(off_detector_photons, image)
 
         return image, []

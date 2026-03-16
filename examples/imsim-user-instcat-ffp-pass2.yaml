@@ -50,15 +50,22 @@ input.initial_image:
 # might want to add the capability to work from a file list too.
 input.off_detector_photons:
     dir: output
-    file_name:
+    # file_name:
+    #     type: FormattedStr
+    #     format: off_det_%08d-%1d-%s-%s-det%03d.fits
+    #     items:
+    #         - { type: OpsimData, field: observationId }
+    #         - { type: OpsimData, field: snap }
+    #         - $band
+    #         - $det_name
+    #         - "@output.det_num"
+    file_pattern:
         type: FormattedStr
-        format : off_det_%08d-%1d-%s-%s-det%03d.fits
+        format: off_det_%08d-%1d-%s-DETNAME-detDETNUM.fits
         items:
             - { type: OpsimData, field: observationId }
             - { type: OpsimData, field: snap }
             - $band
-            - $det_name
-            - "@output.det_num"
     camera: $camera
     det_name: $det_name
 
