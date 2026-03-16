@@ -51,7 +51,7 @@ def process_off_detector_photons_output(pa_list):
     base = {
         "det_name": "R22_S11",
         "output": {
-            "camera": "LsstCam",
+            "camera": "LsstCamSim",
             "off_detector_photons": {
                 "dir": "output",
                 "file_name": "off_det_photons.fits",

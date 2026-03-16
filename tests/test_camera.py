@@ -58,7 +58,7 @@ class CameraTestCase(unittest.TestCase):
             'R22_S10', 'R22_S11', 'R22_S12',
             'R22_S20', 'R22_S21', 'R22_S22',
         ]
-        self.check_adjacent_detectors_match('LsstCam', det_name, expected_detectors)
+        self.check_adjacent_detectors_match('LsstCamSim', det_name, expected_detectors)
 
     def test_get_adjacent_detectors_offset(self):
         # Case of detectors adjacent to one offset to a corner in a raft.
@@ -69,7 +69,7 @@ class CameraTestCase(unittest.TestCase):
             'R21_S22', 'R22_S20', 'R22_S21',
             'R21_S12', 'R22_S10', 'R22_S11',
         ]
-        self.check_adjacent_detectors_match('LsstCam', det_name, expected_detectors)
+        self.check_adjacent_detectors_match('LsstCamSim', det_name, expected_detectors)
         # Bottom right corner.
         det_name = 'R22_S02'
         expected_detectors = [
@@ -77,7 +77,7 @@ class CameraTestCase(unittest.TestCase):
             'R22_S01', 'R22_S02', 'R23_S00',
             'R12_S21', 'R12_S22', 'R13_S20',
         ]
-        self.check_adjacent_detectors_match('LsstCam', det_name, expected_detectors)
+        self.check_adjacent_detectors_match('LsstCamSim', det_name, expected_detectors)
 
     def test_get_adjacent_detectors_edge(self):
         # Case of detectors adjacent to one on the edge of the camera.
@@ -87,7 +87,7 @@ class CameraTestCase(unittest.TestCase):
             'R02_S10', 'R02_S11', 'R02_S12',
             'R02_S00', 'R02_S01', 'R02_S02',
         ]
-        self.check_adjacent_detectors_match('LsstCam', det_name, expected_detectors)
+        self.check_adjacent_detectors_match('LsstCamSim', det_name, expected_detectors)
         # Left edge.
         det_name = 'R20_S10'
         expected_detectors = [
@@ -108,7 +108,7 @@ class CameraTestCase(unittest.TestCase):
             'R24_S11', 'R24_S12',
             'R24_S01', 'R24_S02',
         ]
-        self.check_adjacent_detectors_match('LsstCam', det_name, expected_detectors)
+        self.check_adjacent_detectors_match('LsstCamSim', det_name, expected_detectors)
 
     def test_get_adjacent_detectors_corner(self):
         # Case of detectors adjacent to one in a corner of the camera.
@@ -120,7 +120,7 @@ class CameraTestCase(unittest.TestCase):
             'R01_S10', 'R01_S11',
             'R01_S00', 'R01_S01',
         ]
-        self.check_adjacent_detectors_match('LsstCam', det_name, expected_detectors)
+        self.check_adjacent_detectors_match('LsstCamSim', det_name, expected_detectors)
         # On the corner of a corner cutout.
         det_name = 'R11_S00'
         expected_detectors = [
@@ -128,12 +128,12 @@ class CameraTestCase(unittest.TestCase):
             'R10_S02', 'R11_S00', 'R11_S01',
                        'R01_S20', 'R01_S21',
         ]
-        self.check_adjacent_detectors_match('LsstCam', det_name, expected_detectors)
+        self.check_adjacent_detectors_match('LsstCamSim', det_name, expected_detectors)
 
     def test_get_adjacent_detectors_exceptions(self):
         # Ensure that get_adjacent_detectors raises errors for invalid detecor
         # names -- either ones which don't exist, or non science ones.
-        camera = imsim.Camera('LsstCam')
+        camera = imsim.Camera('LsstCamSim')
 
         # Non-existent detectors.
         with self.assertRaises(GalSimValueError):
