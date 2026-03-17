@@ -17,7 +17,7 @@ jobs:
 
         strategy:
             matrix:
-                os: [ ubuntu-22.04 ]
+                os: [ ubuntu-latest ]
                 py: [ "3.13" ]
                 CC: [ gcc ]
                 CXX: [ g++ ]
@@ -114,7 +114,7 @@ jobs:
                 setup -r skyCatalogs -j
                 eups list | grep LOCAL
                 galsim --version
-                pytest --durations=10 -n auto -v
+                pytest --durations=10 -n 1 -v
 
             - name: Check example config files
               run: |
