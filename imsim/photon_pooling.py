@@ -344,18 +344,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         # sub-batches are empty.
         sorted_objects = sorted(batch, key=lambda obj: obj.phot_flux, reverse=True)
 
-        # Implementation goal: (at the moment have something like 1 -5)
-        # 0. Sort objects brightest to faintest.
-        # 1. Loop first through objects and then while object's remaining flux > 0.
-        # 2. Does this object's remaining flux fit entirely into the current sub-batch? If yes, put it in.
-        # 3. If not, are there are still any empty sub-batches AND would we expect it to fit into one?
-        #   4. If yes, move to the next empty sub-batch and put it in. Decrement the number of empty sub-batches.
-        #   5. If not, then we now need to place the objects in partially full sub-batches and potentially fragment them. Exit the loop, noting current object.
-        # 6. Loop through the remaining objects.
-        #   7. Loop while the object's remaining flux > 0.
-        #   8. Find the least full sub-batch. (Store total flux in each somewhere instead?)
-        #   9. Add the object up to max(1.1 * its current flux, 1.1 * photons_per_subbatch), or some other tolerance.
-
+        # Sub-batching loop.
         subbatches = [[] for _ in range(nsubbatch)]
         current_subbatch = 0
         for obj in sorted_objects:
