@@ -18,7 +18,7 @@ STAMP_SIZE = 1000
 def assert_objects_at_positions(image, expected_positions, expected_brightness_values, pixel_radius=10, rtol=0.1):
     """Sum the brightness values of squares of side length `2*pixel_radius` centered
     at `expected_positions` and compare against `expected_brightness_values` where the
-    maximum allowed difference is 3 * sqrt(expected)."""
+    maximum allowed difference is 4 * sqrt(expected)."""
     brightness_values = np.empty_like(expected_brightness_values)
     sigma = 4. * np.sqrt(expected_brightness_values)
     for i, (col, row) in enumerate(expected_positions):
