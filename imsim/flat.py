@@ -60,6 +60,9 @@ class LSST_FlatBuilder(ImageBuilder):
         if countrate_per_pixel == 0:
             self.counts_per_pixel = params['counts_per_pixel']
         else:
+            if 'counts_per_pixel' in params:
+                logger.warning("Both countrate_per_pixel and counts_per_pixel "
+                               "are set.  Using countrate_per_pixel.")
             exptime = base['exptime']
             self.counts_per_pixel = params['countrate_per_pixel']*exptime
 
