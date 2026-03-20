@@ -173,7 +173,7 @@ def write_cosmic_ray_catalog(fp_id, x0, y0, pixel_values, exptime, num_pix,
         Flag to overwrite an existing outfile. Default: True
     """
     hdu_list = fits.HDUList([fits.PrimaryHDU()])
-    columns = [fits.Column(name='fp_id', format='I', array=fp_id),
+    columns = [fits.Column(name='fp_id', format='J', array=fp_id),
                fits.Column(name='x0', format='I', array=x0),
                fits.Column(name='y0', format='I', array=y0),
                fits.Column(name='pixel_values', format='PJ()',
