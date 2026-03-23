@@ -124,7 +124,7 @@ class LSST_CCDBuilder(OutputBuilder):
         if cosmic_ray_rate > 0:
             cosmic_ray_catalog = params.get('cosmic_ray_catalog', None)
             if cosmic_ray_catalog is None:
-                cosmic_ray_catalog = os.path.join(data_dir, 'cosmic_rays_itl_2017.fits.gz')
+                cosmic_ray_catalog = os.path.join(data_dir, 'cosmic_rays_LSSTCam_20260103.fits')
             if not os.path.isfile(cosmic_ray_catalog):
                 raise FileNotFoundError(f'{cosmic_ray_catalog} not found')
 
