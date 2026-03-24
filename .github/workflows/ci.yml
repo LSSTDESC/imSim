@@ -114,7 +114,7 @@ jobs:
                 setup -r skyCatalogs -j
                 eups list | grep LOCAL
                 galsim --version
-                pytest --durations=10 -n auto
+                pytest --durations=10 -n 1 -v
 
             - name: Check example config files
               run: |

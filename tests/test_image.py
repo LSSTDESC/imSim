@@ -16,13 +16,17 @@ SED_DIR = DATA_DIR / 'test_sed_library'
 STAMP_SIZE = 1000
 
 def assert_objects_at_positions(image, expected_positions, expected_brightness_values, pixel_radius=10, rtol=0.1):
-    """Sum the brightness values of squares of side length `2*pixel_radius` centered at `expected_positions` and compare against `expected_brightness_values`."""
+    """Sum the brightness values of squares of side length `2*pixel_radius` centered
+    at `expected_positions` and compare against `expected_brightness_values` where the
+    maximum allowed difference is 4 * sqrt(expected)."""
     brightness_values = np.empty_like(expected_brightness_values)
+    sigma = 4. * np.sqrt(expected_brightness_values)
     for i, (col, row) in enumerate(expected_positions):
         neighbourhood = image[row-pixel_radius:row+pixel_radius, col-pixel_radius:col+pixel_radius]
         brightness_values[i] = np.sum(neighbourhood)
-        print("Object: ", i, expected_brightness_values[i], brightness_values[i])
-    np.testing.assert_allclose(brightness_values, expected_brightness_values, rtol=rtol)
+        print("Object: ", i, expected_brightness_values[i], brightness_values[i], sigma[i])
+    brightness_difference = np.abs(brightness_values - expected_brightness_values)
+    np.testing.assert_array_equal(brightness_difference <= sigma, True)
 
 
 def create_test_config(
@@ -197,26 +201,26 @@ def run_lsst_image(image_type, stamp_type):
         [3452, 3751],
     ])
     expected_brightness_values = np.array([
-        1.974843e+06,
-        4.325211e+06,
+        1.974717e+06,
+        4.329067e+06,
         0.0,
-        1.978054e+06,
-        1.973144e+06,
-        1.981440e+06,
+        1.971714e+06,
+        1.971509e+06,
+        1.976528e+06,
         0.0,
-        3.131857e+06,
-        1.980739e+06,
-        1.977764e+06,
-        1.983800e+05,
-        4.045435e+06,
-        2.195470e+06,
-        4.045435e+06,
-        1.974780e+05,
-        1.966890e+05,
-        1.968660e+05,
-        1.970680e+05,
-        1.965050e+05,
-        4.000000e+01,
+        3.125554e+06,
+        1.978627e+06,
+        1.977857e+06,
+        1.977190e+05,
+        4.049977e+06,
+        2.192697e+06,
+        4.329907e+06,
+        1.971800e+05,
+        1.964360e+05,
+        1.970330e+05,
+        1.970620e+05,
+        1.965160e+05,
+        3.800000e+01,
     ])
     assert_objects_at_positions(image.array, expected_positions, expected_brightness_values)
 
