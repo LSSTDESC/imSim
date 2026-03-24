@@ -115,6 +115,18 @@ class TreeRings:
             det_name = "R%s%s_S%s%s" % (tuple(items[:4]))
             self.info_blocks[det_name] = block
 
+    def write(self, outfile, overwrite=False):
+        """
+        Write the tree ring to a text file that can be later
+        read in.
+        """
+        if os.path.isfile(outfile) and not overwrite:
+            raise FileExistsError(f"{outfile} already exists.")
+        with open(outfile, 'w') as fobj:
+            for block in self.info_blocks.values():
+                for line in block:
+                    fobj.write(line)
+
     def fill_dict(self, only_dets=None):
         """
         Fill the self.info dictionary with the tree ring model for the detectors in
