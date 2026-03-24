@@ -46,7 +46,8 @@ def gather_out_of_bounds_photons(image_bounds, photons):
 # the images again and draw the photons on top of the first pass image.
 class OffDetectorPhotonsBuilder(ExtraOutputBuilder):
     """Build photon arrays containing the off-detector photons found during an
-    image's construction and write them to file.
+    image's construction and write them to file. This item will typically be
+    included in the config for the first pass of a full focal plane run.
     """
 
     def processImage(self, index, obj_nums, config, base, logger):
@@ -129,7 +130,8 @@ class OffDetectorPhotons(object):
         # Allow for the possibility that not all the 188 files exist.
         self.file_names = [fname for fname in file_names if os.path.isfile(fname)]
         if len(self.file_names) == 0:
-            raise galsim.GalSimConfigValueError(f"Detector {det_name} did not find any expected off detector photon files: {file_names}.")
+            raise galsim.GalSimConfigValueError(
+                f"Detector {det_name} did not find any expected off detector photon files: {file_names}.")
         logger.info(f"Detector {det_name} reading {len(self.file_names)} files for off-detector photons.")
         # Would it be better to make photons a @property and read lazily when
         # first accessed?
@@ -142,6 +144,8 @@ class OffDetectorPhotons(object):
 
 class OffDetectorPhotonsLoader(InputLoader):
     """Class to load off-detector photons from file.
+    These options should be provided in the config for the second pass of a full
+    focal plane run.
     """
     def getKwargs(self, config, base, logger):
         req = {'camera': str, 'det_name': str}
@@ -171,7 +175,7 @@ class LSST_FocalPlaneImageBuilder(LSST_ImageBuilderBase):
         self.add_noise = False
         return xsize, ysize
 
-    def buildImage(self, config, base, image_num, _obj_num, logger):
+    def buildImage(self, config, base, image_num, obj_num, logger):
         """Draw the off-detector photons to the image.
         """
         # Make sure we have an input image and off-detector photons to draw.

@@ -2,11 +2,15 @@ import numpy as np
 import galsim
 
 import os
+from pathlib import Path
+import pytest
 
 from imsim.camera import get_camera
 from imsim.full_focal_plane import gather_out_of_bounds_photons
 from imsim.utils import focal_to_pixel
 
+DATA_DIR = Path(__file__).parent / 'data'
+OUTPUT_DIR = Path(__file__).parent / 'output'
 
 def test_gather_out_of_bounds_photons():
     """Make sure that photons inside and outside the image bounds are gathered correctly."""
@@ -53,7 +57,7 @@ def process_off_detector_photons_output(pa_list):
         "output": {
             "camera": "LsstCamSim",
             "off_detector_photons": {
-                "dir": "output",
+                "dir": OUTPUT_DIR,
                 "file_name": "off_det_photons.fits",
             },
         },
@@ -69,11 +73,11 @@ def process_off_detector_photons_output(pa_list):
     galsim.config.WriteExtraOutputs(base, [])
 
     # Check that the output file exists.
-    assert os.path.exists("output/off_det_photons.fits"), "Output file 'output/off_det_photons.fits' was not created."
+    assert os.path.exists(OUTPUT_DIR / "off_det_photons.fits"), "Output file 'output/off_det_photons.fits' was not created."
 
     # Assert that the photons stored in the output match. They should need to be
     # transformed from focal plane to detector coordinates first.
-    output_photons = galsim.PhotonArray.read("output/off_det_photons.fits")
+    output_photons = galsim.PhotonArray.read(OUTPUT_DIR / "off_det_photons.fits")
     if len(output_photons) > 0:
         detector = get_camera(base['output']['camera'])[base['det_name']]
         output_photons.x, output_photons.y = focal_to_pixel(output_photons.x, output_photons.y, detector)
@@ -83,7 +87,7 @@ def process_off_detector_photons_output(pa_list):
     assert np.allclose(output_photons.flux, focal_plane_photons.flux), "Flux of output photons does not match original photons."
 
     # Final cleanup.
-    os.remove("output/off_det_photons.fits")
+    os.remove(OUTPUT_DIR / "off_det_photons.fits")
 
 
 def test_off_detector_photons_output():
@@ -125,8 +129,144 @@ def test_off_detector_photons_output_with_mix():
                for nphot in n_off_det]
     process_off_detector_photons_output(pa_list)
 
-# TODO: Need some tests for the OffDetectorPhotonsLoader and
-# LSST_FocalPlaneImageBuilder.
+
+def create_base_off_detector_config(det_name="R22_S11"):
+    base = {
+        "input": {
+            "off_detector_photons": {
+                "camera": "LsstCamSim",
+                "det_name": det_name,
+                "dir": DATA_DIR,
+            }
+        },
+    }
+    return base
+
+
+def process_single_off_detector_load(det_name, file_name, expected_photons):
+    config = create_base_off_detector_config(det_name)
+    config["input"]["off_detector_photons"]["file_name"] = file_name
+    galsim.config.ProcessInput(config)
+    photons = config['_input_objs']['off_detector_photons'][0].photons
+    np.testing.assert_allclose(photons.x, expected_photons.x, rtol=1.e-10)
+    np.testing.assert_allclose(photons.y, expected_photons.y, rtol=1.e-10)
+    np.testing.assert_allclose(photons.flux, expected_photons.flux, rtol=1.e-10)
+
+
+def test_load_photons_from_single_file():
+    # Test that the OffDetectorPhotonsLoader can load photons using the 'file_name'
+    # config option, working as both R22_S11 and R22_S12 to ensure photons
+    # are transformed from focal plane to detector coordinates.
+    expected_photons = galsim.PhotonArray.fromArrays(x=np.arange(1000., 1010.),
+                                                     y=np.arange(2000., 2010.),
+                                                     flux=np.ones(10),
+                                                     )
+    process_single_off_detector_load("R22_S11", "off_det_00398414-0-r-R22_S11-det094.fits", expected_photons)
+    expected_photons = galsim.PhotonArray.fromArrays(x=np.arange(-3000., -3010., -1.),
+                                                     y=np.arange(-4000., -4010., -1),
+                                                     flux=np.ones(10),
+                                                     )
+    process_single_off_detector_load("R22_S12", "off_det_00398414-0-r-R22_S12-det095.fits", expected_photons)
+
+
+def test_load_photons_from_multiple_files():
+    # Test that the OffDetectorPhotonsLoader can load photons from multiple files
+    # given a file name pattern.
+    config = create_base_off_detector_config()
+    config["input"]["off_detector_photons"]["file_pattern"] = "off_det_multi_00398414-0-r-DETNAME-detDETNUM.fits"
+    # Processing this config should read the photons from the two files
+    # data/off_det_multi_00398414-0-r-R22_S10-det093.fits and
+    # data/off_det_multi_00398414-0-r-R22_S12-det095.fits, concatenate them, and
+    # transform them to the R22_S11 detector coordinates.
+    galsim.config.ProcessInput(config)
+    photons = config['_input_objs']['off_detector_photons'][0].photons
+
+    # We expect the photons from the two files to have been transformed to the
+    # following in the R22_S11 detector coordinates.
+    x = np.concatenate((np.arange(1000., 1010.), np.arange(5000., 5010.)))
+    y = np.concatenate((np.arange(2000., 2010.), np.arange(10000., 10010.)))
+    expected_photons = galsim.PhotonArray.fromArrays(x=x,
+                                                     y=y,
+                                                     flux=np.ones(20),
+                                                     )
+    np.testing.assert_allclose(photons.x, expected_photons.x, rtol=1.e-10)
+    np.testing.assert_allclose(photons.y, expected_photons.y, rtol=1.e-10)
+    np.testing.assert_allclose(photons.flux, expected_photons.flux, rtol=1.e-10)
+
+
+def test_off_detector_loader_file_naming():
+    # Make sure that OffDetectorPhotonsLoader raises an error if neither a file
+    # name nor a file pattern is provided.
+    config = create_base_off_detector_config()
+    with pytest.raises(galsim.GalSimConfigError,
+                       match='off_detector_photons must contain one of either file_name or file_pattern in config'):
+        galsim.config.ProcessInput(config)
+
+    # Make sure the same error is raised if both are provided.
+    config = create_base_off_detector_config()
+    config["input"]["off_detector_photons"]["file_name"] = "some_file_name.fits"
+    config["input"]["off_detector_photons"]["file_pattern"] = "some_file_pattern.fits"
+    with pytest.raises(galsim.GalSimConfigError,
+                       match='off_detector_photons must contain one of either file_name or file_pattern in config'):
+        galsim.config.ProcessInput(config)
+
+    # Now ensure that, if a file pattern is provided, the config includes the
+    # DETNAME and DETNUM fields that are used to read the range of files.
+    config = create_base_off_detector_config()
+    config["input"]["off_detector_photons"]["file_pattern"] = "some_file_pattern.fits"
+    with pytest.raises(galsim.GalSimConfigError,
+                       match='file_pattern must contain both "DETNAME" and "DETNUM" placeholders to be replaced '
+                             'with the detector name and number when reading off-detector photon files.'):
+        galsim.config.ProcessInput(config)
+
+
+def test_load_photons_raises_error_with_no_files():
+    # Photons are read lazily, so check that an error is raised when we try to access them
+    # but the files they are to be read from don't exist.
+
+    # Firstly check the case when a single non-existent file_name is provided.
+    with pytest.raises(galsim.GalSimConfigError):
+        off_detector_photons_input = OffDetectorPhotons("LsstCamSim", "R22_S11", file_name="non_existent_file.fits")
+        photons = off_detector_photons_input.photons
+
+    # The same but with a file_pattern that doesn't match any existing files.
+    with pytest.raises(galsim.GalSimConfigError):
+        off_detector_photons_input = OffDetectorPhotons("LsstCamSim", "R22_S11", file_pattern="non_existent_file_pattern_DETNAME_DETNUM.fits")
+        photons = off_detector_photons_input.photons
+
+
+def test_draw_off_detector_photons():
+    # Test that the LSST_FocalPlaneImageBuilder can draw photons loaded by the
+    # OffDetectorPhotonsLoader on top of the image.
+    xsize = 10
+    ysize = 10
+    camera = "LsstCamSim"
+    det_name = "R22_S11"
+    # Manually create some off-detector photons in the base config to be drawn
+    # on the image. We expect a diagonal line in the resulting image.
+    photons = galsim.PhotonArray.fromArrays(x=np.arange(1., 11.), 
+                                            y=np.arange(1., 11.),
+                                            flux=np.ones(10),
+                                            )
+    # Assume that an existing image as well as off_detector_photons from the
+    # first pass have been read from file and are at this point available in the
+    # base config.
+    base = {
+        "image": {
+            "xsize": xsize,
+            "ysize": ysize,
+            "det_name": det_name,
+            "nobjects": 1,
+            "type": "LSST_FocalPlaneImage",
+        },
+        "current_image": galsim.Image(xsize, ysize),
+        '_input_objs': {
+            'off_detector_photons': [OffDetectorPhotons(camera, det_name, photons=photons)],
+        }
+    }
+    expected = np.diag(np.ones(10))
+    image = galsim.config.BuildImage(base)
+    np.testing.assert_allclose(image.array, expected, rtol=1.e-10)
 
 
 if __name__ == "__main__":
