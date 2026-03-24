@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from imsim.camera import get_camera
-from imsim.full_focal_plane import gather_out_of_bounds_photons
+from imsim.full_focal_plane import gather_out_of_bounds_photons, OffDetectorPhotons
 from imsim.utils import focal_to_pixel
 
 DATA_DIR = Path(__file__).parent / 'data'
