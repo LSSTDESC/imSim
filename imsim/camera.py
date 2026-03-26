@@ -1,6 +1,8 @@
 import os
+import re
 import json
 from collections import defaultdict
+import numpy as np
 import galsim
 import lsst.utils
 from .meta_data import data_dir
@@ -214,3 +216,40 @@ class Camera(dict):
     def __getattr__(self, attr):
         """Provide access to the attributes of the underlying lsst_camera."""
         return getattr(self.lsst_camera, attr)
+
+    def get_adjacent_detectors(self, det_name):
+        """
+        Given a science detector's name, return a list of the names of science
+        detectors within the 3x3 grid around it, including itself.
+        """
+        if det_name not in self:
+            raise galsim.GalSimValueError("Detector is not in camera", det_name)
+        match = re.match(r"R(\d{2})_S(\d{2})", det_name)
+        if not match:
+            # If the given detector is in the list but couldn't be matched, then
+            # it's a wavefront or guide detector.
+            raise galsim.GalSimValueError(
+                "Arg must be a science detector, not wavefront or guide", det_name)
+        r_det = (int(match.group(1)[0]), int(match.group(1)[1]))
+        s_det = (int(match.group(2)[0]), int(match.group(2)[1]))
+
+        # The following method of manipulating the indices in the detector name
+        # is about 5000 times faster than using lsst.afw.cameraGeom to find the
+        # detector's center and then the names of those shifted away by one
+        # detector width/height.
+
+        # We'll always have a full set of the nine S index pairs, but they need
+        # to be permuted to match the position within the raft.
+        s_rows = np.roll(np.array([0, 1, 2]), 1 - s_det[0])
+        s_cols = np.roll(np.array([0, 1, 2]), 1 - s_det[1])
+
+        # A little integer arithmetic is used to increment or decrement the raft
+        # indices if the detector is positioned on an edge of the raft.
+        r_rows = np.array([r_det[0]-s_rows[0]//2, r_det[0], r_det[0]+(2-s_rows[2])//2])
+        r_cols = np.array([r_det[1]-s_cols[0]//2, r_det[1], r_det[1]+(2-s_cols[2])//2])
+
+        adjacent_detectors = [f"R{ri}{rj}_S{si}{sj}"
+                              for ri, si in zip(r_rows, s_rows)
+                              for rj, sj in zip(r_cols, s_cols)
+                              if f"R{ri}{rj}_S{si}{sj}" in self]
+        return adjacent_detectors
