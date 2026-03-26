@@ -127,6 +127,25 @@ class TreeRings:
                 for line in block:
                     fobj.write(line)
 
+    def update_info_block(self, det_name, Cx=None, Cy=None, A=None, B=None):
+        """
+        Update tree ring center and radial profile scaling parameters.
+        """
+        # Extract current parameters.
+        keys = ["Rx", "Ry", "Sx", "Sy", "Cx", "Cy", "A", "B"]
+        pars = dict(zip(keys, self.info_blocks[det_name][1].split()))
+        # Replace the parameters that have new values.
+        pars['Cx'] = f"{Cx:.1f}" if Cx is not None else pars['Cx']
+        pars['Cy'] = f"{Cy:.1f}" if Cy is not None else pars['Cy']
+        pars['A'] = f"{A:.2e}" if A is not None else pars['A']
+        pars['B'] = f"{B:.2e}" if B is not None else pars['B']
+        # Update the info block.
+        self.info_blocks[det_name][1] = "\t".join([pars[k] for k in keys]) + "\n"
+        # Remove this detector from self.info since the parameters
+        # have changed.
+        if det_name in self.info:
+            del self.info[det_name]
+
     def fill_dict(self, only_dets=None):
         """
         Fill the self.info dictionary with the tree ring model for the detectors in
