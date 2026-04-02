@@ -50,7 +50,7 @@ for detector, det in zip(range(189), camera):
                       f"radius > {rmin} and radius < {rmax}")
 
     # Box car average to smooth out noise.
-    window = 60
+    window = 10
     radius = df['radius'].to_numpy()
     amplitude = boxcar(df['amplitude'].to_numpy(), window)
 
@@ -98,5 +98,5 @@ for detector, det in zip(range(189), camera):
 #        if not click.confirm("continue?", default=True):
 #            break
 
-outfile = "tree_ring_parameters_2026-03-31.txt"
+outfile = "tree_ring_parameters_2026-04-02.txt"
 tree_rings.write(outfile, overwrite=True)
