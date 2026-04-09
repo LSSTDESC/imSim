@@ -13,6 +13,7 @@ from galsim.utilities import basestring
 
 from .stamp import ProcessingMode, ObjectInfo, build_obj
 from .lsst_image import LSST_ImageBuilderBase
+from .full_focal_plane import gather_out_of_bounds_photons
 
 
 class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
@@ -138,6 +139,8 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         local_wcs = base['wcs'].local(full_image.true_center)
         if sensor is None:
             sensor = Sensor()
+        if 'off_detector_photons' in base['output']:
+            base['off_detector_photons'] = [] # Initialize the off_detector_photons list
         for batch_num, batch in enumerate(phot_batches, start=current_photon_batch_num):
             if not batch:
                 continue
@@ -154,9 +157,15 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 for op in photon_ops:
                     op.applyTo(photons, local_wcs, rng)
 
+                # Gather off-detector photons if we're going to be outputting them
+                # (likely to draw them on the other sensors in a second pass).
+                if 'off_detector_photons' in base['output']:
+                    base['off_detector_photons'].append(gather_out_of_bounds_photons(full_image.bounds, photons))
+
                 # Now accumulate the photons onto the sensor. Resume is true for all calls but the first. Recalculate the pixel
                 # boundaries on the first subbatch of each full batch.
                 self.accumulate_photons(photons, full_image, sensor, resume=(batch_num > current_photon_batch_num or subbatch_num > 0), recalc=(subbatch_num == 0))
+
                 del photons  # As with the stamps above, let the garbage collector know we don't need the photons anymore.
 
                 # Note: in typical imsim usage, all current_vars will be 0. So this normally doesn't
