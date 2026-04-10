@@ -73,9 +73,11 @@ stamp: ""
 image.type: LSST_FocalPlaneImage
 image.sensor.treering_center: ""
 image.sensor.treering_func: ""
+image.sky_level: 0
 
 output.det_num.first: 95
 output.nfiles: 1
 output.file_name.format: "eimage_full_focal_%08d-%1d-%s-%s-det%03d.fits"
+output.cosmic_ray_rate: 0.0
 
 output.dir: output
