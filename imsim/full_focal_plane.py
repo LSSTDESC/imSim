@@ -1,5 +1,7 @@
 import os
 
+import numpy as np
+
 import galsim
 from galsim.config.extra import ExtraOutputBuilder, RegisterExtraOutput
 from galsim.config import RegisterImageType, InputLoader, RegisterInputType
@@ -8,37 +10,52 @@ from astropy.io.fits import BinTableHDU
 
 from .lsst_image import LSST_ImageBuilderBase
 from .utils import pixel_to_focal, focal_to_pixel
-from .camera import get_camera
+from .camera import get_camera, get_gs_bounds
 
-def gather_out_of_bounds_photons(image_bounds, photons):
-    """ Given image bounds and a list of photon arrays, gather the photons
-    that fall outside the bounds, copy them into a new PhotonArray, and return
-    them.
+
+def gather_photons_by_bounds(image_bounds, photons, inside=True):
+    """Given image bounds and a list of photon arrays, gather the photons
+    that fall inside (or outside) the bounds, copy them into a new
+    PhotonArray, and return them.
 
     Parameters:
         image_bounds: galsim.Bounds
             The bounds used to determine which photons fall outside.
         photons: List(galsim.PhotonArray)
             A list of PhotonArrays containing all the photons to check.
+        inside: bool
+            If True, then return photons that are inside the image bounds.
+            Otherwise, return the photons outside of the bounds.
 
     Returns:
-        out_of_bounds_photons: galsim.PhotonArray
-            A new PhotonArray containing the photons falling outside the bounds.
-            If no such photons are found, the PhotonArray will be empty (N=0).
+        photons: galsim.PhotonArray
+            A new PhotonArray containing the photons falling inside
+            (or outside) the bounds.  If no such photons are found,
+            the PhotonArray will be empty (N=0).
     """
-    out_of_bounds_indices = [i for i in range(len(photons))
-                             if not image_bounds.includes(photons.x[i], photons.y[i])]
-    if len(out_of_bounds_indices) > 0:
-        out_of_bounds_photons = galsim.PhotonArray(len(out_of_bounds_indices))
-        out_of_bounds_photons.copyFrom(photons,
-                                       target_indices=slice(len(out_of_bounds_indices)),
-                                       source_indices=out_of_bounds_indices,
-                                       do_xy=True,
-                                       do_flux=True,
-                                       do_other=False)
+    # Use numpy to determine which photons are inside the image bounds.
+    indices = np.where(
+        (image_bounds.xmin <= photons.x)
+        & (photons.x <= image_bounds.xmax)
+        & (image_bounds.ymin <= photons.y)
+        & (photons.y <= image_bounds.ymax)
+    )[0]
+    if not inside:
+        # Set indices to the complement of the inside indices.
+        indices = sorted(set(range(len(photons))) - set(indices))
+
+    if len(indices) > 0:
+        target_photons = galsim.PhotonArray(len(indices))
+        target_photons.copyFrom(photons,
+                                target_indices=slice(len(indices)),
+                                source_indices=indices,
+                                do_xy=True,
+                                do_flux=True,
+                                do_other=False)
     else:
-        out_of_bounds_photons = galsim.PhotonArray(N=0)
-    return out_of_bounds_photons
+        target_photons = galsim.PhotonArray(N=0)
+    return target_photons
+
 
 # An extra output type to enable two-pass drawing of off-detector photons. This
 # output should be used in the first pass to write off-detector photons to file,
@@ -159,13 +176,16 @@ class OffDetectorPhotons(object):
 
     def _read_photons(self, logger=None):
         logger = galsim.config.LoggerWrapper(logger)
+        det_bounds = get_gs_bounds(self.det.getBBox())
         if len(self.file_names) > 0:
             photon_storage = []
             logger.info(f"Detector {self.det_name} reading {len(self.file_names)} files for off-detector photons.")
             for file_name in self.file_names:
-                photon_storage.append(galsim.PhotonArray.read(file_name))
+                phot_array = galsim.PhotonArray.read(file_name)
+                phot_array.x, phot_array.y = focal_to_pixel(phot_array.x, phot_array.y, self.det)
+                phot_array = gather_photons_by_bounds(det_bounds, phot_array, inside=True)
+                photon_storage.append(phot_array)
             photons = galsim.PhotonArray.concatenate(photon_storage)
-            photons.x, photons.y = focal_to_pixel(photons.x, photons.y, self.det)
         else:
             # If we've reached this point, we've initialised the class without
             # providing the names of any usable files and have now tried to
