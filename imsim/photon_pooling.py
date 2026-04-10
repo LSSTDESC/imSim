@@ -13,7 +13,7 @@ from galsim.utilities import basestring
 
 from .stamp import ProcessingMode, ObjectInfo, build_obj
 from .lsst_image import LSST_ImageBuilderBase
-from .full_focal_plane import gather_out_of_bounds_photons
+from .full_focal_plane import gather_photons_by_bounds
 
 
 class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
@@ -160,7 +160,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 # Gather off-detector photons if we're going to be outputting them
                 # (likely to draw them on the other sensors in a second pass).
                 if 'off_detector_photons' in base['output']:
-                    base['off_detector_photons'].append(gather_out_of_bounds_photons(full_image.bounds, photons))
+                    base['off_detector_photons'].append(gather_photons_by_bounds(full_image.bounds, photons, inside=False))
 
                 # Now accumulate the photons onto the sensor. Resume is true for all calls but the first. Recalculate the pixel
                 # boundaries on the first subbatch of each full batch.
