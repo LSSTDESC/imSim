@@ -219,11 +219,12 @@ class LSST_FocalPlaneImageBuilder(LSST_ImageBuilderBase):
         # Make sure we have an input image and off-detector photons to draw.
         # Without them, this type of image won't work.
         image = base['current_image']
-        if not isinstance(base['_input_objs']['off_detector_photons'][0], OffDetectorPhotons):
+        try:
+            off_detector_photons = galsim.config.GetInputObj(
+                'off_detector_photons', config, base, 'LSST_FocalPlaneImage').photons
+        except galsim.configGalSimConfigError as eobj:
             raise galsim.config.GalSimConfigError(
-                "When using LSST_FocalPlaneImage, you must provide an off_detector_photons input.",)
-
-        off_detector_photons = base['_input_objs']['off_detector_photons'][0].photons
+                "When using LSST_FocalPlaneImage, you must provide an off_detector_photons input.") from eobj
 
         if len(off_detector_photons) > 0:
             # There are photons to be accumulated. They should already have been

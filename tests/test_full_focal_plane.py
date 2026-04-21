@@ -147,7 +147,9 @@ def process_single_off_detector_load(det_name, file_name, expected_photons):
     config = create_base_off_detector_config(det_name)
     config["input"]["off_detector_photons"]["file_name"] = file_name
     galsim.config.ProcessInput(config)
-    photons = config['_input_objs']['off_detector_photons'][0].photons
+    photons = galsim.config.GetInputObj(
+        'off_detector_photons', config, config, 'process_single_off_detector_load').photons
+    #photons = config['_input_objs']['off_detector_photons'][0].photons
     np.testing.assert_allclose(photons.x, expected_photons.x, rtol=1.e-10)
     np.testing.assert_allclose(photons.y, expected_photons.y, rtol=1.e-10)
     np.testing.assert_allclose(photons.flux, expected_photons.flux, rtol=1.e-10)
