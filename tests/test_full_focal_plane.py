@@ -171,7 +171,7 @@ def test_load_photons_from_multiple_files():
     # Test that the OffDetectorPhotonsLoader can load photons from multiple files
     # given a file name pattern.
     config = create_base_off_detector_config()
-    config["input"]["off_detector_photons"]["file_pattern"] = "off_det_multi_00398414-0-r-DETNAME-detDETNUM.fits"
+    config["input"]["off_detector_photons"]["file_name"] = "off_det_multi_00398414-0-r-*-det*.fits"
     # Processing this config should read the photons from the two files
     # data/off_det_multi_00398414-0-r-R22_S10-det093.fits and
     # data/off_det_multi_00398414-0-r-R22_S12-det095.fits, concatenate them, and
@@ -198,24 +198,7 @@ def test_off_detector_loader_file_naming():
     # name nor a file pattern is provided.
     config = create_base_off_detector_config()
     with pytest.raises(galsim.GalSimConfigError,
-                       match='off_detector_photons must contain one of either file_name or file_pattern in config'):
-        galsim.config.ProcessInput(config)
-
-    # Make sure the same error is raised if both are provided.
-    config = create_base_off_detector_config()
-    config["input"]["off_detector_photons"]["file_name"] = "some_file_name.fits"
-    config["input"]["off_detector_photons"]["file_pattern"] = "some_file_pattern.fits"
-    with pytest.raises(galsim.GalSimConfigError,
-                       match='off_detector_photons must contain one of either file_name or file_pattern in config'):
-        galsim.config.ProcessInput(config)
-
-    # Now ensure that, if a file pattern is provided, the config includes the
-    # DETNAME and DETNUM fields that are used to read the range of files.
-    config = create_base_off_detector_config()
-    config["input"]["off_detector_photons"]["file_pattern"] = "some_file_pattern.fits"
-    with pytest.raises(galsim.GalSimConfigError,
-                       match='file_pattern must contain both "DETNAME" and "DETNUM" placeholders to be replaced '
-                             'with the detector name and number when reading off-detector photon files.'):
+                       match='off_detector_photons must contain file_name in config'):
         galsim.config.ProcessInput(config)
 
 
@@ -226,11 +209,6 @@ def test_load_photons_raises_error_with_no_files():
     # Firstly check the case when a single non-existent file_name is provided.
     with pytest.raises(galsim.GalSimConfigError):
         off_detector_photons_input = OffDetectorPhotons("LsstCamSim", "R22_S11", file_name="non_existent_file.fits")
-        photons = off_detector_photons_input.photons
-
-    # The same but with a file_pattern that doesn't match any existing files.
-    with pytest.raises(galsim.GalSimConfigError):
-        off_detector_photons_input = OffDetectorPhotons("LsstCamSim", "R22_S11", file_pattern="non_existent_file_pattern_DETNAME_DETNUM.fits")
         photons = off_detector_photons_input.photons
 
 

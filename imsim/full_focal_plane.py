@@ -1,4 +1,5 @@
 import os
+import glob
 
 import numpy as np
 
@@ -105,7 +106,7 @@ class OffDetectorPhotons(object):
     then, and will now be read in this second pass to be accumulated on other sensors.
     """
 
-    def __init__(self, camera, det_name, file_name=None, file_pattern=None, photons=None, dir=None, logger=None):
+    def __init__(self, camera, det_name, file_name=None, photons=None, dir=None, logger=None):
         """
         Initialize the off-detector photons input class.
 
@@ -115,9 +116,9 @@ class OffDetectorPhotons(object):
             det_name: str
                 The name of the detector to use for photon coordinate transformations.
             file_name: str
-                The name of the file to read. (default: None)
-            file_pattern: str
-                The file pattern to use if up to 189 are to be read. (default: None)
+                The name of the file to read or the glob file patttern. (default: None)
+            photons: PhotonArray
+                Array of photons to use instead of reading from a file (default: None)
             dir: str
                 The directory where the file is. (default: None)
             logger: logging.logger
@@ -129,39 +130,21 @@ class OffDetectorPhotons(object):
         self.det = camera[det_name]
         # Lazy read the off-detector photons when they're accessed for the first time.
         self.photons = None
-        # The Loader should have ensured we have one but not both of file_name
-        # or file_pattern from the config, but here we also allow the photons to
-        # be set directly during initialisation in case when instantiating in code.
-        # So, make sure again that two of these are None.
-        if sum([file_name is None, file_pattern is None, photons is None]) != 2:
-            raise galsim.GalSimIncompatibleValuesError("OffDetectorPhotons must be initialized with exactly one of file_name, file_pattern, or photons.",values={"file_name": file_name, "file_pattern": file_pattern, "photons": photons})
+        # Check that either file_name or photons is set, but not both.
+        if sum([file_name is None, photons is None]) != 1:
+            raise galsim.GalSimIncompatibleValuesError("OffDetectorPhotons must be initialized with either file_name or photons.",values={"file_name": file_name, "photons": photons})
 
         if file_name is not None:
-            # Only have a single file to read.
-            file_names = [file_name]
-        elif file_pattern is not None:
-            # We want to read up to 188 files: potentially photons from every
-            # detector except this one (as those photons were drawn normally in
-            # the first pass). We may want change this to allow det_num_start
-            # and det_num_end to be set in the config in a similar way to output
-            # where it's controlled with det_num.first, nfiles and only_dets.
-            det_num_start = 0
-            det_num_end = 189
-            file_names = [file_pattern.replace("DETNAME", camera[i].getName()).replace("DETNUM", "{:03d}".format(i))
-                          for i in range(det_num_start, det_num_end)
-                          if camera[i].getName() != det_name
-                          ]
+            if dir is not None:
+                file_name = os.path.join(dir, file_name)
+            self.file_names = sorted(fname for fname in glob.glob(file_name))
         else:
             # An OffDetectorPhotons object can be be directly initialized in
-            # code with a photon array instead of reading from file.
-            file_names = []
+            # code with a photon array instead of reading from files.
+            self.file_names = []
             self.photons = photons
-        if dir is not None:
-            file_names = [os.path.join(dir, fname) for fname in file_names]
-        # Allow for the possibility that not all the 188 files exist.
-        self.file_names = [fname for fname in file_names if os.path.isfile(fname)]
         if len(self.file_names) == 0:
-            logger.warning(f"Detector {det_name} did not find any expected off detector photon files: {file_names}. No photons can be read from file.")
+            logger.warning(f"Detector {det_name} did not find any expected off detector photon files: {self.file_names}. No photons can be read from file.")
 
     @property
     def photons(self):
@@ -202,14 +185,11 @@ class OffDetectorPhotonsLoader(InputLoader):
     """
     def getKwargs(self, config, base, logger):
         req = {'camera': str, 'det_name': str}
-        opt = {'file_name': str, 'file_pattern': str, 'dir': str}
+        opt = {'file_name': str, 'dir': str}
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt)
-        if ('file_name' in kwargs) == ('file_pattern' in kwargs):
-            raise galsim.GalSimConfigError('off_detector_photons must contain one of either file_name or file_pattern in config')
-        if 'file_pattern' in kwargs and ("DETNAME" not in kwargs['file_pattern'] or "DETNUM" not in kwargs['file_pattern']):
-            raise galsim.GalSimConfigError('file_pattern must contain both "DETNAME" and "DETNUM" placeholders to be replaced '
-                                           'with the detector name and number when reading off-detector photon files.')
+        if 'file_name' not in kwargs:
+            raise galsim.GalSimConfigError('off_detector_photons must contain file_name in config')
         kwargs['logger'] = logger
 
         # Base assumption (for now) is that we have a per-detector set of inputs
