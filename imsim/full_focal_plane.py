@@ -96,10 +96,10 @@ class OffDetectorPhotonsBuilder(ExtraOutputBuilder):
         photon_array.write(file_name)
 
     def writeHdu(self, config, base, logger):
-        """We don't want to write the off-detector photons to FITS, so return an
-        empty BinTable in lieu of something else.
+        """We don't want to write the off-detector photons as a FITS
+        extension, so raise a ValueError if this is called.
         """
-        return BinTableHDU(data=None)
+        raise ValueError("No FITS HDU to be written for off-detector photons.")
 
 
 class OffDetectorPhotons(object):
