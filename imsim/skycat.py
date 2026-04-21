@@ -143,7 +143,7 @@ class SkyCatalogInterface:
             self._objects = sky_cat.get_objects_by_region(
                 region, obj_type_set=self.obj_types, mjd=self.mjd)
             if self.full_focal_plane:
-                # Work out the which of the adjacent detectors are closest
+                # Work out which of the adjacent detectors are closest
                 # to each object found in the region.  Add the object to the
                 # set of objects to skip if the current detector isn't the
                 # closest one.
