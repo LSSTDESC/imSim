@@ -278,6 +278,12 @@ class SkyCatalogLoader(InputLoader):
         ignore = ['fiducial_wcs']  # Handled separately.
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
                                                   opt=opt, ignore=ignore)
+        # Check if the value of full_focal_plane is compatible with the
+        # output.off_detector_photons config.
+        full_focal_plane = kwargs.get('full_focal_plane', False)
+        off_detector_photons = 'off_detector_photons' in base['output']
+        if not full_focal_plane == off_detector_photons:
+            raise ValueError(f"Both full_focal_plane and output.off_detector_photons must be set consistently, i.e., full_focal_plane should be True iff output.off_detector_photons is enabled")
         if config.get('fiducial_wcs', None) is not None:
             fiducial_wcs = galsim.config.BuildWCS(config, 'fiducial_wcs', base, logger=logger)
             # Remove any non-linear distortions, since this will be used
