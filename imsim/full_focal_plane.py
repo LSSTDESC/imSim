@@ -90,8 +90,10 @@ class OffDetectorPhotonsBuilder(ExtraOutputBuilder):
     def writeFile(self, file_name, config, base, logger):
         """Write the photon array to fits.
         """
-        for photon_array in self.final_data:
-            photon_array.write(file_name)
+        # There should be only one photon array in self.final_data:
+        assert len(self.final_data) == 1
+        photon_array = self.final_data[0]
+        photon_array.write(file_name)
 
     def writeHdu(self, config, base, logger):
         """We don't want to write the off-detector photons to FITS, so return an
