@@ -131,7 +131,7 @@ class OffDetectorPhotons(object):
         self.det_name = det_name
         self.det = camera[det_name]
         # Lazy read the off-detector photons when they're accessed for the first time.
-        self.photons = None
+        self._photons = None
         # Check that either file_name or photons is set, but not both.
         if sum([file_name is None, photons is None]) != 1:
             raise galsim.GalSimIncompatibleValuesError("OffDetectorPhotons must be initialized with either file_name or photons.",values={"file_name": file_name, "photons": photons})
@@ -144,7 +144,7 @@ class OffDetectorPhotons(object):
             # An OffDetectorPhotons object can be be directly initialized in
             # code with a photon array instead of reading from files.
             self.file_names = []
-            self.photons = photons
+            self._photons = photons
         if len(self.file_names) == 0:
             logger.warning(f"Detector {det_name} did not find any expected off detector photon files: {self.file_names}. No photons can be read from file.")
 
@@ -153,11 +153,6 @@ class OffDetectorPhotons(object):
         if self._photons is None:
             self._photons = self._read_photons()
         return self._photons
-
-    @photons.setter
-    def photons(self, photon_array):
-        # Allow the photons to be set manually from outside the class if necessary.
-        self._photons = photon_array
 
     def _read_photons(self, logger=None):
         logger = galsim.config.LoggerWrapper(logger)
