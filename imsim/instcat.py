@@ -684,11 +684,11 @@ class InstCatalogLoader(InputLoader):
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)
         if config.get('fiducial_wcs', None) is not None:
             fiducial_wcs = galsim.config.BuildWCS(config, 'fiducial_wcs', base, logger=logger)
-            if fiducial_wcs.wcs_type == "TAN-SIP":
-                # If it's a TAN-SIP WCS (such as from Batoid) then disable the
-                # SIP distortions, since we'll potentially use this WCS a long
-                # way from the detector where the polynomial was fitted.
-                fiducial_wcs.ab = None
+            # Remove any non-linear distortions, since this will be used
+            # across the focal plane, far from the fiducial detector.
+            fiducial_wcs.pv = None
+            fiducial_wcs.ab = None
+            fiducial_wcs.abp = None
             kwargs['fiducial_wcs'] = fiducial_wcs
             kwargs['fiducial_det_name'] = config['fiducial_wcs']['det_name']
         else:
