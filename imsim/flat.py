@@ -53,7 +53,8 @@ class LSST_FlatBuilder(ImageBuilder):
               }
         ignore = ignore + ['sed', 'image_pos', 'world_pos', 'stamp_size',
                            'stamp_xsize', 'stamp_ysize', 'nobjects', 'apply_sky_gradient',
-                           'apply_fringing', 'sky_level', 'boresight', 'nbatch']
+                           'apply_fringing', 'sky_level', 'boresight', 'nbatch',
+                           'nsubbatch', 'nbatch_fft', 'nbatch_per_checkpoint']
         params = galsim.config.GetAllParams(config, base, req=req, opt=opt, ignore=ignore)[0]
 
         countrate_per_pixel = params.get('countrate_per_pixel', 0)
