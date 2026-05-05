@@ -139,7 +139,7 @@ class OffDetectorPhotons(object):
         if file_name is not None:
             if dir is not None:
                 file_name = os.path.join(dir, file_name)
-            self.file_names = sorted(fname for fname in glob.glob(file_name))
+            self.file_names = sorted(glob.glob(file_name))
         else:
             # An OffDetectorPhotons object can be be directly initialized in
             # code with a photon array instead of reading from files.
