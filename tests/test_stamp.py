@@ -204,6 +204,7 @@ def test_stamp_sizes():
         input.sky_catalog.pupil_area:
             type: Eval
             str: "0.25 * np.pi * 649**2"
+        input.sky_catalog.edge_pix: 100
         input.opsim_data.file_name: data/small_opsim_9683.db
         input.opsim_data.visit: 449053
         input.tree_rings.only_dets: [R22_S11]
@@ -426,6 +427,7 @@ def test_faint_high_redshift_stamp():
         input.sky_catalog.file_name: data/sky_cat_9683.yaml
         input.sky_catalog.obj_types: [galaxy]
         input.sky_catalog.band: u
+        input.sky_catalog.edge_pix: 100
         input.opsim_data.file_name: data/small_opsim_9683.db
         input.opsim_data.visit: 449053
         input.tree_rings.only_dets: [R22_S11]

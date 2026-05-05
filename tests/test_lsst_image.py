@@ -35,6 +35,7 @@ def test_image_nobjects():
         config = {'modules': ['imsim'],
                   'template': template,
                   'input.instance_catalog.file_name': instcat_file,
+                  'input.instance_catalog.edge_pix': 100,
                   'input.opsim_data.file_name': instcat_file,
                   'input.tree_rings': '',
                   'input.atm_psf': '',
