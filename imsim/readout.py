@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import subprocess
 import scipy
 from astropy.io import fits
 from astropy.time import Time
@@ -8,7 +7,6 @@ import galsim
 from galsim.config import ExtraOutputBuilder, RegisterExtraOutput, GetAllParams, ParseValue
 import eups
 from lsst.afw import cameraGeom
-import lsst.obs.lsst
 from lsst.obs.lsst.translators.lsst import SIMONYI_TELESCOPE
 from .bleed_trails import bleed_eimage
 from .camera import Camera, get_camera
