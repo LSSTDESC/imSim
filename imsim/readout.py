@@ -45,6 +45,15 @@ ComCam_filter_map = {
     'y': 'y_04',
 }
 
+
+def _get_throughputs_version():
+    version_info_file = os.path.join(os.environ['RUBIN_SIM_DATA_DIR'],
+                                     "throughputs/baseline/version_info")
+    with open(version_info_file) as fobj:
+        throughputs_version = fobj.readline().strip()
+    return throughputs_version
+
+
 def make_batoid_wcs(ra0, dec0, rottelpos, obsmjd, band, camera_name,
                     logger=None):
     """
@@ -290,7 +299,7 @@ def get_primary_hdu(eimage, lsst_num, camera_name=None,
     phdu.header['ORIGIN'] = "imSim"
     phdu.header['IMSIMVER'] = __version__
     phdu.header['PKG00000'] = 'throughputs'
-    phdu.header['VER00000'] = '1.9'
+    phdu.header['VER00000'] = _get_throughputs_version()
     write_package_versions(phdu.header)
     phdu.header['CHIPID'] = det_name
     phdu.header['FOCUSZ'] = eimage.header['FOCUSZ']
