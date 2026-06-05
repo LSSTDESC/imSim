@@ -230,6 +230,9 @@ image:
     sensor:
         type: Silicon
         strength: 1.0
+        nrecalc: 1e300  # This disables the B/F effect by setting the number of electrons
+                        # to accumulate before updating the pixel boundaries to effectively
+                        # infinity.  The default value in galsim is 10000.
         index_key: image_num    # This tells GalSim that this only changes with a new image num.
         treering_center: { type: TreeRingCenter, det_name: $det_name }
         treering_func: { type: TreeRingFunc, det_name: $det_name }
