@@ -1,4 +1,5 @@
 import os
+import tempfile
 import numpy as np
 import scipy
 from astropy.io import fits
@@ -536,7 +537,13 @@ class CcdReadout:
     def write_raw_file(hdus, file_name):
         """Write the raw data file."""
         hdus[0].header['OUTFILE'] = os.path.basename(file_name)
-        hdus.writeto(file_name, overwrite=True)
+
+        # Use a temporary directory to do an atomic write.
+        dir_name = os.path.dirname(os.path.abspath(file_name))
+        with tempfile.TemporaryDirectory(dir=dir_name) as tmp_dir:
+            tmp_path = os.path.join(tmp_dir, "raw_file.fits.fz")
+            hdus.writeto(tmp_path)
+            os.replace(tmp_path, file_name)
 
 
 class CameraReadout(ExtraOutputBuilder):
