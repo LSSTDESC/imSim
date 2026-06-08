@@ -24,7 +24,7 @@ def assert_objects_at_positions(image, expected_positions, expected_brightness_v
     for i, (col, row) in enumerate(expected_positions):
         neighbourhood = image[row-pixel_radius:row+pixel_radius, col-pixel_radius:col+pixel_radius]
         brightness_values[i] = np.sum(neighbourhood)
-        print("Object: ", i, expected_brightness_values[i], brightness_values[i], sigma[i])
+        print("Object: ", i, expected_brightness_values[i], brightness_values[i], sigma[i], brightness_values[i]-expected_brightness_values[i])
     brightness_difference = np.abs(brightness_values - expected_brightness_values)
     np.testing.assert_array_equal(brightness_difference <= sigma, True)
 
