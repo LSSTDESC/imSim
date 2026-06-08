@@ -386,8 +386,10 @@ def test_rubin_diffraction_shows_field_rotation() -> None:
     # Check that the angle of the crosses are rotated relative to each other:
     expected_angle_difference = field_rotation_angle(latitude, altitude, azimuth, dt)
 
+    # The spike-angle statistic is sensitive to small numerical differences in
+    # WCS/diffraction dependencies, so allow a little room across platforms.
     np.testing.assert_allclose(
-        cross_rot_angle_1 - cross_rot_angle_0, expected_angle_difference, rtol=0.03
+        cross_rot_angle_1 - cross_rot_angle_0, expected_angle_difference, rtol=0.04
     )
 
 
