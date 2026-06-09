@@ -79,9 +79,14 @@ class TreeRingsTestCase(unittest.TestCase):
         # There is no detector named R44_S12 in LSSTCam.
         only_dets = ['R22_S12', 'R44_S12']
         tree_rings = imsim.TreeRings(self.tr_filename, only_dets=only_dets)
-        for det_name in only_dets:
+        for det_name in ['R22_S12']:
             _ = tree_rings.get_center(det_name)
             _ = tree_rings.get_func(det_name)
+        for det_name in ['R44_S12']:
+            with np.testing.assert_warns(UserWarning):
+                _ = tree_rings.get_center(det_name)
+            with np.testing.assert_warns(UserWarning):
+                _ = tree_rings.get_func(det_name)
 
 
 if __name__ == '__main__':

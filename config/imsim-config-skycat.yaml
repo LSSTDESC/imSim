@@ -26,6 +26,15 @@ input.sky_catalog:
     band: $band
     mjd: { type: OpsimData, field: mjd }
     pupil_area: $pupil_area
+    # A single WCS calculated used when determining which objects are to be drawn
+    # by which detector. We could in principle use any WCS. Here we start from the
+    # same Batoid WCS as in the image. In the code, any SIP components of the
+    # fiducial WCS, once it's been calculated, are removed.
+    fiducial_wcs:
+        template: :image.wcs
+        # The fiducial WCS will use this detector. We default here to the
+        # central detector, but it can be overrdden if needed.
+        det_name: "R22_S11"
 
 input.opsim_data:
     file_name: default_opsim.db

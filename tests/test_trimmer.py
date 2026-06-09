@@ -45,8 +45,8 @@ class InstCatTrimmerTestCase(unittest.TestCase):
         instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=1000, skip_invalid=False)
         self.assertEqual(instcat.nobjects, 24)
 
-        # With the default edge_pix=100, only 17 make the cut.
-        instcat = imsim.InstCatalog(instcat_file, wcs, skip_invalid=False)
+        # With a smaller than default edge_pix=100, only 17 make the cut.
+        instcat = imsim.InstCatalog(instcat_file, wcs, edge_pix=100, skip_invalid=False)
         self.assertEqual(instcat.nobjects, 17)
 
         # Check the application of min_source.

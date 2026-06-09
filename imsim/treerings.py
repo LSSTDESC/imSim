@@ -47,6 +47,26 @@ class TreeRingRadialFunction:
         centroid_shift *= (self.A + self.B * r**4) * .01 # 0.01 factor is because data is in percent
         return centroid_shift
 
+    def dfdr(self, r):
+        """
+        Deriviative wrt r of the pixel distortion function which gives
+        the relative modulation of the pixel values.
+
+        Parameters
+        ----------
+        r: float
+            Radial coordinate from the center of the tree ring structure
+            in units of pixels.
+        """
+        dfdr_val = 0.0
+        for j, fval in enumerate(self.cfreqs):
+            dfdr_val += np.cos(2*np.pi*(r/fval)+self.cphases[j])
+        for j, fval in enumerate(self.sfreqs):
+            dfdr_val += np.sin(2*np.pi*(r/fval)+self.sphases[j])
+        dfdr_val *= (self.A + self.B * r**4) * .01
+        dfdr_val += self(r)/(self.A + self.B * r**4)*self.B*r**3/4.
+        return dfdr_val
+
 
 class TreeRings:
     """
@@ -115,6 +135,37 @@ class TreeRings:
             det_name = "R%s%s_S%s%s" % (tuple(items[:4]))
             self.info_blocks[det_name] = block
 
+    def write(self, outfile, overwrite=False):
+        """
+        Write the tree ring to a text file that can be later
+        read in.
+        """
+        if os.path.isfile(outfile) and not overwrite:
+            raise FileExistsError(f"{outfile} already exists.")
+        with open(outfile, 'w') as fobj:
+            for block in self.info_blocks.values():
+                for line in block:
+                    fobj.write(line)
+
+    def update_info_block(self, det_name, Cx=None, Cy=None, A=None, B=None):
+        """
+        Update tree ring center and radial profile scaling parameters.
+        """
+        # Extract current parameters.
+        keys = ["Rx", "Ry", "Sx", "Sy", "Cx", "Cy", "A", "B"]
+        pars = dict(zip(keys, self.info_blocks[det_name][1].split()))
+        # Replace the parameters that have new values.
+        pars['Cx'] = f"{Cx:.1f}" if Cx is not None else pars['Cx']
+        pars['Cy'] = f"{Cy:.1f}" if Cy is not None else pars['Cy']
+        pars['A'] = f"{A:.2e}" if A is not None else pars['A']
+        pars['B'] = f"{B:.2e}" if B is not None else pars['B']
+        # Update the info block.
+        self.info_blocks[det_name][1] = "\t".join([pars[k] for k in keys]) + "\n"
+        # Remove this detector from self.info since the parameters
+        # have changed.
+        if det_name in self.info:
+            del self.info[det_name]
+
     def fill_dict(self, only_dets=None):
         """
         Fill the self.info dictionary with the tree ring model for the detectors in
@@ -142,6 +193,11 @@ class TreeRings:
                                                 x_min=0.0, x_max=self.r_max,
                                                 npoints=self.npoints)
             self.info[det_name] = (center, func)
+
+    def get_dfdr(self, det_name):
+        info_block = self.info_blocks[det_name]
+        func = TreeRingRadialFunction(info_block)
+        return func.dfdr
 
     def get_center(self, det_name):
         if det_name not in self.info:
