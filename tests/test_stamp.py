@@ -15,6 +15,9 @@ DATA_DIR = Path(__file__).parent / 'data'
 
 def create_test_config():
     wcs = galsim.PixelScale(0.2)
+    boresight = galsim.CelestialCoord(
+        1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
+    )
     config = {
         "input": {
             "telescope": {
@@ -25,9 +28,7 @@ def create_test_config():
         #       and RubinDiffractionOptics photon ops implicitly *require* the WCS be
         #       a BatoidWCS.  This doesn't seem great, but I'm not fixing it now.
         "_icrf_to_field": create_test_icrf_to_field(
-            galsim.CelestialCoord(
-                1.1047934165124105 * galsim.radians, -0.5261230452954583 * galsim.radians
-            ),
+            boresight,
             "R22_S11",
         ),
         "image_pos": galsim.PositionD(20,20),
@@ -42,7 +43,7 @@ def create_test_config():
                 "altitude": 80 * galsim.degrees,
                 "azimuth": 0 * galsim.degrees,
                 "latitude": -30.24463 * galsim.degrees,
-                "boresight": galsim.CelestialCoord(0*galsim.degrees, 0*galsim.degrees),
+                "boresight": boresight,
                 "camera": 'LsstCamSim',
                 "det_name": 'R22_S11',
             }],
