@@ -117,25 +117,25 @@ class OpsimDataLoader(object):
             # counting the number of snaps since int(observationStartMJD)
             # with a half-day offset to account for Rubin's dayobs definition.
             t0 = int(self.meta['observationStartMJD'] - 0.5) + 0.5
-            sql = f'''select numExposures from observations where
+            sql = f'''select nexp from observations where
                       {t0} <= observationStartMJD and
                       observationId < {self.visit}'''
             df = pd.read_sql(sql, con)
-            self.meta['seqnum'] = sum(df['numExposures']) + self.meta['snap']
+            self.meta['seqnum'] = int(sum(df['nexp'])) + self.meta['snap']
         self.logger.warning('Done reading visit info from opsim db file')
 
-        if self.meta['snap'] >= self.meta['numExposures']:
+        if self.meta['snap'] >= self.meta['nexp']:
             raise ValueError('Invalid snap value: %d. For this visit, must have snap < %d'
-                             % (self.meta['snap'], self.meta['numExposures']))
+                             % (self.meta['snap'], self.meta['nexp']))
 
         # Add a few derived quantities to meta values
         # Note a semantic distinction we make here:
         # "filter" or "band" is a character u,g,r,i,z,y.
         # "bandpass" will be the real constructed galsim.Bandpass object.
-        self.meta['band'] = self.meta['filter']
-        self.meta['exptime'] = self.meta['visitExposureTime']/self.meta['numExposures']
+        self.meta['band'] = self.meta['filter'][:1]
+        self.meta['exptime'] = self.meta['visitExposureTime']/self.meta['nexp']
         readout_time \
-            = (self.meta['visitTime'] - self.meta['visitExposureTime'])/self.meta['numExposures']
+            = (self.meta['visitTime'] - self.meta['visitExposureTime'])/self.meta['nexp']
         # Set "mjd" to be the midpoint of the exposure
         self.meta['mjd'] = (self.meta['observationStartMJD']
                             + (self.meta['snap']*(self.meta['exptime'] + readout_time)
