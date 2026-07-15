@@ -355,6 +355,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
 
         # Sub-batching loop.
         subbatches = [[] for _ in range(nsubbatch)]
+        subbatch_fluxes = [0. for _ in range(nsubbatch)]
         current_subbatch = 0
         for obj in sorted_objects:
             remaining_flux = obj.phot_flux
@@ -362,7 +363,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                 # Calculate current sub-batch flux.
                 # It would be nicer to store rather then recalculate.
                 subbatch = subbatches[current_subbatch]
-                subbatch_flux = sum(sb_obj.phot_flux for sb_obj in subbatch)
+                subbatch_flux = subbatch_fluxes[current_subbatch]
                 available_flux = photons_per_subbatch - subbatch_flux
                 if remaining_flux <= available_flux:
                     # This sub-batch can contain the entirety of the remaining
@@ -371,6 +372,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                     subbatches[current_subbatch].append(
                         dataclasses.replace(obj, phot_flux=remaining_flux)
                     )
+                    subbatch_fluxes[current_subbatch] += remaining_flux
                     # If it was an exact fit, move to the next sub-batch.
                     if remaining_flux == available_flux:
                         current_subbatch = (1 + current_subbatch) % nsubbatch
@@ -384,6 +386,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                         subbatches[current_subbatch].append(
                             dataclasses.replace(obj, phot_flux=remaining_flux)
                         )
+                        subbatch_fluxes[current_subbatch] += remaining_flux
                         remaining_flux = 0
                         # Advance to the next sub-batch. Do this no matter what
                         # in an attempt to prevent too much bunching up in one
@@ -397,6 +400,7 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
                         subbatches[current_subbatch].append(
                             dataclasses.replace(obj, phot_flux=available_flux)
                         )
+                        subbatch_fluxes[current_subbatch] += available_flux
                         remaining_flux -= available_flux
                         current_subbatch = (1 + current_subbatch) % nsubbatch
 
