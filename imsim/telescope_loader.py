@@ -111,6 +111,9 @@ def apply_fea(
     float.  Future additions to the `batoid_rubin` package may include new or
     changed APIs to the examples above.
     """
+    kwargs.setdefault("dof_coord_system", "ZCS")
+    kwargs.setdefault("flip_m2_bending_modes", True)
+    kwargs.setdefault("dof_angle_units", "arcsec")
     builder = LSSTBuilder(telescope, **kwargs)
     for k, v in fea_perturbations.items():
         method = getattr(builder, "with_"+k)
