@@ -199,11 +199,9 @@ def run_subbatch_test(name, batch, nsubbatch):
     builder = valid_image_types["LSST_PhotonPoolingImage"]
     subbatches = builder.make_photon_subbatches(batch, nsubbatch)
     print('total subbatch flux = ',sum([sum(obj.phot_flux for obj in subbatch) for subbatch in subbatches]))
-    # In general there are multiple ways to split the batch. Assert that each
-    # object appears with its original flux across however many sub-batches it
-    # appears in, that the total flux across all sub-batches equals the total
-    # batch flux, and that the most full batch contains <= 1.1 * the flux in the
-    # least full.
+
+    # Show what the subbatches contain:
+    # index  total_flux   count
     print("Subbatches in test:", name)
     for i, subbatch in enumerate(subbatches):
         total_flux = sum(obj.phot_flux for obj in subbatch)
