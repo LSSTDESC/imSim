@@ -201,7 +201,8 @@ def run_subbatch_test(name, batch, nsubbatch):
     print('total subbatch flux = ',sum([sum(obj.phot_flux for obj in subbatch) for subbatch in subbatches]))
 
     # Show what the subbatches contain:
-    # index  total_flux   count
+    #   index  total_flux   count
+    # For small subbatches, list the individual objects.
     print("Subbatches in test:", name)
     for i, subbatch in enumerate(subbatches):
         total_flux = sum(obj.phot_flux for obj in subbatch)
