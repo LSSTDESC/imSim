@@ -194,8 +194,11 @@ def test_make_batches():
 
 
 def run_subbatch_test(name, batch, nsubbatch):
-    total_original_flux = sum(object.phot_flux for object in batch)
-    subbatches = valid_image_types["LSST_PhotonPoolingImage"].make_photon_subbatches(batch, nsubbatch)
+    total_original_flux = sum(obj.phot_flux for obj in batch)
+    print('total original flux = ',total_original_flux)
+    builder = valid_image_types["LSST_PhotonPoolingImage"]
+    subbatches = builder.make_photon_subbatches(batch, nsubbatch)
+    print('total subbatch flux = ',sum([sum(obj.phot_flux for obj in subbatch) for subbatch in subbatches]))
     # In general there are multiple ways to split the batch. Assert that each
     # object appears with its original flux across however many sub-batches it
     # appears in, that the total flux across all sub-batches equals the total
@@ -203,18 +206,34 @@ def run_subbatch_test(name, batch, nsubbatch):
     # least full.
     print("Subbatches in test:", name)
     for i, subbatch in enumerate(subbatches):
-        print(f" Subbatch {i}: {[ (obj.index, obj.phot_flux) for obj in subbatch ]}")
+        total_flux = sum(obj.phot_flux for obj in subbatch)
+        print(f" Subbatch {i}: {total_flux} {len(subbatch)}")
+        if len(subbatch) <= 5:
+            print(f"     {[ (obj.index, obj.phot_flux) for obj in subbatch ]}")
+    nsplit = sum(len(subbatch) for subbatch in subbatches) - len(batch)
+    print(f"{nsplit} objects were split across multiple subbatches (with multiplicity)")
+
+    # Check that the correct number of batches was created.
     assert len(subbatches) == nsubbatch
-    # Equivalent to commented out assert all, but much more readable!
-    for object in batch:
-        total_obj_flux = sum(sum(obj.phot_flux for obj in subbatch if obj.index == object.index) for subbatch in subbatches)
-        assert object.phot_flux == total_obj_flux
-    # assert all(sum(sb_obj.phot_flux for subbatch in subbatches for sb_obj in subbatch if sb_obj.index == obj.index) == obj.phot_flux for obj in batch)
-    assert sum([sum(object.phot_flux for object in subbatch) for subbatch in subbatches]) == total_original_flux
-    assert all(object.phot_flux > 0 for subbatch in subbatches for object in subbatch)
-    # assert all([sum(object.phot_flux for object in subbatch) == 2e4 for subbatch in subbatches])
-    total_subbatch_fluxes = [sum(object.phot_flux for object in subbatch) for subbatch in subbatches]
-    assert max(total_subbatch_fluxes) <= 1.1 * min(total_subbatch_fluxes)
+
+    # Check that each object's flux preserved across all subbatches in which it appears.
+    for orig_obj in batch:
+        total_obj_flux = sum(sum(obj.phot_flux for obj in subbatch if obj.index == orig_obj.index)
+                             for subbatch in subbatches)
+        assert np.isclose(orig_obj.phot_flux, total_obj_flux)
+
+    # Check that the total flux of subbatches is the same as the total flux in the original.
+    assert np.isclose(sum([sum(obj.phot_flux for obj in subbatch) for subbatch in subbatches]),
+                      total_original_flux)
+
+    # Check that all components have positive flux.
+    assert all(obj.phot_flux > 0 for subbatch in subbatches for obj in subbatch)
+
+    # Check that the subbatches all have about the same number of photons each.
+    # This assert isn't formally required by the algorithm, but in practice, it seems
+    # to always do a good job now.
+    total_subbatch_fluxes = [sum(obj.phot_flux for obj in subbatch) for subbatch in subbatches]
+    assert max(total_subbatch_fluxes) <= 1.02 * min(total_subbatch_fluxes)
 
 
 def test_make_photon_subbatches():
@@ -301,6 +320,41 @@ def test_make_photon_subbatches_non_simple():
              ObjectInfo(2, 5e5, ProcessingMode.PHOT),
              ]
     run_subbatch_test("large non-simple fragmentation", batch, 31)
+
+def test_make_photon_subbatches_power_law():
+    # This is intended to be a semi-realistic flux distribution with a fairly large number
+    # of objects. We use a power law:
+    #     p(flux) ~ flux^-s
+    # which is relatively common for flux distributions of real objects with a power
+    # law index near 1.
+
+    nobj = 2000
+    nbatch = 200
+    s = 0.95   # power law index must be < 1.
+    fmin = 1.
+    fmax = 1.e6
+
+    # This distribution is realized by inverting the cdf of the this distribution
+    # p = A (f/fmax)^-s
+    # cdf = A/(1-s) [f^(1-s) - fmin^(1-s)] / fmax^-s
+    #
+    # Solve for A from cdf(f=fmax) = 1
+    # A/(1-s) = fmax^-1
+    #
+    # -> cdf = (f/fmax)^(1-s)
+    # f/fmax = cdf^(1/(1-s))
+    #
+    # To keep the objects having f > fmin, we clip the cdf to the range that gives f>fmin.
+    cdf_min = (fmin/fmax)**(1-s)
+    rng = np.random.default_rng(1234)
+    cdf = rng.uniform(cdf_min, 1, size=nobj)
+    f = fmax * cdf**(1/(1-s))
+    np.testing.assert_array_less(0.99, f)
+    print('Total flux = ',np.sum(f))
+    print('Brightest obj flux = ',np.max(f))
+    assert(np.max(f) > np.sum(f) / nbatch)  # I.e. we want at least one obj to need to split.
+    batch = [ObjectInfo(i, f[i], ProcessingMode.PHOT) for i in range(nobj)]
+    run_subbatch_test("large power law distribution", batch, nbatch)
 
 
 if __name__ == "__main__":
