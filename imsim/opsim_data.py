@@ -117,25 +117,31 @@ class OpsimDataLoader(object):
             # counting the number of snaps since int(observationStartMJD)
             # with a half-day offset to account for Rubin's dayobs definition.
             t0 = int(self.meta['observationStartMJD'] - 0.5) + 0.5
-            sql = f'''select nexp from observations where
+            sql = f'''select numExposures from observations where
                       {t0} <= observationStartMJD and
                       observationId < {self.visit}'''
             df = pd.read_sql(sql, con)
-            self.meta['seqnum'] = int(sum(df['nexp'])) + self.meta['snap']
+            self.meta['seqnum'] = sum(df['numExposures']) + self.meta['snap']
         self.logger.warning('Done reading visit info from opsim db file')
 
-        if self.meta['snap'] >= self.meta['nexp']:
+        if self.meta['snap'] >= self.meta['numExposures']:
             raise ValueError('Invalid snap value: %d. For this visit, must have snap < %d'
-                             % (self.meta['snap'], self.meta['nexp']))
+                             % (self.meta['snap'], self.meta['numExposures']))
 
         # Add a few derived quantities to meta values
         # Note a semantic distinction we make here:
         # "filter" or "band" is a character u,g,r,i,z,y.
         # "bandpass" will be the real constructed galsim.Bandpass object.
+        #
+        # The dp2_visits.db file uses the `physical_filter` name for
+        # the `filter` column, which has the form
+        # `{band}_{filter_id}`, so we can use the first character to
+        # obtain the `band` and retain backwards-compatibility with
+        # existing opsim db files.
         self.meta['band'] = self.meta['filter'][:1]
-        self.meta['exptime'] = self.meta['visitExposureTime']/self.meta['nexp']
+        self.meta['exptime'] = self.meta['visitExposureTime']/self.meta['numExposures']
         readout_time \
-            = (self.meta['visitTime'] - self.meta['visitExposureTime'])/self.meta['nexp']
+            = (self.meta['visitTime'] - self.meta['visitExposureTime'])/self.meta['numExposures']
         # Set "mjd" to be the midpoint of the exposure
         self.meta['mjd'] = (self.meta['observationStartMJD']
                             + (self.meta['snap']*(self.meta['exptime'] + readout_time)
