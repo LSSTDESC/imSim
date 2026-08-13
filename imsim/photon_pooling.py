@@ -2,6 +2,7 @@ import galsim
 import numpy as np
 import dataclasses
 import itertools
+import math
 from galsim.config import RegisterImageType
 from galsim.config.extra import RegisterExtraOutput
 from galsim.config.extra_truth import TruthBuilder
@@ -324,7 +325,8 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
     @staticmethod
     def make_photon_subbatches(batch, nsubbatch):
         """
-        Divide a batch of objects into a list of smaller subbatches of approximately the same size.
+        Divide a batch of objects into a list of smaller subbatches of approximately the same
+        total number of photons.
 
         Parameters:
             batch: A list making a batch of objects to be divided into subbatches.
@@ -332,11 +334,74 @@ class LSST_PhotonPoolingImageBuilder(LSST_ImageBuilderBase):
         Returns:
             subbatches: A list of subbatches, each a valid batch in its own right, together containing all objects in the original batch.
         """
-        nobj = len(batch)
-        nobj_per_subbatch, nobj_extra = divmod(nobj, nsubbatch)
-        section_sizes = nobj_extra * [nobj_per_subbatch + 1] + (nsubbatch - nobj_extra) * [nobj_per_subbatch]
-        section_indices = [0] + list(itertools.accumulate(section_sizes))
-        subbatches = [batch[section_indices[i]:section_indices[i+1]] for i in range(nsubbatch)]
+        # This is going to be a bin-packing with fragmentation problem.
+        # Fragmentation is required because the range of fluxes in the objects
+        # is huge; it would be impossible to get roughly even workloads across
+        # the subbatches without splitting some objects.
+        # Our goal is also to reduce the number of object lookups; that means
+        # that we want to minimize the number of object splits.
+
+        nphotons_total = sum(obj.phot_flux for obj in batch)
+        photons_per_subbatch = math.ceil(nphotons_total / nsubbatch)
+
+        # We aren't asking for a perfectly equal distribution of photons; just
+        # something close. Allow for a small amount of spill over.
+        allowed_spill_over = math.ceil(0.01 * photons_per_subbatch)
+
+        # We want the order of objects in the batch from brightest to faintest.
+        # This helps ensure that we minimize fragmentation by placing the
+        # largest objects (i.e. most difficult to fit) first, while the
+        # sub-batches are empty.
+        sorted_objects = sorted(batch, key=lambda obj: obj.phot_flux, reverse=True)
+
+        # Sub-batching loop.
+        subbatches = [[] for _ in range(nsubbatch)]
+        available_flux = [photons_per_subbatch for _ in range(nsubbatch)]
+        current_subbatch = 0
+        for obj in sorted_objects:
+            remaining_flux = obj.phot_flux
+            while remaining_flux > 0:
+                # Calculate current sub-batch flux.
+                # It would be nicer to store rather then recalculate.
+                subbatch = subbatches[current_subbatch]
+
+                # First see if this sub-batch can contain the entirety of the remaining
+                # object flux. If so, place it all in here, then continue without
+                # advancing in case more can go in.
+                if remaining_flux <= available_flux[current_subbatch]:
+                    subbatches[current_subbatch].append(
+                        dataclasses.replace(obj, phot_flux=remaining_flux)
+                    )
+                    available_flux[current_subbatch] -= remaining_flux
+                    remaining_flux = 0
+                    continue
+
+                # The current subbatch is too full to fit this object, so switch to the
+                # subbatch with the most available room (which could stil be this subbatch).
+                # If this one can fit the whole thing, allowing for some possible spill over,
+                # then we again place it all in the single subbatch.
+                # (Aside -- maybe use a heap for this?)
+                current_subbatch = np.argmax(available_flux)
+                subbatch = subbatches[current_subbatch]
+                assert available_flux[current_subbatch] > 0
+                if remaining_flux <= available_flux[current_subbatch] + allowed_spill_over:
+                    subbatches[current_subbatch].append(
+                        dataclasses.replace(obj, phot_flux=remaining_flux)
+                    )
+                    available_flux[current_subbatch] -= remaining_flux
+                    remaining_flux = 0
+                    continue
+
+                # It doesn't fully fit in in any subbatch, even with spill over, so split it.
+                # Put as much as possible into this one, and save the rest for another one.
+                partial_flux = available_flux[current_subbatch]
+                subbatches[current_subbatch].append(
+                    dataclasses.replace(obj, phot_flux=partial_flux)
+                )
+                available_flux[current_subbatch] = 0.
+                remaining_flux -= partial_flux
+                current_subbatch = np.argmax(available_flux)
+
         return subbatches
 
     @staticmethod
