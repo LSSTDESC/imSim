@@ -3,6 +3,7 @@ Unit test code for raw file writing.
 """
 import os
 from pathlib import Path
+import logging
 import unittest
 from astropy.io import fits
 import galsim
@@ -40,9 +41,11 @@ class RawFileOutputTestCase(unittest.TestCase):
         added_keywords = {'GAUSFWHM': 0.4,
                           'FOOBAR': 'hello, world'}
 
-        hdu = imsim.get_primary_hdu(eimage, "E2V-CCD250-382",
-                                    added_keywords=added_keywords)
-        hdr = hdu.header
+        logger = logging.getLogger()
+        ccd_readout = imsim.CcdReadout(eimage, logger, added_keywords=added_keywords)
+        rng = galsim.BaseDeviate()
+        hdus = ccd_readout.prepare_hdus(rng)
+        hdr = hdus[0].header
 
         # Test some keywords.
         self.assertAlmostEqual(hdr['RA'], eimage.header['RATEL'])
@@ -65,6 +68,9 @@ class RawFileOutputTestCase(unittest.TestCase):
         # Test the added_keywords.
         for key, value in added_keywords.items():
             self.assertEqual(hdr[key], value)
+
+        # Write the file.
+        ccd_readout.write_raw_file(hdus, self.outfile)
 
 
 if __name__ == '__main__':
