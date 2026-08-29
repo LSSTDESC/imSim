@@ -197,31 +197,53 @@ def directed_dist(
 
     Parameters
     ----------
-    geometry: Geometry containing cirlces and thick lines.
+    geometry: Geometry containing circles and thick lines.
     points: Numpy array of shape (2,n)
 
     Returns:
-        Numpy array of shape (3,n), where each line is of the form [d, nx, ny],
-        d being the distance and [nx, ny] the direction to the minimizing point.
+    dist: Numpy array of shape (n,) with the minimal distance to the closest
+     of the objects defined in the geometry.
+    n: Numpy array of shape (3,n), where each line is of the form [d, nx, ny],
+     d being the distance and [nx, ny] the direction to the minimizing point.
     """
-    dist_lines = dist_thick_line(geometry.thick_lines, points)
-    dist_circles = dist_circle(geometry.circles, points)
-    n_points = points.shape[0]
-    col_idx = np.arange(n_points, dtype=np.intp)
-    min_line_idx = np.argmin(dist_lines, axis=0)
-    min_circle_idx = np.argmin(dist_circles, axis=0)
-    min_dist_lines = dist_lines[min_line_idx, col_idx]
-    min_dist_circles = dist_circles[min_circle_idx, col_idx]
-    dist = min_dist_lines
-    n = np.empty((n_points, 2))
-    # mask for points which are closer to some line than to any circle:
-    line_mask = min_dist_lines < min_dist_circles
-    n[line_mask] = geometry.thick_lines[min_line_idx[line_mask]][..., :2]
-    dist[~line_mask] = min_dist_circles[~line_mask]
-    d = geometry.circles[min_circle_idx[~line_mask]][..., :2] - points[~line_mask]
-    norm = np.linalg.norm(d, axis=1)
-    n[~line_mask] = d / np.column_stack((norm, norm))
-    return dist, n
+    nlines = geometry.thick_lines.shape[0]
+    ncircles = geometry.circles.shape[0]
+    min_dist = np.full(points.shape[0], np.inf)
+    min_idx = np.full(points.shape[0], -1, dtype=np.intp)
+    # Loop through all structures in geometry to determine which is closest to
+    # each point.
+    for idx in range(nlines + ncircles):
+        if idx < nlines:
+            # Structure is a thick line.
+            thick_line = geometry.thick_lines[idx, :]
+            distance = dist_thick_line(thick_line, points)
+        else:
+            # Structure is a circle.
+            circle = geometry.circles[idx-nlines, :]
+            distance = dist_circle(circle, points)
+        # Update minimum distances and structure IDs.
+        dist_mask = distance < min_dist
+        min_dist[dist_mask] = distance[dist_mask]
+        min_idx[dist_mask] = idx
+    # At this point, we know which structure is closest to each point, and what
+    # the minimum distance between them is. We need the directions to those structures.
+    n = np.empty((points.shape[0], 2))
+    # While it's possible to vectorize the copy/computation of the directions
+    # (and we originally did), this needs a *lot* of memory for large
+    # intermediate array allocations. Instead, loop through and do for each
+    # point in turn.
+    for i in range(points.shape[0]):
+        if min_idx[i] < nlines:
+            # For points which are closer to some line than to any circle, the
+            # directions to those lines are their normals.
+            n[i] = geometry.thick_lines[min_idx[i], :2]
+        else:
+            # For points closer to a circle than to a line, compute vector from
+            # point to circle center and normalize it.
+            d = geometry.circles[min_idx[i]-nlines, :2] - points[i]
+            n[i] = d / np.linalg.norm(d)
+
+    return min_dist, n
 
 
 def dist_thick_line(thick_line: np.ndarray, point: np.ndarray) -> np.ndarray:
