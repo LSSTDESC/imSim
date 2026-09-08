@@ -8,9 +8,20 @@ from galsim.config import InputLoader, RegisterInputType, RegisterValueType, \
     RegisterObjectType
 from skycatalogs import skyCatalogs
 from skycatalogs.utils import PolygonalRegion
+from skycatalogs.utils.config_utils import open_config_file
 from .camera import Camera
 from .utils import RUBIN_AREA
 import lsst.afw.cameraGeom as cameraGeom
+
+
+def add_catalog(sky_cat, yaml_file):
+    config = open_config_file(yaml_file)
+    sky_cat.raw_config['object_types'].update(config['object_types'])
+    for object_type, obj_config in config['object_types'].items():
+        if 'module' in obj_config:
+            module = obj_config['module']
+            exec(f"import {module}; "
+                 f"{module}.register_objects(sky_cat, '{object_type}')")
 
 
 class SkyCatalogInterface:
@@ -21,7 +32,7 @@ class SkyCatalogInterface:
                  camera=None, det_name=None,
                  pupil_area=RUBIN_AREA, max_flux=None, logger=None,
                  apply_dc2_dilation=False, approx_nobjects=None,
-                 full_focal_plane=False):
+                 full_focal_plane=False, additional_catalogs=None):
         """
         Parameters
         ----------
@@ -76,6 +87,8 @@ class SkyCatalogInterface:
             of objects found by skyCatalogs, via .getNObjects, will be used.
         full_focal_plane : bool [False]
             Enables or disables two-pass full focal plane processing.
+        additional_catalogs : list [None]
+            File paths to skyCatalog yaml files to add.
         """
         self.file_name = file_name
         self.wcs = wcs
@@ -104,6 +117,7 @@ class SkyCatalogInterface:
         self.logger = galsim.config.LoggerWrapper(logger)
         self.apply_dc2_dilation = apply_dc2_dilation
         self.approx_nobjects = approx_nobjects
+        self.additional_catalogs = additional_catalogs
 
         if obj_types is not None:
             self.logger.info(f'Object types restricted to {obj_types}')
@@ -140,8 +154,17 @@ class SkyCatalogInterface:
             region = PolygonalRegion(vertices)
             sky_cat = skyCatalogs.open_catalog(
                 self.file_name, skycatalog_root=self.skycatalog_root)
+            if self.additional_catalogs is not None:
+                for yaml_file in self.additional_catalogs:
+                    add_catalog(sky_cat, yaml_file)
+            available_object_types = list(sky_cat._config['object_types'].keys())
+            self.logger.info(f"Available object types: {available_object_types}")
+            missing_types = set(self.obj_types).difference(available_object_types)
+            if missing_types:
+                raise RuntimeError(f"Missing requested object types: {missing_types}")
             self._objects = sky_cat.get_objects_by_region(
                 region, obj_type_set=self.obj_types, mjd=self.mjd)
+            self.logger.info(f"Number of objects found: {len(self._objects)}")
             if self.full_focal_plane:
                 # Work out which of the adjacent detectors are closest
                 # to each object found in the region.  Add the object to the
@@ -274,6 +297,7 @@ class SkyCatalogLoader(InputLoader):
                'mjd': float,
                'pupil_area': float,
                'full_focal_plane': bool,
+               'additional_catalogs' : list,
               }
         ignore = ['fiducial_wcs']  # Handled separately.
         kwargs, safe = galsim.config.GetAllParams(config, base, req=req,
