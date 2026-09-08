@@ -41,4 +41,4 @@ from .process_info import *
 from .table_row import *
 from .photon_pooling import *
 from .full_focal_plane import *
-from .coadd_psf import *
+from .deep_coadd import *
