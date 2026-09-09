@@ -1,7 +1,7 @@
 """
-Interface to Rubin deep_coadd PSFs
+Interface to Rubin deep_coadds
 """
-
+import pandas as pd
 import galsim
 from galsim.config import InputLoader, RegisterInputType, RegisterObjectType
 import lsst.daf.butler as daf_butler
@@ -9,7 +9,8 @@ import lsst.geom
 
 
 class DeepCoadd:
-    def __init__(self, butler, band, skymap, dstype="deep_coadd"):
+    def __init__(self, butler, band, skymap_name, data_ids=None,
+                 dstype="deep_coadd"):
         """
         Parameters
         ----------
@@ -17,18 +18,42 @@ class DeepCoadd:
             Butler for the data repo and collection containing the deep_coadds.
         band : str
             Band of interest, i.e., in "ugrizy".
-        skymap : str
+        skymap_name : str
             Name of the skymap to use, e.g., "lsst_cells_v2".
+        data_ids: list
+            List of data_ids (dicts) for identifying deep_coadds to simulate.
         dstype : str
             The dataset type of the cell-based coadds.  Default: "deep_coadd".
         """
         self.butler = butler
         self.band = band
-        self.skymap_name = skymap
-        self.skymap = butler.get("skyMap", name=skymap)
+        self.skymap_name = skymap_name
+        self.skymap = butler.get("skyMap", skymap=skymap_name)
+        self.data_ids = data_ids
         self.dstype = dstype
         self._psf_cache = {}
         self._butler_cache = {}
+
+    def get(self, index=None, data_id=None):
+        """Return the deep_coadd using the index of the self.data_ids list,
+        or if provided, using the data_id.
+        """
+        if (data_id, index) == (None, None):
+            return None
+        if data_id is None and index >= 0 and index < len(self.data_ids):
+            data_id = self.data_ids[index]
+        elif data_id not in self.data_ids:
+            return None
+        data_id['skymap'] = self.skymap_name
+        deep_coadd = self.butler.get(self.dstype, **data_id)
+
+        # Ensure this is a lsst.images version:
+        assert hasattr(deep_coadd, 'to_legacy')
+        return deep_coadd
+
+    def getWcs(self, data_id):
+        data_id['skymap'] = self.skymap_name
+        return galsim.AstropyWCS(wcs=self.get(data_id=data_id).fits_wcs)
 
     def getPSF(self, ra, dec):
         """Return the cell coadd PSF, evaluated at the center of
@@ -99,6 +124,7 @@ class DeepCoaddLoader(InputLoader):
         super().__init__(init_func=DeepCoadd, takes_logger=True,
                          use_proxy=False)
         self.butler = None
+        self.deep_coadd_list = None
 
     def getKwargs(self, config, base, logger):
         logger.debug("Get kwargs for DeepCoadd")
@@ -109,12 +135,21 @@ class DeepCoaddLoader(InputLoader):
         }
         opt = {
             "skymap": str,
-            "dstype": str
+            "dstype": str,
+            "deep_coadd_list_file": str
         }
         params, _ = galsim.config.GetAllParams(config, base, req=req, opt=opt)
         if self.butler is None:
             self.butler = daf_butler.Butler(params["repo"],
                                             collections=[params["collection"]])
+
+        deep_coadd_list_file = params.get("deep_coadd_list_file", None)
+
+        if self.deep_coadd_list is None and deep_coadd_list_file is not None:
+            df = pd.read_parquet("deep_coadd_list_file")
+            columns = ["band", "tract", "patch"]
+            self.deep_coadd_list = [dict(zip(columns, row))
+                                    for row in zip(*[df[_] for _ in columns])]
 
         kwargs = {
             "butler": self.butler,
