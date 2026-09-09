@@ -43,3 +43,4 @@ from .table_row import *
 from .photon_pooling import *
 from .full_focal_plane import *
 from .deep_coadd import *
+from .deep_coadd_wcs import *
