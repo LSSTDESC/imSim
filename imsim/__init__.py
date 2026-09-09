@@ -33,6 +33,7 @@ from .sky_model import *
 from .bandpass import *
 from .telescope_loader import *
 from .lsst_image import *
+from .lsst_coadd_image import *
 from .checkpoint import *
 from .opd import *
 from .vignetting import *
