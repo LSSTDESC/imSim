@@ -3,10 +3,10 @@ from galsim.config import GetAllParams, AddNoise, RegisterImageType
 from .lsst_image import LSST_ImageBuilderBase
 
 
-__all__ = ['LSST_CoaddImageBuilder']
+__all__ = ['RubinCoaddImageBuilder']
 
 
-class LSST_CoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
+class RubinCoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
     def setup(self, config, base, image_num, obj_num, ignore, logger):
         """
         Do the initialization and setup for a Rubin/LSST deep coadd image.
@@ -33,9 +33,9 @@ class LSST_CoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
                 self.nobjects = min(self.nobjects, input_nobj)
         logger.info('image %d: nobj = %d', image_num, self.nobjects)
 
-        req = { 'tract': int, 'patch': int }
+        req = { 'tract': int, 'patch': int, 'band': str }
         opt = { 'nbatch': int, 'nsubbatch': int, 'nbatch_fft': int,
-                'npbatch_per_checkpoint': int}
+                'nbatch_per_checkpoint': int}
         extra_ignore = ['image_pos', 'world_pos', 'stamp_size',
                         'stamp_xsize', 'stamp_ysize', 'nobjects' ]
         params = GetAllParams(config, base, req=req, opt=opt,
@@ -43,6 +43,7 @@ class LSST_CoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
 
         self.tract = params['tract']
         self.patch = params['patch']
+        self.band = params['band']
 
         self.add_noise = True
 
@@ -52,7 +53,7 @@ class LSST_CoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
         self.nbatch_fft = params.get('nbatch_fft', 1)
         try:
             self.checkpoint = galsim.config.GetInputObj(
-                'checkpoint', config, base, 'LSST_CoaddImageBuilder')
+                'checkpoint', config, base, 'RubinCoaddImageBuilder')
         except galsim.config.GalSimConfigError:
             self.checkpoint = None
 
@@ -80,4 +81,4 @@ class LSST_CoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
             AddNoise(base, image, current_var, logger)
 
 
-RegisterImageType('LSST_DeepCoadd', LSST_CoaddImageBuilder())
+RegisterImageType('RubinDeepCoadd', RubinCoaddImageBuilder())

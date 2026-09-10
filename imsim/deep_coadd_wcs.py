@@ -1,13 +1,13 @@
 """
-WCS builder for LSST deep_coadds
+WCS builder for Rubin deep_coadds
 """
 from galsim.config import WCSBuilder, GetAllParams, GetInputObj, RegisterWCSType
 
 
-__all__ = ["LSSTDeepCoaddWCSBuilder"]
+__all__ = ["RubinDeepCoaddWCSBuilder"]
 
 
-class LSSTDeepCoaddWCSBuilder(WCSBuilder):
+class RubinDeepCoaddWCSBuilder(WCSBuilder):
 
     def buildWCS(self, config, base, logger):
         """Build an AstropyWCS from a deep_coadd
@@ -28,8 +28,8 @@ class LSSTDeepCoaddWCSBuilder(WCSBuilder):
         params, _ = GetAllParams(config, base, req=req)
         data_id = { key: params[key] for key in req }
         deep_coadd = GetInputObj("deep_coadd", config, base,
-                                 "LSSTDeepCoaddWCSBuilder")
+                                 "RubinDeepCoaddWCSBuilder")
         return deep_coadd.getWcs(data_id)
 
 
-RegisterWCSType("LSSTDeepCoaddWcs", LSSTDeepCoaddWCSBuilder())
+RegisterWCSType("RubinDeepCoaddWcs", RubinDeepCoaddWCSBuilder())

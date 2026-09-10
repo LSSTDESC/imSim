@@ -3,21 +3,19 @@ Interface to Rubin deep_coadds
 """
 import pandas as pd
 import galsim
-from galsim.config import InputLoader, RegisterInputType, RegisterObjectType
+from galsim.config import (InputLoader, RegisterInputType, RegisterObjectType,
+                           RegisterValueType, GetAllParams, GetInputObj)
 import lsst.daf.butler as daf_butler
 import lsst.geom
 
 
 class DeepCoadd:
-    def __init__(self, butler, band, skymap_name, data_ids=None,
-                 dstype="deep_coadd"):
+    def __init__(self, butler, skymap_name, data_ids=None, dstype="deep_coadd"):
         """
         Parameters
         ----------
         butler : lsst.daf.butler.Butler
             Butler for the data repo and collection containing the deep_coadds.
-        band : str
-            Band of interest, i.e., in "ugrizy".
         skymap_name : str
             Name of the skymap to use, e.g., "lsst_cells_v2".
         data_ids: list
@@ -26,7 +24,6 @@ class DeepCoadd:
             The dataset type of the cell-based coadds.  Default: "deep_coadd".
         """
         self.butler = butler
-        self.band = band
         self.skymap_name = skymap_name
         self.skymap = butler.get("skyMap", skymap=skymap_name)
         self.data_ids = data_ids
@@ -52,10 +49,10 @@ class DeepCoadd:
         return deep_coadd
 
     def getWcs(self, data_id):
-        data_id['skymap'] = self.skymap_name
-        return galsim.AstropyWCS(wcs=self.get(data_id=data_id).fits_wcs)
+        deep_coadd = self.get(data_id=data_id)
+        return galsim.AstropyWCS(wcs=deep_coadd.fits_wcs)
 
-    def getPSF(self, ra, dec):
+    def getPSF(self, ra, dec, band):
         """Return the cell coadd PSF, evaluated at the center of
         the cell containing this sky position.
         """
@@ -72,7 +69,7 @@ class DeepCoadd:
         butler_key = tract, patch
         if butler_key not in self._butler_cache:
             dataId = dict(skymap=self.skymap_name, tract=tract, patch=patch,
-                          band=self.band)
+                          band=band)
             deep_coadd = self.butler.get(self.dstype, **dataId)
             if hasattr(deep_coadd, "to_legacy"):
                 # This is a `lsst.images` object.  Use the `.to_legacy`
@@ -117,8 +114,7 @@ class DeepCoaddLoader(InputLoader):
 
     input.deep_coadd:
         repo: dp2
-        collection: LSSTCam/runs/DRP/DP2
-        band: $band  # This will be obtained from the opsim metadata entry.
+        collection: dp2
     """
     def __init__(self):
         super().__init__(init_func=DeepCoadd, takes_logger=True,
@@ -131,14 +127,13 @@ class DeepCoaddLoader(InputLoader):
         req = {
             "repo": str,
             "collection": str,
-            "band": str
         }
         opt = {
-            "skymap": str,
+            "skymap_name": str,
             "dstype": str,
-            "deep_coadd_list_file": str
+            "deep_coadd_list_file": str,
         }
-        params, _ = galsim.config.GetAllParams(config, base, req=req, opt=opt)
+        params, _ = GetAllParams(config, base, req=req, opt=opt)
         if self.butler is None:
             self.butler = daf_butler.Butler(params["repo"],
                                             collections=[params["collection"]])
@@ -146,15 +141,15 @@ class DeepCoaddLoader(InputLoader):
         deep_coadd_list_file = params.get("deep_coadd_list_file", None)
 
         if self.deep_coadd_list is None and deep_coadd_list_file is not None:
-            df = pd.read_parquet("deep_coadd_list_file")
+            df = pd.read_parquet(deep_coadd_list_file)
             columns = ["band", "tract", "patch"]
             self.deep_coadd_list = [dict(zip(columns, row))
                                     for row in zip(*[df[_] for _ in columns])]
 
         kwargs = {
             "butler": self.butler,
-            "band": params["band"],
-            "skymap": params.get("skymap", "lsst_cells_v2"),
+            "skymap_name": params.get("skymap", "lsst_cells_v2"),
+            "data_ids": self.deep_coadd_list,
             "dstype": params.get("dstype", "deep_coadd"),
         }
         safe = True
@@ -174,15 +169,35 @@ def BuildRubinCoaddPSF(config, base, ignore, gsparams, logger):
     psf:
         type: RubinCoaddPSF
     """
-    deep_coadd = galsim.config.GetInputObj('deep_coadd', config, base,
-                                           'RubinCoaddPSF')
+    deep_coadd = GetInputObj('deep_coadd', config, base, 'RubinCoaddPSF')
+    coadd_num = base['coadd_num']
+    assert (coadd_num >= 0 and coadd_num < len(deep_coadd.data_ids))
+    data_id = deep_coadd.data_ids[coadd_num]
     image_pos = base['image_pos']
     celestial_coord = base['wcs'].toWorld(image_pos)
     ra = celestial_coord.ra / galsim.degrees
     dec = celestial_coord.dec / galsim.degrees
+    band = data_id['band']
     safe = False
-    return deep_coadd.getPSF(ra, dec), safe
+    return deep_coadd.getPSF(ra, dec, band), safe
 
 
-RegisterInputType("deep_coadd", DeepCoaddLoader())
-RegisterObjectType("RubinCoaddPSF", BuildRubinCoaddPSF, input_type="deep_coadd")
+def DeepCoaddData(config, base, value_type):
+    deep_coadd = GetInputObj('deep_coadd', config, base, 'DeepCoaddData')
+    req = { 'field': str }
+    params, safe = GetAllParams(config, base, req=req)
+    field = params['field']
+
+    coadd_num = base['coadd_num']
+    assert (coadd_num >= 0 and coadd_num < len(deep_coadd.data_ids))
+    data_id = deep_coadd.data_ids[coadd_num]
+
+    val = value_type(data_id.get(field, None))
+
+    return val, safe
+
+
+RegisterInputType('deep_coadd', DeepCoaddLoader())
+RegisterObjectType('RubinCoaddPSF', BuildRubinCoaddPSF, input_type='deep_coadd')
+RegisterValueType('DeepCoaddData', DeepCoaddData, [int, str],
+                  input_type='deep_coadd')

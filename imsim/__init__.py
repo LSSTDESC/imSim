@@ -33,7 +33,6 @@ from .sky_model import *
 from .bandpass import *
 from .telescope_loader import *
 from .lsst_image import *
-from .lsst_coadd_image import *
 from .checkpoint import *
 from .opd import *
 from .vignetting import *
@@ -43,4 +42,6 @@ from .table_row import *
 from .photon_pooling import *
 from .full_focal_plane import *
 from .deep_coadd import *
+from .deep_coadd_image import *
 from .deep_coadd_wcs import *
+from .deep_coadd_output import *
