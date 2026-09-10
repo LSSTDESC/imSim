@@ -1,0 +1,57 @@
+modules:
+    - imsim
+
+eval_variables:
+    itract: { type: DeepCoaddData, field: tract }
+    ipatch: { type: DeepCoaddData, field: patch }
+    sband: { type: DeepCoaddData, field: band }
+
+input:
+    sky_catalog:
+        file_name: default_sky_cat.yaml
+        band: $band
+
+    checkpoint:
+        dir: checkpoint
+        file_name:
+          type: FormattedStr
+          format : checkpoint_%08d-%s-%s.hdf
+          items:
+              - $tract
+              - $patch
+              - $band
+
+image:
+    type: RubinDeepCoadd
+    random_seed: 42
+    nproc: 1
+    nbatch: 100
+    nsubbatch: 50
+    nbatch_fft: 1
+    nbatch_per_checkpoint: 1
+    band: $band
+    tract: $tract
+    patch: $patch
+
+    wcs:
+        type: RubinDeepCoaddWcs
+        tract: $tract
+        patch: $patch
+        band: $band
+
+psf:
+    type: RubinCoaddPSF
+
+output:
+   type: RubinDeepCoaddOutput
+   coadd_num: 0
+   nproc: 1
+   nfiles: 1
+   dir: fits
+   file_name:
+       type: FormattedStr
+       format: deep_coadd_%s_%d_%d.fits
+       items:
+           - $band
+           - $tract
+           - $patch
