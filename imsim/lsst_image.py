@@ -243,7 +243,6 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
             config: The configuration dictionary for the image field.
             base: The base configuration dictionary.
         """
-
         if 'image_pos' in config and 'world_pos' in config:
             raise galsim.config.GalSimConfigValueError(
                 "Both image_pos and world_pos specified for LSST_Image.",
@@ -267,7 +266,6 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
 
 class LSST_ImageBuilder(LSST_ImageBuilderBase):
     """This is based on the GalSim "Scattered" image type.
-    
     Additional features supported here:
     * batching the stamp generation
     * checkpointing if input.checkpoint is given

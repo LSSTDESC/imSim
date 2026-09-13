@@ -45,3 +45,4 @@ from .deep_coadd import *
 from .deep_coadd_image import *
 from .deep_coadd_wcs import *
 from .deep_coadd_output import *
+from .deep_coadd_stamp import *

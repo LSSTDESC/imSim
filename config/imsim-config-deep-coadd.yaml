@@ -15,11 +15,19 @@ input:
         dir: checkpoint
         file_name:
           type: FormattedStr
-          format : checkpoint_%08d-%s-%s.hdf
+          format : checkpoint_%s-%d-%d.hdf
           items:
+              - $band
               - $tract
               - $patch
-              - $band
+
+gal:
+    type: SkyCatObj
+
+stamp:
+    type: RubinDeepCoadd
+    world_pos:
+        type: SkyCatWorldPos
 
 image:
     type: RubinDeepCoadd
@@ -35,8 +43,12 @@ image:
 
     wcs:
         type: RubinDeepCoaddWcs
+        band: $band
         tract: $tract
         patch: $patch
+
+    bandpass:
+        type: RubinBandpass
         band: $band
 
 psf:
@@ -50,7 +62,7 @@ output:
    dir: fits
    file_name:
        type: FormattedStr
-       format: deep_coadd_%s_%d_%d.fits
+       format: deep_coadd_%s-%d-%d.fits
        items:
            - $band
            - $tract
