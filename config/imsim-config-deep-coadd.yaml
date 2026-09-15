@@ -48,7 +48,7 @@ image:
         patch: $patch
 
     bandpass:
-        type: RubinBandpass
+        type: RubinDeepCoaddBandpass
         band: $band
 
 psf:

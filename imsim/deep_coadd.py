@@ -48,6 +48,13 @@ class DeepCoadd:
         assert hasattr(deep_coadd, 'to_legacy')
         return deep_coadd
 
+    def getBandpass(self, band):
+        passband = self.butler.get('standard_passband', band=band)
+        lut = galsim.LookupTable(passband['wavelength'],
+                                 passband['throughput'],
+                                 interpolant='linear')
+        return galsim.Bandpass(lut, wave_type='nm').thin()
+
     def getWcs(self, data_id):
         deep_coadd = self.get(data_id=data_id)
         return galsim.AstropyWCS(wcs=deep_coadd.fits_wcs)
