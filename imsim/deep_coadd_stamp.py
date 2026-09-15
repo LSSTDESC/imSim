@@ -1,27 +1,23 @@
-import numpy as np
 import galsim
 from galsim.config import StampBuilder, RegisterStampType
+from .stamp import LSST_SiliconBuilder
 from .stamp_utils import get_stamp_size
 
 
 __all__ = ["RubinDeepCoaddStampBuilder"]
 
 
-class RubinDeepCoaddStampBuilder(StampBuilder):
-    _pixel_scale = 0.2
-    _tiny_flux = 10.0
-    _Nmax = 4096
+class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
-        # Use base class setup to find default xsize, ysize (and object
-        # position).
-        xsize, ysize, image_pos, world_pos \
-            = super().setup(config, base, xsize, ysize, ignore, logger)
+        # Use StampBuilder.setup(...) to set the object position.
+        ignore = ignore + ['fft_sb_thresh', 'max_flux_simple']
+        _, _, image_pos, world_pos = StampBuilder.setup(
+            self, config, base, xsize, ysize, ignore, logger)
 
         obj = galsim.config.BuildGSObject(base, 'gal', logger=logger)[0]
         if obj is None:
-            raise galsim.config.SkipThisObject(
-                'gal is None (invalid parameters)')
+            raise galsim.config.SkipThisObject('obj is None')
         self.obj = obj
 
         self.rng = galsim.config.GetRNG(config, base, logger, "RubinDeepCoadd")
@@ -64,9 +60,24 @@ class RubinDeepCoaddStampBuilder(StampBuilder):
             )
             xsize = ysize = stamp_size
 
-        logger.info('Object %d will use stamp size = %s, %s and nominal flux %s',
+        logger.info('Object %d will use stamp size %s, %s and nominal flux %s',
                     base.get('obj_num',0), xsize, ysize, self.nominal_flux)
         return xsize, ysize, image_pos, world_pos
+
+    def buildPSF(self, config, base, gsparams, logger):
+        psf = galsim.config.BuildGSObject(
+            base, 'psf', gsparams=gsparams, logger=logger)[0]
+
+        # Check if fft rendering should be used.
+        if 'fft_sb_thresh' in config:
+            fft_sb_thresh = galsim.config.ParseValue(
+                config, 'fft_sb_thresh', base, float)[0]
+        else:
+            fft_sb_thresh = None
+
+        self.use_fft = (fft_sb_thresh is not None
+                        and self.nominal_flux > fft_sb_thresh)
+        return psf
 
     def draw(self, prof, image, method, offset, config, base, logger):
         if prof is None:
@@ -104,67 +115,81 @@ class RubinDeepCoaddStampBuilder(StampBuilder):
 
         image.wcs = base['wcs']
 
-        gal = gal.withFlux(self.phot_flux, bandpass)
-
-        if not faint and 'photon_ops' in config:
-            photon_ops = galsim.config.BuildPhotonOps(
-                config, 'photon_ops', base, logger)
-        else:
-            photon_ops = []
-
-        # Put the psfs at the start of the photon_ops.
-        # Probably a little better to put them a bit later than the
-        # start in some cases (e.g. after TimeSampler,
-        # PupilAnnulusSampler), but leave that as a todo for now.
-        photon_ops = psfs + photon_ops
-        sensor = None
-        image = gal.drawImage(bandpass,
-                              method='phot',
-                              offset=offset,
-                              rng=self.rng,
-                              n_photons=self.phot_flux,
-                              image=image,
-                              sensor=None,
-                              photon_ops=photon_ops,
-                              add_to_image=True,
-                              poisson_flux=False)
-        base['realized_flux'] = image.added_flux
-        logger.debug('After .drawImage(...), image.added_flux %s', image.added_flux)
-        return image
-
-    @classmethod
-    def _fix_seds(cls, prof, bandpass, logger):
-        # If any SEDs are not currently using a LookupTable for the
-        # function or if they are using spline interpolation, then the
-        # codepath is quite slow.  Better to fix them before doing
-        # WavelengthSampler.
-        if (isinstance(prof, galsim.SimpleChromaticTransformation) and
-            (not isinstance(prof._flux_ratio._spec, galsim.LookupTable)
-             or prof._flux_ratio._spec.interpolant != 'linear')):
-            if not cls._sed_logged:
-                logger.warning(
-                    "Warning: Chromatic drawing is most efficient when SEDs have "
-                    "interpolant='linear'. Switching LookupTables to use 'linear'."
-                )
-                cls._sed_logged = True
-            sed = prof._flux_ratio
-            wave_list, _, _ = galsim.utilities.combine_wave_list(sed, bandpass)
-            f = np.broadcast_to(sed(wave_list), wave_list.shape)
-            new_spec = galsim.LookupTable(wave_list, f, interpolant='linear')
-            new_sed = galsim.SED(
-                new_spec,
-                'nm',
-                'fphotons' if sed.spectral else '1'
+        if method == 'fft':
+            gal = gal.withFlux(self.nominal_flux, bandpass)
+            fft_image = image.copy()
+            fft_offset = offset
+            kwargs = dict(
+                method='fft',
+                offset=fft_offset,
+                image=fft_image
             )
-            prof._flux_ratio = new_sed
+            if not faint and config.get('fft_photon_ops'):
+                fft_photon_ops = galsim.config.BuildPhotonOps(
+                    config, 'fft_photon_ops', base, logger)
+                kwargs.update({
+                    "photon_ops": fft_photon_ops,
+                    "rng": self.rng,
+                    "n_subsample": 1,
+                })
 
-        # Also recurse onto any components.
-        if isinstance(prof, galsim.ChromaticObject):
-            if hasattr(prof, 'obj_list'):
-                for obj in prof.obj_list:
-                    cls._fix_seds(obj, bandpass, logger)
-            if hasattr(prof, 'original'):
-                cls._fix_seds(prof.original, bandpass, logger)
+            # Go back to a combined convolution for fft drawing.
+            prof = galsim.Convolve([gal] + psfs)
+            try:
+                fft_image = prof.drawImage(bandpass, **kwargs)
+            except galsim.errors.GalSimFFTSizeError as e:
+                # I think this shouldn't happen with the updates I
+                # made to how the image size is calculated, even for
+                # extremely bright things.  So it should be ok to just
+                # report what happened, give some extra information to
+                # diagonose the problem and raise the error.
+                logger.error('Caught error trying to draw using FFT:')
+                logger.error('%s', e)
+                logger.error('You may need to add a gsparams field with '
+                             'maximum_fft_size to either')
+                logger.error('the psf or gal field to allow larger FFTs.')
+                logger.info('prof = %r', prof)
+                logger.info('fft_image = %s', fft_image)
+                logger.info('offset = %r', offset)
+                raise
+            # Some pixels can end up negative from FFT numerics.  Just
+            # set them to 0.
+            fft_image.array[fft_image.array < 0] = 0.
+            fft_image.addNoise(galsim.PoissonNoise(rng=self.rng))
+            # In case we had to make a bigger image, just copy the
+            # part we need.
+            image += fft_image[image.bounds]
+            base['realized_flux'] = fft_image.added_flux
+            logger.debug('After .drawImage(...), fft_image.added_flux %s',
+                         fft_image.added_flux)
+        else:
+            gal = gal.withFlux(self.phot_flux, bandpass)
+            if not faint and 'photon_ops' in config:
+                photon_ops = galsim.config.BuildPhotonOps(
+                    config, 'photon_ops', base, logger)
+            else:
+                photon_ops = []
+
+            # Put the psfs at the start of the photon_ops.
+            # Probably a little better to put them a bit later than the
+            # start in some cases (e.g. after TimeSampler,
+            # PupilAnnulusSampler), but leave that as a todo for now.
+            photon_ops = psfs + photon_ops
+            image = gal.drawImage(bandpass,
+                                  method='phot',
+                                  offset=offset,
+                                  rng=self.rng,
+                                  n_photons=self.phot_flux,
+                                  image=image,
+                                  sensor=None,
+                                  photon_ops=photon_ops,
+                                  add_to_image=True,
+                                  poisson_flux=False)
+            base['realized_flux'] = image.added_flux
+            logger.debug('After .drawImage(...), image.added_flux %s',
+                         image.added_flux)
+
+        return image
 
 
 RegisterStampType('RubinDeepCoadd', RubinDeepCoaddStampBuilder())
