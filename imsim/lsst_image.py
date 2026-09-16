@@ -267,7 +267,7 @@ class LSST_ImageBuilderBase(ScatteredImageBuilder):
 
 class LSST_ImageBuilder(LSST_ImageBuilderBase):
     """This is based on the GalSim "Scattered" image type.
-
+    
     Additional features supported here:
     * batching the stamp generation
     * checkpointing if input.checkpoint is given
