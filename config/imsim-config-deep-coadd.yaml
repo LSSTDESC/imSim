@@ -5,6 +5,7 @@ eval_variables:
     itract: { type: DeepCoaddData, field: tract }
     ipatch: { type: DeepCoaddData, field: patch }
     sband: { type: DeepCoaddData, field: band }
+    incoadds: { type: DeepCoaddData, field: ncoadds }
 
 input:
     sky_catalog:
@@ -58,7 +59,10 @@ psf:
 
 output:
    type: RubinDeepCoaddOutput
-   coadd_num: 0
+   coadd_num:
+      type: Sequence
+      nitems: $ncoadds
+      first: 0
    nproc: 1
    nfiles: 1
    dir: fits

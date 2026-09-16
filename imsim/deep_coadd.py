@@ -191,12 +191,16 @@ def BuildRubinCoaddPSF(config, base, ignore, gsparams, logger):
 
 def DeepCoaddData(config, base, value_type):
     deep_coadd = GetInputObj('deep_coadd', config, base, 'DeepCoaddData')
+    num_coadds = len(deep_coadd.data_ids)
+
     req = { 'field': str }
     params, safe = GetAllParams(config, base, req=req)
     field = params['field']
+    if field == 'ncoadds':
+        return num_coadds, safe
 
     coadd_num = base['coadd_num']
-    assert (coadd_num >= 0 and coadd_num < len(deep_coadd.data_ids))
+    assert (coadd_num >= 0 and coadd_num < num_coadds)
     data_id = deep_coadd.data_ids[coadd_num]
 
     val = value_type(data_id.get(field, None))
