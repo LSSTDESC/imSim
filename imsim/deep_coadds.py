@@ -3,13 +3,13 @@ Interface to Rubin deep_coadds
 """
 import pandas as pd
 import galsim
-from galsim.config import (InputLoader, RegisterInputType, RegisterObjectType,
-                           RegisterValueType, GetAllParams, GetInputObj)
+from galsim.config import (InputLoader, RegisterInputType, RegisterValueType,
+                           GetAllParams, GetInputObj)
 import lsst.daf.butler as daf_butler
 import lsst.geom
 
 
-class DeepCoadd:
+class DeepCoadds:
     def __init__(self, butler, skymap_name, data_ids=None, dstype="deep_coadd"):
         """
         Parameters
@@ -117,20 +117,20 @@ class DeepCoadd:
 
 class DeepCoaddLoader(InputLoader):
     """
-    Load the deep_coadd input object.  Here's an example yaml entry:
+    Load the deep_coadds input object.  Here's an example yaml entry:
 
-    input.deep_coadd:
+    input.deep_coadds:
         repo: dp2
         collection: dp2
     """
     def __init__(self):
-        super().__init__(init_func=DeepCoadd, takes_logger=True,
+        super().__init__(init_func=DeepCoadds, takes_logger=True,
                          use_proxy=False)
         self.butler = None
         self.deep_coadd_list = None
 
     def getKwargs(self, config, base, logger):
-        logger.debug("Get kwargs for DeepCoadd")
+        logger.debug("Get kwargs for DeepCoadds")
         req = {
             "repo": str,
             "collection": str,
@@ -163,35 +163,9 @@ class DeepCoaddLoader(InputLoader):
         return kwargs, safe
 
 
-def BuildRubinCoaddPSF(config, base, ignore, gsparams, logger):
-    """
-    Build PSFs from Rubin deep_coadds.  The deep_coadd image will be
-    retrieved from the data repository using the butler for the
-    tract-patch combination corresponding to the object's sky position.
-
-    Assuming the input.deep_coadd object is defined, to use this
-    PSF, add the following to the config yaml:
-
-    input.atm_psf: ""  # disable the atmospheric PSF
-    psf:
-        type: RubinCoaddPSF
-    """
-    deep_coadd = GetInputObj('deep_coadd', config, base, 'RubinCoaddPSF')
-    coadd_num = base['coadd_num']
-    assert (coadd_num >= 0 and coadd_num < len(deep_coadd.data_ids))
-    data_id = deep_coadd.data_ids[coadd_num]
-    image_pos = base['image_pos']
-    celestial_coord = base['wcs'].toWorld(image_pos)
-    ra = celestial_coord.ra / galsim.degrees
-    dec = celestial_coord.dec / galsim.degrees
-    band = data_id['band']
-    safe = False
-    return deep_coadd.getPSF(ra, dec, band), safe
-
-
 def DeepCoaddData(config, base, value_type):
-    deep_coadd = GetInputObj('deep_coadd', config, base, 'DeepCoaddData')
-    num_coadds = len(deep_coadd.data_ids)
+    deep_coadds = GetInputObj('deep_coadds', config, base, 'DeepCoaddData')
+    num_coadds = len(deep_coadds.data_ids)
 
     req = { 'field': str }
     params, safe = GetAllParams(config, base, req=req)
@@ -201,14 +175,13 @@ def DeepCoaddData(config, base, value_type):
 
     coadd_num = base['coadd_num']
     assert (coadd_num >= 0 and coadd_num < num_coadds)
-    data_id = deep_coadd.data_ids[coadd_num]
+    data_id = deep_coadds.data_ids[coadd_num]
 
     val = value_type(data_id.get(field, None))
 
     return val, safe
 
 
-RegisterInputType('deep_coadd', DeepCoaddLoader())
-RegisterObjectType('RubinCoaddPSF', BuildRubinCoaddPSF, input_type='deep_coadd')
+RegisterInputType('deep_coadds', DeepCoaddLoader())
 RegisterValueType('DeepCoaddData', DeepCoaddData, [int, str],
-                  input_type='deep_coadd')
+                  input_type='deep_coadds')

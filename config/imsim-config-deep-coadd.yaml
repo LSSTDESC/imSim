@@ -26,14 +26,14 @@ gal:
     type: SkyCatObj
 
 stamp:
-    type: RubinDeepCoadd
+    type: RubinDeepCoaddStamp
     fft_sb_thresh: 2.0e5  # When to switch to fft rendering.
     max_flux_simple: 100  # When to switch to simple SED.
     world_pos:
         type: SkyCatWorldPos
 
 image:
-    type: RubinDeepCoadd
+    type: RubinDeepCoaddImage
     random_seed: 42
     nproc: 1
     nbatch: 100
@@ -55,7 +55,7 @@ image:
         band: $band
 
 psf:
-    type: RubinCoaddPSF
+    type: RubinDeepCoaddPSF
 
 output:
    type: RubinDeepCoaddOutput

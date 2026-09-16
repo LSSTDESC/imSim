@@ -19,8 +19,8 @@ class RubinDeepCoaddBandpassBuilder(BandpassBuilder):
         """
         req = { 'band': str }
         params, safe = galsim.config.GetAllParams(config, base, req=req)
-        deep_coadds = galsim.config.GetInputObj('deep_coadd', config, base,
-                                                'DeepCoaddBandpass')
+        deep_coadds = galsim.config.GetInputObj('deep_coadds', config, base,
+                                                'RubinDeepCoaddBandpass')
         return deep_coadds.getBandpass(params['band']), safe
 
 

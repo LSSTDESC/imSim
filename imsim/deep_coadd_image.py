@@ -6,10 +6,10 @@ from galsim.config import (GetAllParams, AddNoise, RegisterImageType,
 from .lsst_image import LSST_ImageBuilderBase
 
 
-__all__ = ['RubinCoaddImageBuilder']
+__all__ = ['RubinDeepCoaddImageBuilder']
 
 
-class RubinCoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
+class RubinDeepCoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
     def setup(self, config, base, image_num, obj_num, ignore, logger):
         """
         Do the initialization and setup for a Rubin/LSST deep coadd image.
@@ -60,16 +60,16 @@ class RubinCoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
         except galsim.config.GalSimConfigError:
             self.checkpoint = None
 
-        deep_coadd = GetInputObj(
-            'deep_coadd', config, base, 'LSSTC_CoaddImageBuilder')
-        bbox = deep_coadd.skymap[self.tract][self.patch].getOuterBBox()
+        deep_coadds = GetInputObj(
+            'deep_coadds', config, base, 'LSSTC_CoaddImageBuilder')
+        bbox = deep_coadds.skymap[self.tract][self.patch].getOuterBBox()
         xsize, ysize = bbox.width, bbox.height
 
         data_id = {'band': self.band,
                    'tract': self.tract,
                    'patch': self.patch}
         self.noise_level = np.std(
-            deep_coadd.get(data_id=data_id).noise_realizations[0].array)
+            deep_coadds.get(data_id=data_id).noise_realizations[0].array)
 
         return xsize, ysize
 
@@ -127,4 +127,4 @@ class RubinCoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
         return full_image, current_var
 
 
-RegisterImageType('RubinDeepCoadd', RubinCoaddImageBuilder())
+RegisterImageType('RubinDeepCoaddImage', RubinDeepCoaddImageBuilder())

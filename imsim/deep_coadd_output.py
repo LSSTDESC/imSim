@@ -17,7 +17,7 @@ class RubinDeepCoaddOutputBuilder(OutputBuilder):
             eval_base_variables.append('coadd_num')
             self._added_eval_base_variables = True
         base['coadd_num'] = coadd_num
-        deep_coadds = GetInputObj('deep_coadd', config, base,
+        deep_coadds = GetInputObj('deep_coadds', config, base,
                                   'RubinDeepCoaddOutputBuilder')
         data_id = deep_coadds.data_ids[coadd_num]
         patch = deep_coadds.skymap[data_id['tract']][data_id['patch']]
@@ -29,7 +29,7 @@ class RubinDeepCoaddOutputBuilder(OutputBuilder):
         if 'nfiles' in config:
             return ParseValue(config, 'nfiles', base, int)[0]
         else:
-            deep_coadds = GetInputObj('deep_coadd', config, base,
+            deep_coadds = GetInputObj('deep_coadds', config, base,
                                       'RubinDeepCoaddOutputBuilder')
             return len(deep_coadds.data_ids)
 

@@ -192,4 +192,4 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
         return image
 
 
-RegisterStampType('RubinDeepCoadd', RubinDeepCoaddStampBuilder())
+RegisterStampType('RubinDeepCoaddStamp', RubinDeepCoaddStampBuilder())

@@ -27,9 +27,9 @@ class RubinDeepCoaddWCSBuilder(WCSBuilder):
         }
         params, _ = GetAllParams(config, base, req=req)
         data_id = { key: params[key] for key in req }
-        deep_coadd = GetInputObj("deep_coadd", config, base,
-                                 "RubinDeepCoaddWCSBuilder")
-        return deep_coadd.getWcs(data_id)
+        deep_coadds = GetInputObj("deep_coadds", config, base,
+                                  "RubinDeepCoaddWCSBuilder")
+        return deep_coadds.getWcs(data_id)
 
 
 RegisterWCSType("RubinDeepCoaddWcs", RubinDeepCoaddWCSBuilder())
