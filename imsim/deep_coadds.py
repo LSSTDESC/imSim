@@ -9,6 +9,9 @@ import lsst.daf.butler as daf_butler
 import lsst.geom
 
 
+__all__ = ["DeepCoadds", "DeepCoaddLoader", "DeepCoaddData"]
+
+
 class DeepCoadds:
     def __init__(self, butler, skymap_name, data_ids=None, dstype="deep_coadd"):
         """
@@ -29,7 +32,8 @@ class DeepCoadds:
         self.data_ids = data_ids
         self.dstype = dstype
         self._psf_cache = {}
-        self._butler_cache = {}
+        self._grid_cache = {}
+        self._wcs_cache = {}
 
     def get(self, index=None, data_id=None):
         """Return the deep_coadd using the index of the self.data_ids list,
@@ -41,8 +45,9 @@ class DeepCoadds:
             data_id = self.data_ids[index]
         elif data_id not in self.data_ids:
             return None
-        data_id['skymap'] = self.skymap_name
-        deep_coadd = self.butler.get(self.dstype, **data_id)
+        my_data_id = data_id.copy()
+        my_data_id['skymap'] = self.skymap_name
+        deep_coadd = self.butler.get(self.dstype, **my_data_id)
 
         # Ensure this is a lsst.images version:
         assert hasattr(deep_coadd, 'to_legacy')
@@ -56,8 +61,11 @@ class DeepCoadds:
         return galsim.Bandpass(lut, wave_type='nm').thin()
 
     def getWcs(self, data_id):
-        deep_coadd = self.get(data_id=data_id)
-        return galsim.AstropyWCS(wcs=deep_coadd.fits_wcs)
+        key = data_id['tract'], data_id['patch']
+        if key not in self._wcs_cache:
+            deep_coadd = self.get(data_id=data_id)
+            self._wcs_cache[key] = galsim.AstropyWCS(wcs=deep_coadd.fits_wcs)
+        return self._wcs_cache[key]
 
     def getPSF(self, ra, dec, band):
         """Return the cell coadd PSF, evaluated at the center of
@@ -71,47 +79,37 @@ class DeepCoadds:
         tract_info = self.skymap.findTract(sky_coords)
         tract = tract_info.getId()
         patch = tract_info.findPatch(sky_coords).getSequentialIndex()
+        data_id = dict(tract=tract, patch=patch, band=band)
+        wcs = self.getWcs(data_id)
 
-        # Cache info from the butler for the corresponding deep_coadd.
-        butler_key = tract, patch
-        if butler_key not in self._butler_cache:
-            dataId = dict(skymap=self.skymap_name, tract=tract, patch=patch,
-                          band=band)
-            deep_coadd = self.butler.get(self.dstype, **dataId)
-            if hasattr(deep_coadd, "to_legacy"):
-                # This is a `lsst.images` object.  Use the `.to_legacy`
-                # function to convert to a `lsst.afw.image.Exposure` so
-                # that we can access the functions to generate a PSF
-                # image array to pass to galsim.
-                deep_coadd = deep_coadd.to_legacy()
-            wcs = deep_coadd.getWcs()
-            psf_grid = deep_coadd.getPsf()  # This is the grid of coadd psfs.
-            self._butler_cache[butler_key] = wcs, psf_grid
+        # Cache the cell grid data for the corresponding deep_coadd,
+        # keyed by (tract, patch, band).
+        grid_key = tract, patch, band
+        if grid_key not in self._grid_cache:
+            deep_coadd = self.get(data_id=data_id)
+            grid = deep_coadd.grid
+            psf = deep_coadd.psf
+            self._grid_cache[grid_key] = grid, psf
         else:
-            wcs, psf_grid = self._butler_cache[butler_key]
+            grid, psf = self._grid_cache[grid_key]
 
-        # Cache cell PSFs based on tract, patch, psf_grid index.
-        pixel_coords = wcs.skyToPixel(sky_coords)
-        psf_grid_index = psf_grid.grid.index(lsst.geom.Point2I(pixel_coords))
-        psf_key = tract, patch, psf_grid_index
+        # xy offsets for the current grid.
+        x_offset = grid.bbox.start.x
+        y_offset = grid.bbox.start.y
+
+        # Cache cell PSFs, keyed by (tract, patch, band, grid_index).
+        x, y = wcs.toImage(ra, dec, units='degrees')
+        grid_index = grid.index_of(x=x + x_offset, y=y + y_offset)
+        psf_key = tract, patch, band, grid_index
         if psf_key not in self._psf_cache:
             # Evaluate PSF at cell center.
-            x0 = ((pixel_coords.x // psf_grid.grid.cell_size.x)
-                  * psf_grid.grid.cell_size.x + psf_grid.grid.shape.x/2)
-            y0 = ((pixel_coords.y // psf_grid.grid.cell_size.y)
-                  * psf_grid.grid.cell_size.y + psf_grid.grid.shape.y/2)
-            pixel_cell_center = lsst.geom.Point2D(x0, y0)
-            sky_cell_center = wcs.pixelToSky(pixel_cell_center)
-            # The following is based on the lsst/source_injection
-            # implementation. See https://github.com/lsst/source_injection/blob/w.2026.31/python/lsst/source/injection/inject_engine.py#L705
-            mat = wcs.linearizePixelToSky(
-                sky_cell_center, lsst.geom.arcseconds).getMatrix()
-            galsim_wcs = galsim.JacobianWCS(mat[0, 0], mat[0, 1],
-                                            mat[1, 0], mat[1, 1])
-            psf_array = psf_grid.computeKernelImage(pixel_cell_center).array
+            x0 = ( (x // grid.cell_shape.x) * grid.cell_shape.x
+                   + grid.cell_shape.x/2 + x_offset )
+            y0 = ( (y // grid.cell_shape.y) * grid.cell_shape.y
+                   + grid.cell_shape.y/2 + y_offset )
+            psf_array = psf.compute_kernel_image(x=x0, y=y0).array
             self._psf_cache[psf_key] = galsim.InterpolatedImage(
-                galsim.Image(psf_array), wcs=galsim_wcs)
-
+                galsim.Image(psf_array), wcs=wcs)
         return self._psf_cache[psf_key]
 
 
