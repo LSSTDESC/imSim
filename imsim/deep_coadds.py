@@ -1,6 +1,7 @@
 """
 Interface to Rubin deep_coadds
 """
+from collections import namedtuple
 import pandas as pd
 import galsim
 from galsim.config import (InputLoader, RegisterInputType, RegisterValueType,
@@ -10,6 +11,9 @@ import lsst.geom
 
 
 __all__ = ["DeepCoadds", "DeepCoaddLoader", "DeepCoaddData"]
+
+
+GridKey = namedtuple('GridKey', ['tract', 'patch', 'band'])
 
 
 class DeepCoadds:
@@ -34,6 +38,7 @@ class DeepCoadds:
         self._psf_cache = {}
         self._grid_cache = {}
         self._wcs_cache = {}
+        self._num_visits = {}
 
     def get(self, index=None, data_id=None):
         """Return the deep_coadd using the index of the self.data_ids list,
@@ -49,8 +54,16 @@ class DeepCoadds:
         my_data_id['skymap'] = self.skymap_name
         deep_coadd = self.butler.get(self.dstype, **my_data_id)
 
-        # Ensure this is a lsst.images version:
-        assert hasattr(deep_coadd, 'to_legacy')
+        # Fill in various cached quantities to avoid repeated butler
+        # gets.
+        wcs_key = data_id['tract'], data_id['patch']
+        if wcs_key not in self._wcs_cache:
+            self._wcs_cache[wcs_key] = galsim.AstropyWCS(wcs=deep_coadd.fits_wcs)
+
+        grid_key = GridKey(data_id['tract'], data_id['patch'], data_id['band'])
+        self._num_visits[grid_key] = self.num_visits_per_cell(deep_coadd)
+        self._grid_cache[grid_key] = deep_coadd.grid, deep_coadd.psf
+
         return deep_coadd
 
     def getBandpass(self, band):
@@ -63,14 +76,43 @@ class DeepCoadds:
     def getWcs(self, data_id):
         key = data_id['tract'], data_id['patch']
         if key not in self._wcs_cache:
-            deep_coadd = self.get(data_id=data_id)
-            self._wcs_cache[key] = galsim.AstropyWCS(wcs=deep_coadd.fits_wcs)
+            self.get(data_id=data_id)  # This will fill the cache.
         return self._wcs_cache[key]
 
     def getPSF(self, ra, dec, band):
         """Return the cell coadd PSF, evaluated at the center of
         the cell containing this sky position.
         """
+        grid_key, cell_index, x, y = self._get_cache_keys(ra, dec, band)
+        data_id = dict(tract=grid_key.tract, patch=grid_key.patch,
+                       band=grid_key.band)
+        grid, psf = self._grid_cache[grid_key]
+
+        # xy offsets for the current grid.
+        x_offset = grid.bbox.start.x
+        y_offset = grid.bbox.start.y
+
+        # Access the cached cell PSFs.
+        psf_key = grid_key, cell_index
+        if psf_key not in self._psf_cache:
+            # Evaluate PSF at cell center.
+            x0 = ( (x // grid.cell_shape.x) * grid.cell_shape.x
+                   + grid.cell_shape.x/2 + x_offset )
+            y0 = ( (y // grid.cell_shape.y) * grid.cell_shape.y
+                   + grid.cell_shape.y/2 + y_offset )
+            psf_array = psf.compute_kernel_image(x=x0, y=y0).array
+            wcs = self.getWcs(data_id)
+            self._psf_cache[psf_key] = galsim.InterpolatedImage(
+                galsim.Image(psf_array), wcs=wcs)
+        return self._psf_cache[psf_key]
+
+    def getNumVisits(self, ra, dec, band):
+        grid_key, cell_index, _, _ = self._get_cache_keys(ra, dec, band)
+        i = int(cell_index.i)
+        j = int(cell_index.j)
+        return self._num_visits[grid_key][(i, j)]
+
+    def _get_cache_keys(self, ra, dec, band):
         # Find the tract, patch for this location.
         sky_coords = lsst.geom.SpherePoint(
             lsst.geom.Angle(ra*lsst.geom.degrees),
@@ -79,38 +121,31 @@ class DeepCoadds:
         tract_info = self.skymap.findTract(sky_coords)
         tract = tract_info.getId()
         patch = tract_info.findPatch(sky_coords).getSequentialIndex()
-        data_id = dict(tract=tract, patch=patch, band=band)
-        wcs = self.getWcs(data_id)
-
-        # Cache the cell grid data for the corresponding deep_coadd,
-        # keyed by (tract, patch, band).
-        grid_key = tract, patch, band
+        grid_key = GridKey(tract, patch, band)
+        data_id = dict(tract=grid_key.tract, patch=grid_key.patch,
+                       band=grid_key.band)
         if grid_key not in self._grid_cache:
-            deep_coadd = self.get(data_id=data_id)
-            grid = deep_coadd.grid
-            psf = deep_coadd.psf
-            self._grid_cache[grid_key] = grid, psf
-        else:
-            grid, psf = self._grid_cache[grid_key]
+            self.get(data_id=data_id)
+        grid, _ = self._grid_cache[grid_key]
 
         # xy offsets for the current grid.
         x_offset = grid.bbox.start.x
         y_offset = grid.bbox.start.y
 
-        # Cache cell PSFs, keyed by (tract, patch, band, grid_index).
+        # Get cell_index for the requested location.
+        wcs = self.getWcs(data_id)
         x, y = wcs.toImage(ra, dec, units='degrees')
-        grid_index = grid.index_of(x=x + x_offset, y=y + y_offset)
-        psf_key = tract, patch, band, grid_index
-        if psf_key not in self._psf_cache:
-            # Evaluate PSF at cell center.
-            x0 = ( (x // grid.cell_shape.x) * grid.cell_shape.x
-                   + grid.cell_shape.x/2 + x_offset )
-            y0 = ( (y // grid.cell_shape.y) * grid.cell_shape.y
-                   + grid.cell_shape.y/2 + y_offset )
-            psf_array = psf.compute_kernel_image(x=x0, y=y0).array
-            self._psf_cache[psf_key] = galsim.InterpolatedImage(
-                galsim.Image(psf_array), wcs=wcs)
-        return self._psf_cache[psf_key]
+        cell_index = grid.index_of(x=x + x_offset, y=y + y_offset)
+        return grid_key, cell_index, x, y
+
+    @staticmethod
+    def num_visits_per_cell(deep_coadd):
+        df0 = deep_coadd.provenance.contributions.to_pandas()
+        num_visits = {}
+        for i, j in sorted(set(zip(df0['cell_i'], df0['cell_j']))):
+            df = df0.query(f"cell_i == {i} and cell_j == {j}")
+            num_visits[(i, j)] = sum(df['overlap_fraction'])
+        return num_visits
 
 
 class DeepCoaddLoader(InputLoader):
