@@ -6,6 +6,11 @@ eval_variables:
     ipatch: { type: DeepCoaddData, field: patch }
     sband: { type: DeepCoaddData, field: band }
     incoadds: { type: DeepCoaddData, field: ncoadds }
+    fpupil_R_outer: 4.18
+    fpupil_R_inner: 2.55  # M1 inner diameter is 2.558, but we need a bit of slack for off-axis rays
+    fpupil_area:
+        type: Eval
+        str: "np.pi * (pupil_R_outer**2 - pupil_R_inner**2) * 100**2"
 
 input:
     sky_catalog:
@@ -31,6 +36,9 @@ stamp:
     max_flux_simple: 100  # When to switch to simple SED.
     world_pos:
         type: SkyCatWorldPos
+    band: $band
+    pupil_area: $pupil_area
+    exptime: 30.0  # Exposure time per visit
 
 image:
     type: RubinDeepCoaddImage

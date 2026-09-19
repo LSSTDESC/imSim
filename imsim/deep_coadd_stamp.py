@@ -1,3 +1,4 @@
+import astropy.units as u
 import galsim
 from galsim.config import StampBuilder, RegisterStampType
 from .stamp import LSST_SiliconBuilder
@@ -7,11 +8,36 @@ from .stamp_utils import get_stamp_size
 __all__ = ["RubinDeepCoaddStampBuilder"]
 
 
+class DeepCoaddWeighting(galsim.PhotonOp):
+    """
+    Weight photons so that final object fluxes are in nJy.
+    """
+    def __init__(self, mag, nphotons):
+        """
+        Parameters
+        ----------
+        mag: float
+            The bandpass magnitude for the object being rendered.
+        nphotons: float
+            The number of photons to simulate.  This should be
+            the total number over all visits contributing to the
+            object exposure. Nominally, this is given by
+            nphotons = photon_flux * num_visits * exptime_per_visit * pupil_area
+        """
+        # Convert magnitude to nJy:
+        fnu = 1e9 * (mag*u.ABmag).to(u.Jy).to_value()
+        self.weight = fnu / nphotons
+
+    def applyTo(self, photon_array, local_wcs=None, rng=None):
+        photon_array.flux *= self.weight
+
+
 class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
         # Use StampBuilder.setup(...) to set the object position.
-        ignore = ignore + ['fft_sb_thresh', 'max_flux_simple']
+        ignore = ignore + ['fft_sb_thresh', 'max_flux_simple', 'band',
+                           'pupil_area', 'exptime']
         _, _, image_pos, world_pos = StampBuilder.setup(
             self, config, base, xsize, ysize, ignore, logger)
 
@@ -22,11 +48,24 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
 
         self.rng = galsim.config.GetRNG(config, base, logger, "RubinDeepCoadd")
         self.image = base['current_image']
+
+        deep_coadds = galsim.config.GetInputObj('deep_coadds', config, base,
+                                                'RubinDeepCoaddStampBuilder')
+        band = galsim.config.ParseValue(config, 'band', base, str)[0]
+        num_visits = deep_coadds.getNumVisits(world_pos.ra / galsim.degrees,
+                                              world_pos.dec / galsim.degrees,
+                                              band)
         bandpass = base['bandpass']
         if not hasattr(obj, 'flux'):
             obj.flux = obj.calculateFlux(bandpass)
-        self.nominal_flux = obj.flux
-        self.phot_flux = galsim.PoissonDeviate(self.rng, mean=obj.flux)()
+        self.nominal_flux = obj.flux * num_visits
+        self.phot_flux = galsim.PoissonDeviate(self.rng, mean=self.nominal_flux)()
+
+        pupil_area = galsim.config.ParseValue(config, 'pupil_area', base, float)[0]
+        exptime = galsim.config.ParseValue(config, 'exptime', base, float)[0]
+        sed = obj.sed / pupil_area / exptime
+        mag = sed.calculateMagnitude(bandpass)
+        self.deep_coadd_phot_op = DeepCoaddWeighting(mag, self.nominal_flux)
 
         # Save values for output truth catalog
         base['nominal_flux'] = self.nominal_flux
@@ -115,6 +154,8 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
 
         image.wcs = base['wcs']
 
+        photon_ops = [self.deep_coadd_phot_op]
+
         if method == 'fft':
             gal = gal.withFlux(self.nominal_flux, bandpass)
             fft_image = image.copy()
@@ -122,10 +163,11 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
             kwargs = dict(
                 method='fft',
                 offset=fft_offset,
-                image=fft_image
+                image=fft_image,
+                photon_ops=photon_ops,
             )
             if not faint and config.get('fft_photon_ops'):
-                fft_photon_ops = galsim.config.BuildPhotonOps(
+                fft_photon_ops = photon_ops + galsim.config.BuildPhotonOps(
                     config, 'fft_photon_ops', base, logger)
                 kwargs.update({
                     "photon_ops": fft_photon_ops,
@@ -165,10 +207,8 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
         else:
             gal = gal.withFlux(self.phot_flux, bandpass)
             if not faint and 'photon_ops' in config:
-                photon_ops = galsim.config.BuildPhotonOps(
+                photon_ops = photon_ops + galsim.config.BuildPhotonOps(
                     config, 'photon_ops', base, logger)
-            else:
-                photon_ops = []
 
             # Put the psfs at the start of the photon_ops.
             # Probably a little better to put them a bit later than the

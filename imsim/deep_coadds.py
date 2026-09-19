@@ -71,7 +71,8 @@ class DeepCoadds:
         lut = galsim.LookupTable(passband['wavelength'],
                                  passband['throughput'],
                                  interpolant='linear')
-        return galsim.Bandpass(lut, wave_type='nm').thin()
+        bp = galsim.Bandpass(lut, wave_type='nm').withZeropoint('AB').thin()
+        return bp
 
     def getWcs(self, data_id):
         key = data_id['tract'], data_id['patch']
