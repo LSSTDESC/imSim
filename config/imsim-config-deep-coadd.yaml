@@ -17,6 +17,11 @@ input:
         file_name: default_sky_cat.yaml
         band: $band
 
+    deep_coadds:
+        repo: dp2
+        collection: dp2
+        skymap_name: lsst_cells_v2
+
     checkpoint:
         dir: checkpoint
         file_name:
