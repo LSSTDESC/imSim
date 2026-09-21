@@ -2,6 +2,7 @@
 Interface to Rubin deep_coadds
 """
 from collections import namedtuple
+import numpy as np
 import pandas as pd
 import galsim
 from galsim.config import (InputLoader, RegisterInputType, RegisterValueType,
@@ -39,6 +40,7 @@ class DeepCoadds:
         self._grid_cache = {}
         self._wcs_cache = {}
         self._num_visits = {}
+        self._noise_var = {}
 
     def get(self, index=None, data_id=None):
         """Return the deep_coadd using the index of the self.data_ids list,
@@ -63,6 +65,8 @@ class DeepCoadds:
         grid_key = GridKey(data_id['tract'], data_id['patch'], data_id['band'])
         self._num_visits[grid_key] = self.num_visits_per_cell(deep_coadd)
         self._grid_cache[grid_key] = deep_coadd.grid, deep_coadd.psf
+        self._noise_var[grid_key] \
+            = np.var(deep_coadd.noise_realizations[0].array)
 
         return deep_coadd
 
@@ -112,6 +116,10 @@ class DeepCoadds:
         i = int(cell_index.i)
         j = int(cell_index.j)
         return self._num_visits[grid_key][(i, j)]
+
+    def getNoiseVar(self, ra, dec, band):
+        grid_key, cell_index, _, _ = self._get_cache_keys(ra, dec, band)
+        return self._noise_var[grid_key]
 
     def _get_cache_keys(self, ra, dec, band):
         # Find the tract, patch for this location.
