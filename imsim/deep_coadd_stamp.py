@@ -21,7 +21,7 @@ class DeepCoaddWeighting(galsim.PhotonOp):
         nphotons: float
             The number of photons to simulate.  This should be
             the total number over all visits contributing to the
-            object exposure. Nominally, this is given by
+            object's counts. Nominally, this is given by
             nphotons = photon_flux * num_visits * exptime_per_visit * pupil_area
         """
         # Convert magnitude to nJy:
@@ -36,7 +36,8 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
 
     def setup(self, config, base, xsize, ysize, ignore, logger):
         # Use StampBuilder.setup(...) to set the object position.
-        ignore = ignore + ['fft_sb_thresh', 'max_flux_simple', 'band',
+        ignore = ignore + ['fft_sb_thresh', 'max_flux_simple',
+                           'max_simulated_flux', 'band',
                            'pupil_area', 'exptime']
         _, _, image_pos, world_pos = StampBuilder.setup(
             self, config, base, xsize, ysize, ignore, logger)
@@ -51,24 +52,33 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
 
         deep_coadds = galsim.config.GetInputObj('deep_coadds', config, base,
                                                 'RubinDeepCoaddStampBuilder')
+        ra = world_pos.ra / galsim.degrees
+        dec = world_pos.dec / galsim.degrees
         band = galsim.config.ParseValue(config, 'band', base, str)[0]
-        num_visits = deep_coadds.getNumVisits(world_pos.ra / galsim.degrees,
-                                              world_pos.dec / galsim.degrees,
-                                              band)
+        num_visits = deep_coadds.getNumVisits(ra, dec, band)
+
         bandpass = base['bandpass']
         if not hasattr(obj, 'flux'):
             obj.flux = obj.calculateFlux(bandpass)
-        self.nominal_flux = obj.flux * num_visits
-        self.phot_flux = galsim.PoissonDeviate(self.rng, mean=self.nominal_flux)()
 
         pupil_area = galsim.config.ParseValue(config, 'pupil_area', base, float)[0]
         exptime = galsim.config.ParseValue(config, 'exptime', base, float)[0]
         sed = obj.sed / pupil_area / exptime
         mag = sed.calculateMagnitude(bandpass)
-        self.deep_coadd_phot_op = DeepCoaddWeighting(mag, self.nominal_flux)
+
+        # Scale the single-visit object flux by number of visits in
+        # order to get correct signal variance, but apply a ceiling on
+        # simulated flux to avoid excessive memory usage.  The deep
+        # coadd weighting ensure the final flux has the right value in
+        # nJy.
+        max_simulated_flux = galsim.config.ParseValue(
+            config, 'max_simulated_flux', base, float)[0]
+        self.simulated_flux = min(obj.flux * num_visits, max_simulated_flux)
+        self.deep_coadd_phot_op = DeepCoaddWeighting(mag, self.simulated_flux)
+        self.phot_flux = galsim.PoissonDeviate(self.rng, mean=self.simulated_flux)()
 
         # Save values for output truth catalog
-        base['nominal_flux'] = self.nominal_flux
+        base['simulated_flux'] = self.simulated_flux
         base['phot_flux'] = self.phot_flux
         base['realized_flux'] = 0  # This will be updated by .drawImage
 
@@ -82,7 +92,7 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
             # Get the stamp size from the size config entry
             xsize = ysize = galsim.config.ParseValue(
                 config, 'size', base, int)[0]
-        elif self.nominal_flux < self._tiny_flux:
+        elif self.simulated_flux < self._tiny_flux:
             xsize = ysize = 32
         else:
             # Determine the stamp size from the object flux.
@@ -91,7 +101,7 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
             obj_achrom = obj.evaluateAtWavelength(bandpass.effective_wavelength)
             stamp_size = get_stamp_size(
                 obj_achrom=obj_achrom,
-                nominal_flux=self.nominal_flux,
+                nominal_flux=self.simulated_flux,
                 noise_var=noise_var,
                 Nmax=self._Nmax,
                 pixel_scale=self._pixel_scale,
@@ -99,8 +109,8 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
             )
             xsize = ysize = stamp_size
 
-        logger.info('Object %d will use stamp size %s, %s and nominal flux %s',
-                    base.get('obj_num',0), xsize, ysize, self.nominal_flux)
+        logger.info('Object %d will use stamp size %s, %s and simulated flux %s',
+                    base.get('obj_num',0), xsize, ysize, self.simulated_flux)
         return xsize, ysize, image_pos, world_pos
 
     def buildPSF(self, config, base, gsparams, logger):
@@ -115,7 +125,7 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
             fft_sb_thresh = None
 
         self.use_fft = (fft_sb_thresh is not None
-                        and self.nominal_flux > fft_sb_thresh)
+                        and self.simulated_flux > fft_sb_thresh)
         return psf
 
     def draw(self, prof, image, method, offset, config, base, logger):
@@ -130,7 +140,7 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
         bandpass = base['bandpass']
 
         max_flux_simple = config.get('max_flux_simple', 100)
-        faint = self.nominal_flux < max_flux_simple
+        faint = self.simulated_flux < max_flux_simple
 
         if faint:
             logger.info("Flux = %.0f  Using trivial sed", self.obj.flux)
@@ -157,7 +167,7 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
         photon_ops = [self.deep_coadd_phot_op]
 
         if method == 'fft':
-            gal = gal.withFlux(self.nominal_flux, bandpass)
+            gal = gal.withFlux(self.simulated_flux, bandpass)
             fft_image = image.copy()
             fft_offset = offset
             kwargs = dict(
