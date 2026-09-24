@@ -41,3 +41,10 @@ from .process_info import *
 from .table_row import *
 from .photon_pooling import *
 from .full_focal_plane import *
+from .deep_coadds import *
+from .deep_coadd_image import *
+from .deep_coadd_wcs import *
+from .deep_coadd_output import *
+from .deep_coadd_stamp import *
+from .deep_coadd_bandpass import *
+from .deep_coadd_psf import *

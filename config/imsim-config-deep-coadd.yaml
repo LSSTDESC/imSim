@@ -1,0 +1,88 @@
+modules:
+    - imsim
+
+eval_variables:
+    itract: { type: DeepCoaddData, field: tract }
+    ipatch: { type: DeepCoaddData, field: patch }
+    sband: { type: DeepCoaddData, field: band }
+    incoadds: { type: DeepCoaddData, field: ncoadds }
+    fpupil_R_outer: 4.18
+    fpupil_R_inner: 2.55  # M1 inner diameter is 2.558, but we need a bit of slack for off-axis rays
+    fpupil_area:
+        type: Eval
+        str: "np.pi * (pupil_R_outer**2 - pupil_R_inner**2) * 100**2"
+
+input:
+    sky_catalog:
+        file_name: default_sky_cat.yaml
+        band: $band
+
+    deep_coadds:
+        repo: dp2
+        collection: dp2
+        skymap_name: lsst_cells_v2
+
+    checkpoint:
+        dir: checkpoint
+        file_name:
+          type: FormattedStr
+          format : checkpoint_%s-%d-%d.hdf
+          items:
+              - $band
+              - $tract
+              - $patch
+
+gal:
+    type: SkyCatObj
+
+stamp:
+    type: RubinDeepCoaddStamp
+    fft_sb_thresh: 2.0e5  # When to switch to fft rendering.
+    max_flux_simple: 100  # When to switch to simple SED.
+    world_pos:
+        type: SkyCatWorldPos
+    band: $band
+    pupil_area: $pupil_area
+    exptime: 30.0  # Exposure time per visit
+
+image:
+    type: RubinDeepCoaddImage
+    random_seed: 42
+    nproc: 1
+    nbatch: 100
+    nsubbatch: 50
+    nbatch_fft: 1
+    nbatch_per_checkpoint: 1
+    band: $band
+    tract: $tract
+    patch: $patch
+
+    wcs:
+        type: RubinDeepCoaddWcs
+        band: $band
+        tract: $tract
+        patch: $patch
+
+    bandpass:
+        type: RubinDeepCoaddBandpass
+        band: $band
+
+psf:
+    type: RubinDeepCoaddPSF
+
+output:
+   type: RubinDeepCoaddOutput
+   coadd_num:
+      type: Sequence
+      nitems: $ncoadds
+      first: 0
+   nproc: 1
+   nfiles: 1
+   dir: fits
+   file_name:
+       type: FormattedStr
+       format: deep_coadd_%s-%d-%d.fits
+       items:
+           - $band
+           - $tract
+           - $patch
