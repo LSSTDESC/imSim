@@ -18,6 +18,12 @@ GridKey = namedtuple('GridKey', ['tract', 'patch', 'band'])
 
 
 class DeepCoadds:
+    """
+    This class serves as the access point for deep_coadd information
+    obtained via requiring butler queries.  It caches PSF, wcs, visit,
+    and noise information in order to minimize the number of
+    butler.get calls.
+    """
     def __init__(self, butler, skymap_name, data_ids=None, dstype="deep_coadd"):
         """
         Parameters
@@ -100,7 +106,8 @@ class DeepCoadds:
         # Access the cached cell PSFs.
         psf_key = grid_key, cell_index
         if psf_key not in self._psf_cache:
-            # Evaluate PSF at cell center.
+            # Evaluate PSF at cell center.  This is based on
+            # https://github.com/lsst/source_injection/blob/w.2026.38/python/lsst/source/injection/inject_engine.py#L705
             x0 = ( (x // grid.cell_shape.x) * grid.cell_shape.x
                    + grid.cell_shape.x/2 + x_offset )
             y0 = ( (y // grid.cell_shape.y) * grid.cell_shape.y
