@@ -37,8 +37,7 @@ class RubinDeepCoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
         logger.info('image %d: nobj = %d', image_num, self.nobjects)
 
         req = { 'tract': int, 'patch': int, 'band': str }
-        opt = { 'nbatch': int, 'nsubbatch': int, 'nbatch_fft': int,
-                'nbatch_per_checkpoint': int}
+        opt = { 'nbatch': int, 'nsubbatch': int, 'nbatch_per_checkpoint': int }
         extra_ignore = ['image_pos', 'world_pos', 'stamp_size',
                         'stamp_xsize', 'stamp_ysize', 'nobjects' ]
         params = GetAllParams(config, base, req=req, opt=opt,
@@ -53,7 +52,6 @@ class RubinDeepCoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
         self.nbatch = params.get('nbatch', 10)
         self.nbatch_per_checkpoint = params.get('nbatch_per_checkpoint', 1)
         self.nsubbatch = params.get('nsubbatch', 50)
-        self.nbatch_fft = params.get('nbatch_fft', 1)
         try:
             self.checkpoint = GetInputObj(
                 'checkpoint', config, base, 'RubinCoaddImageBuilder')

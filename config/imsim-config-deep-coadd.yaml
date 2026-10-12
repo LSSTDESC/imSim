@@ -37,7 +37,6 @@ gal:
 
 stamp:
     type: RubinDeepCoaddStamp
-    fft_sb_thresh: 2.0e5  # When to switch to fft rendering.
     max_flux_simple: 100  # When to switch to simple SED.
     world_pos:
         type: SkyCatWorldPos
@@ -51,7 +50,6 @@ image:
     nproc: 1
     nbatch: 100
     nsubbatch: 50
-    nbatch_fft: 1
     nbatch_per_checkpoint: 1
     band: $band
     tract: $tract
