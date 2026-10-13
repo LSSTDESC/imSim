@@ -84,3 +84,23 @@ output:
            - $band
            - $tract
            - $patch
+
+   truth:
+       dir: '@output.dir'
+       file_name:
+           type: FormattedStr
+           format: centroid_%s-%d-%d.txt.gz
+           items:
+               - $band
+               - $tract
+               - $patch
+       columns:
+           object_id: "@object_id"
+           ra: $sky_pos.ra.deg
+           dec: $sky_pos.dec.deg
+           x: $image_pos.x
+           y: $image_pos.y
+           nominal_flux: "@simulated_flux"
+           phot_flux: "@phot_flux"
+           realized_flux: "@realized_flux"
+           stamp_size: "@stamp_size"

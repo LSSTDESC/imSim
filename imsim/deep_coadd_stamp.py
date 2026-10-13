@@ -96,8 +96,7 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
             xsize = ysize = 32
         else:
             # Determine the stamp size from the object flux.
-            noise_var = (deep_coadds.getNoiseVar(ra, dec, band)
-                         / self.deep_coadd_phot_op.weight)
+            noise_var = deep_coadds.getNoiseVar(ra, dec, band) / 3.0
             obj_achrom = obj.evaluateAtWavelength(bandpass.effective_wavelength)
             stamp_size = get_stamp_size(
                 obj_achrom=obj_achrom,
@@ -109,6 +108,7 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
             )
             xsize = ysize = stamp_size
 
+        base['stamp_size'] = xsize
         logger.info('Object %d will use stamp size %s, %s and simulated flux %s',
                     base.get('obj_num',0), xsize, ysize, self.simulated_flux)
         return xsize, ysize, image_pos, world_pos
