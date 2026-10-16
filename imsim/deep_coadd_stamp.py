@@ -96,10 +96,13 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
             # Determine the stamp size from the object flux.
             noise_var = galsim.config.CalculateNoiseVariance(base)
             obj_achrom = obj.evaluateAtWavelength(bandpass.effective_wavelength)
+            # We're dividing the nominal noise variance by 3.0 when
+            # passing to get_stamp_size to suppress apparent stamp
+            # edges for some high aspect ratio galaxies.
             stamp_size = get_stamp_size(
                 obj_achrom=obj_achrom,
                 nominal_flux=self.simulated_flux,
-                noise_var=noise_var,
+                noise_var=noise_var/3.0,
                 Nmax=self._Nmax,
                 pixel_scale=self._pixel_scale,
                 logger=logger
