@@ -53,10 +53,8 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
 
         deep_coadds = galsim.config.GetInputObj('deep_coadds', config, base,
                                                 'RubinDeepCoaddStampBuilder')
-        ra = world_pos.ra / galsim.degrees
-        dec = world_pos.dec / galsim.degrees
         band = galsim.config.ParseValue(config, 'band', base, str)[0]
-        num_visits = deep_coadds.getNumVisits(ra, dec, band)
+        num_visits = deep_coadds.getNumVisits(world_pos, band)
 
         bandpass = base['bandpass']
         if not hasattr(obj, 'flux'):

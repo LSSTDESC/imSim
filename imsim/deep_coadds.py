@@ -90,10 +90,12 @@ class DeepCoadds:
             self.get(data_id=data_id)  # This will fill the cache.
         return self._wcs_cache[key]
 
-    def getPSF(self, ra, dec, band):
+    def getPSF(self, celestial_coord, band):
         """Return the cell coadd PSF, evaluated at the center of
         the cell containing this sky position.
         """
+        ra = celestial_coord.ra / galsim.degrees
+        dec = celestial_coord.dec / galsim.degrees
         grid_key, cell_index, x, y = self._get_cache_keys(ra, dec, band)
         data_id = dict(tract=grid_key.tract, patch=grid_key.patch,
                        band=grid_key.band)
@@ -118,7 +120,9 @@ class DeepCoadds:
                 galsim.Image(psf_array), wcs=wcs)
         return self._psf_cache[psf_key]
 
-    def getNumVisits(self, ra, dec, band):
+    def getNumVisits(self, celestial_coord, band):
+        ra = celestial_coord.ra / galsim.degrees
+        dec = celestial_coord.dec / galsim.degrees
         grid_key, cell_index, _, _ = self._get_cache_keys(ra, dec, band)
         i = int(cell_index.i)
         j = int(cell_index.j)

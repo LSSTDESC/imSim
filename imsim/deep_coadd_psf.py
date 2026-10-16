@@ -24,11 +24,9 @@ def BuildRubinDeepCoaddPSF(config, base, ignore, gsparams, logger):
     data_id = deep_coadds.data_ids[coadd_num]
     image_pos = base['image_pos']
     celestial_coord = base['wcs'].toWorld(image_pos)
-    ra = celestial_coord.ra / galsim.degrees
-    dec = celestial_coord.dec / galsim.degrees
     band = data_id['band']
     safe = False
-    return deep_coadds.getPSF(ra, dec, band), safe
+    return deep_coadds.getPSF(celestial_coord, band), safe
 
 
 RegisterObjectType('RubinDeepCoaddPSF', BuildRubinDeepCoaddPSF,
