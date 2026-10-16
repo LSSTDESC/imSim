@@ -20,9 +20,8 @@ GridKey = namedtuple('GridKey', ['tract', 'patch', 'band'])
 class DeepCoadds:
     """
     This class serves as the access point for deep_coadd information
-    obtained via requiring butler queries.  It caches PSF, wcs, visit,
-    and noise information in order to minimize the number of
-    butler.get calls.
+    obtained via butler queries.  It caches PSF, wcs, visit, and noise
+    information in order to minimize the number of butler.get calls.
     """
     def __init__(self, butler, skymap_name, data_ids=None, dstype="deep_coadd"):
         """
