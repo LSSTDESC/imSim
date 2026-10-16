@@ -97,8 +97,8 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
             noise_var = galsim.config.CalculateNoiseVariance(base)
             obj_achrom = obj.evaluateAtWavelength(bandpass.effective_wavelength)
             # We're dividing the nominal noise variance by 3.0 when
-            # passing to get_stamp_size to suppress apparent stamp
-            # edges for some high aspect ratio galaxies.
+            # passing the value to get_stamp_size in order to suppress
+            # apparent stamp edges for high aspect ratio galaxies.
             stamp_size = get_stamp_size(
                 obj_achrom=obj_achrom,
                 nominal_flux=self.simulated_flux,
@@ -124,9 +124,6 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
             image.photons = galsim.PhotonArray(0)
             return image
 
-        # Prof is normally a convolution here with obj_list being
-        # [gal, psf1, psf2,...] for some number of component PSFs.
-        gal, *psfs = prof.obj_list if hasattr(prof, 'obj_list') else [prof]
         obj_num = base.get('obj_num',0)
         bandpass = base['bandpass']
 
@@ -138,7 +135,7 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
             for profile_wl in (bandpass.effective_wavelength,
                                bandpass.red_limit,
                                bandpass.blue_limit):
-                sed_value = gal.sed(profile_wl)
+                sed_value = prof.sed(profile_wl)
                 if sed_value != 0:
                     break
             if sed_value == 0:
@@ -148,10 +145,10 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
                 logger.warning("Zero-valued SED for faint object %d, "
                                "object_id %s.  Skipping.", obj_num, object_id)
                 return image
-            gal = gal.evaluateAtWavelength(profile_wl)
-            gal = gal * self._trivial_sed
+            prof = prof.evaluateAtWavelength(profile_wl)
+            prof = prof * self._trivial_sed
         else:
-            self._fix_seds(gal, bandpass, logger)
+            self._fix_seds(prof, bandpass, logger)
 
         image.wcs = base['wcs']
 
@@ -163,27 +160,22 @@ class RubinDeepCoaddStampBuilder(LSST_SiliconBuilder):
         if 'maxN' in config:
             maxN = galsim.config.ParseValue(config, 'maxN', base, int)[0]
 
-        gal = gal.withFlux(self.phot_flux, bandpass)
+        prof = prof.withFlux(self.phot_flux, bandpass)
         if not faint and 'photon_ops' in config:
             photon_ops = photon_ops + galsim.config.BuildPhotonOps(
                 config, 'photon_ops', base, logger)
 
-        # Put the psfs at the start of the photon_ops.
-        # Probably a little better to put them a bit later than the
-        # start in some cases (e.g. after TimeSampler,
-        # PupilAnnulusSampler), but leave that as a todo for now.
-        photon_ops = psfs + photon_ops
-        image = gal.drawImage(bandpass,
-                              method='phot',
-                              offset=offset,
-                              rng=self.rng,
-                              maxN=maxN,
-                              n_photons=self.phot_flux,
-                              image=image,
-                              sensor=None,
-                              photon_ops=photon_ops,
-                              add_to_image=True,
-                              poisson_flux=False)
+        image = prof.drawImage(bandpass,
+                               method='phot',
+                               offset=offset,
+                               rng=self.rng,
+                               maxN=maxN,
+                               n_photons=self.phot_flux,
+                               image=image,
+                               sensor=None,
+                               photon_ops=photon_ops,
+                               add_to_image=True,
+                               poisson_flux=False)
         base['realized_flux'] = image.added_flux
         logger.debug('After .drawImage(...), image.added_flux %s',
                      image.added_flux)
