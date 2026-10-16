@@ -2,7 +2,7 @@ from itertools import pairwise
 import numpy as np
 import galsim
 from galsim.config import (GetAllParams, AddNoise, RegisterImageType,
-                           GetInputObj)
+                           RegisterNoiseType, GetInputObj, GaussianNoiseBuilder)
 from .lsst_image import LSST_ImageBuilderBase
 
 
@@ -26,6 +26,13 @@ class RubinDeepCoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
         Returns:
             xsize, ysize
         """
+        if 'noise' not in base['image']:
+            raise RuntimeError(
+                "A noise type needs to be specified for rendering the image. "
+                "The ``RubinDeepCoaddGaussianNoise`` type models the noise "
+                "level in the original coadd image and could be used here."
+            )
+
         self.nobjects = self.getNObj(config, base, image_num, logger=logger)
         if 'nobjects' in config:
             # User specified nobjects.
@@ -46,8 +53,6 @@ class RubinDeepCoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
         self.tract = params['tract']
         self.patch = params['patch']
         self.band = params['band']
-
-        self.add_noise = True
 
         self.nbatch = params.get('nbatch', 10)
         self.nbatch_per_checkpoint = params.get('nbatch_per_checkpoint', 1)
@@ -84,11 +89,7 @@ class RubinDeepCoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
             current_var:    The current noise variance in each postage stamps.
             logger:         A logger object to log progress.
         """
-        if 'noise' not in base['image']:
-            base['image']['noise'] = { "type": "Gaussian",
-                                       "sigma": self.noise_level }
-        if self.add_noise:
-            AddNoise(base, image, current_var, logger)
+        AddNoise(base, image, current_var, logger)
 
     def buildImage(self, config, base, image_num, obj_num, logger):
 
@@ -125,4 +126,21 @@ class RubinDeepCoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
         return full_image, current_var
 
 
+class RubinDeepCoaddGaussianNoiseBuilder(GaussianNoiseBuilder):
+    """
+    Treat the variance of the coadd noise realization plane
+    as Gaussian noise for a specified deep_coadd image.
+    """
+
+    def getNoiseVariance(self, config, base, full=False):
+        req = { 'tract': int, 'patch': int, 'band': str }
+        params = GetAllParams(config, base, req=req)[0]
+        deep_coadds = galsim.config.GetInputObj('deep_coadds', config, base,
+                                                'RubinDeepCoaddGaussianNoiseBuilder')
+        return deep_coadds.getNoiseVar(params['tract'], params['patch'],
+                                       params['band'])
+
+
 RegisterImageType('RubinDeepCoaddImage', RubinDeepCoaddImageBuilder())
+RegisterNoiseType('RubinDeepCoaddGaussianNoise',
+                  RubinDeepCoaddGaussianNoiseBuilder())

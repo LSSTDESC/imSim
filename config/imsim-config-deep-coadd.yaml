@@ -65,6 +65,12 @@ image:
         type: RubinDeepCoaddBandpass
         band: $band
 
+    noise:
+        type: RubinDeepCoaddGaussianNoise
+        band: $band
+        tract: $tract
+        patch: $patch
+
 psf:
     type: RubinDeepCoaddPSF
 

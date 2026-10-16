@@ -128,8 +128,8 @@ class DeepCoadds:
         j = int(cell_index.j)
         return self._num_visits[grid_key][(i, j)]
 
-    def getNoiseVar(self, ra, dec, band):
-        grid_key, cell_index, _, _ = self._get_cache_keys(ra, dec, band)
+    def getNoiseVar(self, tract, patch, band):
+        grid_key = GridKey(tract, patch, band)
         return self._noise_var[grid_key]
 
     def _get_cache_keys(self, ra, dec, band):
