@@ -15,7 +15,7 @@ import lsst.afw.cameraGeom as cameraGeom
 
 class SkyCatalogInterface:
     """Interface to skyCatalogs package."""
-    def __init__(self, file_name, wcs, band, mjd, fiducial_wcs=None,
+    def __init__(self, file_name, wcs, band, mjd=None, fiducial_wcs=None,
                  fiducial_det_name=None, xsize=4096, ysize=4096,
                  obj_types=None, skycatalog_root=None, edge_pix=200,
                  camera=None, det_name=None,
