@@ -1,8 +1,7 @@
 from itertools import pairwise
 import numpy as np
 import galsim
-from galsim.config import (GetAllParams, AddNoise, RegisterImageType,
-                           RegisterNoiseType, GetInputObj, GaussianNoiseBuilder)
+from galsim.config import GetAllParams, AddNoise, RegisterImageType, GetInputObj
 from .lsst_image import LSST_ImageBuilderBase
 
 
@@ -126,21 +125,4 @@ class RubinDeepCoaddImageBuilder(LSST_ImageBuilderBase):  # noqa: N801
         return full_image, current_var
 
 
-class RubinDeepCoaddGaussianNoiseBuilder(GaussianNoiseBuilder):
-    """
-    Treat the variance of the coadd noise realization plane
-    as Gaussian noise for a specified deep_coadd image.
-    """
-
-    def getNoiseVariance(self, config, base, full=False):
-        req = { 'tract': int, 'patch': int, 'band': str }
-        params = GetAllParams(config, base, req=req)[0]
-        deep_coadds = galsim.config.GetInputObj('deep_coadds', config, base,
-                                                'RubinDeepCoaddGaussianNoiseBuilder')
-        return deep_coadds.getNoiseVar(params['tract'], params['patch'],
-                                       params['band'])
-
-
 RegisterImageType('RubinDeepCoaddImage', RubinDeepCoaddImageBuilder())
-RegisterNoiseType('RubinDeepCoaddGaussianNoise',
-                  RubinDeepCoaddGaussianNoiseBuilder())

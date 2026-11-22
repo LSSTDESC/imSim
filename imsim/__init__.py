@@ -48,3 +48,4 @@ from .deep_coadd_output import *
 from .deep_coadd_stamp import *
 from .deep_coadd_bandpass import *
 from .deep_coadd_psf import *
+from .deep_coadd_noise import *
